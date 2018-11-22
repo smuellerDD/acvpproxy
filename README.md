@@ -35,7 +35,7 @@ follows.
    ACVP Parser.
 
 4. Invoke the JSON files in the testvectors directory with the ACVP Parser:
-   `acvp-parser testvector-request.json testvector-response.json
+   `acvp-parser testvector-request.json testvector-response.json`
 
    You may use the helper script helper/exec_*.sh in the ACVP Parser code
    to automate the processing of all JSON files.
@@ -73,12 +73,12 @@ The code is written in clean and plain C-99 and has the following dependencies:
 
 - SysV message queues if the TOTP server is compiled
 
-Compile-time options can be specified in the lib/config.h file.
+Compile-time options can be specified in the `lib/config.h` file.
 
 The ACVP Proxy requires the presence of the following libraries and the
 associated header files:
 
-- JSON-C that can be obtained from https://github.com/json-c/json-c
+- JSON-C that can be obtained from the [JSON-C Github Website](https://github.com/json-c/json-c)
 
 - libcurl
 
@@ -126,7 +126,7 @@ Compilation
 -----------
 
 The ACVP Proxy is used by compiling the command line configuration
-application apps/acvp-proxy. This application is compiled by calling make.
+application `acvp-proxy`. This application is compiled by calling make.
 
 To compile the ACVP Proxy standalone shared library, call `make` in the
 `lib/` directory.
@@ -265,7 +265,7 @@ specified, the application will try to send out all existing test results
 which have not yet been submitted and obtain a verdict for them.
 
 Signals
-.......
+-------
 
 The ACVP Proxy supports the following signals:
 
