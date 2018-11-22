@@ -1,0 +1,13 @@
+{
+  "_COMMENT_tlsKeyFile": "Private key in PEM, DER or P12 format (optional when certificate is provided in P12 format with private key)",
+  "tlsKeyFile":"priv-key.pem",
+
+  "_COMMENT_tlsCertFile": "Certificate for key in PEM, DER, or P12 format",
+  "tlsCertFile":"certificate.cer",
+
+  "_COMMENT_tlsKeyPasscode": "Passcode for private key - optional",
+  "tlsKeyPasscode":"somesecurepasscode",
+
+  "_COMMENT":"Base64 Encoded TOTP seed data received from NIST",
+  "totpSeedFile":"NIST-provided-seed-file.txt",
+}

@@ -1,0 +1,6 @@
+{
+	"moduleName": "ACVPProxy",
+	"moduleVersion": "0.5",
+	"moduleDescription": "The ACVPProxy access the NIST ACVP server to obtain test vectors and return test responses.",
+	"moduleType": 0
+}

@@ -1,0 +1,6 @@
+{
+	"moduleName": "OpenSSL (64 bit)",
+	"moduleVersion": "1.1.0",
+	"moduleDescription": "OpenSSL library implementation providing cryptographic services to Linux user space software components. The module was tested with 64 bit word size.",
+	"moduleType": 0
+}
