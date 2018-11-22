@@ -384,7 +384,7 @@ int fips_post_integrity(void)
 		goto out;
 	}
 #else
-#error "Unknown operating system"
+	selfnamesize = -1;
 #endif
 
 	if (selfnamesize >= BUFSIZE || selfnamesize < 0) {
