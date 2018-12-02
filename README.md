@@ -245,11 +245,11 @@ Usage
 
 The ACVP Proxy has the following use cases:
 
-- The retrieval of test vectors from CAVP is the first use case. This use case
+- The retrieval of test vectors from ACVP is the first use case. This use case
   is invoked by using the command line option of `--request`. The test vectors
   are stored in local directory documented below.
 
-- The submission of test results to CAVP and the fetching of the CAVP verdict
+- The submission of test results to ACVP and the fetching of the ACVP verdict
   for the test results is invoked by using the command line option of either
   `--vsid <VSID>` or `--testid <TESTID>`.
 
@@ -296,13 +296,13 @@ structure: `testresults/<Module_Name>/<Module_Version>/<testsessionID>/<vsID>`.
 The `<Module_Name>/<Module_Version>` directory refers to the name and version
 of the cryptographic module under test.
 
-The `<testsessionID>/<vsID>` is a unique number provided by the CAVP server
+The `<testsessionID>/<vsID>` is a unique number provided by the ACVP server
 for the respective test. This test session ID and vsID are the unique
 references for subsequent data exchange with the ACVP server regarding the
 particular obtained test vector.
 
 In each `<testsessionID>/<vsID>` directory, the following files can be found,
-depending on the state of the communication with the CAVP server.
+depending on the state of the communication with the ACVP server.
 
 - `testvector-request.json`: Test vector to be processed by the module
   implementation.
@@ -310,11 +310,11 @@ depending on the state of the communication with the CAVP server.
 - `testvector-response.json`: The test results returned by the module
   implementation must be provided in this file.
 
-- `verdict.json`: After submission of the test results to the CAVP server, the
+- `verdict.json`: After submission of the test results to the ACVP server, the
   test verdict is provided in this file.
 
 - `processed.txt`: This file contains the time stamp when the test results
-  were sent to the CAVP server and the verdict was received. Once this file
+  were sent to the ACVP server and the verdict was received. Once this file
   is present, the ACVP Proxy will not submit the test results again.
 
 In addition to the `testresults` directory, a shadow `secure-datastore` is
@@ -322,7 +322,7 @@ maintained with the same directory structure. That shadow directory contains
 internal or sensitive data as follows:
 
 - `jwt_authtoken.txt`: JWT authorization token required for authentication
-  with the CAVP server when exchanging subsequent messages for the vsID.
+  with the ACVP server when exchanging subsequent messages for the vsID.
 
 - The `*.debug` files contain the respective server responses allowing to
   debug network communication problems. These files are not processed by

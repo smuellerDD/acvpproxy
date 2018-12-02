@@ -135,18 +135,13 @@ static int totp_mq_server_thread(void *arg)
 			}
 		}
 
-		/* Did we receive an indication to shut down? */
-		if (msg.totp_val) {
-			mutex_reader_unlock(&mq_lock);
-			goto out;
-		}
-
 		/* Generate TOTP value */
 		do {
 			i++;
 			ret = totp_get_val(&msg.totp_val);
 
 			if (atomic_bool_read(&mq_shutdown)) {
+				mutex_reader_unlock(&mq_lock);
 				ret = -ESHUTDOWN;
 				goto out;
 			}
@@ -168,16 +163,20 @@ static int totp_mq_server_thread(void *arg)
 		if (ret) {
 			logger(LOGGER_WARN, LOGGER_C_MQSERVER,
 			       "Server: sending TOTP value failed (%d)\n",
-			       ret);
+			       errno);
+		} else {
+			logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
+			       "Server: TOTP value delivered to client\n");
 		}
-
-		logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
-		       "Server: TOTP value delivered to client\n");
 	}
 
 out:
 	logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,  "terminate server\n");
+
+	mutex_lock(&mq_lock);
 	msgctl(mq_server, IPC_RMID, NULL);
+	mq_server = -1;
+	mutex_unlock(&mq_lock);
 	return ret;
 }
 
@@ -195,7 +194,9 @@ static int totp_mq_start_server(bool wait_step)
 		return -errno;
 
 	/* Create message queue. */
+	mutex_lock(&mq_lock);
 	mq_server = msgget(key, (IPC_CREAT | IPC_EXCL | 0600));
+	mutex_unlock(&mq_lock);
 	if (mq_server == -1) {
 		int errsv = errno;
 
@@ -257,13 +258,16 @@ static int totp_mq_start_client(void)
 	if (key == -1)
 		return -errno;
 
+
 	/*
 	 * Attach to message queue. This message queue should always exist
 	 * as the server thread was either started before us or during starting
 	 * of the server thread it was identified that there is already a
 	 * server.
 	 */
+	mutex_lock(&mq_lock);
 	mq_client = msgget(key, 0);
+	mutex_unlock(&mq_lock);
 	if (mq_client == -1) {
 		int errsv = -errno;
 
@@ -276,7 +280,9 @@ static int totp_mq_start_client(void)
 		if (errsv == -ENOENT) {
 			/* Re-spawn server and client. */
 			if (!totp_mq_start_server(true)) {
+				mutex_lock(&mq_lock);
 				mq_client = msgget(key, 0);
+				mutex_unlock(&mq_lock);
 				if (mq_client == -1)
 					errsv = -errno;
 				else
@@ -303,18 +309,12 @@ static int totp_mq_start(bool restart)
 
 	atomic_bool_set_false(&mq_shutdown);
 
-	mutex_lock(&mq_lock);
-
-	/* Terminate local server, if exist. */
-	if (mq_server != -1) {
-		msgctl(mq_server, IPC_RMID, NULL);
-		mq_server = -1;
-	}
-
 	/* Terminate local client if exist. */
 	if (mq_client != -1) {
+		mutex_lock(&mq_lock);
 		msgctl(mq_client, IPC_RMID, NULL);
 		mq_client = -1;
+		mutex_unlock(&mq_lock);
 	}
 
 	/* Start server. */
@@ -326,7 +326,6 @@ static int totp_mq_start(bool restart)
 	ret = totp_mq_start_client();
 
 out:
-	mutex_unlock(&mq_lock);
 	return ret;
 }
 
@@ -343,9 +342,7 @@ int totp_mq_get_val(uint32_t *totp_val)
 	}
 
 	/* Loop to implement retry operation. */
-	while (1) {
-		retries++;
-
+	for (retries = 0; retries < 60; retries++) {
 		/* Ping server to send us something */
 		logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
 		       "Client: Requesting TOTP value from message queue server\n");
@@ -355,31 +352,24 @@ int totp_mq_get_val(uint32_t *totp_val)
 
 		mutex_reader_lock(&mq_lock);
 		ret = msgsnd(mq_client, (void *)&msg, sizeof(msg.totp_val), 0);
-		if (ret || retries > 60) {
+		if (ret) {
 			int errsv = errno;
 
 			mutex_reader_unlock(&mq_lock);
 
-			if (errsv == EIDRM) {
+			/*
+			 * EINVAL is returned on Linux when the server died
+			 */
+			if (errsv == EIDRM || errsv == EINVAL) {
 				/* Server died? If so, try to restart it. */
 				logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
 				       "TOTP client: Trying to respawn message queue server and client\n");
 				ret = totp_mq_start(true);
 				if (ret)
 					goto out;
-
-				/* Re-try to ping server */
-				mutex_reader_lock(&mq_lock);
-				ret = msgsnd(mq_client, (void *)&msg,
-					     sizeof(msg.totp_val), 0);
 			}
 
-			/* Give up, some bigger error. */
-			if (ret) {
-				mutex_reader_unlock(&mq_lock);
-				ret = -errno;
-				goto out;
-			}
+			continue;
 		}
 
 		/* Get TOTP value from server */
@@ -397,8 +387,6 @@ int totp_mq_get_val(uint32_t *totp_val)
 				/* Server died */
 				continue;
 			}
-			ret = -EINVAL;
-			goto out;
 		}
 
 		if (msg.totp_val == 0) {
@@ -420,6 +408,8 @@ int totp_mq_get_val(uint32_t *totp_val)
 		return 0;
 	}
 
+	logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
+	       "TOTP client: Trying to respawn message queue server and client\n");
 	ret = -EFAULT;
 
 out:
@@ -441,8 +431,8 @@ void totp_mq_release(void)
 		msgctl(mq_server, IPC_RMID, NULL);
 		mq_server = -1;
 	}
-	msgctl(mq_client, IPC_RMID, NULL);
-	mq_client = -1;
+
+	/* NO cleanup of mq_client as this will impact the server! */
 }
 
 int totp_mq_init(void)

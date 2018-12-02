@@ -319,8 +319,7 @@ static int acvp_req_build(struct acvp_testid_ctx *testid_ctx,
 	for (i = 0; i < def->num_algos; i++)
 		CKINT(acvp_req_set_algo(algorithms, def->algos + i));
 
-	CKINT(json_object_object_add(entry, "algorithms",
-				     algorithms));
+	CKINT(json_object_object_add(entry, "algorithms", algorithms));
 
 	CKINT(json_object_array_add(request, entry));
 

@@ -573,7 +573,7 @@ acvp_datastore_file_compare(const struct acvp_vsid_ctx *vsid_ctx,
 	const struct definition *def;
 	char pathname[FILENAME_MAX];
 	int ret;
-	size_t buflen;
+	size_t buflen = 0;
 	uint8_t *buf = NULL;
 
 	CKNULL_C_LOG(vsid_ctx, -EINVAL, LOGGER_C_DS_FILE,
@@ -602,6 +602,7 @@ acvp_datastore_file_compare(const struct acvp_vsid_ctx *vsid_ctx,
 				 filename));
 
 	CKINT(acvp_datastore_read_data(&buf, &buflen, pathname));
+	CKNULL(buf, -EFAULT);
 
 	if ((size_t)data->len != buflen) {
 		logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
@@ -1029,11 +1030,15 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 		vsid_ctx->testid_ctx = testid_ctx;
 		if (clock_gettime(CLOCK_REALTIME, &vsid_ctx->start)) {
 			ret = -errno;
-			free(vsid_ctx);
+			acvp_release_vsid_ctx(vsid_ctx);
 			goto out;
 		}
 
-		CKINT(acvp_datastore_find_vsid_verdict(vsid_ctx));
+		ret = acvp_datastore_find_vsid_verdict(vsid_ctx);
+		if (ret < 0) {
+			acvp_release_vsid_ctx(vsid_ctx);
+			goto out;
+		}
 		if (ret == EEXIST)
 			vsid_ctx->verdict_file_present = true;
 
@@ -1197,6 +1202,39 @@ acvp_datastore_file_find_testsession(const struct definition *orig_def,
 
 			for (i = 0; i < search->nr_submit_testid; i++) {
 				if (search->submit_testid[i] == testid) {
+					found = 1;
+					break;
+				}
+			}
+
+			if (!found) {
+				logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
+				       "Skipping test session dir %u\n",
+				       testid);
+				continue;
+			}
+		}
+
+		/* Search for vsIDs */
+		if (search->nr_submit_vsid) {
+			struct acvp_vsid_ctx vsid_ctx;
+			unsigned int i, found = 0;
+			char pathname[FILENAME_MAX];
+
+			/* Fudge the testid_ctx */
+			testid_ctx.testid = testid;
+
+			/* Fudge the vsid_ctx */
+			memset(&vsid_ctx, 0, sizeof(vsid_ctx));
+			vsid_ctx.testid_ctx = &testid_ctx;
+
+			for (i = 0; i < search->nr_submit_vsid; i++) {
+				vsid_ctx.vsid = search->submit_vsid[i];
+
+				/* If vsID dir exists, function returns 0 */
+				if (!acvp_datastore_file_vectordir_vsid(
+					&vsid_ctx, pathname, sizeof(pathname),
+					false, false)) {
 					found = 1;
 					break;
 				}

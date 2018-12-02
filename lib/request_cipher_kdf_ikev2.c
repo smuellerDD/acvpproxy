@@ -48,7 +48,7 @@ int acvp_req_set_algo_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
 
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);
-	CKINT(json_object_object_add(entry, "algSpecs", array));
+	CKINT(json_object_object_add(entry, "capabilities", array));
 
 	tmp = json_object_new_object();
 	CKNULL(tmp, -ENOMEM);
