@@ -42,7 +42,7 @@ extern "C"
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 1   /* API / ABI compatible, no functional
+#define PATCHLEVEL 2   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -217,8 +217,7 @@ struct acvp_vsid_ctx {
  */
 struct acvp_datastore_be {
 	int (*acvp_datastore_find_testsession)(
-				const struct definition *orig_def,
-				const struct definition **new_def,
+				const struct definition *def,
 				const struct acvp_ctx *ctx,
 				uint32_t *testids,
 				unsigned int *testid_count);
@@ -326,6 +325,11 @@ struct acvp_thread_reqresp_ctx {
 	int (*cb)(const struct acvp_ctx *ctx, const struct definition *def,
 		  uint32_t testid);
 };
+
+/**
+ * @brief return network configuration
+ */
+int acvp_get_net(const struct acvp_net_ctx **net);
 
 /**
  * @brief obtain the testSession URL with the test id
@@ -520,6 +524,11 @@ int sig_sleep_interruptible(unsigned int sleep_time,
  */
 int sig_install_handler(void);
 void sig_uninstall_handler(void);
+
+/*
+ * Are we handling a signal?
+ */
+bool sig_handler_active(void);
 
 /************************************************************************
  * Common helper support

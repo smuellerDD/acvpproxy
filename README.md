@@ -78,8 +78,6 @@ Compile-time options can be specified in the `lib/config.h` file.
 The ACVP Proxy requires the presence of the following libraries and the
 associated header files:
 
-- JSON-C that can be obtained from the [JSON-C Github Website](https://github.com/json-c/json-c)
-
 - libcurl
 
 With these limited prerequisites, the code can be compiled and executed at
@@ -94,33 +92,6 @@ least on the following operating systems:
 - MS Windows
 
 - Solaris
-
-Prerequisites on macOS
-----------------------
-
-The application works out of the box on macOS without any changes. Though
-json-c must be installed. As I am currently unaware of json-c macOS packages
-you need to perform the following steps
-
-1. Get json-c: git clone https://github.com/json-c/json-c
-
-2. Get the autotool set to configure and install json-c:
-
-	a. Install homebrew from https://brew.sh by invoking `/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`
-
-	b. Install autoconf: `brew install autoconf`
-
-	c. Install automake: `brew install automake`
-
-	d. Install libtool: `brew install libtool`
-
-3. Compile json-c: go into json-c directory and invoke `./configure`
-
-4. `make`
-
-5. `sudo make install`
-
-Now you are ready to compile the ACVP Proxy.
 
 Compilation
 -----------

@@ -110,13 +110,11 @@ int acvp_req_cipher_to_array(struct json_object *entry, cipher_t cipher,
 
 /**
  * Construct the ACVP URL for the given path
- * @param net [in] Network context data structure
  * @param path [in] Path name of the URL
  * @param url [out] URL buffer allocated by caller
  * @param urllen [in] Length of the URL buffer allocated by caller
  */
-int acvp_create_url(const struct acvp_net_ctx *net, const char *path,
-		    char *url, uint32_t urllen);
+int acvp_create_url(const char *path, char *url, uint32_t urllen);
 
 /**
  * Construct the ACVP URL path (URL excluding host) for the given path

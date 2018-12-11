@@ -30,17 +30,13 @@
 static int acvp_fetch_cipher_info(const struct acvp_testid_ctx *testid_ctx,
 				  uint32_t algoid, struct acvp_buf *buf)
 {
-	const struct acvp_ctx *ctx;
-	const struct acvp_net_ctx *net;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
 	CKNULL_LOG(testid_ctx, -EINVAL,
 		   "Vendor validation: authentication context missing\n");
-	ctx = testid_ctx->ctx;
-	net = &ctx->net;
 
-	CKINT(acvp_create_url(net, NIST_VAL_OP_ALGORITHMS, url, sizeof(url)));
+	CKINT(acvp_create_url(NIST_VAL_OP_ALGORITHMS, url, sizeof(url)));
 
 	if (algoid < UINT_MAX)
 		CKINT(acvp_extend_string(url, sizeof(url), "/%u", algoid));
@@ -60,7 +56,7 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 	struct json_object *algorithms;
 	FILE *file = NULL;
 	ACVP_BUFFER_INIT(buf);
-	size_t ciphername_len = strlen (ciphername);
+	size_t ciphername_len = (ciphername) ? strlen(ciphername) : 0;
 	unsigned int i;
 	int ret;
 	char prevname[30];

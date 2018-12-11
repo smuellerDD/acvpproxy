@@ -199,7 +199,6 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 
 	ctx = testid_ctx->ctx;
 	datastore = &ctx->datastore;
-	net = &ctx->net;
 	auth = testid_ctx->server_auth;
 
 	/* Refresh the ACVP JWT token by re-logging in. */
@@ -209,6 +208,7 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 	CKINT(acvp_vsid_verdict_url(vsid_ctx, url, sizeof(url)));
 
 	/* Send the data */
+	CKINT(acvp_get_net(&net));
 	netinfo.net = net;
 	netinfo.url = url;
 	netinfo.server_auth = auth;
@@ -261,7 +261,7 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 
 	ctx = testid_ctx->ctx;
 	datastore = &ctx->datastore;
-	net = &ctx->net;
+	CKINT(acvp_get_net(&net));
 
 	tmp.buf = (uint8_t *)net->server_name;
 	tmp.len = strlen((char *)tmp.buf);
@@ -572,12 +572,11 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 
 	/* Iterate through all modules */
 	while (def) {
-		const struct definition *new_def;
 		unsigned int testid_count = ACVP_REQ_MAX_FAILED_TESTID;
 		unsigned int i;
 
 		/* Search for all testids for a given module */
-		CKINT(ds->acvp_datastore_find_testsession(def, &new_def, ctx,
+		CKINT(ds->acvp_datastore_find_testsession(def, ctx,
 							  testids,
 							  &testid_count));
 
@@ -589,7 +588,7 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 			if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_DEBUG) {
 				logger(LOGGER_DEBUG, LOGGER_C_ANY,
 				       "Disable threading support\n");
-				CKINT(cb(ctx, new_def, testids[i]));
+				CKINT(cb(ctx, def, testids[i]));
 			} else {
 				struct acvp_thread_reqresp_ctx *tdata;
 				int ret_ancestor;
@@ -597,7 +596,7 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 				tdata = calloc(1, sizeof(*tdata));
 				CKNULL(tdata, -ENOMEM);
 				tdata->ctx = ctx;
-				tdata->def = new_def;
+				tdata->def = def;
 				tdata->testid = testids[i];
 				tdata->cb = cb;
 				CKINT(thread_start(acvp_process_testids_thread,

@@ -32,7 +32,7 @@ LNS		:= $(LN) -sf
 ###############################################################################
 INCLUDE_DIRS	:= .
 LIBRARY_DIRS	:=
-LIBRARIES	:= json-c curl pthread
+LIBRARIES	:= curl pthread
 
 CFLAGS		+= $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 LDFLAGS		+= $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))
@@ -89,6 +89,7 @@ LIBNAME		:= lib$(NAME).so.$(LIBVERSION)
 #
 ###############################################################################
 C_SRCS := $(wildcard *.c)
+C_SRCS := $(wildcard json-c/*.c)
 C_SRCS += $(wildcard hash/*.c)
 C_SRCS += $(wildcard module_implementations/*.c)
 C_OBJS := ${C_SRCS:.c=.o}

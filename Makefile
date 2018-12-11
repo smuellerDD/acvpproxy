@@ -5,7 +5,7 @@
 CC		:= gcc
 CFLAGS		+= -Werror -Wextra -Wall -pedantic -fPIC -O2 -std=gnu99
 #Hardening
-CFLAGS		+= -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE
+CFLAGS		+= -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wno-missing-field-initializers
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
@@ -36,7 +36,7 @@ LNS		:= $(LN) -sf
 ###############################################################################
 INCLUDE_DIRS	:= lib apps
 LIBRARY_DIRS	:=
-LIBRARIES	:= json-c curl pthread
+LIBRARIES	:= curl pthread
 
 CFLAGS		+= $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 LDFLAGS		+= $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))
@@ -51,6 +51,7 @@ C_SRCS := $(wildcard apps/*.c)
 C_SRCS += $(wildcard lib/*.c)
 C_SRCS += $(wildcard lib/hash/*.c)
 C_SRCS += $(wildcard lib/module_implementations/*.c)
+C_SRCS += $(wildcard lib/json-c/*.c)
 C_OBJS := ${C_SRCS:.c=.o}
 OBJS := $(C_OBJS)
 
@@ -83,14 +84,14 @@ $(analyze_plists): %.plist: %.c
 scan: $(analyze_plists)
 
 cppcheck:
-	cppcheck --enable=performance --enable=warning --enable=portability *.h *.c ../lib/*.c ../lib/*.h
+	cppcheck --enable=performance --enable=warning --enable=portability apps/*.h apps/*.c lib/*.c lib/*.h lib/module_implementations/*.c lib/module_implementations/*.h lib/json-c/*.c lib/json-c/*.h
 
 install:
 	install -m 0755 $(NAME) -D -t $(DESTDIR)$(BINDIR)/
 
 ###############################################################################
 #
-# Build the documentation
+# Clean
 #
 ###############################################################################
 
@@ -104,7 +105,7 @@ distclean: clean
 
 ###############################################################################
 #
-# Build debugging
+# Show status
 #
 ###############################################################################
 show_vars:

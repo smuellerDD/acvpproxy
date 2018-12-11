@@ -36,6 +36,7 @@ static const struct def_algo_prereqs openssl_gcm_prereqs[] = {
 };
 
 #define OPENSSL_AES_ECB		GENERIC_AES_ECB
+#define OPENSSL_AES_CBC		GENERIC_AES_CBC
 #define OPENSSL_AES_CTR		GENERIC_AES_CTR
 #define OPENSSL_AES_KW		GENERIC_AES_KW
 #define OPENSSL_AES_KWP		GENERIC_AES_KWP
@@ -713,6 +714,7 @@ static const struct def_algo openssl_aes [] = {
 	OPENSSL_AES_CFB8,
 	OPENSSL_AES_CFB128,
 	OPENSSL_AES_ECB,
+	OPENSSL_AES_CBC,
 	OPENSSL_AES_XTS,
 	OPENSSL_AES_CTR,
 	OPENSSL_AES_KW,

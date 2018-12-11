@@ -61,22 +61,17 @@ void acvp_op_enable(void)
 int acvp_testid_url(const struct acvp_testid_ctx *testid_ctx,
 		    char *url, uint32_t urllen)
 {
-	const struct acvp_ctx *ctx;
-	const struct acvp_net_ctx *net;
 	int ret;
 
 	CKNULL_LOG(testid_ctx, -EINVAL, "testid_ctx missing\n");
 	CKNULL_LOG(url, -EINVAL, "URL buffer missing\n");
-
-	ctx = testid_ctx->ctx;
-	net = &ctx->net;
 
 	if (!testid_ctx->testid) {
 		logger(LOGGER_WARN, LOGGER_C_ANY, "TestID missing\n");
 		return -EINVAL;
 	}
 
-	CKINT(acvp_create_url(net, NIST_VAL_OP_REG, url, urllen));
+	CKINT(acvp_create_url(NIST_VAL_OP_REG, url, urllen));
 	CKINT(acvp_extend_string(url, urllen, "/%u", testid_ctx->testid));
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "testID URL: %s\n", url);
@@ -361,8 +356,7 @@ int _acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 			    const struct acvp_buf *buf, int err))
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
-	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_net_ctx *net = &ctx->net;
+	const struct acvp_net_ctx *net;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_na_ex netinfo;
 	struct json_object *resp = NULL, *data = NULL;
@@ -390,6 +384,7 @@ int _acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 	 * Do not use CKINT here to allow storing the server response as
 	 * debug message in any case, even if there is an error.
 	 */
+	CKINT(acvp_get_net(&net));
 	netinfo.net = net;
 	netinfo.url = url;
 	netinfo.server_auth = testid_ctx->server_auth;
@@ -492,7 +487,7 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
-	const struct acvp_net_ctx *net = &ctx->net;
+	const struct acvp_net_ctx *net;
 	ACVP_BUFFER_INIT(buf);
 	ACVP_BUFFER_INIT(tmp);
 	char url[ACVP_NET_URL_MAXLEN];
@@ -522,6 +517,7 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 	CKINT(ds->acvp_datastore_write_vsid(vsid_ctx, datastore->vectorfile,
 					    false, &buf));
 
+	CKINT(acvp_get_net(&net));
 	tmp.buf = (uint8_t *)net->server_name;
 	tmp.len = strlen((char *)tmp.buf);
 	CKINT(ds->acvp_datastore_write_vsid(vsid_ctx, datastore->srcserver,
@@ -895,7 +891,7 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
-	const struct acvp_net_ctx *net = &ctx->net;
+	const struct acvp_net_ctx *net;
 	struct acvp_na_ex netinfo;
 	struct json_object *request = NULL;
 	ACVP_BUFFER_INIT(register_buf);
@@ -941,9 +937,10 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	register_buf.buf = (uint8_t *)json_request;
 	register_buf.len = strlen(json_request);
 
-	CKINT(acvp_create_url(net, NIST_VAL_OP_REG, url, sizeof(url)));
+	CKINT(acvp_create_url(NIST_VAL_OP_REG, url, sizeof(url)));
 
 	/* Send the capabilities to the ACVP server. */
+	CKINT(acvp_get_net(&net));
 	netinfo.net = net;
 	netinfo.url = url;
 	netinfo.server_auth = testid_ctx->server_auth;

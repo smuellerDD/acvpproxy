@@ -831,13 +831,13 @@ static int initialize_ctx(struct acvp_ctx **ctx, struct opt_data *opts)
 	/* Official testing */
 	if (opts->official_testing) {
 		CKINT(acvp_req_production(*ctx));
-		CKINT(acvp_set_net(*ctx, NIST_DEFAULT_SERVER,
+		CKINT(acvp_set_net(NIST_DEFAULT_SERVER,
 				   NIST_DEFAULT_SERVER_PORT,
 				   NULL /*"../acvp-keys/acvp.nist.gov.crt"*/,
 				   opts->tlscert, opts->tlskey,
 				   opts->tlspasscode));
 	} else {
-		CKINT(acvp_set_net(*ctx, NIST_TEST_SERVER,
+		CKINT(acvp_set_net(NIST_TEST_SERVER,
 				   NIST_DEFAULT_SERVER_PORT,
 				   NULL /*"../acvp-keys/acvp.nist.gov.crt"*/,
 				   opts->tlscert, opts->tlskey,

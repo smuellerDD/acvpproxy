@@ -923,6 +923,39 @@ out:
 	return ret;
 }
 
+/*
+ * The function is a safety measure to ensure there is no mismatch between
+ * the module definition used to download the test vectors compared to the
+ * module definition when uploading the responses and getting the verdict.
+ *
+ * If there is a mismatch, the caller should refine his search string for
+ * the module when uploading the responses (or he messed with the module
+ * definition between the vector fetching and the response submission).
+ */
+static int acvp_def_check(const struct acvp_testid_ctx *testid_ctx,
+			  const char *dir)
+{
+	struct json_object *def_config = NULL;
+	int ret;
+	char defpath[FILENAME_MAX];
+
+	CKNULL_C_LOG(testid_ctx->def, -EFAULT, LOGGER_C_DS_FILE,
+		     "Module definition context missing\n");
+
+	snprintf(defpath, sizeof(defpath), "%s/%s", dir, ACVP_DS_DEF_REFERENCE);
+
+	/* Do not do anyting if we did not find a definition search file */
+	def_config = json_object_from_file(defpath);
+	if (!def_config)
+		return 0;
+
+	CKINT(acvp_match_def(testid_ctx, def_config));
+
+out:
+	ACVP_JSON_PUT_NULL(def_config);
+	return ret;
+}
+
 static int
 acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 	int (*cb)(const struct acvp_vsid_ctx *vsid_ctx,
@@ -946,6 +979,10 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 
 	CKNULL_C_LOG(datastore, -EINVAL, LOGGER_C_DS_FILE,
 		     "Datastore context missing\n");
+	/*
+	 * Although not needed in this function, we check for the presence as
+	 * later functions may require its presence.
+	 */
 	CKNULL_C_LOG(def, -EINVAL, LOGGER_C_DS_FILE,
 		     "Module definition context missing\n");
 	CKNULL_C_LOG(cb, -EINVAL, LOGGER_C_DS_FILE,
@@ -969,6 +1006,12 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 
 	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE, "Read results directory %s\n",
 	       datastore_base);
+
+	/*
+	 * Update testid_ctx:
+	 * In case a specific cipher definition is stored there, use it.
+	 */
+	CKINT(acvp_def_check(testid_ctx, secure_base));
 
 	dir = opendir(datastore_base);
 	CKNULL(dir, -errno);
@@ -1099,31 +1142,8 @@ out:
 	return ret;
 }
 
-static int acvp_def_update(struct acvp_testid_ctx *testid_ctx, const char *dir)
-{
-	struct json_object *def_config = NULL;
-	int ret;
-	char defpath[FILENAME_MAX];
-
-	snprintf(defpath, sizeof(defpath), "%s/%s", dir, ACVP_DS_DEF_REFERENCE);
-
-	/* Do not do anyting if we did not find a definition search file */
-	def_config = json_object_from_file(defpath);
-	if (!def_config)
-		return 0;
-
-	CKINT(acvp_retrieve_def(testid_ctx, def_config));
-	CKNULL_C_LOG(testid_ctx->def, -EFAULT, LOGGER_C_DS_FILE,
-		     "Module definition context missing\n");
-
-out:
-	ACVP_JSON_PUT_NULL(def_config);
-	return ret;
-}
-
 static int
-acvp_datastore_file_find_testsession(const struct definition *orig_def,
-				     const struct definition **new_def,
+acvp_datastore_file_find_testsession(const struct definition *def,
 				     const struct acvp_ctx *ctx,
 				     uint32_t *testids,
 				     unsigned int *testid_count)
@@ -1138,11 +1158,11 @@ acvp_datastore_file_find_testsession(const struct definition *orig_def,
 
 	CKNULL_C_LOG(ctx, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
-	CKNULL_C_LOG(orig_def, -EINVAL, LOGGER_C_DS_FILE,
+	CKNULL_C_LOG(def, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
 
 	memset(&testid_ctx, 0, sizeof(testid_ctx));
-	testid_ctx.def = orig_def;
+	testid_ctx.def = def;
 	testid_ctx.ctx = ctx;
 
 	datastore = &ctx->datastore;
@@ -1156,23 +1176,15 @@ acvp_datastore_file_find_testsession(const struct definition *orig_def,
 						 false);
 	if (ret) {
 		*testid_count = 0;
-		*new_def = orig_def;
 
 		if (ret == -ENOENT)
 			return 0;
-		else if (ret)
+		else
 			return ret;
 	}
 
 	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
 	       "Read test session directory %s\n", pathname);
-
-	/*
-	 * Update testid_ctx:
-	 * In case a specific cipher definition is stored there, use it.
-	 */
-	CKINT(acvp_def_update(&testid_ctx, pathname));
-	*new_def = testid_ctx.def;
 
 	dir = opendir(pathname);
 	CKNULL(dir, -errno);

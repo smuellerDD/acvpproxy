@@ -314,16 +314,13 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 				   const struct def_oe *def_oe)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_net_ctx *net;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
 	CKNULL_LOG(ctx, -EINVAL,
 		   "Vendor validation: authentication context missing\n");
 
-	net = &ctx->net;
-
-	CKINT(acvp_create_url(net, NIST_VAL_OP_OE, url, sizeof(url)));
+	CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
 				 def_oe->acvp_oe_id));
 
@@ -340,16 +337,13 @@ static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 				    uint32_t depid)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_net_ctx *net;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
 	CKNULL_LOG(ctx, -EINVAL,
 		   "Vendor validation: authentication context missing\n");
 
-	net = &ctx->net;
-
-	CKINT(acvp_create_url(net, NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
+	CKINT(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u", depid));
 
 	CKINT(_acvp_oe_validate_one(testid_ctx, def_oe, url,
@@ -365,7 +359,7 @@ int acvp_def_register(const struct acvp_testid_ctx *testid_ctx,
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
-	const struct acvp_net_ctx *net = &ctx->net;
+	const struct acvp_net_ctx *net;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct json_object *resp = NULL, *data = NULL, *json_submission = NULL;
 	struct acvp_na_ex netinfo;
@@ -419,6 +413,7 @@ int acvp_def_register(const struct acvp_testid_ctx *testid_ctx,
 	/* Refresh the ACVP JWT token by re-logging in. */
 	CKINT(acvp_login(testid_ctx));
 
+	CKINT(acvp_get_net(&net));
 	netinfo.net = net;
 	netinfo.url = url;
 	mutex_reader_lock(&auth->mutex);
@@ -449,13 +444,11 @@ out:
 static int acvp_oe_register_oe(const struct acvp_testid_ctx *testid_ctx,
 			       struct def_oe *def_oe)
 {
-	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_net_ctx *net = &ctx->net;
 	struct json_object *json_oe = NULL;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
-	CKINT(acvp_create_url(net, NIST_VAL_OP_OE, url, sizeof(url)));
+	CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
 
 	/* Build JSON object with the oe specification */
 	CKINT(acvp_oe_build_oe(def_oe, &json_oe));
@@ -476,8 +469,6 @@ static int acvp_oe_register_dep(const struct acvp_testid_ctx *testid_ctx,
 				struct def_oe *def_oe,
 				enum acvp_oe_dep_types type, uint32_t *id)
 {
-	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_net_ctx *net = &ctx->net;
 	struct json_object *json_oe = NULL;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
@@ -498,7 +489,7 @@ static int acvp_oe_register_dep(const struct acvp_testid_ctx *testid_ctx,
 		break;
 	}
 
-	CKINT(acvp_create_url(net, NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
+	CKINT(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
 	CKINT(acvp_def_register(testid_ctx, json_oe, url, id));
 
 	/* Write the newly obtained ID to the configuration file */
@@ -560,17 +551,15 @@ static int acvp_oe_validate_all_oe(const struct acvp_testid_ctx *testid_ctx,
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts;
-	const struct acvp_net_ctx *net;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
 	CKNULL_LOG(ctx, -EINVAL,
 		   "Vendor validation: authentication context missing\n");
 
-	net = &ctx->net;
 	ctx_opts = &ctx->options;
 
-	CKINT(acvp_create_url(net, NIST_VAL_OP_OE, url, sizeof(url)));
+	CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
 
 	ret = _acvp_oe_validate_all(testid_ctx, def_oe, url, "oes",
 				    acvp_oe_match_oe, acvp_store_oe_debug);
@@ -592,17 +581,15 @@ static int acvp_oe_validate_all_dep(const struct acvp_testid_ctx *testid_ctx,
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts;
-	const struct acvp_net_ctx *net;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
 	CKNULL_LOG(ctx, -EINVAL,
 		   "Vendor validation: authentication context missing\n");
 
-	net = &ctx->net;
 	ctx_opts = &ctx->options;
 
-	CKINT(acvp_create_url(net, NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
+	CKINT(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
 
 	ret = _acvp_oe_validate_all(testid_ctx, def_oe, url, "dependencies",
 				    acvp_oe_match_dep, acvp_store_oe_debug);

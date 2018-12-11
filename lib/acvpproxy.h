@@ -216,7 +216,6 @@ struct acvp_opts_ctx {
 };
 
 struct acvp_ctx {
-	struct acvp_net_ctx net;
 	struct acvp_modinfo_ctx modinfo;
 	struct acvp_req_ctx req_details;
 	struct acvp_datastore_ctx datastore;
@@ -284,7 +283,6 @@ void acvp_ctx_release(struct acvp_ctx *ctx);
 /**
  * @brief Set networking information to reach CAVP server
  *
- * @param ctx [in] ACVP Proxy library context
  * @param server_name [in] CAVP server name
  * @param port [in] CAVP server port
  * @param ca [in] CA file to support server authentication. If NULL, server
@@ -298,8 +296,7 @@ void acvp_ctx_release(struct acvp_ctx *ctx);
  *
  * @return 0 on success, < 0 on error
  */
-int acvp_set_net(struct acvp_ctx *ctx,
-		 const char *server_name, unsigned int port, const char *ca,
+int acvp_set_net(const char *server_name, unsigned int port, const char *ca,
 		 const char *client_cert, const char *client_key,
 		 const char *passcode);
 

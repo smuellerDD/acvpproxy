@@ -224,15 +224,15 @@ int acvp_export_def_search(struct acvp_testid_ctx *testid_ctx)
 	tmp.buf = (uint8_t *)str;
 	tmp.len = strlen(str);
 	CKINT(ds->acvp_datastore_write_testid(testid_ctx, ACVP_DS_DEF_REFERENCE,
-					      false, &tmp));
+					      true, &tmp));
 
 out:
 	ACVP_JSON_PUT_NULL(s);
 	return ret;
 }
 
-int acvp_retrieve_def(struct acvp_testid_ctx *testid_ctx,
-		      struct json_object *def_config)
+int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
+		   struct json_object *def_config)
 {
 	struct acvp_search_ctx search;
 	struct definition *definition;
@@ -257,15 +257,16 @@ int acvp_retrieve_def(struct acvp_testid_ctx *testid_ctx,
 	}
 
 	if (testid_ctx->def && (definition != testid_ctx->def)) {
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Replacing crypto definition for testID %u\n",
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Crypto definition for testID %u for current search does not match with old search - refine your search options for the current invocation!\n",
 		       testid_ctx->testid);
+		ret = -ENOENT;
 	} else {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Assigning cipher definition to testid_ctx\n");
+		       "Crypto definition for testID %u for current search does not match with old search\n",
+		       testid_ctx->testid);
+		ret = 0;
 	}
-
-	testid_ctx->def = definition;
 
 out:
 	return ret;
@@ -460,6 +461,7 @@ static int acvp_def_add_vendor(struct definition *def, struct def_vendor *src)
 	CKINT(acvp_duplicate(&vendor->addr_street, src->addr_street));
 	CKINT(acvp_duplicate(&vendor->addr_locality, src->addr_locality));
 	CKINT(acvp_duplicate(&vendor->addr_region, src->addr_region));
+	CKINT(acvp_duplicate(&vendor->addr_country, src->addr_country));
 	CKINT(acvp_duplicate(&vendor->addr_zipcode, src->addr_zipcode));
 
 	CKINT(acvp_duplicate(&vendor->def_vendor_file, src->def_vendor_file));

@@ -152,18 +152,12 @@ out:
 static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 				    const struct def_info *def_info)
 {
-	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_net_ctx *net;
 	struct json_object *resp = NULL, *data = NULL;
 	ACVP_BUFFER_INIT(buf);
 	int ret, ret2;
 	char url[ACVP_NET_URL_MAXLEN];
 
-	CKNULL_LOG(ctx, -EINVAL,
-		   "Vendor validation: authentication context missing\n");
-	net = &ctx->net;
-
-	CKINT(acvp_create_url(net, NIST_VAL_OP_MODULE, url, sizeof(url)));
+	CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
 				 def_info->acvp_module_id));
 
@@ -190,13 +184,11 @@ out:
 static int acvp_module_register(const struct acvp_testid_ctx *testid_ctx,
 				struct def_info *def_info)
 {
-	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_net_ctx *net = &ctx->net;
 	struct json_object *json_info = NULL;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
-	CKINT(acvp_create_url(net, NIST_VAL_OP_MODULE, url, sizeof(url)));
+	CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
 
 	/* Build JSON object with the oe specification */
 	CKINT(acvp_module_build(def_info, &json_info));
@@ -218,7 +210,6 @@ static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
-	const struct acvp_net_ctx *net = &ctx->net;
 	struct json_object *resp = NULL, *data = NULL, *array;
 	ACVP_BUFFER_INIT(buf);
 	unsigned int i;
@@ -226,7 +217,7 @@ static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	char url[ACVP_NET_URL_MAXLEN];
 	bool found = false;
 
-	CKINT(acvp_create_url(net, NIST_VAL_OP_MODULE, url, sizeof(url)));
+	CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
 
 	ret2 = _acvp_process_retry_testid(testid_ctx, &buf, url);
 

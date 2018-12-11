@@ -40,6 +40,8 @@
 struct acvp_datastore_be *ds = NULL;
 struct acvp_netaccess_be *na = NULL;
 
+static struct acvp_net_ctx net_global;
+
 static atomic_t acvp_lib_init = ATOMIC_INIT(0);
 
 atomic_t glob_vsids_to_process = ATOMIC_INIT(0);
@@ -99,6 +101,30 @@ static void acvp_release_search(struct acvp_search_ctx *search)
 
 	search->nr_submit_testid = 0;
 	search->nr_submit_vsid = 0;
+}
+
+/*****************************************************************************
+ * Initialization and release
+ *****************************************************************************/
+ACVP_DEFINE_CONSTRUCTOR(acvp_constructor)
+static void acvp_constructor(void)
+{
+	memset(&net_global, 0, sizeof(net_global));
+}
+
+ACVP_DEFINE_DESTRUCTOR(acvp_destructor)
+static void acvp_destructor(void)
+{
+	acvp_release_net(&net_global);
+}
+
+int acvp_get_net(const struct acvp_net_ctx **net)
+{
+	if (!net_global.server_name)
+		return -EFAULT;
+
+	*net = &net_global;
+	return 0;
 }
 
 /*****************************************************************************
@@ -203,15 +229,13 @@ static int acvp_cert_type(const char *file, char *curl_type,
  * API calls
  *****************************************************************************/
 DSO_PUBLIC
-int acvp_set_net(struct acvp_ctx *ctx,
-		 const char *server_name, unsigned int port, const char *ca,
+int acvp_set_net(const char *server_name, unsigned int port, const char *ca,
 		 const char *client_cert, const char *client_key,
 		 const char *passcode)
 {
-	struct acvp_net_ctx *net;
+	struct acvp_net_ctx *net = &net_global;
 	int ret = 0;
 
-	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
 	CKNULL_LOG(server_name, -EINVAL, "Server name missing\n");
 	CKNULL_LOG(client_cert, -EINVAL, "TLS client certificate missing\n");
 
@@ -221,8 +245,7 @@ int acvp_set_net(struct acvp_ctx *ctx,
 		return -EOPNOTSUPP;
 	}
 
-	net = &ctx->net;
-	acvp_release_net(&ctx->net);
+	acvp_release_net(net);
 
 	CKINT(acvp_duplicate(&net->server_name, server_name));
 
@@ -395,7 +418,6 @@ void acvp_ctx_release(struct acvp_ctx *ctx)
 	search = &datastore->search;
 
 	acvp_release_modinfo(&ctx->modinfo);
-	acvp_release_net(&ctx->net);
 	acvp_release_datastore(&ctx->datastore);
 	acvp_release_search(search);
 
@@ -488,7 +510,8 @@ void acvp_release(void)
 	if (!acvp_library_initialized())
 		return;
 
-	totp_release_seed();
+	if (!sig_handler_active())
+		totp_release_seed();
 	sig_uninstall_handler();
 	thread_release(false, true);
 }

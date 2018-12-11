@@ -62,8 +62,7 @@ out:
 static int acvp_publish_request(const struct acvp_testid_ctx *testid_ctx,
 				struct json_object *publish)
 {
-	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_net_ctx *net = &ctx->net;
+	const struct acvp_net_ctx *net;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_na_ex netinfo;
 	ACVP_BUFFER_INIT(request_buf);
@@ -81,6 +80,7 @@ static int acvp_publish_request(const struct acvp_testid_ctx *testid_ctx,
 					JSON_C_TO_STRING_NOSLASHESCAPE);
 	request_buf.len = strlen((char *)request_buf.buf);
 
+	CKINT(acvp_get_net(&net));
 	netinfo.net = net;
 	netinfo.url = url;
 	netinfo.server_auth = auth;

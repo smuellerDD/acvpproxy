@@ -87,6 +87,16 @@ static DEFINE_MUTEX_W_UNLOCKED(ctxs_lock);
 static pthread_t sig_thread;
 static atomic_bool_t sig_thread_init = ATOMIC_BOOL_INIT(false);
 
+/*
+ * Is signal processing performed?
+ */
+static atomic_bool_t sig_raised = ATOMIC_BOOL_INIT(false);
+
+bool sig_handler_active(void)
+{
+	return atomic_bool_read(&sig_raised);
+}
+
 /* DELETE /testSessions/<testSessionId> */
 static int acvp_cancel(struct acvp_testid_ctx *testid_ctx, int sig)
 {
@@ -118,9 +128,7 @@ static int acvp_cancel(struct acvp_testid_ctx *testid_ctx, int sig)
 		return 0;
 	}
 
-	net = &ctx->net;
-	if (!net)
-		return 0;
+	CKINT(acvp_get_net(&net));
 
 	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url)));
 
@@ -265,8 +273,17 @@ static void sig_term_unthreaded(int sig)
 	totp_release_seed();
 }
 
+/* Signal handler for a grave fault: clean up message queue */
+static void sig_fault(int sig)
+{
+	totp_release_seed();
+	exit(sig);
+}
+
 static void sig_cleanup(int sig)
 {
+	atomic_bool_set_true(&sig_raised);
+
 #ifdef ACVP_USE_PTHREAD
 	/*
 	 * Clean up the system threads - all other cleanups are done by signal
@@ -274,6 +291,16 @@ static void sig_cleanup(int sig)
 	 */
 	thread_release(true, true);
 #else
+	/*
+	 * Set new signal handler that allow the immediate termination of the
+	 * application. I.e. the first signal handler logic sending
+	 * the cancel operation can be terminated.
+	 */
+	signal(SIGHUP, sig_fault);
+	signal(SIGINT, sig_fault);
+	signal(SIGQUIT, sig_fault);
+	signal(SIGTERM, sig_fault);
+
 	/* General cleanup */
 	sig_term_unthreaded(sig);
 #endif
@@ -289,13 +316,15 @@ static void install_signal(void)
 	signal(SIGINT, sig_cleanup);
 	signal(SIGQUIT, sig_cleanup);
 	signal(SIGTERM, sig_cleanup);
+
+	signal(SIGSEGV, sig_fault);
 }
 
 #ifdef ACVP_USE_PTHREAD
 /* Signal handler thread to clean up all except the system threads */
 static int sig_handler_thread(void *arg)
 {
-	sigset_t signals;
+	sigset_t signals, unblock, old;
 	int ret, sig;
 
 	(void)arg;
@@ -310,6 +339,7 @@ static int sig_handler_thread(void *arg)
 	sigaddset(&signals, SIGINT);
 	sigaddset(&signals, SIGQUIT);
 	sigaddset(&signals, SIGTERM);
+	sigaddset(&signals, SIGSEGV);
 
 	logger(LOGGER_VERBOSE, LOGGER_C_SIGNALHANDLER, "thread initialized\n");
 
@@ -321,6 +351,33 @@ static int sig_handler_thread(void *arg)
 	/* SIGUSR1 simply terminates the sighandler thread */
 	if (sig == SIGUSR1)
 		goto out;
+
+	/* SIGSEGV means we have a serious issue - only clean up the MQ */
+	if (sig == SIGSEGV) {
+		sig_fault(sig);
+		/* NOTREACHED */
+		exit(sig);
+	}
+
+	atomic_bool_set_true(&sig_raised);
+
+	/*
+	 * Re-enable following signals globally to allow subsequent signals
+	 * to forcefully terminate the application. This is useful if the
+	 * HTTP network operation takes too long or has other issues.
+	 */
+	sigemptyset(&unblock);
+	sigaddset(&unblock, SIGHUP);
+	sigaddset(&unblock, SIGINT);
+	sigaddset(&unblock, SIGQUIT);
+	sigaddset(&unblock, SIGTERM);
+	ret = -pthread_sigmask(SIG_UNBLOCK, &unblock, &old);
+	if (ret)
+		goto out;
+	signal(SIGHUP, sig_fault);
+	signal(SIGINT, sig_fault);
+	signal(SIGQUIT, sig_fault);
+	signal(SIGTERM, sig_fault);
 
 	logger(LOGGER_VERBOSE, LOGGER_C_SIGNALHANDLER,
 	       "Shutting down cleanly but forcefully\n");

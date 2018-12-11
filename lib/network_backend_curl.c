@@ -44,6 +44,11 @@ static void acvp_curl_interrupt(void)
 	atomic_bool_set_true(&acvp_curl_interrupted);
 }
 
+static void acvp_curl_clear_interrupt(void)
+{
+	atomic_bool_set_false(&acvp_curl_interrupted);
+}
+
 static int acvp_curl_progress_callback(void *clientp, curl_off_t dltotal,
 				       curl_off_t dlnow, curl_off_t ultotal,
 				       curl_off_t ulnow)
@@ -287,6 +292,12 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	 */
 	CKINT(curl_easy_setopt(curl, CURLOPT_WRITEDATA, response_buf));
 	CKINT(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, acvp_curl_cb));
+
+	/*
+	 * Clear any interrupt triggered by signal handler to allow
+	 * signal handler to perform network requests.
+	 */
+	acvp_curl_clear_interrupt();
 
 	/* Perform the HTTP request */
 	while (retries < ACVP_CURL_MAX_RETRIES) {

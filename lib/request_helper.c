@@ -336,14 +336,16 @@ out:
 	return ret;
 }
 
-int acvp_create_url(const struct acvp_net_ctx *net, const char *path,
-		    char *url, uint32_t urllen)
+int acvp_create_url(const char *path, char *url, uint32_t urllen)
 {
+	const struct acvp_net_ctx *net;
 	int ret = 0;
 
 	CKNULL_LOG(path, -EINVAL, "No path for URL creation provided\n");
 	CKNULL_LOG(url, -EINVAL,
 		   "No destination buffer for URL creation provided\n");
+
+	CKINT(acvp_get_net(&net));
 
 	snprintf(url, urllen, "https://%s:%u/%s/%s",
 		 net->server_name, net->server_port, NIST_VAL_CTX,

@@ -135,7 +135,7 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
-	const struct acvp_net_ctx *net = &ctx->net;
+	const struct acvp_net_ctx *net;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_na_ex netinfo;
 	struct json_object *login = NULL, *entry = NULL;
@@ -225,7 +225,8 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	login_buf.buf = (uint8_t *)json_login;
 	login_buf.len = strlen(json_login);
 
-	CKINT(acvp_create_url(net, NIST_VAL_OP_LOGIN, url, sizeof(url)));
+	CKINT(acvp_get_net(&net));
+	CKINT(acvp_create_url(NIST_VAL_OP_LOGIN, url, sizeof(url)));
 
 	/* Send the capabilities to the ACVP server. */
 	netinfo.net = net;

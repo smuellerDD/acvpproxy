@@ -335,10 +335,10 @@ struct definition *acvp_find_def(const struct acvp_search_ctx *search,
 
 /**
  * @brief Apply the definition database search criteria found in the provided
- *	  JSON object to find the corresponding cipher definition. The found
- *	  cipher definition is registered in @param testid_ctx.
+ *	  JSON object to find the corresponding cipher definition. Match the
+ *	  found cipher definition with the one registered in @param testid_ctx.
  *
- *	  NOTE: Only the first matching definition is returned, since this
+ *	  NOTE: Only the first matching definition is checked, since this
  *	  function expects the search criteria to be specific enough to refer
  *	  to only one definition.
  *
@@ -349,8 +349,8 @@ struct definition *acvp_find_def(const struct acvp_search_ctx *search,
  * @return: 0 on success, < 0 on errors
  */
 struct acvp_testid_ctx;
-int acvp_retrieve_def(struct acvp_testid_ctx *testid_ctx,
-		      struct json_object *def_config);
+int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
+		   struct json_object *def_config);
 
 /**
  * @brief Convert the provided definition into an unambiguous search criteria
