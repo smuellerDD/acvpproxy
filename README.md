@@ -48,7 +48,7 @@ follows.
 
    b. Unpack the testvector-responses.json files into the ACVP Proxy
       testvectors/ directory:
-      `tar -xvfx testvectors-<vendor>-response-<date>.tar.gz *testvector-response.json`
+      `tar -xvzf testvectors-<vendor>-response-<date>.tar.gz *testvector-response.json`
 
    You may skip this copying business if the ACVP Proxy and ACVP Parser both
    access the very same testvectors directory.
