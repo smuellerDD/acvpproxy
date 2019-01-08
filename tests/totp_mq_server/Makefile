@@ -5,8 +5,12 @@
 CC		:= gcc
 CFLAGS		+= -Wextra -Wall -pedantic -fPIC -O2 -std=gnu99
 #Hardening
-CFLAGS		+= -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE
-LDFLAGS		+= -Wl,-z,relro,-z,now -pie
+CFLAGS		+= -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wno-gnu-zero-variadic-macro-arguments -Wno-missing-field-initializers
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+LDFLAGS        += -Wl,-z,relro,-z,now -pie
+endif
 
 NAME		:= totp_mq_server
 
@@ -42,34 +46,6 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 
 ###############################################################################
 #
-# Guess at the appropriate lib directory and word size
-#
-###############################################################################
-ifeq ($(origin LIBDIR),undefined)
-LIBDIR		:= $(shell ldd /usr/bin/make | grep '\(/libc\.\)' | sed -e 's!.*\(/.*\)/libc[.].*!\1!')
-endif
-ifeq ($(origin USRLIBDIR),undefined)
-USRLIBDIR	:= $(patsubst /lib/%,/usr/lib/%,$(LIBDIR))
-endif
-BUILDFOR	:= $(shell file /usr/bin/make | sed -e 's!.*ELF \(32\|64\)-bit.*!\1!')-bit
-
-ifeq ($(origin CFLAGS),undefined)
-ifeq ($(BUILDFOR),32-bit)
-CFLAGS		+= -m32
-LIBDIR		:= /lib
-USRLIBDIR	:= /usr/lib
-else
-ifeq ($(BUILDFOR),64-bit)
-CFLAGS		+= -m64
-LIBDIR		:= /lib64
-USRLIBDIR	:= /usr/lib64
-endif
-endif
-endif
-
-
-###############################################################################
-#
 # Define files to be compiled
 #
 ###############################################################################
@@ -101,11 +77,6 @@ scan:	$(OBJS)
 cppcheck:
 	cppcheck --enable=performance --enable=warning --enable=portability *.h *.c ../lib/*.c ../lib/*.h
 
-install:
-	install -m 0755 $(LIBNAME) -D -t $(DESTDIR)$(LIBDIR)/
-	$(LNS) $(LIBNAME) $(DESTDIR)$(LIBDIR)/$(SONAME)
-	install -m 0644 kcapi.h -D -t $(DESTDIR)$(INCLUDEDIR)
-
 ###############################################################################
 #
 # Build the documentation
@@ -125,12 +96,5 @@ distclean: clean
 #
 ###############################################################################
 show_vars:
-	@echo LIBVERSION=$(LIBVERSION)
-	@echo APIVERSION=$(APIVERSION)
-	@echo LIBDIR=$(LIBDIR)
-	@echo USRLIBDIR=$(USRLIBDIR)
-	@echo BUILDFOR=$(BUILDFOR)
-	@echo SONAME=$(SONAME)
-	@echo LIBNAME=$(LIBNAME)
 	@echo LDFLAGS=$(LDFLAGS)
 	@echo CFLAGS=$(CFLAGS)

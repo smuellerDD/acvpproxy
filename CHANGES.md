@@ -1,3 +1,6 @@
+Changes v0.6.4
+- MQ server test: fix for enabling testing on macOS
+
 Changes v0.6.3
 - fix curl code compile issue on old libcurl versions
 - MQ server: use busy-wait around client-side msgrcv to ensure catching a signal

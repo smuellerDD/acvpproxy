@@ -125,6 +125,9 @@ int thread_init(uint32_t groups)
 		return -EINVAL;
 	}
 
+	if (groups == 0)
+		groups = 1;
+
 	if (thread_initialized)
 		goto out;
 	thread_initialized = 1;

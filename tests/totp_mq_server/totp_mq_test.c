@@ -34,6 +34,7 @@ int main(int argc, char *argv[])
 	(void)argc;
 	(void)argv;
 
+	thread_init(1);
 	sig_install_handler();
 
 	logger_set_verbosity(LOGGER_NONE);
