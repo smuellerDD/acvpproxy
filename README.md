@@ -104,6 +104,39 @@ To compile the ACVP Proxy standalone shared library, call `make` in the
 
 Compiling with `make debug` allows debugging of the code.
 
+Building on Windows 10
+----------------------
+
+To compile the tool on Windows 10, perform the following steps as administrator:
+
+- Enable Windows Subsystem for Linux (WSL)
+
+	* In the Windows Settings search box, type: Turn Windows features on or off
+
+	* Select: Windows Subsystem for Linux
+
+- Reboot
+
+In addition, perform the following steps with your normal (developer) account:
+
+- Install "Ubuntu 18.04 LTS" from the Windows Store
+
+- Launch "Ubuntu 18.04 LTS" app to bring up a bash shell. In bash, type:
+
+```
+	sudo apt-get update
+	sudo apt install gcc
+	sudo apt install make
+	sudo apt install libcurl4-gnutls-dev
+	sudo apt-get update
+
+	mkdir src
+	cd src
+	git clone https://github.com/smuellerDD/acvpproxy
+	cd acvpproxy
+	make
+```
+
 Configuration File
 ------------------
 
@@ -250,8 +283,8 @@ The ACVP Proxy supports the following signals:
   connection and allow the retrieval of the test vector at a later time.
   Usually this is helpful if the ACVP server takes a long time where you
   do not want the ACVP Proxy to constantly retry downloading the vector. To
-  resume the download of the test vectors, use --request --testid <NUM>
-  where <NUM> is the test session ID printed out by the ACVP Proxy when
+  resume the download of the test vectors, use `--request --testid <NUM>`
+  where `<NUM>` is the test session ID printed out by the ACVP Proxy when
   receiving SIGSTOP.
 
 The stopping and restarting of downloads applies to the download of
@@ -302,6 +335,10 @@ internal or sensitive data as follows:
 - The `request-<DATE>.json` file contains the IUT register data sent to
   the ACVP server for requesting test vectors.
 
+- The `testid_metadata.json` file contain the initial response from the
+  ACVP server indicating the number of vsIDs as well as the testID
+  with their URLs.
+
 FIPS 140-2 Compliance
 ---------------------
 
@@ -346,13 +383,14 @@ a respective different implementation:
   server requires HTTPS support which implies that the communication provider
   must implement HTTPS. The network access backend is provided by
   implementing the callbacks specified in `struct acvp_netaccess_be`. An
-  example implementation based on libcurl is provided in `request_curl.c`.
+  example implementation based on libcurl is provided in
+  `network_backend_curl.c`.
 
 - A datastore backend implements the storage of the data retrieved from the
   ACVP server or must provide the data to be sent to the ACVP server. The
   datastore backend implements the callbacks defined by
   `struct acvp_datastore_be`. The example implementation storing the data
-  in directories as outlined above is provided in `request_datastore_file.c`.
+  in directories as outlined above is provided in `datastore_file.c`.
 
 - The JSON request generators for the different cipher types are implemented
   in the files `request_sym.c` and similar. To add a new generator for a new
@@ -427,5 +465,5 @@ the data needs to be filled in.
 Author
 ======
 Stephan Mueller <smueller@chronox.de>
-Copyright (C) 2018
+Copyright (C) 2018 - 2019
 

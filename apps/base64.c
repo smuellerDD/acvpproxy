@@ -1,6 +1,6 @@
 /* Base64 encoder and decoder
  *
- * Copyright (C) 2018, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -180,101 +180,3 @@ static void base64_init(void)
 	for (i = 0; i < 64; i++)
 		decoding_table_safe[(unsigned char)encoding_table_safe[i]] = i;
 }
-
-#if 0
-#include <stdio.h>
-#include <string.h>
-
-struct test_vector {
-	uint8_t *bin;
-	uint32_t binlen;
-	char *encoded;
-	uint32_t elen;
-};
-
-/* Test vectors from RFC4648 chapter 10 */
-struct test_vector vectors[] = {
-	{ (uint8_t *)"",	0, "", 0 },
-	{ (uint8_t *)"f",	1, "Zg==", 4 },
-	{ (uint8_t *)"fo",	2, "Zm8=", 4 },
-	{ (uint8_t *)"foo",	3, "Zm9v", 4 },
-	{ (uint8_t *)"foob",	4, "Zm9vYg==", 8 },
-	{ (uint8_t *)"fooba",	5, "Zm9vYmE=", 8 },
-	{ (uint8_t *)"foobar",	6, "Zm9vYmFy", 8 },
-};
-
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
-int main(int argc, char *argv[])
-{
-	uint8_t *bresult;
-	char *result;
-	uint32_t rlen;
-	unsigned int i;
-
-	(void)argc;
-	(void)argv;
-
-	for (i = 0; i < ARRAY_SIZE(vectors); i++) {
-		int ret = base64_encode(vectors[i].bin, vectors[i].binlen,
-					&result, &rlen);
-
-		if (ret)
-			return ret;
-
-		if (rlen != vectors[i].elen ||
-		    strncmp(result, vectors[i].encoded, vectors[i].elen)) {
-			printf("encoding: test %u failed (expected %s, received %s)\n",
-			       i, vectors[i].encoded, result);
-		}
-
-		if (rlen)
-			free(result);
-
-		ret = base64_encode_safe(vectors[i].bin, vectors[i].binlen,
-					 &result, &rlen);
-
-		if (ret)
-			return ret;
-
-		if (rlen != vectors[i].elen ||
-		    strncmp(result, vectors[i].encoded, vectors[i].elen)) {
-			printf("encoding: test %u failed (expected %s, received %s)\n",
-			       i, vectors[i].encoded, result);
-		}
-
-		if (rlen)
-			free(result);
-
-		ret = base64_decode(vectors[i].encoded, vectors[i].elen,
-				    &bresult, &rlen);
-		if (ret)
-			return ret;
-
-		if (rlen != vectors[i].binlen ||
-		    memcmp(bresult, vectors[i].bin, vectors[i].binlen)) {
-			printf("decoding: test %u failed (expected %s, received %s)\n",
-			       i, vectors[i].bin, bresult);
-		}
-
-		if (rlen)
-			free(bresult);
-
-		ret = base64_decode_safe(vectors[i].encoded, vectors[i].elen,
-					 &bresult, &rlen);
-		if (ret)
-			return ret;
-
-		if (rlen != vectors[i].binlen ||
-		    memcmp(bresult, vectors[i].bin, vectors[i].binlen)) {
-			printf("decoding: test %u failed (expected %s, received %s)\n",
-			       i, vectors[i].bin, bresult);
-		}
-
-		if (rlen)
-			free(bresult);
-	}
-
-	return 0;
-}
-#endif

@@ -1,6 +1,6 @@
 /* ACVP authentication token processing
  *
- * Copyright (C) 2018, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

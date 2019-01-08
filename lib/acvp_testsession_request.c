@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for requesting test vectors
  *
- * Copyright (C) 2018, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -843,7 +843,6 @@ static int acvp_process_req(struct acvp_testid_ctx *testid_ctx,
 			    struct acvp_buf *response)
 {
 	struct json_object *req = NULL, *entry = NULL;
-	ACVP_BUFFER_INIT(tmp);
 	const char *jwt;
 	int ret;
 
@@ -855,10 +854,6 @@ static int acvp_process_req(struct acvp_testid_ctx *testid_ctx,
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
 	       "Process following server response: %s\n", response->buf);
 
-	/* Store the testID meta data */
-	CKINT(ds->acvp_datastore_write_testid(testid_ctx, ACVP_DS_TESTIDMETA,
-					      false, &tmp));
-
 	/*
 	 * Strip the version from the received array and return the array
 	 * entry containing the answer.
@@ -867,6 +862,10 @@ static int acvp_process_req(struct acvp_testid_ctx *testid_ctx,
 
 	/* Extract testID URL and ID number */
 	CKINT(acvp_get_testid(testid_ctx, request, entry));
+
+	/* Store the testID meta data */
+	CKINT(ds->acvp_datastore_write_testid(testid_ctx, ACVP_DS_TESTIDMETA,
+					      true, response));
 
 	/* Store the definition search criteria */
 	CKINT(acvp_export_def_search(testid_ctx));

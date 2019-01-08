@@ -1,3 +1,8 @@
+Changes v0.6.3
+- fix curl code compile issue on old libcurl versions
+- MQ server: use busy-wait around client-side msgrcv to ensure catching a signal
+- add test cases
+
 Changes 0.6.2
 - enable safety check guaranteeing that module definition did not change between test vector request and test response submission
 - fix bug in acvp_publish

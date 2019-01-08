@@ -1,6 +1,6 @@
 /* TOTP message queue server
  *
- * Copyright (C) 2018, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -173,10 +173,12 @@ static int totp_mq_server_thread(void *arg)
 out:
 	logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,  "terminate server\n");
 
-	mutex_lock(&mq_lock);
+	/*
+	 * Do not lock this operation as the invocation of the server already
+	 * is performed with the lock taken.
+	 */
 	msgctl(mq_server, IPC_RMID, NULL);
 	mq_server = -1;
-	mutex_unlock(&mq_lock);
 	return ret;
 }
 
@@ -343,6 +345,11 @@ int totp_mq_get_val(uint32_t *totp_val)
 
 	/* Loop to implement retry operation. */
 	for (retries = 0; retries < 60; retries++) {
+		if (atomic_bool_read(&mq_shutdown)) {
+			ret = -ESHUTDOWN;
+			goto out;
+		}
+
 		/* Ping server to send us something */
 		logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
 		       "Client: Requesting TOTP value from message queue server\n");
@@ -360,7 +367,8 @@ int totp_mq_get_val(uint32_t *totp_val)
 			/*
 			 * EINVAL is returned on Linux when the server died
 			 */
-			if (errsv == EIDRM || errsv == EINVAL) {
+			if ((errsv == EIDRM || errsv == EINVAL) &&
+			    !atomic_bool_read(&mq_shutdown)) {
 				/* Server died? If so, try to restart it. */
 				logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
 				       "TOTP client: Trying to respawn message queue server and client\n");
@@ -374,8 +382,29 @@ int totp_mq_get_val(uint32_t *totp_val)
 
 		/* Get TOTP value from server */
 		msg.mtype = TOTP_MSG_TYPE_TOTP;
-		read = msgrcv(mq_client, (void *)&msg, sizeof(msg.totp_val),
-			      TOTP_MSG_TYPE_TOTP, MSG_NOERROR);
+
+		/* Use a busy-wait loop to monitor mq_shutdown. */
+		while (1) {
+			const struct timespec sleeptime = {.tv_sec = 0,
+							   .tv_nsec = 1 << 27 };
+
+			read = msgrcv(mq_client, (void *)&msg,
+				      sizeof(msg.totp_val),
+				      TOTP_MSG_TYPE_TOTP,
+				      MSG_NOERROR | IPC_NOWAIT);
+
+			if (read > 0)
+				break;
+			if (atomic_bool_read(&mq_shutdown)) {
+				ret = -ESHUTDOWN;
+				goto out;
+			}
+
+			if (read < 0 && errno != ENOMSG)
+				break;
+			nanosleep(&sleeptime, NULL);
+		}
+
 		mutex_reader_unlock(&mq_lock);
 
 		if (read != sizeof(msg.totp_val)) {

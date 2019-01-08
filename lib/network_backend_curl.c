@@ -1,6 +1,6 @@
 /* Network access backend using libcurl
  *
- * Copyright (C) 2018, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -208,9 +208,16 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	CKINT(curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L));
 	CKINT(curl_easy_setopt(curl, CURLOPT_USERAGENT, useragent));
 	CKINT(curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist));
+
+#if LIBCURL_VERSION_NUM < 0x072000
+	CKINT(curl_easy_setopt(curl, CURLOPT_PROGRESSFUNCTION,
+			       acvp_curl_progress_callback));
+	CKINT(curl_easy_setopt(curl, CURLOPT_PROGRESSDATA, NULL));
+#else
 	CKINT(curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION,
 			       acvp_curl_progress_callback));
 	CKINT(curl_easy_setopt(curl, CURLOPT_XFERINFODATA, NULL));
+#endif
 	CKINT(curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L));
 
 	switch (http_type) {
