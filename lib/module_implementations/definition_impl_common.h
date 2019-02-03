@@ -465,6 +465,57 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 		},							\
 	}
 
+/**
+ * @brief CMAC AES definition.
+ *
+ * Cipher definition properties
+ *	* dependency on AES is satisfied within the same ACVP register op
+ *
+ * @param key_length supported AES key lengths provided with
+ *		     cipher_definitions.h
+ */
+#define GENERIC_CMAC_AES(key_length)					\
+	{								\
+	.type = DEF_ALG_TYPE_CMAC,					\
+	.algo = {							\
+		.cmac = {						\
+			.algorithm = ACVP_CMAC_AES,			\
+			.prereqvals = {					\
+				.algorithm = "AES",			\
+				.valvalue = "same"			\
+				},					\
+			.direction = DEF_ALG_CMAC_GENERATION |		\
+				     DEF_ALG_CMAC_VERIFICATION,		\
+			.keylen = key_length,				\
+			.msglen = { 128, 256, 136, 264, 524288 }	\
+			}						\
+		},							\
+	}
+
+/**
+ * @brief CMAC TDES definition.
+ *
+ * Cipher definition properties
+ *	* dependency on AES is satisfied within the same ACVP register op
+ */
+#define GENERIC_CMAC_TDES						\
+	{								\
+	.type = DEF_ALG_TYPE_CMAC,					\
+	.algo = {							\
+		.cmac = {						\
+			.algorithm = ACVP_CMAC_TDES,			\
+			.prereqvals = {					\
+				.algorithm = "TDES",			\
+				.valvalue = "same"			\
+				},					\
+			.direction = DEF_ALG_CMAC_GENERATION |		\
+				     DEF_ALG_CMAC_VERIFICATION,		\
+			.keylen = DEF_ALG_SYM_KEYLEN_168, 		\
+			.msglen = { 64, 128, 72, 136, 524288 }		\
+			}						\
+		},							\
+	}
+
 #ifdef __cplusplus
 }
 #endif

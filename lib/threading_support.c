@@ -29,14 +29,9 @@
 #include "config.h"
 #include "logger.h"
 #include "mutex_w.h"
+#include "ret_checkers.h"
 
 #include "threading_support.h"
-
-#define CKINT(x) {		\
-	ret = x;		\
-	if (ret < 0)		\
-		goto out;	\
-	}
 
 #ifdef ACVP_USE_PTHREAD
 

@@ -43,7 +43,7 @@ static int acvp_fetch_cipher_info(const struct acvp_testid_ctx *testid_ctx,
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "ACVP URL: %s\n", url);
 
-	CKINT(_acvp_process_retry_testid(testid_ctx, buf, url));
+	CKINT(acvp_process_retry_testid(testid_ctx, buf, url));
 
 out:
 	return ret;

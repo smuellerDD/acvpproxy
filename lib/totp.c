@@ -36,6 +36,7 @@
 #include "hash/hash.h"
 #include "memset_secure.h"
 #include "sleep.h"
+#include "ret_checkers.h"
 #include "totp.h"
 #include "totp_mq_server.h"
 
@@ -222,9 +223,7 @@ int totp_get_val(uint32_t *totp_val)
 		logger(LOGGER_VERBOSE, LOGGER_C_TOTP,
 		       "sleeping for %u seconds\n", wait_time);
 
-		ret = sleep_interruptible(wait_time, &totp_shutdown);
-		if (ret)
-			goto out;
+		CKINT(sleep_interruptible(wait_time, &totp_shutdown));
 
 		mutex_w_lock(&totp_lock);
 		now = time(NULL);
@@ -318,15 +317,10 @@ int totp_set_seed(const uint8_t *K, uint32_t Klen, time_t last_gen,
 
 	__totp_release_seed();
 
-	ret = totp_protection();
-	if (ret)
-		goto out;
+	CKINT(totp_protection());
 
 	totp_K = malloc(Klen);
-	if (!totp_K) {
-		ret = -errno;
-		goto out;
-	}
+	CKNULL(totp_K, -errno);
 
 	/*
 	 * Guard the TOTP seed as mandated by NIST.

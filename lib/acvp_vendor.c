@@ -182,7 +182,7 @@ static int acvp_vendor_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
 				 def_vendor->acvp_vendor_id));
 
-	ret2 = _acvp_process_retry_testid(testid_ctx, &buf, url);
+	ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);
 
 	logger(ret2 ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
 	       "Process following server response (ret: %d): %s\n", ret2,
@@ -244,7 +244,7 @@ static int acvp_vendor_validate_all(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_create_url(NIST_VAL_OP_VENDOR, url, sizeof(url)));
 
-	ret2 = _acvp_process_retry_testid(testid_ctx, &buf, url);
+	ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);
 
 	CKINT(acvp_store_vendor_debug(testid_ctx, &buf, ret2));
 

@@ -177,7 +177,7 @@ int acvp_list_failed_testid(int *idx_ptr, uint32_t *testid)
 }
 
 /*****************************************************************************
- * Code for registering at the CAVP server and fetching test vectors
+ * Code for registering at the ACVP server and fetching test vectors
  *****************************************************************************/
 static int acvp_req_set_algo(struct json_object *algorithms,
 			     const struct def_algo *def_algo)
@@ -266,10 +266,6 @@ static int acvp_req_set_algo(struct json_object *algorithms,
 
 out:
 	ACVP_JSON_PUT_NULL(entry);
-	/*
-	 * alg_array is not freed as we may have obtained it from an existing
-	 * object.
-	 */
 	return ret;
 }
 
@@ -327,10 +323,6 @@ out:
 	ACVP_JSON_PUT_NULL(algorithms);
 	ACVP_JSON_PUT_NULL(entry);
 	ACVP_JSON_PUT_NULL(tmp);
-	/*
-	 * array is not freed as we may have obtained it from an existing
-	 * object.
-	 */
 	return ret;
 }
 
@@ -349,9 +341,9 @@ out:
 /*
  * Fetch data and process potential retry responses
  */
-int _acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
-			struct acvp_buf *result_data,
-			const char *url,
+int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
+		       struct acvp_buf *result_data,
+		       const char *url,
 	int (*debug_logger)(const struct acvp_vsid_ctx *vsid_ctx,
 			    const struct acvp_buf *buf, int err))
 {
@@ -426,8 +418,8 @@ int _acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 
 		CKINT(sleep_interruptible(sleep_time, &acvp_op_interrupted));
 
-		return _acvp_process_retry(vsid_ctx, result_data, url,
-					   debug_logger);
+		return acvp_process_retry(vsid_ctx, result_data, url,
+					  debug_logger);
 	}
 
 out:
@@ -440,9 +432,9 @@ out:
 	return ret;
 }
 
-int _acvp_process_retry_testid(const struct acvp_testid_ctx *testid_ctx,
-			       struct acvp_buf *result_data,
-			       const char *url)
+int acvp_process_retry_testid(const struct acvp_testid_ctx *testid_ctx,
+			      struct acvp_buf *result_data,
+			      const char *url)
 {
 	struct acvp_vsid_ctx vsid_ctx;
 
@@ -451,7 +443,7 @@ int _acvp_process_retry_testid(const struct acvp_testid_ctx *testid_ctx,
 
 	vsid_ctx.testid_ctx = testid_ctx;
 
-	return _acvp_process_retry(&vsid_ctx, result_data, url, NULL);
+	return acvp_process_retry(&vsid_ctx, result_data, url, NULL);
 }
 
 /* GET /testSessions/<testSessionId>/vectorSets/<vectorSetId>/expected */
@@ -471,8 +463,8 @@ int acvp_get_testvectors_expected(const struct acvp_vsid_ctx *vsid_ctx)
 
 	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url)));
 	CKINT(acvp_expected_url(url, sizeof(url)));
-	CKINT(_acvp_process_retry(vsid_ctx, &buf, url,
-				  acvp_store_vector_debug));
+	CKINT(acvp_process_retry(vsid_ctx, &buf, url,
+				 acvp_store_vector_debug));
 	CKINT(ds->acvp_datastore_write_vsid(vsid_ctx, datastore->expectedfile,
 					    false, &buf));
 
@@ -500,8 +492,8 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url)));
 
 	/* Do the actual download of the vsID */
-	ret2 = _acvp_process_retry(vsid_ctx, &buf, url,
-				   acvp_store_vector_debug);
+	ret2 = acvp_process_retry(vsid_ctx, &buf, url,
+				  acvp_store_vector_debug);
 
 	/* Initialize the vsID directory for later potential re-load. */
 	CKINT(acvp_store_vector_status(vsid_ctx,

@@ -161,7 +161,7 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
 				 def_info->acvp_module_id));
 
-	ret2 = _acvp_process_retry_testid(testid_ctx, &buf, url);
+	ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);
 
 	CKINT(acvp_store_module_debug(testid_ctx, &buf, ret2));
 
@@ -219,7 +219,7 @@ static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
 
-	ret2 = _acvp_process_retry_testid(testid_ctx, &buf, url);
+	ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);
 
 	CKINT(acvp_store_module_debug(testid_ctx, &buf, ret2));
 

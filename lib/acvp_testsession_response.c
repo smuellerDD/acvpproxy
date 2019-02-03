@@ -142,8 +142,8 @@ static int acvp_get_vsid_verdict(const struct acvp_vsid_ctx *vsid_ctx)
 	       "Retrieve test results from URL %s\n", url);
 
 	/* Submit request and prepare for a retry reply. */
-	CKINT(_acvp_process_retry(vsid_ctx, &result, url,
-				  acvp_store_verdict_debug));
+	CKINT(acvp_process_retry(vsid_ctx, &result, url,
+				 acvp_store_verdict_debug));
 
 	/* Store the entire received response. */
 	if (result.buf && result.len)
@@ -438,7 +438,7 @@ static int acvp_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 	       "Retrieve test session results from URL %s\n", url);
 
 	/* Submit request and prepare for a retry reply. */
-	CKINT(_acvp_process_retry_testid(testid_ctx, &result, url));
+	CKINT(acvp_process_retry_testid(testid_ctx, &result, url));
 
 	/* Store the entire received response. */
 	if (result.buf && result.len) {

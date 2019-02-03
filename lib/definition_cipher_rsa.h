@@ -67,6 +67,11 @@ enum saltlen {
 	DEF_ALG_RSA_PSS_SALT_HASHLEN,
 };
 
+enum keyformat {
+	DEF_ALG_RSA_KEYFORMAT_STANDARD,
+	DEF_ALG_RSA_KEYFORMAT_CRT,
+};
+
 /****************************************************************************
  * RSA key generation specific data
  ****************************************************************************/
@@ -140,10 +145,7 @@ struct def_algo_rsa_keygen_gen {
 	 *
 	 * required: always
 	 */
-	 enum keyformat {
-		DEF_ALG_RSA_KEYFORMAT_STANDARD,
-		DEF_ALG_RSA_KEYFORMAT_CRT,
-	} keyformat;
+	enum keyformat keyformat;
 };
 
 struct def_algo_rsa_keygen {
@@ -310,6 +312,34 @@ struct def_algo_rsa_sigver {
 };
 
 /****************************************************************************
+ * RSA component signature specific data
+ ****************************************************************************/
+struct def_algo_rsa_component_sig_gen {
+	/*
+	 * The preferred private key format. The DEF_ALG_RSA_KEYFORMAT_STANDARD
+	 * format has "p", "q", and "d" as the component of the private key.
+	 * The DEF_ALG_RSA_KEYFORMAT_CRT (Chinese Remainder Theorem) format has
+	 * "p", "q", "dmp1" (d modulo p-1), "dmq1" (d modulo q-1), and "iqmp"
+	 * (inverse q modulo p)) as the components
+	 *
+	 * required: always
+	 */
+	enum keyformat keyformat;
+};
+
+/****************************************************************************
+ * RSA component decryption specific data
+ ****************************************************************************/
+struct def_algo_rsa_component_dec {
+	/*
+	 * Supported RSA modulo for the decryption primitive
+	 *
+	 * required: always
+	 */
+	enum rsa_modulo rsa_modulo;
+};
+
+/****************************************************************************
  * RSA common data data
  ****************************************************************************/
 struct def_algo_rsa {
@@ -348,10 +378,13 @@ struct def_algo_rsa {
 	 * required for:
 	 * * RSA key generation
 	 * * RSA signature verification
+	 * * RSA component signature
+	 * * RSA component decryption
 	 */
 	union {
 		const struct def_algo_rsa_keygen_gen *keygen;
 		const struct def_algo_rsa_sigver_gen *sigver;
+		const struct def_algo_rsa_component_sig_gen *component_sig;
 	} gen_info;
 
 	/*
@@ -366,6 +399,7 @@ struct def_algo_rsa {
 		const struct def_algo_rsa_keygen *keygen;
 		const struct def_algo_rsa_siggen *siggen;
 		const struct def_algo_rsa_sigver *sigver;
+		const struct def_algo_rsa_component_dec *component_dec;
 	} algspecs;
 
 	/*

@@ -26,6 +26,7 @@
 #include "buffer.h"
 #include "config.h"
 #include "definition.h"
+#include "ret_checkers.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -42,7 +43,7 @@ extern "C"
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 3   /* API / ABI compatible, no functional
+#define PATCHLEVEL 4   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -247,38 +248,9 @@ struct acvp_datastore_be {
  */
 void acvp_register_ds(struct acvp_datastore_be *datastore);
 
-#define CKINT(x) {							\
-	ret = x;							\
-	if (ret < 0)							\
-		goto out;						\
-}
-
-#define CKINT_LOG(x, ...) {						\
-	ret = x;							\
-	if (ret < 0) {							\
-		logger(LOGGER_ERR, LOGGER_C_ANY, __VA_ARGS__);		\
-		goto out;						\
-	}								\
-}
-
-#define CKNULL(v, r) {							\
-	if (!v) {							\
-		ret = r;						\
-		goto out;						\
-	}								\
-}
-
 #define CKNULL_C_LOG(v, r, c, ...) {					\
 	if (!v) {							\
 		logger(LOGGER_ERR, c, __VA_ARGS__);			\
-		ret = r;						\
-		goto out;						\
-	}								\
-}
-
-#define CKNULL_LOG(v, r, ...) {						\
-	if (!v) {							\
-		logger(LOGGER_ERR, LOGGER_C_ANY, __VA_ARGS__);		\
 		ret = r;						\
 		goto out;						\
 	}								\
@@ -374,9 +346,9 @@ void acvp_record_testid_duration(const struct acvp_testid_ctx *testid_ctx,
  * Note, this function iterates indefinitely. If it is invoked in a thread,
  * you have to cancel the thread to stop this retry operation.
  */
-int _acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
-			struct acvp_buf *result_data,
-			const char *url,
+int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
+		       struct acvp_buf *result_data,
+		       const char *url,
 	int (*debug_logger)(const struct acvp_vsid_ctx *vsid_ctx,
 			    const struct acvp_buf *buf, int err));
 
@@ -384,9 +356,9 @@ int _acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
  * @brief Same as _acvp_process_retry, just with struct acvp_testid_ctx
  *	  parameter
  */
-int _acvp_process_retry_testid(const struct acvp_testid_ctx *testid_ctx,
-			       struct acvp_buf *result_data,
-			       const char *url);
+int acvp_process_retry_testid(const struct acvp_testid_ctx *testid_ctx,
+			      struct acvp_buf *result_data,
+			      const char *url);
 
 /************************************************************************
  * ACVP fetching of test vectors
@@ -512,7 +484,7 @@ void sig_dequeue_ctx(struct acvp_testid_ctx *testid_ctx);
  *	  the sleep should be interrupted.
  *
  * @param sleep_time [in] Time in seconds to sleeep
- * @param @interrupted [in] Pointer to boolean that shall cause an interrupt
+ * @param interrupted [in] Pointer to boolean that shall cause an interrupt
  *
  * @return 0 on full sleep, -EINTR on interrupt, < 0 on other errors
  */

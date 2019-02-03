@@ -36,7 +36,7 @@ static int acvp_get_testid_metadata(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url)));
 
-	ret2 = _acvp_process_retry_testid(testid_ctx, response_buf, url);
+	ret2 = acvp_process_retry_testid(testid_ctx, response_buf, url);
 
 	if (!response_buf->buf || !response_buf->len) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,

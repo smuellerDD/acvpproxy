@@ -137,6 +137,34 @@ In addition, perform the following steps with your normal (developer) account:
 	make
 ```
 
+Building and Execution on Cygwin
+--------------------------------
+
+The following steps are required to build the ACVP Proxy on Cygwin:
+
+- Verify that the required cygwin packages are installed:
+
+	* gcc
+
+	* make
+
+	* libcurl
+
+	* cygserver
+
+- Build acvp-proxy.exe using make.
+
+For running the acvp proxy, IPC support is enabled by starting the windows
+service cygserver by running the following command as administrator under
+Cygwin:
+
+`./cygserver-config`
+
+Reply "yes" when asked whether to install cygserver as service. The service
+is started with the command:
+
+`net start cygserver`
+
 Configuration File
 ------------------
 
@@ -423,8 +451,8 @@ Debugging
 
 Compile with `make debug` to compile debug symbols for debugging.
 
-Adddition of New Cipher Implementation Definitions
-==================================================
+Addition of New Cipher Implementation Definitions
+=================================================
 
 The library is written such that new cipher implementations can be added to
 generate the required register information with the CAVS servers.

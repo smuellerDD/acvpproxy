@@ -17,39 +17,45 @@
  * DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdint.h>
+#ifndef RET_CHECKERS_H
+#define RET_CHECKERS_H
 
-#include "logger.h"
-#include "internal.h"
-#include "threading_support.h"
-#include "totp.h"
-
-int main(int argc, char *argv[])
+#ifdef __cplusplus
+extern "C"
 {
-	uint32_t totp_val, i;
-	int ret;
-	uint8_t seed[10] = { 0 };
+#endif
 
-	(void)argc;
-	(void)argv;
-
-	CKINT(thread_init(1));
-	CKINT(sig_install_handler());
-
-	logger_set_verbosity(LOGGER_NONE);
-//	logger_set_verbosity(LOGGER_DEBUG);
-
-	CKINT(totp_set_seed(seed, sizeof(seed), 0, NULL));
-
-	for (i = 0; i < 3; i++) {
-		CKINT(totp(&totp_val));
-		printf("%u\n", totp_val);
-	}
-
-out:
-	totp_release_seed();
-	thread_release(1, 1);
-	sig_uninstall_handler();
-	return -ret;
+#define CKINT(x) {							\
+	ret = x;							\
+	if (ret < 0)							\
+		goto out;						\
 }
+
+#define CKINT_LOG(x, ...) {						\
+	ret = x;							\
+	if (ret < 0) {							\
+		logger(LOGGER_ERR, LOGGER_C_ANY, __VA_ARGS__);		\
+		goto out;						\
+	}								\
+}
+
+#define CKNULL(v, r) {							\
+	if (!v) {							\
+		ret = r;						\
+		goto out;						\
+	}								\
+}
+
+#define CKNULL_LOG(v, r, ...) {						\
+	if (!v) {							\
+		logger(LOGGER_ERR, LOGGER_C_ANY, __VA_ARGS__);		\
+		ret = r;						\
+		goto out;						\
+	}								\
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* RET_CHECKERS_H */

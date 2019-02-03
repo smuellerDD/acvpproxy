@@ -1,5 +1,6 @@
 Changes v0.6.4
 - MQ server test: fix for enabling testing on macOS
+- add HMAC-SHA3 and SHA3 definitions for OpenSSL
 
 Changes v0.6.3
 - fix curl code compile issue on old libcurl versions

@@ -278,20 +278,12 @@ out:
 	return ret;
 }
 
-static int acvp_req_rsa_keygen(const struct def_algo_rsa *rsa,
-			       struct json_object *entry)
+static int acvp_req_rsa_keyformat(enum keyformat keyformat,
+				  struct json_object *entry)
 {
-	const struct def_algo_rsa_keygen_gen *gen = rsa->gen_info.keygen;
-	struct json_object *algspec_array, *algspec;
-	unsigned int i;
 	int ret;
 
-	CKINT(json_object_object_add(entry, "infoGeneratedByServer",
-			json_object_new_boolean(gen->infogeneratedbyserver)));
-	CKINT(acvp_req_rsa_pubexpmode(gen->pubexpmode, gen->fixedpubexp,
-				      entry));
-
-	switch (gen->keyformat) {
+	switch (keyformat) {
 	case DEF_ALG_RSA_KEYFORMAT_STANDARD:
 		CKINT(json_object_object_add(entry, "keyFormat",
 					json_object_new_string("standard")));
@@ -307,6 +299,25 @@ static int acvp_req_rsa_keygen(const struct def_algo_rsa *rsa,
 		goto out;
 		break;
 	}
+
+out:
+	return ret;
+}
+
+static int acvp_req_rsa_keygen(const struct def_algo_rsa *rsa,
+			       struct json_object *entry)
+{
+	const struct def_algo_rsa_keygen_gen *gen = rsa->gen_info.keygen;
+	struct json_object *algspec_array, *algspec;
+	unsigned int i;
+	int ret;
+
+	CKINT(json_object_object_add(entry, "infoGeneratedByServer",
+			json_object_new_boolean(gen->infogeneratedbyserver)));
+	CKINT(acvp_req_rsa_pubexpmode(gen->pubexpmode, gen->fixedpubexp,
+				      entry));
+
+	CKINT(acvp_req_rsa_keyformat(gen->keyformat, entry));
 
 	algspec_array = json_object_new_array();
 	CKNULL(algspec_array, -ENOMEM);
@@ -468,12 +479,41 @@ out:
 	return ret;
 }
 
+//TODO final JSON structure pending on decision of issue 539
+static int acvp_req_rsa_component_dec(const struct def_algo_rsa *rsa,
+				      struct json_object *entry)
+{
+	struct json_object *algspec_array, *algspec;
+	unsigned int i;
+	int ret;
+
+	algspec_array = json_object_new_array();
+	CKNULL(algspec_array, -ENOMEM);
+	CKINT(json_object_object_add(entry, "capabilities", algspec_array));
+
+	for (i = 0; i < rsa->algspecs_num; i++) {
+		const struct def_algo_rsa_component_dec *component_dec =
+						rsa->algspecs.component_dec + i;
+
+		algspec = json_object_new_object();
+		CKNULL(algspec, -ENOMEM);
+		CKINT(json_object_array_add(algspec_array, algspec));
+		CKINT(acvp_req_rsa_modulo(
+			DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE,
+			component_dec->rsa_modulo, algspec));
+	}
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for symmetric ciphers
  */
 int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 			  struct json_object *entry)
 {
+	const struct def_algo_rsa_component_sig_gen *component_sig;
 	int ret = -EINVAL;
 
 	CKINT(json_object_object_add(entry, "algorithm",
@@ -498,14 +538,18 @@ int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 	case DEF_ALG_RSA_MODE_LEGACY_SIGVER:
 		CKINT(json_object_object_add(entry, "mode",
 					json_object_new_string("legacySigVer")));
+		CKINT(acvp_req_rsa_sigver(rsa, entry));
 		break;
 	case DEF_ALG_RSA_MODE_COMPONENT_SIG_PRIMITIVE:
+		component_sig = rsa->gen_info.component_sig;
 		CKINT(json_object_object_add(entry, "mode",
-			json_object_new_string("componentSigPrimitive")));
+			json_object_new_string("signaturePrimitive")));
+		CKINT(acvp_req_rsa_keyformat(component_sig->keyformat, entry));
 		break;
 	case DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE:
 		CKINT(json_object_object_add(entry, "mode",
-			json_object_new_string("componentDecPrimitive")));
+			json_object_new_string("decryptionPrimitive")));
+		CKINT(acvp_req_rsa_component_dec(rsa, entry));
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,

@@ -33,6 +33,7 @@
 #include "logger.h"
 #include "mutex.h"
 #include "sleep.h"
+#include "ret_checkers.h"
 #include "totp.h"
 #include "totp_mq_server.h"
 #include "threading_support.h"
@@ -108,9 +109,7 @@ static int totp_mq_server_thread(void *arg)
 
 	/* Wait a step size as requested when instantiating server. */
 	if (wait_step) {
-		ret = sleep_interruptible(TOTP_STEP_SIZE, &mq_shutdown);
-		if (ret)
-			goto out;
+		CKINT(sleep_interruptible(TOTP_STEP_SIZE, &mq_shutdown));
 	}
 
 	while (1) {
@@ -223,19 +222,14 @@ static int totp_mq_start_server(bool wait_step)
 
 		/* Set up arguments for server thread. */
 		ctx = calloc(1, sizeof(*ctx));
-		if (!ctx) {
-			ret = -ENOMEM;
-			goto out;
-		}
+		CKNULL(ctx, -ENOMEM);
 
 		ctx->wait_step = wait_step;
 
 		/* Start server. */
-		ret = thread_start(totp_mq_server_thread, ctx,
+		CKINT(thread_start(totp_mq_server_thread, ctx,
 				   ACVP_THREAD_TOTP_SERVER_GROUP,
-				   &ret_ancestor);
-		if (ret)
-			goto out;
+				   &ret_ancestor));
 
 		if (ret_ancestor) {
 			logger(LOGGER_WARN, LOGGER_C_MQSERVER,
@@ -259,7 +253,6 @@ static int totp_mq_start_client(void)
 	key = ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID);
 	if (key == -1)
 		return -errno;
-
 
 	/*
 	 * Attach to message queue. This message queue should always exist
@@ -320,9 +313,7 @@ static int totp_mq_start(bool restart)
 	}
 
 	/* Start server. */
-	ret = totp_mq_start_server(restart);
-	if (ret)
-		goto out;
+	CKINT(totp_mq_start_server(restart));
 
 	/* Start client. */
 	ret = totp_mq_start_client();
@@ -372,9 +363,7 @@ int totp_mq_get_val(uint32_t *totp_val)
 				/* Server died? If so, try to restart it. */
 				logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
 				       "TOTP client: Trying to respawn message queue server and client\n");
-				ret = totp_mq_start(true);
-				if (ret)
-					goto out;
+				CKINT(totp_mq_start(true));
 			}
 
 			continue;
@@ -410,7 +399,7 @@ int totp_mq_get_val(uint32_t *totp_val)
 		if (read != sizeof(msg.totp_val)) {
 			if (errno == ENOMSG) {
 				/* Server did not deliver information */
-				sleep_interruptible(1, &mq_shutdown);
+				CKINT(sleep_interruptible(1, &mq_shutdown));
 				continue;
 			} else if (errno == EIDRM) {
 				/* Server died */
@@ -422,9 +411,7 @@ int totp_mq_get_val(uint32_t *totp_val)
 			/* Server died? If so, try to restart it. */
 			logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
 			       "Client: Trying to respawn message queue server and client\n");
-			ret = totp_mq_start(true);
-			if (ret)
-				goto out;
+			CKINT(totp_mq_start(true));
 
 			continue;
 		}

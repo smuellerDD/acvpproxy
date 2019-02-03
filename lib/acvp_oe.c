@@ -290,7 +290,7 @@ static int _acvp_oe_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	ACVP_BUFFER_INIT(buf);
 	int ret, ret2;
 
-	ret2 = _acvp_process_retry_testid(testid_ctx, &buf, url);
+	ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);
 
 	CKINT(acvp_store_oe_debug(testid_ctx, &buf, ret2));
 
@@ -514,7 +514,7 @@ static int _acvp_oe_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	int ret, ret2;
 	bool found = false;
 
-	ret2 = _acvp_process_retry_testid(testid_ctx, &buf, url);
+	ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);
 
 	CKINT(debug_logger(testid_ctx, &buf, ret2));
 

@@ -33,20 +33,8 @@
 #include "acvpproxy.h"
 #include "base64.h"
 #include "logger.h"
+#include "ret_checkers.h"
 #include "term_colors.h"
-
-#define CKINT(x) {							\
-	ret = x;							\
-	if (ret < 0)							\
-		goto out;						\
-}
-
-#define CKNULL(v, r) {							\
-	if (!v) {							\
-		ret = r;						\
-		goto out;						\
-	}								\
-}
 
 #define OPT_STR_TOTPLASTGEN		"totpLastGen"
 #define OPT_STR_TLSKEYFILE		"tlsKeyFile"
@@ -894,8 +882,7 @@ static int do_register(struct opt_data *opts)
 		ret = 0;
 
 out:
-	if (ctx)
-		acvp_ctx_release(ctx);
+	acvp_ctx_release(ctx);
 	return ret;
 }
 
@@ -946,8 +933,7 @@ static int do_submit(struct opt_data *opts)
 		ret = ret2;
 
 out:
-	if (ctx)
-		acvp_ctx_release(ctx);
+	acvp_ctx_release(ctx);
 	return ret;
 }
 
@@ -963,8 +949,7 @@ static int do_publish(struct opt_data *opts)
 	CKINT(acvp_publish(ctx));
 
 out:
-	if (ctx)
-		acvp_ctx_release(ctx);
+	acvp_ctx_release(ctx);
 	return ret;
 }
 
@@ -979,8 +964,7 @@ static int do_fetch_cipher_options(struct opt_data *opts)
 			      opts->cipher_options_file));
 
 out:
-	if (ctx)
-		acvp_ctx_release(ctx);
+	acvp_ctx_release(ctx);
 	return ret;
 }
 

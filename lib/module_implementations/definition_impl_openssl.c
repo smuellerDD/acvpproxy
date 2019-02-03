@@ -104,26 +104,9 @@ static const struct def_algo_prereqs openssl_gcm_prereqs[] = {
  **************************************************************************/
 #define OPENSSL_SHA(x)	GENERIC_SHA(x)
 #define OPENSSL_HMAC(x)	GENERIC_HMAC(x)
-
 #define OPENSSL_CMAC_AES						\
-	{								\
-	.type = DEF_ALG_TYPE_CMAC,					\
-	.algo = {							\
-		.cmac = {						\
-			.algorithm = ACVP_CMAC_AES,			\
-			.prereqvals = {					\
-				.algorithm = "AES",			\
-				.valvalue = "same"			\
-				},					\
-			.direction = DEF_ALG_CMAC_GENERATION |		\
-				     DEF_ALG_CMAC_VERIFICATION,		\
-			.keylen = DEF_ALG_SYM_KEYLEN_128 |		\
-				  DEF_ALG_SYM_KEYLEN_192 |		\
-				  DEF_ALG_SYM_KEYLEN_256,		\
-			.msglen = { 128, 256, 136, 264, 524288 }	\
-			}						\
-		},							\
-	}
+	GENERIC_CMAC_AES((DEF_ALG_SYM_KEYLEN_128 | DEF_ALG_SYM_KEYLEN_192 | \
+			 DEF_ALG_SYM_KEYLEN_256))
 
 #define OPENSSL_CMAC_TDES						\
 	{								\
@@ -365,7 +348,7 @@ static const struct def_algo_prereqs openssl_rsa_prereqs[] = {
 #define OPENSSL_RSA_KEYGEN_CAPS_COMMON					\
 	.rsa_primetest = DEF_ALG_RSA_PRIMETEST_C2,
 
-const struct def_algo_rsa_keygen_caps openssl_rsa_keygen_caps[] = { {
+static const struct def_algo_rsa_keygen_caps openssl_rsa_keygen_caps[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
 	OPENSSL_RSA_KEYGEN_CAPS_COMMON
 }, {
@@ -377,13 +360,13 @@ const struct def_algo_rsa_keygen_caps openssl_rsa_keygen_caps[] = { {
 //	OPENSSL_RSA_KEYGEN_CAPS_COMMON
 } };
 
-const struct def_algo_rsa_keygen openssl_rsa_keygen = {
+static const struct def_algo_rsa_keygen openssl_rsa_keygen = {
 	.rsa_randpq = DEF_ALG_RSA_PQ_B33_PRIMES,
 	.capabilities = openssl_rsa_keygen_caps,
 	.capabilities_num = ARRAY_SIZE(openssl_rsa_keygen_caps),
 };
 
-const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
+static const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
 	.pubexpmode = DEF_ALG_RSA_PUBEXTMODE_RANDOM,
 	.keyformat = DEF_ALG_RSA_KEYFORMAT_STANDARD,
 };
@@ -406,7 +389,7 @@ const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
 	.hashalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |\
 		   ACVP_SHA512
 
-const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps[] = { {
+static const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
 	OPENSSL_RSA_SIGGEN_CAPS_COMMON
 }, {
@@ -418,7 +401,7 @@ const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps[] = { {
 //	OPENSSL_RSA_SIGGEN_CAPS_COMMON
 } };
 
-const struct def_algo_rsa_siggen openssl_rsa_siggen[] = { {
+static const struct def_algo_rsa_siggen openssl_rsa_siggen[] = { {
 	.sigtype = DEF_ALG_RSA_SIGTYPE_PKCS1V15,
 	.capabilities = openssl_rsa_siggen_caps,
 	.capabilities_num = ARRAY_SIZE(openssl_rsa_siggen_caps),
@@ -441,7 +424,7 @@ const struct def_algo_rsa_siggen openssl_rsa_siggen[] = { {
 	.hashalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |\
 		   ACVP_SHA512
 
-const struct def_algo_rsa_sigver_caps openssl_rsa_sigver_caps[] = { {
+static const struct def_algo_rsa_sigver_caps openssl_rsa_sigver_caps[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
 	OPENSSL_RSA_SIGVER_CAPS_COMMON,
 }, {
@@ -453,13 +436,13 @@ const struct def_algo_rsa_sigver_caps openssl_rsa_sigver_caps[] = { {
 //	OPENSSL_RSA_SIGVER_CAPS_COMMON,
 } };
 
-const struct def_algo_rsa_sigver openssl_rsa_sigver[] = { {
+static const struct def_algo_rsa_sigver openssl_rsa_sigver[] = { {
 	.sigtype = DEF_ALG_RSA_SIGTYPE_PKCS1V15,
 	.capabilities = openssl_rsa_sigver_caps,
 	.capabilities_num = ARRAY_SIZE(openssl_rsa_sigver_caps),
 } };
 
-struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
+static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
 	.pubexpmode = DEF_ALG_RSA_PUBEXTMODE_RANDOM,
 };
 
@@ -798,6 +781,18 @@ static const struct def_algo openssl_sha [] = {
 	OPENSSL_KAS_FFC,
 };
 
+static const struct def_algo openssl_sha3 [] = {
+	OPENSSL_SHA(ACVP_SHA3_224),
+	OPENSSL_SHA(ACVP_SHA3_256),
+	OPENSSL_SHA(ACVP_SHA3_384),
+	OPENSSL_SHA(ACVP_SHA3_512),
+
+	OPENSSL_HMAC(ACVP_HMACSHA3_224),
+	OPENSSL_HMAC(ACVP_HMACSHA3_256),
+	OPENSSL_HMAC(ACVP_HMACSHA3_384),
+	OPENSSL_HMAC(ACVP_HMACSHA3_512),
+};
+
 /**************************************************************************
  * Register operation
  **************************************************************************/
@@ -923,6 +918,24 @@ static struct def_algo_map openssl_algo_map [] = {
 		.algo_name = "OpenSSL",
 		.processor = "X86",
 		.impl_name = "SHA_ASM"
+	}, {
+	/* OpenSSL SHA3 AVX2 implementation ***********************************/
+		SET_IMPLEMENTATION(openssl_sha3),
+		.algo_name = "OpenSSL",
+		.processor = "X86",
+		.impl_name = "SHA3_AVX2"
+	}, {
+	/* OpenSSL SHA3 AVX512 implementation *********************************/
+		SET_IMPLEMENTATION(openssl_sha3),
+		.algo_name = "OpenSSL",
+		.processor = "X86",
+		.impl_name = "SHA3_AVX512"
+	}, {
+	/* OpenSSL SHA3 assembler implementation ******************************/
+		SET_IMPLEMENTATION(openssl_sha3),
+		.algo_name = "OpenSSL",
+		.processor = "X86",
+		.impl_name = "SHA3_ASM"
 	},
 };
 
