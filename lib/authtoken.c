@@ -44,7 +44,7 @@ int acvp_init_auth(struct acvp_testid_ctx *testid_ctx)
 	if (!testid_ctx->server_auth)
 		return -ENOMEM;
 
-	mutex_init(&testid_ctx->server_auth->mutex, 0, 0);
+	mutex_init(&testid_ctx->server_auth->mutex, 0);
 
 	return 0;
 }
@@ -60,10 +60,14 @@ static void _acvp_release_auth(struct acvp_auth_ctx *auth)
 
 void acvp_release_auth(struct acvp_testid_ctx *testid_ctx)
 {
+	struct acvp_auth_ctx *auth;
+
 	if (!testid_ctx)
 		return;
 
-	_acvp_release_auth(testid_ctx->server_auth);
+	auth = testid_ctx->server_auth;
+	_acvp_release_auth(auth);
+	mutex_destroy(&auth->mutex);
 
 	ACVP_PTR_FREE_NULL(testid_ctx->server_auth);
 }
@@ -92,12 +96,26 @@ out:
 	return ret;
 }
 
+int acvp_get_max_msg_size(const struct acvp_testid_ctx *testid_ctx,
+			  uint32_t *size)
+{
+	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
+
+	mutex_lock(&auth->mutex);
+	*size = auth->max_reg_msg_size;
+	mutex_unlock(&auth->mutex);
+
+	return 0;
+}
+
 static int acvp_process_login(const struct acvp_testid_ctx *testid_ctx,
 			      struct acvp_buf *response)
 {
+	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct json_object *req = NULL, *entry = NULL;
 	const char *otp_accesstoken;
 	int ret;
+	bool largeendpoint;
 
 	if (!response->buf || !response->len) {
 		logger(LOGGER_ERR, LOGGER_C_ANY, "No response data found\n");
@@ -123,6 +141,33 @@ static int acvp_process_login(const struct acvp_testid_ctx *testid_ctx,
 	 * as we do not need it any more.
 	 */
 	CKINT(json_get_string(entry, "accessToken", &otp_accesstoken));
+
+	/* Get the size constraint information. */
+	auth->max_reg_msg_size = UINT_MAX;
+	ret = json_get_bool(entry, "largeEndpointRequired", &largeendpoint);
+	if (!ret && largeendpoint) {
+		unsigned long val;
+		const char *sizeconstraint;
+
+		CKINT(json_get_string(entry, "sizeConstraintMessage",
+				      &sizeconstraint));
+
+		val = strtoul(sizeconstraint, NULL, 10);
+		if (val >= UINT_MAX) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Cannot parse message size constraint string into 32 bit integer: %s\n",
+			       sizeconstraint);
+			ret = -ERANGE;
+			goto out;
+		}
+
+		auth->max_reg_msg_size = (uint32_t)val;
+	}
+
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Maximum message size: %u\n",
+	       auth->max_reg_msg_size);
+
+	/* Set the JWT token for use and write it to the data store */
 	CKINT(acvp_set_authtoken(testid_ctx, otp_accesstoken));
 
 out:

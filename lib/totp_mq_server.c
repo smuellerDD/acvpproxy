@@ -27,6 +27,7 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
+#include "atomic.h"
 #include "atomic_bool.h"
 #include "bool.h"
 #include "config.h"
@@ -55,6 +56,14 @@
  * If the first ACVP proxy process terminates, it also terminates the TOTP
  * server. This implies that another process will try to start the server
  * thread.
+ *
+ * In addition to the TOTP server, a TOTP ping server is started which the
+ * client can use to check whether the TOTP server is alive. This helps if
+ * the server process died with an uncaught signal and the message queue was
+ * not cleaned up properly. I.e. when the client finds a message queue but the
+ * server does not respond to a ping, the client can safely assume the server
+ * is dead, delete the message queue and start the whole message queue system
+ * again with the server and client.
  ****************************************************************************/
 
 #ifdef ACVP_TOTP_MQ_SERVER
@@ -63,9 +72,11 @@
 #define TOTP_MQ_PROJ_ID		1122334455
 #define TOTP_MSG_TYPE_PING	1 /* Ping from client to server, no data */
 #define TOTP_MSG_TYPE_TOTP	2 /* Message from server to client with TOTP */
+#define TOTP_MSG_TYPE_ECHO_REQ	3 /* Send echo request */
+#define TOTP_MSG_TYPE_ECHO_REP	4 /* Send echo reply */
 
-static int mq_server = -1;
-static int mq_client = -1;
+static atomic_t mq_server = ATOMIC_INIT(-1);
+static atomic_t mq_client = ATOMIC_INIT(-1);
 
 /*
  * Mutex guards the mq_server / mq_client descriptors as well as the associated
@@ -90,6 +101,142 @@ struct totp_thread_ctx {
 	bool wait_step;
 };
 
+static void totp_mq_terminate_ipc(atomic_t *mq)
+{
+	int curr_mq = atomic_read(mq);
+
+	if (curr_mq != -1) {
+		atomic_set(-1, mq);
+		msgctl(curr_mq, IPC_RMID, NULL);
+	}
+}
+
+#ifdef ACVP_TOTP_PING_SERVER
+/* TOTP ping server thread main loop */
+static int totp_mq_pingserver_thread(void *arg)
+{
+	struct totp_msgbuf msg;
+	ssize_t read;
+	int ret;
+
+	(void)arg;
+
+	logger(LOGGER_DEBUG, LOGGER_C_MQSERVER, "Ping server started\n");
+
+	while (1) {
+		int errsv;
+
+		if (atomic_bool_read(&mq_shutdown)) {
+			ret = -ESHUTDOWN;
+			goto out;
+		}
+
+		/* Wait for ping from client */
+		msg.mtype = TOTP_MSG_TYPE_ECHO_REQ;
+
+		read = msgrcv(atomic_read(&mq_server),
+			      (void *)&msg, sizeof(msg.totp_val),
+			      TOTP_MSG_TYPE_ECHO_REQ, MSG_NOERROR);
+		errsv = errno;
+
+		/* Something during msgrcv went wrong. */
+		if (read == -1) {
+			if (errsv == EINTR) {
+				continue;
+			} else {
+				ret = -errsv;
+				goto out;
+			}
+		}
+
+		/* Send reply. */
+		msg.mtype = TOTP_MSG_TYPE_ECHO_REP;
+		msg.totp_val = 0;
+		ret = msgsnd(atomic_read(&mq_server),
+			     (void*)&msg, sizeof(msg.totp_val), 0);
+		if (ret) {
+			logger(LOGGER_WARN, LOGGER_C_MQSERVER,
+			       "Server: sending TOTP echo reply failed (%d)\n",
+			       errno);
+		} else {
+			logger(LOGGER_DEBUG2, LOGGER_C_MQSERVER,
+			       "Server: echo reply value delivered to client\n");
+		}
+	}
+
+out:
+	logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER, "terminate ping server\n");
+	atomic_bool_set_true(&mq_shutdown);
+
+	return ret;
+}
+
+static int totp_mq_start(bool restart);
+static int totp_mq_ping_server(void)
+{
+	struct totp_msgbuf msg;
+	ssize_t read;
+	int ret, i;
+
+	/* Ping server to check whether it is alive */
+	logger(LOGGER_DEBUG2, LOGGER_C_MQSERVER,
+	       "Client: Send echo request to TOTP server\n");
+
+	msg.mtype = TOTP_MSG_TYPE_ECHO_REQ;
+	msg.totp_val = 0;
+
+	ret = msgsnd(atomic_read(&mq_client),
+		     (void *)&msg, sizeof(msg.totp_val), 0);
+	if (ret) {
+		int errsv = errno;
+
+		/*
+		 * EINVAL is returned on Linux when the server died
+		 */
+		if ((errsv == EIDRM || errsv == EINVAL) &&
+		    !atomic_bool_read(&mq_shutdown)) {
+			/* Server died? If so, try to restart it. */
+			logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
+			       "TOTP client: Trying to respawn message queue server and client\n");
+			return EAGAIN;
+		}
+	}
+
+	/* Get TOTP value from server */
+	msg.mtype = TOTP_MSG_TYPE_ECHO_REP;
+
+	/* Use a busy-wait loop to monitor mq_shutdown. */
+	for (i = 0; i < 10; i++) {
+		const struct timespec sleeptime = {.tv_sec = 0,
+						   .tv_nsec = 1 << 27 };
+
+		read = msgrcv(atomic_read(&mq_client), (void *)&msg,
+			      sizeof(msg.totp_val),
+			      TOTP_MSG_TYPE_ECHO_REP, MSG_NOERROR | IPC_NOWAIT);
+
+		if (read > 0)
+			break;
+		if (atomic_bool_read(&mq_shutdown))
+			return -ESHUTDOWN;
+
+		if (read < 0 && errno != ENOMSG)
+			break;
+		nanosleep(&sleeptime, NULL);
+	}
+
+	if (read != sizeof(msg.totp_val)) {
+		logger(LOGGER_WARN, LOGGER_C_MQSERVER,
+		       "TOTP server seems to have died, restarting\n");
+		return EAGAIN;
+	}
+
+	return 0;
+}
+#else
+static int totp_mq_pingserver_thread(void *arg) { (void)arg; return 0; }
+static int totp_mq_ping_server(void) { return 0; }
+#endif /* ACVP_TOTP_PING_SERVER */
+
 /* TOTP server thread main loop */
 static int totp_mq_server_thread(void *arg)
 {
@@ -109,6 +256,8 @@ static int totp_mq_server_thread(void *arg)
 
 	/* Wait a step size as requested when instantiating server. */
 	if (wait_step) {
+		logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
+		       "Waiting for one step size before starting server\n");
 		CKINT(sleep_interruptible(TOTP_STEP_SIZE, &mq_shutdown));
 	}
 
@@ -118,14 +267,13 @@ static int totp_mq_server_thread(void *arg)
 
 		/* Wait for ping from client */
 		msg.mtype = TOTP_MSG_TYPE_PING;
-		mutex_reader_lock(&mq_lock);
-		read = msgrcv(mq_server, (void *)&msg, sizeof(msg.totp_val),
+		read = msgrcv(atomic_read(&mq_server),
+			      (void *)&msg, sizeof(msg.totp_val),
 			      TOTP_MSG_TYPE_PING, MSG_NOERROR);
 		errsv = errno;
 
 		/* Something during msgrcv went wrong. */
 		if (read == -1) {
-			mutex_reader_unlock(&mq_lock);
 			if (errsv == EINTR) {
 				continue;
 			} else {
@@ -140,7 +288,6 @@ static int totp_mq_server_thread(void *arg)
 			ret = totp_get_val(&msg.totp_val);
 
 			if (atomic_bool_read(&mq_shutdown)) {
-				mutex_reader_unlock(&mq_lock);
 				ret = -ESHUTDOWN;
 				goto out;
 			}
@@ -157,8 +304,8 @@ static int totp_mq_server_thread(void *arg)
 
 		/* Send TOTP value. */
 		msg.mtype = TOTP_MSG_TYPE_TOTP;
-		ret = msgsnd(mq_server, (void*)&msg, sizeof(msg.totp_val), 0);
-		mutex_reader_unlock(&mq_lock);
+		ret = msgsnd(atomic_read(&mq_server),
+			     (void*)&msg, sizeof(msg.totp_val), 0);
 		if (ret) {
 			logger(LOGGER_WARN, LOGGER_C_MQSERVER,
 			       "Server: sending TOTP value failed (%d)\n",
@@ -176,8 +323,8 @@ out:
 	 * Do not lock this operation as the invocation of the server already
 	 * is performed with the lock taken.
 	 */
-	msgctl(mq_server, IPC_RMID, NULL);
-	mq_server = -1;
+	totp_mq_terminate_ipc(&mq_server);
+
 	return ret;
 }
 
@@ -186,7 +333,7 @@ static int totp_mq_start_server(bool wait_step)
 	key_t key;
 	int ret = 0;
 
-	if (mq_server != -1)
+	if (atomic_read(&mq_server) != -1)
 		return 0;
 
 	/* Generate message queue key that is known to everybody. */
@@ -195,10 +342,8 @@ static int totp_mq_start_server(bool wait_step)
 		return -errno;
 
 	/* Create message queue. */
-	mutex_lock(&mq_lock);
-	mq_server = msgget(key, (IPC_CREAT | IPC_EXCL | 0600));
-	mutex_unlock(&mq_lock);
-	if (mq_server == -1) {
+	atomic_set(msgget(key, (IPC_CREAT | IPC_EXCL | 0600)), &mq_server);
+	if (atomic_read(&mq_server) == -1) {
 		int errsv = errno;
 
 		/* Creation failed with an error other than EEXIST. */
@@ -211,10 +356,20 @@ static int totp_mq_start_server(bool wait_step)
 		}
 
 		/*
-		 * If we reach here, EEXIST is returned -- we do not set up the
-		 * server as another process set up the server already. Thus,
-		 * we do not need to set it up again.
+		 * If we reach here, EEXIST is returned -- in this case,
+		 * we remove the message queue unconditionally when we start
+		 * up. This implies that even a valid server is terminated and
+		 * there is a new election process to start a new server.
 		 */
+		if (!wait_step) {
+			int tmpmq = msgget(key, 0);
+
+			if (tmpmq != -1) {
+				msgctl(tmpmq, IPC_RMID, NULL);
+			}
+
+			return EEXIST;
+		}
 
 	} else {
 		struct totp_thread_ctx *ctx;
@@ -236,6 +391,16 @@ static int totp_mq_start_server(bool wait_step)
 			       "Server: TOTP server ancestor thread returned with %d\n",
 			       ret_ancestor);
 		}
+
+		/* Start ping server. */
+		CKINT(thread_start(totp_mq_pingserver_thread, NULL,
+				   ACVP_THREAD_TOTP_PINGSERVER_GROUP,
+				   &ret_ancestor));
+		if (ret_ancestor) {
+			logger(LOGGER_WARN, LOGGER_C_MQSERVER,
+			       "Server: TOTP ping server ancestor thread returned with %d\n",
+			       ret_ancestor);
+		}
 	}
 
 out:
@@ -245,8 +410,9 @@ out:
 static int totp_mq_start_client(void)
 {
 	key_t key;
+	int ret;
 
-	if (mq_client != -1)
+	if (atomic_read(&mq_client) != -1)
 		return 0;
 
 	/* Generate message queue key that is known to everybody. */
@@ -260,10 +426,8 @@ static int totp_mq_start_client(void)
 	 * of the server thread it was identified that there is already a
 	 * server.
 	 */
-	mutex_lock(&mq_lock);
-	mq_client = msgget(key, 0);
-	mutex_unlock(&mq_lock);
-	if (mq_client == -1) {
+	atomic_set(msgget(key, 0), &mq_client);
+	if (atomic_read(&mq_client) == -1) {
 		int errsv = -errno;
 
 		/*
@@ -272,18 +436,8 @@ static int totp_mq_start_client(void)
 		 * that server died before we are able to set up the client
 		 * message queue, the client will not be initialized.
 		 */
-		if (errsv == -ENOENT) {
-			/* Re-spawn server and client. */
-			if (!totp_mq_start_server(true)) {
-				mutex_lock(&mq_lock);
-				mq_client = msgget(key, 0);
-				mutex_unlock(&mq_lock);
-				if (mq_client == -1)
-					errsv = -errno;
-				else
-					goto success;
-			}
-		}
+		if (errsv == -ENOENT)
+			return EAGAIN;
 
 		logger(LOGGER_WARN, LOGGER_C_MQSERVER,
 			"Client: Message queue client could not be initialized (%d)\n",
@@ -291,34 +445,47 @@ static int totp_mq_start_client(void)
 		return errsv;
 	}
 
-success:
-	logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
-	       "Client: Message queue client initialized\n");
+	ret = totp_mq_ping_server();
+	if (ret < 0)
+		return ret;
 
-	return 0;
+	return ret;
 }
 
 static int totp_mq_start(bool restart)
 {
+	unsigned int attempts = 10;
 	int ret;
 
 	atomic_bool_set_false(&mq_shutdown);
 
-	/* Terminate local client if exist. */
-	if (mq_client != -1) {
-		mutex_lock(&mq_lock);
-		msgctl(mq_client, IPC_RMID, NULL);
-		mq_client = -1;
-		mutex_unlock(&mq_lock);
+	mutex_lock(&mq_lock);
+
+	do {
+		/* Terminate local client if exist. */
+		totp_mq_terminate_ipc(&mq_client);
+
+		/* Start server. */
+		do {
+			CKINT(totp_mq_start_server(restart));
+			restart = true;
+		} while (ret == EEXIST && attempts--);
+
+		/* Start client. */
+		ret = totp_mq_start_client();
+	} while (ret == EAGAIN && attempts--);
+
+	if (ret == EAGAIN) {
+		logger(LOGGER_ERR, LOGGER_C_MQSERVER,
+		       "Failed to start the server and client\n");
+		ret = -EOPNOTSUPP;
+
+		atomic_set(-1, &mq_client);
+		atomic_set(-1, &mq_server);
 	}
 
-	/* Start server. */
-	CKINT(totp_mq_start_server(restart));
-
-	/* Start client. */
-	ret = totp_mq_start_client();
-
 out:
+	mutex_unlock(&mq_lock);
 	return ret;
 }
 
@@ -329,7 +496,7 @@ int totp_mq_get_val(uint32_t *totp_val)
 	unsigned int retries = 0;
 	int ret;
 
-	if (mq_client == -1) {
+	if (atomic_read(&mq_client) == -1) {
 		ret = -EOPNOTSUPP;
 		goto out;
 	}
@@ -348,12 +515,10 @@ int totp_mq_get_val(uint32_t *totp_val)
 		msg.mtype = TOTP_MSG_TYPE_PING;
 		msg.totp_val = 0;
 
-		mutex_reader_lock(&mq_lock);
-		ret = msgsnd(mq_client, (void *)&msg, sizeof(msg.totp_val), 0);
+		ret = msgsnd(atomic_read(&mq_client),
+			     (void *)&msg, sizeof(msg.totp_val), 0);
 		if (ret) {
 			int errsv = errno;
-
-			mutex_reader_unlock(&mq_lock);
 
 			/*
 			 * EINVAL is returned on Linux when the server died
@@ -377,7 +542,24 @@ int totp_mq_get_val(uint32_t *totp_val)
 			const struct timespec sleeptime = {.tv_sec = 0,
 							   .tv_nsec = 1 << 27 };
 
-			read = msgrcv(mq_client, (void *)&msg,
+			/*
+			 * Ping the server to see whether it is alive. If not,
+			 * the call will trigger a restart of the server.
+			 */
+			CKINT(totp_mq_ping_server());
+
+			/*
+			 * If the server was restarted, break this loop to
+			 * submit the msgsnd request again.
+			 */
+			if (ret == EAGAIN)
+				break;
+
+			/*
+			 * Poll for the TOTP value that the server should
+			 * deliver at some point.
+			 */
+			read = msgrcv(atomic_read(&mq_client), (void *)&msg,
 				      sizeof(msg.totp_val),
 				      TOTP_MSG_TYPE_TOTP,
 				      MSG_NOERROR | IPC_NOWAIT);
@@ -391,10 +573,17 @@ int totp_mq_get_val(uint32_t *totp_val)
 
 			if (read < 0 && errno != ENOMSG)
 				break;
+
+			/* We got no message, sleep and then poll again. */
 			nanosleep(&sleeptime, NULL);
 		}
 
-		mutex_reader_unlock(&mq_lock);
+		/*
+		 * The server and the message queue was re-initialized, so we
+		 * need to re-send our TOTP request.
+		 */
+		if (ret == EAGAIN)
+			continue;
 
 		if (read != sizeof(msg.totp_val)) {
 			if (errno == ENOMSG) {
@@ -439,14 +628,11 @@ void totp_mq_release(void)
 {
 	atomic_bool_set_true(&mq_shutdown);
 
-	if (mq_server != -1) {
-		/*
-		 * In case the server thread was canceled, clean up the message
-		 * queue here which also causes the server to terminate.
-		 */
-		msgctl(mq_server, IPC_RMID, NULL);
-		mq_server = -1;
-	}
+	/*
+	 * In case the server thread was canceled, clean up the message
+	 * queue here which also causes the server to terminate.
+	 */
+	totp_mq_terminate_ipc(&mq_server);
 
 	/* NO cleanup of mq_client as this will impact the server! */
 }

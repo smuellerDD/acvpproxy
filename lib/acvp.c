@@ -83,6 +83,7 @@ static void acvp_release_datastore(struct acvp_datastore_ctx *datastore)
 	ACVP_PTR_FREE_NULL(datastore->resultsfile);
 	ACVP_PTR_FREE_NULL(datastore->vectorfile);
 	ACVP_PTR_FREE_NULL(datastore->jwttokenfile);
+	ACVP_PTR_FREE_NULL(datastore->messagesizeconstraint);
 	ACVP_PTR_FREE_NULL(datastore->verdictfile);
 	ACVP_PTR_FREE_NULL(datastore->processedfile);
 	ACVP_PTR_FREE_NULL(datastore->srcserver);
@@ -323,8 +324,10 @@ int acvp_set_module(struct acvp_ctx *ctx,
 	ctx_search = &datastore->search;
 
 	if (specific_ver) {
-		if (modinfo->specificver)
+		if (modinfo->specificver) {
 			free(modinfo->specificver);
+			modinfo->specificver = NULL;
+		}
 		CKINT(acvp_duplicate(&modinfo->specificver, specific_ver));
 		CKINT(acvp_duplicate(&modinfo->specificver_filesafe,
 				     specific_ver));
@@ -494,6 +497,8 @@ int acvp_ctx_init(struct acvp_ctx **ctx,
 	CKINT(acvp_duplicate(&datastore->resultsfile, ACVP_DS_TESTRESPONSE));
 	CKINT(acvp_duplicate(&datastore->vectorfile, ACVP_DS_TESTREQUEST));
 	CKINT(acvp_duplicate(&datastore->jwttokenfile, ACVP_DS_JWTAUTHTOKEN));
+	CKINT(acvp_duplicate(&datastore->messagesizeconstraint,
+			     ACVP_DS_MESSAGESIZECONSTRAINT));
 	CKINT(acvp_duplicate(&datastore->verdictfile, ACVP_DS_VERDICT));
 	CKINT(acvp_duplicate(&datastore->processedfile, ACVP_DS_PROCESSED));
 	CKINT(acvp_duplicate(&datastore->srcserver, ACVP_DS_SRCSERVER));

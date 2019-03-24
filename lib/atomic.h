@@ -52,7 +52,7 @@ static inline int atomic_read(const atomic_t *v)
 {
 	int i;
 
-	mb();	
+	mb();
 	i = ((v)->counter);
 	mb();
 

@@ -68,6 +68,12 @@ echo_deact()
 	echo $(color "yellow")[DEACTIVATED]$(color off) $@
 }
 
+echo_info()
+{
+	echo $(color "blue")[INFO]$(color off) $@
+}
+
+
 echo_final()
 {
 	echo "==================================================="

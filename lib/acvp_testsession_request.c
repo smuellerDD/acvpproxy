@@ -348,7 +348,6 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 			    const struct acvp_buf *buf, int err))
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
-	const struct acvp_net_ctx *net;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_na_ex netinfo;
 	struct json_object *resp = NULL, *data = NULL;
@@ -376,8 +375,7 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 	 * Do not use CKINT here to allow storing the server response as
 	 * debug message in any case, even if there is an error.
 	 */
-	CKINT(acvp_get_net(&net));
-	netinfo.net = net;
+	CKINT(acvp_get_net(&netinfo.net));
 	netinfo.url = url;
 	netinfo.server_auth = testid_ctx->server_auth;
 	mutex_reader_lock(&auth->mutex);
@@ -672,7 +670,7 @@ static int acvp_process_vectors(struct acvp_testid_ctx *testid_ctx,
 		vsid_ctx->vsid = vsid_array.vsids[i];
 		if (clock_gettime(CLOCK_REALTIME, &vsid_ctx->start)) {
 			ret = -errno;
-			free(vsid_ctx);
+			acvp_release_vsid_ctx(vsid_ctx);
 			goto out;
 		}
 
@@ -882,7 +880,6 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
-	const struct acvp_net_ctx *net;
 	struct acvp_na_ex netinfo;
 	struct json_object *request = NULL;
 	ACVP_BUFFER_INIT(register_buf);
@@ -931,8 +928,7 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_create_url(NIST_VAL_OP_REG, url, sizeof(url)));
 
 	/* Send the capabilities to the ACVP server. */
-	CKINT(acvp_get_net(&net));
-	netinfo.net = net;
+	CKINT(acvp_get_net(&netinfo.net));
 	netinfo.url = url;
 	netinfo.server_auth = testid_ctx->server_auth;
 	mutex_reader_lock(&testid_ctx->server_auth->mutex);

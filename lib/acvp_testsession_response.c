@@ -184,32 +184,25 @@ out:
 
 /* POST, PUT /testSessions/<testSessionId>/vectorSets/<vectorSetId>/results */
 static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
-				const struct acvp_buf *buf)
+				const struct acvp_buf *buf,
+				const char *url)
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
-	const struct acvp_ctx *ctx;
-	const struct acvp_net_ctx *net;
-	const struct acvp_datastore_ctx *datastore;
-	struct acvp_auth_ctx *auth;
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
+	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_na_ex netinfo;
 	ACVP_BUFFER_INIT(tmp);
 	ACVP_BUFFER_INIT(result);
-	char url[ACVP_NET_URL_MAXLEN];
 	int ret, ret2;
 
-	ctx = testid_ctx->ctx;
-	datastore = &ctx->datastore;
-	auth = testid_ctx->server_auth;
+	CKNULL_LOG(url, -EFAULT, "URL missing\n");
 
 	/* Refresh the ACVP JWT token by re-logging in. */
 	CKINT(acvp_login(testid_ctx));
 
-	/* Construct the URL to submit the results for the given vsID to. */
-	CKINT(acvp_vsid_verdict_url(vsid_ctx, url, sizeof(url)));
-
 	/* Send the data */
-	CKINT(acvp_get_net(&net));
-	netinfo.net = net;
+	CKINT(acvp_get_net(&netinfo.net));
 	netinfo.url = url;
 	netinfo.server_auth = auth;
 	mutex_reader_lock(&auth->mutex);
@@ -220,7 +213,8 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 	mutex_reader_unlock(&auth->mutex);
 
 	logger(ret2 ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Process following server response: %s\n", result.buf);
+	       "Process following server response: %s\n",
+	       (result.buf) ? (char *)result.buf : "<no data>");
 
 	/* Store the debug information */
 	if (result.buf && result.len)
@@ -249,18 +243,114 @@ out:
 	return ret;
 }
 
+
+/* POST /large */
+static int acvp_check_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
+				     const struct acvp_buf *submit_buf)
+{
+	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
+	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
+	struct acvp_na_ex netinfo;
+	ACVP_BUFFER_INIT(received_buf);
+	ACVP_BUFFER_INIT(large_req_buf);
+	struct json_object *req = NULL, *entry = NULL, *large = NULL;
+	uint32_t max_msg_size;
+	char url[ACVP_NET_URL_MAXLEN];
+	const char *str, *json_large;
+	int ret;
+
+	/* Refresh the ACVP JWT token and max msg size by re-logging in. */
+	CKINT(acvp_login(testid_ctx));
+
+	CKINT(acvp_get_max_msg_size(testid_ctx, &max_msg_size));
+
+	if (max_msg_size >= submit_buf->len) {
+		/*
+		 * Construct the URL to submit the results for the given
+		 * vsID to.
+		 */
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Sending response to regular endpoint\n");
+		CKINT(acvp_vsid_verdict_url(vsid_ctx, url, sizeof(url)));
+		return acvp_response_upload(vsid_ctx, submit_buf, url);
+	}
+
+	logger(LOGGER_DEBUG, LOGGER_C_ANY,
+	       "Sending response to large endpoint\n");
+	CKINT(acvp_create_url(NIST_VAL_OP_LARGE, url, sizeof(url)));
+
+	/* Large request to be send */
+	large = json_object_new_array();
+	CKNULL(large, -ENOMEM);
+
+	CKINT(acvp_req_add_version(large));
+
+	entry = json_object_new_object();
+	CKNULL(entry, ENOMEM);
+	json_object_object_add(entry, "submissionSize",
+			       json_object_new_int(submit_buf->len));
+	CKINT(json_object_array_add(large, entry));
+	entry = NULL;
+
+	/* Convert the JSON buffer into a string */
+	json_large = json_object_to_json_string_ext(large,
+					JSON_C_TO_STRING_PLAIN |
+					JSON_C_TO_STRING_NOSLASHESCAPE);
+	CKNULL_LOG(json_large, -EFAULT,
+		   "JSON object conversion into string failed\n");
+
+	logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+	       "Requesting large endpoint for data size %u\n", submit_buf->len);
+
+	large_req_buf.buf = (uint8_t *)json_large;
+	large_req_buf.len = strlen(json_large);
+
+	/* Send the data */
+	CKINT(acvp_get_net(&netinfo.net));
+	netinfo.url = url;
+	netinfo.server_auth = auth;
+	mutex_reader_lock(&auth->mutex);
+	ret = na->acvp_http_post(&netinfo, &large_req_buf, &received_buf);
+	mutex_reader_unlock(&auth->mutex);
+
+	logger(ret ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
+	       "Process following server response: %s\n", received_buf.buf);
+
+	if (ret)
+		goto out;
+
+	/*
+	 * Strip the version from the received array and return the array
+	 * entry containing the answer.
+	 */
+	CKINT(acvp_req_strip_version(received_buf.buf, &req, &entry));
+
+	/* We know we are not modifying str, so constify is ok here */
+	CKINT(json_get_string(entry, "XXXXXX", (const char **)&str));
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Received large endpoint URI: %s\n",
+	       str);
+
+	//FIXME parse and validate str
+	CKINT(acvp_create_url(str, url, sizeof(url)));
+	CKINT(acvp_response_upload(vsid_ctx, submit_buf, url));
+
+out:
+	ACVP_JSON_PUT_NULL(large);
+	ACVP_JSON_PUT_NULL(req);
+	acvp_free_buf(&received_buf);
+	return ret;
+}
+
 static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 				    const struct acvp_buf *buf)
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
-	const struct acvp_ctx *ctx;
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	const struct acvp_net_ctx *net;
-	const struct acvp_datastore_ctx *datastore;
 	ACVP_BUFFER_INIT(tmp);
 	int ret;
 
-	ctx = testid_ctx->ctx;
-	datastore = &ctx->datastore;
 	CKINT(acvp_get_net(&net));
 
 	tmp.buf = (uint8_t *)net->server_name;
@@ -295,7 +385,7 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 	 * requested by user.
 	 */
 	if (!vsid_ctx->verdict_file_present || vsid_ctx->resubmit_result) {
-		CKINT(acvp_response_upload(vsid_ctx, buf));
+		CKINT(acvp_check_large_endpoint(vsid_ctx, buf));
 	}
 
 	CKINT(acvp_get_vsid_verdict(vsid_ctx));

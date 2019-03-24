@@ -165,6 +165,10 @@ int acvp_req_strip_version(const uint8_t *buf,
 			struct json_object *found =
 					json_object_array_get_idx(resp, i);
 
+			CKNULL_LOG(found, -EINVAL,
+				   "Cannot get array member at location %u\n",
+				   i);
+
 			/* discard version information */
 			if (json_object_object_get_ex(found, "acvVersion",
 						      NULL))

@@ -36,11 +36,15 @@
 #include "ret_checkers.h"
 #include "term_colors.h"
 
+#include "macos.h"
+
 #define OPT_STR_TOTPLASTGEN		"totpLastGen"
 #define OPT_STR_TLSKEYFILE		"tlsKeyFile"
 #define OPT_STR_TLSCERTFILE		"tlsCertFile"
 #define OPT_STR_TLSKEYPASSCODE		"tlsKeyPasscode"
 #define OPT_STR_TOTPSEEDFILE		"totpSeedFile"
+
+#define OPT_CIPHER_OPTIONS_MAX		512
 
 struct opt_data {
 	struct acvp_search_ctx search;
@@ -59,7 +63,8 @@ struct opt_data {
 	char *secure_basedir;
 	char *definition_basedir;
 	char *cipher_options_file;
-	char *cipher_options_algo;
+	char *cipher_options_algo[OPT_CIPHER_OPTIONS_MAX];
+	size_t cipher_options_algo_idx;
 
 	bool request;
 	bool publish;
@@ -332,12 +337,8 @@ static void usage(void)
 	fprintf(stderr, "\t   --register-vendor\t\tRegister vendor definition with ACVP\n");
 	fprintf(stderr, "\t   --register-oe\t\tRegister OE definition with ACVP\n\n");
 
-	fprintf(stderr, "\t   --cipher-options <FILE>\tGet cipher options from ACVP server\n");
+	fprintf(stderr, "\t   --cipher-options <DIR>\tGet cipher options from ACVP server\n");
 	fprintf(stderr, "\t   --cipher-algo <ALGO>\t\tGet cipher options particular cipher\n");
-	fprintf(stderr, "\t\t\t\t\t--cipher-options alone returns a list\n");
-	fprintf(stderr, "\t\t\t\t\tof supported ciphers. Together with\n");
-	fprintf(stderr, "\t\t\t\t\t--cipher-algo, a list with all\n");
-	fprintf(stderr, "\t\t\t\t\talgorithm details is obtained\n");
 
 	fprintf(stderr, "\n\t-v --verbose\t\t\tVerbose logging, multiple options\n");
 	fprintf(stderr, "\t\t\t\t\tincrease verbosity\n");
@@ -353,6 +354,7 @@ static void usage(void)
 static void free_opts(struct opt_data *opts)
 {
 	struct acvp_search_ctx *search = &opts->search;
+	size_t i;
 
 	if (search->modulename)
 		free(search->modulename);
@@ -378,8 +380,8 @@ static void free_opts(struct opt_data *opts)
 		free(opts->definition_basedir);
 	if (opts->cipher_options_file)
 		free(opts->cipher_options_file);
-	if (opts->cipher_options_algo)
-		free(opts->cipher_options_algo);
+	for (i = 0; i < opts->cipher_options_algo_idx; i++)
+		free(opts->cipher_options_algo[i]);
 	json_object_put(opts->config);
 }
 
@@ -624,8 +626,14 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 						       optarg));
 				break;
 			case 31:
-				CKINT(duplicate_string(&opts->cipher_options_algo,
+				CKINT(duplicate_string(&opts->cipher_options_algo[opts->cipher_options_algo_idx],
 						       optarg));
+				opts->cipher_options_algo_idx++;
+				if (opts->cipher_options_algo_idx >=
+				    OPT_CIPHER_OPTIONS_MAX) {
+					ret = -EOVERFLOW;
+					goto out;
+				}
 				break;
 
 			default:
@@ -961,6 +969,7 @@ static int do_fetch_cipher_options(struct opt_data *opts)
 	CKINT(initialize_ctx(&ctx, opts));
 
 	CKINT(acvp_cipher_get(ctx, opts->cipher_options_algo,
+			      opts->cipher_options_algo_idx,
 			      opts->cipher_options_file));
 
 out:
@@ -975,6 +984,8 @@ int main(int argc, char *argv[])
 
 	memset(&opts, 0, sizeof(opts));
 	global_opts = &opts;
+
+	macos_disable_nap();
 
 	logger_set_verbosity(LOGGER_ERR);
 

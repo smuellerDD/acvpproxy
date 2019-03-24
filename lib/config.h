@@ -55,6 +55,15 @@ extern "C"
 #define ACVP_TOTP_MQ_SERVER
 
 /*
+ * Use Ping server to detect stale message queue
+ *
+ * As spawning a new ACVP Proxy instance will always remove any message queue
+ * the message queue per definition cannot become stale. This implies that
+ * we do not need the ping server any more.
+ */
+#undef ACVP_TOTP_PING_SERVER
+
+/*
  * Use the secure_getenv API call instead of getenv which is prone to security
  * issues when not used correctly.
  */

@@ -55,6 +55,14 @@ struct def_algo_sha {
 	cipher_t algorithm;
 
 	/*
+	 * The message lengths in bits supported by the IUT.
+	 * Minimum allowed is 0, maximum allowed is 65535.
+	 *
+	 * required: optional
+	 */
+	int messagelength[DEF_ALG_MAX_INT];
+
+	/*
 	 * Implementation does not accept bit-oriented messages
 	 * required: always
 	 */

@@ -23,6 +23,8 @@
 
 #include <stdint.h>
 
+#include "bool.h"
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -59,9 +61,10 @@ extern "C"
  * The ACVP_THREAD_MAX_SPECIAL_GROUPS specifies how many special threading
  * groups are available.
  */
-#define ACVP_THREAD_TOTP_SERVER_GROUP	((uint32_t) -1)
-#define ACVP_THREAD_SIGHANDLER_GROUP	((uint32_t) -2)
-#define ACVP_THREAD_MAX_SPECIAL_GROUPS	2
+#define ACVP_THREAD_TOTP_SERVER_GROUP		((uint32_t) -1)
+#define ACVP_THREAD_TOTP_PINGSERVER_GROUP	((uint32_t) -2)
+#define ACVP_THREAD_SIGHANDLER_GROUP		((uint32_t) -3)
+#define ACVP_THREAD_MAX_SPECIAL_GROUPS		3
 
 /**
  * @brief - Initializiation of the threading support

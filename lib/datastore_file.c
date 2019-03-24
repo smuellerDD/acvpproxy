@@ -47,24 +47,6 @@ struct acvp_datastore_thread_ctx {
 		  const struct acvp_buf *buf);
 };
 
-/* remove wrong characters */
-static int acvp_req_check_string(char *string, unsigned int slen)
-{
-	if (!string || !slen)
-		return 0;
-
-	while (slen) {
-		if (!isalnum(*string) && *string != '_' && *string != '-' &&
-		    *string != '/' && *string != '.')
-			*string = '_';
-
-		string++;
-		slen--;
-	}
-
-	return 0;
-}
-
 static int
 acvp_datastore_write_data(const struct acvp_buf *data, const char *filename)
 {
@@ -97,6 +79,10 @@ acvp_datastore_read_data(uint8_t **buf, size_t *buflen, const char *filename)
 	uint8_t *l_buf = NULL, *ptr;
 	size_t read, l_buflen, len;
 	int ret = 0;
+
+	/* Prevent memleak */
+	if (buf && *buf)
+		return -EINVAL;
 
 	ret = stat(filename, &statbuf);
 	if (ret)
@@ -337,7 +323,7 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	const struct definition *def;
 	struct acvp_buf tmp;
 	char pathname[FILENAME_MAX / 2];
-	char authtokenfile[FILENAME_MAX];
+	char file[FILENAME_MAX], msgsize[12];
 	int ret;
 
 	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
@@ -359,11 +345,11 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 					    sizeof(pathname), true, true));
 
 	/* Write JWT access token */
-	snprintf(authtokenfile, sizeof(authtokenfile), "%s/%s",
+	snprintf(file, sizeof(file), "%s/%s",
 		 pathname, datastore->jwttokenfile);
 	tmp.buf = (uint8_t *)auth->jwt_token;
 	tmp.len = auth->jwt_token_len;
-	ret = acvp_datastore_write_data(&tmp, authtokenfile);
+	ret = acvp_datastore_write_data(&tmp, file);
 	if (ret) {
 		/*
 		 * As a safety-measure, unlink the file to avoid somebody
@@ -372,7 +358,7 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 		 * We do not care about the error code as we cannot do
 		 * anything else here.
 		 */
-		unlink(authtokenfile);
+		unlink(file);
 	} else {
 		/*
 		 * Ensure that nobody except the ACVP Proxy can access the
@@ -392,11 +378,19 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 		 * anything else here. The likelihood of an error is very
 		 * slim, as we just created and wrote the file.
 		 */
-		chmod(authtokenfile, S_IRUSR | S_IWUSR);
+		chmod(file, S_IRUSR | S_IWUSR);
 	}
 
 	logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-	       "JWT access token stored in %s\n", authtokenfile);
+	       "JWT access token stored in %s\n", file);
+
+	/* Write message size constraint information */
+	snprintf(file, sizeof(file), "%s/%s",
+		 pathname, datastore->messagesizeconstraint);
+	snprintf(msgsize, sizeof(msgsize), "%u", auth->max_reg_msg_size);
+	tmp.buf = (uint8_t *)msgsize;
+	tmp.len = strlen(msgsize);
+	CKINT(acvp_datastore_write_data(&tmp, file));
 
 out:
 	return ret;
@@ -412,7 +406,7 @@ acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	struct stat statbuf;
 	int ret = 0;
 	char pathname[FILENAME_MAX / 2];
-	char authtokenfile[FILENAME_MAX];
+	char file[FILENAME_MAX];
 
 	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
@@ -436,29 +430,22 @@ acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	else if (ret)
 		return ret;
 
-	/* Write JWT access token */
-	snprintf(authtokenfile, sizeof(authtokenfile), "%s/%s",
-		 pathname, datastore->jwttokenfile);
-
 	/* Get JWT token file */
-	if (!stat(authtokenfile, &statbuf) && statbuf.st_size) {
+	snprintf(file, sizeof(file), "%s/%s",
+		 pathname, datastore->jwttokenfile);
+	if (!stat(file, &statbuf) && statbuf.st_size) {
 		logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-		       "Try to read auth token from file %s\n", authtokenfile);
+		       "Try to read auth token from file %s\n", file);
 
-		if (auth->jwt_token)
+		if (auth->jwt_token) {
 			free(auth->jwt_token);
-
-		if (auth->jwt_token_len > ACVP_JWT_TOKEN_MAX) {
-			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
-			       "JWT access token read from data store is too long (%u bytes)\n",
-			       auth->jwt_token_len);
-			ret = -EINVAL;
-			goto out;
+			auth->jwt_token = NULL;
+			auth->jwt_token_len = 0;
 		}
 
 		CKINT(acvp_datastore_read_data((uint8_t **)&auth->jwt_token,
 					       &auth->jwt_token_len,
-					       authtokenfile));
+					       file));
 
 #ifdef __APPLE__
 		auth->jwt_token_generated = statbuf.st_mtimespec.tv_sec;
@@ -469,6 +456,38 @@ acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
 		logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
 		       "Got authorization token %s\n", auth->jwt_token);
 	}
+
+	/* Get message size */
+	snprintf(file, sizeof(file), "%s/%s",
+		 pathname, datastore->messagesizeconstraint);
+
+	/* Set default even if no file found */
+	auth->max_reg_msg_size = UINT_MAX;
+
+	if (!stat(file, &statbuf) && statbuf.st_size) {
+		size_t msgsize_len;
+		uint32_t msgsize_int;
+		char *msgsize = NULL;
+
+		logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
+		       "Try to read message size constraint from file %s\n",
+		       file);
+		CKINT(acvp_datastore_read_data((uint8_t **)&msgsize,
+					       &msgsize_len, file));
+
+		msgsize_int = strtoul(msgsize, NULL, 10);
+		free(msgsize);
+
+		/* do not throw an error */
+		if (msgsize_int >= UINT_MAX)
+			auth->max_reg_msg_size = UINT_MAX;
+		else
+			auth->max_reg_msg_size = msgsize_int;
+	}
+
+	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
+	       "Maximum file size constraint %u\n",
+	       auth->max_reg_msg_size);
 
 out:
 	return ret;

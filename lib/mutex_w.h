@@ -17,48 +17,51 @@
  * DAMAGE.
  */
 
-#ifndef _MUTEX_W_H
-#define _MUTEX_W_H
+#ifndef _MUTEX_W_PTHREAD_H
+#define _MUTEX_W_PTHREAD_H
 
-#include <sched.h>
+#include <pthread.h>
 
-#include "atomic_bool.h"
+#include "bool.h"
+#include "logger.h"
 
 /**
- * @brief Writer mutex with a polling mechanism
- *
- * @param lock Mutex lock (if lock is true, the writer mutex is taken)
+ * @brief Reader / Writer mutex based on pthread
  */
-typedef struct {
-	atomic_bool_t lock;
-} mutex_w_t;
-
-#define MUTEX_W_DEFAULT_SLEEP_TIME_NS	(1<<24)		/* 16 milliseconds */
-static const struct timespec mutex_w_sleeptime = {
-	.tv_sec = 0,
-	.tv_nsec = MUTEX_W_DEFAULT_SLEEP_TIME_NS
-};
-
-#define __MUTEX_W_INITIALIZER(locked)					\
-	{								\
-		.lock = ATOMIC_BOOL_INIT(locked),			\
-	}
+typedef pthread_mutex_t mutex_w_t;
 
 #define DEFINE_MUTEX_W_UNLOCKED(name)					\
-	mutex_w_t name = __MUTEX_W_INITIALIZER(false)
+	mutex_w_t name = PTHREAD_MUTEX_INITIALIZER
 
 #define DEFINE_MUTEX_W_LOCKED(name)					\
-	mutex_w_t name = __MUTEX_W_INITIALIZER(true)
+	error "DEFINE_MUTEX_LOCKED not implemented"
 
 /**
  * @brief Initialize a mutex
  * @param mutex [in] Lock variable to initialize.
- * @param locked [in] Specify whether the lock shall already be locked (true)
- *		      or unlocked (false).
+ * @param locked [in] Specify whether the lock shall already be locked (1)
+ *		      or unlocked (0).
  */
-static inline void mutex_w_init(mutex_w_t *mutex, bool locked)
+static inline void mutex_w_init(mutex_w_t *mutex, int locked)
 {
-	atomic_bool_set(locked, &mutex->lock);
+	int ret;
+
+	if (locked) {
+		logger(LOGGER_ERR, LOGGER_C_THREADING,
+		       "Enabling lock in locked state not supported with pthreads\n");
+		return;
+	}
+
+	ret = pthread_mutex_init(mutex, NULL);
+	if (ret) {
+		logger(LOGGER_ERR, LOGGER_C_THREADING,
+		       "Pthread lock initialization failed with %d\n", -ret);
+	}
+}
+
+static inline void mutex_w_destroy(mutex_w_t *mutex)
+{
+	pthread_mutex_destroy(mutex);
 }
 
 /**
@@ -67,9 +70,16 @@ static inline void mutex_w_init(mutex_w_t *mutex, bool locked)
  */
 static inline void mutex_w_lock(mutex_w_t *mutex)
 {
-	/* Take the writer lock only if no writer lock is taken. */
-	while (!atomic_bool_cmpxchg(&mutex->lock, false, true))
-		nanosleep(&mutex_w_sleeptime, NULL);
+	pthread_mutex_lock(mutex);
+}
+
+/**
+ * Unlock the lock
+ * @param mutex [in] lock variable to lock
+ */
+static inline void mutex_w_unlock(mutex_w_t *mutex)
+{
+	pthread_mutex_unlock(mutex);
 }
 
 /**
@@ -81,22 +91,9 @@ static inline void mutex_w_lock(mutex_w_t *mutex)
  */
 static inline bool mutex_w_trylock(mutex_w_t *mutex)
 {
-	return atomic_bool_cmpxchg(&mutex->lock, false, true);
+	if (pthread_mutex_trylock(mutex))
+		return false;
+	return true;
 }
 
-static inline bool mutex_w_islocked(mutex_w_t *mutex)
-{
-	return atomic_bool_read(&mutex->lock);
-}
-
-/**
- * Unlock the lock
- * @param mutex [in] lock variable to lock
- */
-static inline void mutex_w_unlock(mutex_w_t *mutex)
-{
-	/* Release the writer lock. */
-	atomic_bool_cmpxchg(&mutex->lock, true, false);
-}
-
-#endif /* _MUTEX_W_H */
+#endif /* _MUTEX_W_PTHREAD_H */

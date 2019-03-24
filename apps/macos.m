@@ -1,5 +1,6 @@
-/*
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+/* Apple macOS helper
+ *
+ * Copyright (C) 2019, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -14,45 +15,17 @@
  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
  * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
- * DAMAGE.
+ * DAMAGE.int acvp_list_unregistered_definitions(void)
  */
 
-#include <stdio.h>
-#include <stdint.h>
+#import <Foundation/Foundation.h>
 
-#include "logger.h"
-#include "internal.h"
-#include "threading_support.h"
-#include "totp.h"
-
-int main(int argc, char *argv[])
+/* Disable App Nap for ACVP Proxy */
+void macos_disable_nap(void)
 {
-	uint32_t totp_val, i;
-	int ret;
-	uint8_t seed[10] = { 0 };
+	NSProcessInfo* process_info = [NSProcessInfo processInfo];
 
-	(void)argc;
-	(void)argv;
-
-#ifdef DEBUG
-	logger_set_verbosity(LOGGER_DEBUG);
-#else
-	logger_set_verbosity(LOGGER_NONE);
-#endif
-
-	CKINT(thread_init(1));
-	CKINT(sig_install_handler());
-
-	CKINT(totp_set_seed(seed, sizeof(seed), 0, NULL));
-
-	for (i = 0; i < 3; i++) {
-		CKINT(totp(&totp_val));
-		printf("%u\n", totp_val);
-	}
-
-out:
-	totp_release_seed();
-	thread_release(1, 1);
-	sig_uninstall_handler();
-	return -ret;
+	if ([process_info respondsToSelector:@selector(beginActivityWithOptions:reason:)]) {
+		[process_info beginActivityWithOptions:(NSActivityUserInitiatedAllowingIdleSystemSleep | NSActivityLatencyCritical) reason:@"ACVPProxy"];
+  	}
 }

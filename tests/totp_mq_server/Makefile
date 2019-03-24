@@ -29,6 +29,9 @@ INCLUDEDIR	:= /usr/include
 LN		:= ln
 LNS		:= $(LN) -sf
 
+# Files to be filtered out and not to be compiled
+EXCLUDED	?=
+
 ###############################################################################
 #
 # Define compilation options
@@ -52,8 +55,15 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 C_SRCS := $(wildcard *.c)
 
 C_SRCS += $(wildcard $(ACVP_DIR)/lib/*.c) $(wildcard $(ACVP_DIR)/lib/hash/*.c) $(wildcard $(ACVP_DIR)/lib/json-c/*.c)
+C_SRCS := $(filter-out $(wildcard $(EXCLUDED)), $(C_SRCS))
 C_OBJS := ${C_SRCS:.c=.o}
 OBJS := $(C_OBJS)
+
+ifeq ($(UNAME_S),Darwin)
+LIBRARY_DIRS    += /usr/local/opt/openssl/lib
+INCLUDE_DIRS    += /usr/local/opt/openssl/include
+LIBRARIES       += crypto
+endif
 
 ###############################################################################
 

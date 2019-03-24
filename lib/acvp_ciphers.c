@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "internal.h"
 #include "json_wrapper.h"
@@ -56,7 +57,6 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 	struct json_object *algorithms;
 	FILE *file = NULL;
 	ACVP_BUFFER_INIT(buf);
-	size_t ciphername_len = (ciphername) ? strlen(ciphername) : 0;
 	unsigned int i;
 	int ret;
 	char prevname[30];
@@ -88,8 +88,10 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 	for (i = 0; i < (uint32_t)json_object_array_length(algorithms); i++) {
 		struct json_object *algo =
 				json_object_array_get_idx(algorithms, i);
+		struct stat statbuf;
 		const char *url, *algoname;
 		uint32_t urlnum;
+		char jsonfile[FILENAME_MAX], tmpalgoname[256];
 
 		if (!json_object_is_type(algo, json_type_object)) {
 			json_logger(LOGGER_WARN, LOGGER_C_ANY, algo,
@@ -103,52 +105,57 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Received algorithm information for %s\n", algoname);
 
-		if (ciphername) {
-			/* Get details about cipher */
-			if ((strlen(algoname) == ciphername_len) &&
-			    !strncmp(algoname, ciphername, ciphername_len)) {
-				char jsonfile[FILENAME_MAX];
+		if (ciphername && !strstr(algoname, ciphername))
+			continue;
 
-				/* Get "algorithm ID" */
-				CKINT(json_get_string(algo, "url", &url));
-				CKINT(acvp_get_trailing_number(url, &urlnum));
 
-				/* Fetch details about the algorithm ID */
-				CKINT(acvp_fetch_cipher_info(testid_ctx, urlnum,
-							     &buf));
+		/* Get details about cipher */
+		/* Get "algorithm ID" */
+		CKINT(json_get_string(algo, "url", &url));
+		CKINT(acvp_get_trailing_number(url, &urlnum));
 
-				/* Write the data */
-				snprintf(jsonfile, sizeof(jsonfile),
-					 "%s-%u.json", pathname, urlnum);
+		snprintf(tmpalgoname, sizeof(tmpalgoname), "%s",
+				algoname);
+		CKINT(acvp_req_check_filename(tmpalgoname,
+					strlen(tmpalgoname)));
 
-				file = fopen(jsonfile, "w");
-				CKNULL(file, -errno);
+		/* Write the data */
+		snprintf(jsonfile, sizeof(jsonfile),
+				"%s/%s-%u.json", pathname, tmpalgoname,
+				urlnum);
 
-				fwrite(buf.buf, 1, buf.len, file);
+		/* Do not re-download information */
+		if (!stat(jsonfile, &statbuf)) {
+			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+				"Detailed cipher option information for %s already downloaded, skipping new download\n",
+				algoname);
+			logger_status(LOGGER_C_ANY,
+					"Detailed cipher option information for %s already downloaded, skipping new download\n",
+					algoname);
 
+			/* implement "touch" */
+			file = fopen(jsonfile, "a");
+			if (file)
 				fclose(file);
-				file = NULL;
-				acvp_free_buf(&buf);
-			}
-		} else {
-			char tmp[40];
+			file = NULL;
 
-			/* Implement "uniq" of adjacent algorithm names */
-			if (!strncmp(prevname, algoname, sizeof(prevname)))
-				continue;
-
-			snprintf(prevname, sizeof(prevname), "%s", algoname);
-
-			/* Write the algorithm name to file */
-			if (!file) {
-				file = fopen(pathname, "w");
-				CKNULL(file, -errno);
-			}
-
-			/* Just log the cipher name */
-			snprintf(tmp, sizeof(tmp), "%s\n", algoname);
-			fwrite(tmp, 1, strlen(tmp), file);
+			continue;
 		}
+
+		/* Fetch details about the algorithm ID */
+		CKINT(acvp_fetch_cipher_info(testid_ctx, urlnum,
+						&buf));
+
+		file = fopen(jsonfile, "w");
+		CKNULL_LOG(file, -errno,
+				"Failed to open file %s\n",
+				jsonfile);
+
+		fwrite(buf.buf, 1, buf.len, file);
+
+		fclose(file);
+		file = NULL;
+		acvp_free_buf(&buf);
 	}
 
 out:
@@ -159,12 +166,14 @@ out:
 }
 
 DSO_PUBLIC
-int acvp_cipher_get(const struct acvp_ctx *ctx, const char *ciphername,
+int acvp_cipher_get(const struct acvp_ctx *ctx,
+		    char *ciphername[], size_t ciphername_arraylen,
 		    const char *pathname)
 {
 	struct acvp_testid_ctx testid_ctx;
 	struct json_object *req = NULL, *entry = NULL;
 	ACVP_BUFFER_INIT(buf);
+	size_t i;
 	int ret = 0;
 
 	CKNULL_LOG(ctx, -EINVAL,
@@ -182,8 +191,15 @@ int acvp_cipher_get(const struct acvp_ctx *ctx, const char *ciphername,
 	 */
 	CKINT(acvp_req_strip_version(buf.buf, &req, &entry));
 
-	CKINT(acvp_iterate_algoarray(&testid_ctx, entry, ciphername,
-				     pathname));
+	if (ciphername_arraylen) {
+		for (i = 0; i < ciphername_arraylen; i++)
+			CKINT(acvp_iterate_algoarray(&testid_ctx, entry,
+						     ciphername[i],
+						     pathname));
+	} else {
+		CKINT(acvp_iterate_algoarray(&testid_ctx, entry, NULL,
+					     pathname));
+	}
 
 out:
 	acvp_free_buf(&buf);

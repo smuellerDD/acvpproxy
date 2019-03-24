@@ -129,6 +129,86 @@ test5()
 	test_kill_caller1 5 35 3
 }
 
+# Test 6
+#
+# Purpose: Have 10 concurrent callers which both execute till completion
+# Expected result: All callers obtain all requested TOTP values
+test6()
+{
+	make clean
+	CFLAGS="$CFLAGS -DTOTP_STEP_SIZE=3" make -s
+
+	($EXEC > $OUTDIR/t6_p1) &
+	local pid1=$!
+
+	sleep 2
+	($EXEC >> $OUTDIR/t6_p2 ) &
+	local pid2=$!
+
+	sleep 2
+	($EXEC >> $OUTDIR/t6_p3 ) &
+	local pid3=$!
+
+	echo_info "Disregard following notification about process killing"
+	kill -9 $pid1
+
+	sleep 2
+	($EXEC >> $OUTDIR/t6_p4 ) &
+	local pid4=$!
+
+	sleep 2
+	($EXEC >> $OUTDIR/t6_p5 ) &
+	local pid5=$!
+
+	sleep 2
+	($EXEC >> $OUTDIR/t6_p6 ) &
+	local pid6=$!
+
+	sleep 2
+	($EXEC >> $OUTDIR/t6_p7 ) &
+	local pid7=$!
+
+	sleep 2
+	($EXEC >> $OUTDIR/t6_p8 ) &
+	local pid8=$!
+
+	sleep 2
+	($EXEC >> $OUTDIR/t6_p9 ) &
+	local pid9=$!
+
+	sleep 2
+	($EXEC >> $OUTDIR/t6_p10 ) &
+	local pid10=$!
+
+	wait $pid2 $pid3 $pid4 $pid5 $pid6 $pid7 $pid8 $pid9 $pid10
+
+	local res2=$(cat $OUTDIR/t6_p2)
+	local res3=$(cat $OUTDIR/t6_p3)
+	local res4=$(cat $OUTDIR/t6_p4)
+	local res5=$(cat $OUTDIR/t6_p5)
+	local res6=$(cat $OUTDIR/t6_p6)
+	local res7=$(cat $OUTDIR/t6_p7)
+	local res8=$(cat $OUTDIR/t6_p8)
+	local res9=$(cat $OUTDIR/t6_p9)
+	local res10=$(cat $OUTDIR/t6_p10)
+
+	if [ $(echo $res2 | wc -w) -eq 3 -a \
+	     $(echo $res3 | wc -w) -eq 3 -a \
+	     $(echo $res4 | wc -w) -eq 3 -a \
+	     $(echo $res5 | wc -w) -eq 3 -a \
+	     $(echo $res6 | wc -w) -eq 3 -a \
+	     $(echo $res7 | wc -w) -eq 3 -a \
+	     $(echo $res8 | wc -w) -eq 3 -a \
+	     $(echo $res9 | wc -w) -eq 3 -a \
+	     $(echo $res10 | wc -w) -eq 3 ]
+	then
+		echo_pass "Test $NAME 6"
+	else
+		echo_fail "Test $NAME 6: $res2 | $res3 | $res4 | $res5 | $res6 | $res7 | $res8 | $res9 | $res10"
+	fi
+}
+
+
 init()
 {
 	trap "rm -rf $OUTDIR; make -s clean; exit" 0 1 2 3 15
@@ -141,7 +221,34 @@ init()
 
 	make -s
 
-	echo "Testing $NAME commences - may take several minutes per test"
+	echo_info "Testing $NAME commences - may take several minutes per test"
+}
+
+test7()
+{
+	local prepid=0
+	local i=0
+
+	while [ $i -lt 100 ]
+
+	do
+		( ./totp_mq_server )&
+		local b=$!;
+
+		i=$((i+1))
+
+		sleep 1
+		if [ $prepid -ne 0 ]
+		then
+			kill -9 $prepid
+			echo "killed $prepaid"
+		fi;
+
+		prepid=$b
+	done
+
+	wait $prepid
+	echo_pass "Test $NAME 7"
 }
 
 init
@@ -151,5 +258,7 @@ test2
 test3
 test4
 test5
+test6
+test7
 
 exit_test

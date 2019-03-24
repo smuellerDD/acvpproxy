@@ -156,7 +156,7 @@ struct def_algo_sym {
 	} saltgen;
 
 	/*
-	 * AEAD ADD length in bits
+	 * AEAD AAD length in bits
 	 * * general: 0 - 65536
 	 * * AES-CCM: range between 0 and 2^16 * 8
 	 * * AES-GCM: array of two values divisible by 128 (if supported) and
@@ -214,12 +214,20 @@ struct def_algo_sym {
 		DEF_ALG_SYM_CTR_EXTERNAL
 	} ctrsource;
 
+	/*
+	 * Is overflow of counter handled?
+	 * required: only for AES-CTR mode
+	 */
 	enum ctroverflow {
 		DEF_ALG_SYM_CTROVERFLOW_UNDEF = 0,
 		DEF_ALG_SYM_CTROVERFLOW_HANDLED,
 		DEF_ALG_SYM_CTROVERFLOW_UNHANDLED
 	} ctroverflow;
 
+	/*
+	 * Is the counter incremented or decremented.
+	 * required: only for AES-CTR mode
+	 */
 	enum ctrincrement {
 		DEF_ALG_SYM_CTRINCREMENT_UNDEF = 0,
 		DEF_ALG_SYM_CTRINCREMENT_INCREMENT,

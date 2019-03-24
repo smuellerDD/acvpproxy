@@ -117,7 +117,7 @@ static bool acvp_find_match(const char *searchstr, const char *defstr,
 struct definition *acvp_find_def(const struct acvp_search_ctx *search,
 				 struct definition *processed_ptr)
 {
-	struct definition *tmp_def;
+	struct definition *tmp_def = NULL;
 
 	mutex_reader_lock(&def_mutex);
 
@@ -175,13 +175,12 @@ struct definition *acvp_find_def(const struct acvp_search_ctx *search,
 				     search->fuzzy_name_search))
 			continue;
 
-		mutex_reader_unlock(&def_mutex);
-		return tmp_def;
+		break;
 	}
 
 out:
 	mutex_reader_unlock(&def_mutex);
-	return NULL;
+	return tmp_def;
 }
 
 int acvp_export_def_search(struct acvp_testid_ctx *testid_ctx)
@@ -238,6 +237,7 @@ int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
 	struct definition *definition;
 	int ret;
 
+	memset(&search, 0, sizeof(search));
 	CKINT(json_get_string(def_config, "moduleName",
 			      (const char **)&search.modulename));
 	CKINT(json_get_string(def_config, "moduleVersion",
@@ -263,7 +263,7 @@ int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
 		ret = -ENOENT;
 	} else {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Crypto definition for testID %u for current search does not match with old search\n",
+		       "Crypto definition for testID %u for current search matches with old search\n",
 		       testid_ctx->testid);
 		ret = 0;
 	}
@@ -333,7 +333,6 @@ int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 	if (!found)
 		fprintf(stderr, "none\n");
 
-	mutex_unlock(&def_mutex);
 	return 0;
 }
 

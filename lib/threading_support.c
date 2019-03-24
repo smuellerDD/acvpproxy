@@ -19,12 +19,14 @@
  */
 
 #include <errno.h>
+#include <limits.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include "atomic_bool.h"
 #include "bool.h"
 #include "config.h"
 #include "logger.h"
@@ -60,7 +62,7 @@ struct thread_ctx {
 	int (*start_routine)(void *);	/* Thread code to be executed */
 	void *data;			/* Parameters used by the thread code */
 
-	bool thread_pending;		/* Is thread associated with structure? */
+	atomic_bool_t thread_pending;	/* Is thread associated with structure? */
 	mutex_w_t inuse;		/* Is thread data structure used? */
 	atomic_bool_t shutdown;		/* Shall the thread be shut down? */
 	bool scheduled;			/* Is/was a job executed and return code
@@ -97,14 +99,11 @@ static DEFINE_MUTEX_W_UNLOCKED(threads_cleanup);
 
 static inline unsigned int thread_get_special_slot(unsigned int thread_group)
 {
-	switch (thread_group) {
-	case ACVP_THREAD_TOTP_SERVER_GROUP:
-		return THREADING_MAX_THREADS;
-	case ACVP_THREAD_SIGHANDLER_GROUP:
-		return THREADING_MAX_THREADS + 1;
-	default:
+	if (thread_group <= THREADING_MAX_THREADS)
 		return 0;
-	}
+
+	/* Special groups are defined as (uint32_t)-1 and lower */
+	return (THREADING_MAX_THREADS + (UINT_MAX - thread_group));
 }
 
 int thread_init(uint32_t groups)
@@ -164,7 +163,7 @@ static inline void thread_block(void)
 
 static inline bool thread_dirty(unsigned int slot)
 {
-	return (threads[slot].thread_pending);
+	return (atomic_bool_read(&threads[slot].thread_pending));
 }
 
 /* Thread structure cleanup after execution when thread is kept alive. */
@@ -179,9 +178,10 @@ static inline void thread_cleanup_full(struct thread_ctx *tctx)
 {
 	thread_cleanup(tctx);
 	tctx->thread_num = 0;
-	tctx->thread_pending = false;
+	atomic_bool_set_false(&tctx->thread_pending);
 	tctx->scheduled = false;
 	tctx->ret_ancestor = 0;
+	mutex_w_destroy(&tctx->inuse);
 }
 
 /* Worker loop of a thread */
@@ -229,7 +229,7 @@ static int thread_create(struct thread_ctx *tctx, unsigned int slot)
 
 	tctx->thread_num = slot;
 	tctx->data = NULL;
-	tctx->thread_pending = true;
+	atomic_bool_set_true(&tctx->thread_pending);
 
 	ret = -pthread_create(&tctx->thread_id, &pthread_attr, &thread_worker,
 			      tctx);
@@ -389,10 +389,8 @@ static int thread_wait_all(bool system_threads)
 	mutex_w_lock(&threads_cleanup);
 
 	/* Ensure that no new thread is spawned. */
-	for (i = 0; i < upper; i++) {
+	for (i = 0; i < upper; i++)
 		atomic_bool_set_true(&threads[i].shutdown);
-		threads[i].start_routine = NULL;
-	}
 
 	/* Wait for all worker threads. */
 	for (i = 0; i < upper; i++) {

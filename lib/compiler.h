@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -17,42 +17,20 @@
  * DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdint.h>
+#ifndef COMPILER_H
+#define COMPILER_H
 
-#include "logger.h"
-#include "internal.h"
-#include "threading_support.h"
-#include "totp.h"
-
-int main(int argc, char *argv[])
+#ifdef __cplusplus
+extern "C"
 {
-	uint32_t totp_val, i;
-	int ret;
-	uint8_t seed[10] = { 0 };
-
-	(void)argc;
-	(void)argv;
-
-#ifdef DEBUG
-	logger_set_verbosity(LOGGER_DEBUG);
-#else
-	logger_set_verbosity(LOGGER_NONE);
 #endif
 
-	CKINT(thread_init(1));
-	CKINT(sig_install_handler());
+#define GCC_VERSION (__GNUC__ * 10000		\
+		     + __GNUC_MINOR__ * 100	\
+		     + __GNUC_PATCHLEVEL__)
 
-	CKINT(totp_set_seed(seed, sizeof(seed), 0, NULL));
-
-	for (i = 0; i < 3; i++) {
-		CKINT(totp(&totp_val));
-		printf("%u\n", totp_val);
-	}
-
-out:
-	totp_release_seed();
-	thread_release(1, 1);
-	sig_uninstall_handler();
-	return -ret;
+#ifdef __cplusplus
 }
+#endif
+
+#endif /* COMPILER_H */

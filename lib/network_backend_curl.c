@@ -62,12 +62,37 @@ static int acvp_curl_progress_callback(void *clientp, curl_off_t dltotal,
 	return atomic_bool_read(&acvp_curl_interrupted);
 }
 
-static size_t acvp_curl_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
+static size_t acvp_curl_read_cb(char *buffer, size_t size, size_t nitems,
+				void *userdata)
+{
+	struct acvp_buf *send_buf = (struct acvp_buf *)userdata;
+	size_t sendsize = (size * nitems);
+
+	if (!send_buf)
+		return 0;
+
+	if (sendsize > send_buf->len)
+		sendsize = send_buf->len;
+
+	if (!sendsize)
+		return 0;
+
+	memcpy(buffer, send_buf->buf, sendsize);
+	send_buf->buf += sendsize;
+	send_buf->len -= sendsize;
+
+	logger(LOGGER_DEBUG2, LOGGER_C_CURL, "Number of bytes uploaded: %zu\n",
+	       sendsize);
+
+	return sendsize;
+}
+
+static size_t acvp_curl_write_cb(void *ptr, size_t size, size_t nmemb,
+				 void *userdata)
 {
 	struct acvp_buf *response_buf = (struct acvp_buf *)userdata;
-	unsigned int bufsize = (unsigned int)(size * nmemb);
-	unsigned int totalsize;
-	int ret;
+	size_t bufsize = (size * nmemb);
+	size_t totalsize;
 	uint8_t *resp_p;
 
 	if (!response_buf) {
@@ -77,6 +102,9 @@ static size_t acvp_curl_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
 		       ptr);
 		return bufsize;
 	}
+
+	if (!bufsize)
+		return 0;
 
 	totalsize = bufsize + response_buf->len;
 	if (totalsize > ACVP_RESPONSE_MAXLEN || totalsize < response_buf->len) {
@@ -89,24 +117,25 @@ static size_t acvp_curl_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
 		response_buf->buf = malloc(bufsize + 1); /* add one for \0 */
 	else
 		response_buf->buf = realloc(response_buf->buf, totalsize + 1);
-	CKNULL(response_buf->buf, 0);
+
+	if (!response_buf->buf) {
+		response_buf->len = 0;
+		return 0;
+	}
 
 	resp_p = response_buf->buf + response_buf->len;
 	response_buf->len = totalsize;
 
+	memcpy(resp_p, ptr, bufsize);
+
 	/* NULL-terminate string */
 	response_buf->buf[response_buf->len] = '\0';
-
-	memcpy(resp_p, ptr, bufsize);
 
 	logger(LOGGER_DEBUG2, LOGGER_C_CURL,
 	       "Current complete retrieved data (len %u): %s\n",
 	       response_buf->len, response_buf->buf);
 
 	return bufsize;
-
-out:
-	return ret;
 }
 
 static struct curl_slist
@@ -121,7 +150,7 @@ static struct curl_slist
 	if (!auth || !auth->jwt_token || !auth->jwt_token_len)
 		return slist;
 
-	bearer_size = auth->jwt_token_len + strlen(bearer_header) + 1;
+	bearer_size = auth->jwt_token_len + sizeof(bearer_header);
         bearer = calloc(1, bearer_size);
 	if (!bearer)
 		return slist;
@@ -185,6 +214,7 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	struct curl_slist *slist = NULL;
 	CURL *curl = NULL;
 	CURLcode cret;
+	ACVP_BUFFER_INIT(submit_tmp);
 	const char *url = netinfo->url;
 	char useragent[30];
 	int ret;
@@ -209,6 +239,9 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	CKINT(curl_easy_setopt(curl, CURLOPT_USERAGENT, useragent));
 	CKINT(curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist));
 
+	/* Required for multi-threaded applications */
+	CKINT(curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L));
+
 #if LIBCURL_VERSION_NUM < 0x072000
 	CKINT(curl_easy_setopt(curl, CURLOPT_PROGRESSFUNCTION,
 			       acvp_curl_progress_callback));
@@ -222,26 +255,19 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 
 	switch (http_type) {
 	case ACVP_HTTP_GET:
+		logger(LOGGER_DEBUG, LOGGER_C_CURL,
+		       "Performing an HTTP GET operation\n");
 		/* Nothing special */
 		break;
 	case ACVP_HTTP_POST:
+		logger(LOGGER_DEBUG, LOGGER_C_CURL,
+		       "Performing an HTTP POST operation\n");
+		if (!submit_buf || !submit_buf->buf || !submit_buf->len) {
+			logger(LOGGER_WARN, LOGGER_C_CURL, "Nothing to POST\n");
+			ret = -EINVAL;
+			goto out;
+		}
 		CKINT(curl_easy_setopt(curl, CURLOPT_POST, 1L));
-		break;
-	case ACVP_HTTP_PUT:
-		//TODO see https://curl.haxx.se/libcurl/c/CURLOPT_UPLOAD.html whether to add read callback?!
-		CKINT(curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L));
-		break;
-	case ACVP_HTTP_DELETE:
-		CKINT(curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE"));
-		break;
-	default:
-		logger(LOGGER_WARN, LOGGER_C_CURL,
-		       "Unhandled HTTP request option %u\n", http_type);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	if (submit_buf && submit_buf->buf && submit_buf->len) {
 		CKINT(curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
 				       (curl_off_t) submit_buf->len));
 		CKINT(curl_easy_setopt(curl, CURLOPT_POSTFIELDS,
@@ -249,6 +275,43 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,
 		       "About to HTTP POST the following data:\n%s\n",
 		       submit_buf->buf);
+		break;
+	case ACVP_HTTP_PUT:
+		logger(LOGGER_DEBUG, LOGGER_C_CURL,
+		       "Performing an HTTP PUT operation\n");
+		if (!submit_buf || !submit_buf->buf || !submit_buf->len) {
+			logger(LOGGER_WARN, LOGGER_C_CURL, "Nothing to PUT\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/*
+		 * We need a temporary buffer as we need to read parts of the
+		 * buffer and thus adjust the pointer and length field.
+		 */
+		submit_tmp.buf = submit_buf->buf;
+		submit_tmp.len = submit_buf->len;
+		CKINT(curl_easy_setopt(curl, CURLOPT_READFUNCTION,
+				       acvp_curl_read_cb));
+		CKINT(curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L));
+		CKINT(curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE,
+				       (curl_off_t)submit_buf->len));
+		CKINT(curl_easy_setopt(curl, CURLOPT_READDATA,
+				       &submit_tmp));
+		logger(LOGGER_DEBUG, LOGGER_C_CURL,
+		       "About to HTTP PUT the following data:\n%s\n",
+		       submit_buf->buf);
+		break;
+	case ACVP_HTTP_DELETE:
+		logger(LOGGER_DEBUG, LOGGER_C_CURL,
+		       "Performing an HTTP DELETE operation\n");
+		CKINT(curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE"));
+		break;
+	default:
+		logger(LOGGER_WARN, LOGGER_C_CURL,
+		       "Unhandled HTTP request option %u\n", http_type);
+		ret = -EINVAL;
+		goto out;
 	}
 
 	if (logger_get_verbosity(LOGGER_C_CURL) >= LOGGER_VERBOSE)
@@ -298,7 +361,8 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	 * set the callback function
 	 */
 	CKINT(curl_easy_setopt(curl, CURLOPT_WRITEDATA, response_buf));
-	CKINT(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, acvp_curl_cb));
+	CKINT(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
+			       acvp_curl_write_cb));
 
 	/*
 	 * Clear any interrupt triggered by signal handler to allow
@@ -370,6 +434,20 @@ static int acvp_curl_http_delete(const struct acvp_na_ex *netinfo)
 	return acvp_curl_http_common(netinfo, NULL, NULL, ACVP_HTTP_DELETE);
 }
 
+extern int acvp_openssl_thread_setup(void);
+static int acvp_curl_library_init(void)
+{
+	if (curl_global_init(CURL_GLOBAL_ALL))
+		return -EFAULT;
+
+	return acvp_openssl_thread_setup();
+}
+
+static void acvp_curl_library_exit(void)
+{
+	curl_global_cleanup();
+}
+
 static struct acvp_netaccess_be acvp_netaccess_curl = {
 	&acvp_curl_http_post,
 	&acvp_curl_http_get,
@@ -381,5 +459,8 @@ static struct acvp_netaccess_be acvp_netaccess_curl = {
 ACVP_DEFINE_CONSTRUCTOR(acvp_curl_init)
 static void acvp_curl_init(void)
 {
-	acvp_register_na(&acvp_netaccess_curl);
+	if (acvp_curl_library_init() == 0) {
+		atexit(acvp_curl_library_exit);
+		acvp_register_na(&acvp_netaccess_curl);
+	}
 }

@@ -52,6 +52,7 @@ extern "C"
 #define NIST_VAL_OP_MODULE		"modules"
 #define NIST_VAL_OP_DEPENDENCY		"dependencies"
 #define NIST_VAL_OP_ALGORITHMS		"algorithms"
+#define NIST_VAL_OP_LARGE		"large"
 
 /* acvp_protocol.txt: section 11.1 */
 #define ACVP_JWT_TOKEN_MAX      	1024
@@ -62,6 +63,13 @@ struct acvp_auth_ctx {
 	char *jwt_token;	/* JWT token provided by server */
 	size_t jwt_token_len;
 	time_t jwt_token_generated; /* generation time in seconds since Epoch */
+
+	/*
+	 * Maximum size of message for regular submission (submissions with
+	 * larger size must use the /large endpoint).
+	 */
+	uint32_t max_reg_msg_size;
+
 	/*
 	 * As auth ctx is shared between multiple vsIds belonging to one testId,
 	 * we must lock if we want to change it.
@@ -130,6 +138,7 @@ struct acvp_datastore_ctx {
 	char *vectorfile;
 	char *resultsfile;
 	char *jwttokenfile;
+	char *messagesizeconstraint;
 	char *verdictfile;
 	char *processedfile;
 	char *srcserver;
@@ -496,13 +505,15 @@ int acvp_list_verdict_vsid(int *idx_ptr, uint32_t *vsid, bool passed);
  * it.
  *
  * @param ctx [in] ACVP Proxy library context
- * @param ciphername [in] Cipher name to search for - if NULL, the list of
- *			  ciphers is provided
- * @param pathname [in] File to write the cipher definitions to
+ * @param ciphername [in] Array of cipher names to search for - if NULL, the
+ *			  list of ciphers is provided
+ * @param ciphername_arraylen [in] Number of cipher name array entries
+ * @param pathname [in] Directory to write the cipher definitions to
  *
  * @return 0 on success, < 0 on error
  */
-int acvp_cipher_get(const struct acvp_ctx *ctx, const char *ciphername,
+int acvp_cipher_get(const struct acvp_ctx *ctx,
+		    char *ciphername[], size_t ciphername_arraylen,
 		    const char *pathname);
 
 #ifdef __cplusplus

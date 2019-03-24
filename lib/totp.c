@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include "atomic_bool.h"
+#include "compiler.h"
 #include "logger.h"
 #include "mutex_w.h"
 #include "hash/hmac.h"
@@ -91,9 +92,6 @@ static inline uint64_t _bswap64(uint64_t x)
 	return ((uint64_t)_bswap32(x) << 32) | (_bswap32(x >> 32));
 }
 
-#define GCC_VERSION (__GNUC__ * 10000		\
-		     + __GNUC_MINOR__ * 100	\
-		     + __GNUC_PATCHLEVEL__)
 #if GCC_VERSION >= 40400
 # define __HAVE_BUILTIN_BSWAP32__
 # define __HAVE_BUILTIN_BSWAP64__

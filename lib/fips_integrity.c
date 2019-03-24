@@ -35,6 +35,7 @@
 #endif
 
 #include "binhexbin.h"
+#include "compiler.h"
 #include "config.h"
 #include "fips.h"
 #include "hash/hmac.h"
@@ -76,7 +77,7 @@ static char *get_hmac_file(const char *filename)
 	char *cursor, *checkfile = NULL;
 
 	filelen = strlen(filename);
-	if (filelen > 4096) {
+	if (filelen > FILENAME_MAX) {
 		fprintf(stderr, FIPS_INTEGRITY_LOGGER_PREFIX "File too long\n");
 		return NULL;
 	}

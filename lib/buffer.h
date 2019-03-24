@@ -28,12 +28,12 @@ extern "C"
 #endif
 
 struct acvp_buf {
-	uint8_t *buf;
 	uint32_t len;
+	uint8_t *buf;
 };
 
 #define ACVP_BUFFER_INIT(buffer)					\
-	struct acvp_buf buffer = { NULL, 0 }
+	struct acvp_buf buffer = { 0, NULL }
 
 void acvp_free_buf(struct acvp_buf *buf);
 

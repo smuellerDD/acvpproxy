@@ -23,6 +23,7 @@
 #include <json-c/json.h>
 
 #include "atomic_bool.h"
+#include "atomic.h"
 #include "buffer.h"
 #include "config.h"
 #include "definition.h"
@@ -43,7 +44,7 @@ extern "C"
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 4   /* API / ABI compatible, no functional
+#define PATCHLEVEL 5   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -460,6 +461,12 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx);
 int acvp_set_authtoken(const struct acvp_testid_ctx *testid_ctx,
 		       const char *authtoken);
 
+/**
+ * @brief Get the maximum message size to be used with regular upload paths
+ */
+int acvp_get_max_msg_size(const struct acvp_testid_ctx *testid_ctx,
+			  uint32_t *size);
+
 /************************************************************************
  * Signal handler support
  ************************************************************************/
@@ -529,6 +536,9 @@ int acvp_store_oe_debug(const struct acvp_testid_ctx *testid_ctx,
 int acvp_store_module_debug(const struct acvp_testid_ctx *testid_ctx,
 			    const struct acvp_buf *buf, int err);
 
+int acvp_req_check_string(char *string, unsigned int slen);
+int acvp_req_check_filename(char *string, unsigned int slen);
+
 /************************************************************************
  * Data storage location
  ************************************************************************/
@@ -543,6 +553,8 @@ int acvp_store_module_debug(const struct acvp_testid_ctx *testid_ctx,
 #define ACVP_DS_TESTREQUEST			"testvector-request.json"
 /* Authentication token to be (re)used to authenticate with ACVP server */
 #define ACVP_DS_JWTAUTHTOKEN			"jwt_authtoken.txt"
+/* Message size constraint - larger messages must use the /large endpoint */
+#define ACVP_DS_MESSAGESIZECONSTRAINT		"messagesizeconstraint.txt"
 /* File that will hold the test verdict from the ACVP server */
 #define ACVP_DS_VERDICT				"verdict.json"
 /* File that contains the time stamp when the vector was uploaded */

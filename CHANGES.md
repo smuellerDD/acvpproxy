@@ -1,3 +1,11 @@
+v0.6.5
+- add /large endpoint handling
+- speed up --cipher-options
+- use pthread mutexes
+- remove message queue always during startup to prevent attaching to a stale
+  message queue and restarting the MQ server election process
+- Fix support for --resubmit-results
+
 Changes v0.6.4
 - MQ server test: fix for enabling testing on macOS
 - add HMAC-SHA3 and SHA3 definitions for OpenSSL

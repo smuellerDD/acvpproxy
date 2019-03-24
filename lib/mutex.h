@@ -17,71 +17,50 @@
  * DAMAGE.
  */
 
-#ifndef _MUTEX_H
-#define _MUTEX_H
+#ifndef _MUTEX_PTHREAD_H
+#define _MUTEX_PTHREAD_H
 
-#include <time.h>
+#include <pthread.h>
 
-#include "atomic.h"
+#include "logger.h"
 
 /**
- * @brief Reader / Writer mutex
- *
- * @param lock Mutex lock (if lock is -1, the writer mutex is taken)
- * @param lock_lock Lock the write operation of the mutex
- * @param writer_pending If a writer lock is requested, this value is > 0.
- *			 When this value is > 0, a reader lock will not be
- *			 granted any more and it waits until the writer lock
- *			 is cleared.
- * @param sleeptime Sleep time of the reader to acquire the lock
+ * @brief Reader / Writer mutex based on pthread
  */
-typedef struct {
-	atomic_t lock;
-	atomic_t lock_lock;
-	atomic_t writer_pending;
-	struct timespec sleeptime;
-} mutex_t;
-
-#define MUTEX_DEFAULT_SLEEP_TIME_NS	(1<<24)		/* 16 milliseconds */
-
-#define __MUTEX_INITIALIZER(locked)					\
-	{								\
-		.lock = ATOMIC_INIT(locked),				\
-		.lock_lock = ATOMIC_INIT(locked),			\
-		.writer_pending = ATOMIC_INIT(0),			\
-		.sleeptime.tv_sec = 0,					\
-		.sleeptime.tv_nsec = MUTEX_DEFAULT_SLEEP_TIME_NS 	\
-	}
+typedef pthread_rwlock_t mutex_t;
 
 #define DEFINE_MUTEX_UNLOCKED(name)					\
-	mutex_t name = __MUTEX_INITIALIZER(0)
+	mutex_t name = PTHREAD_RWLOCK_INITIALIZER
 
 #define DEFINE_MUTEX_LOCKED(name)					\
-	mutex_t name = __MUTEX_INITIALIZER(-1)
+	error "DEFINE_MUTEX_LOCKED not implemented"
 
 /**
  * @brief Initialize a mutex
  * @param mutex [in] Lock variable to initialize.
  * @param locked [in] Specify whether the lock shall already be locked (1)
  *		      or unlocked (0).
- * @param sleep_ns [in] Specify the sleep time in ns. If zero, the default
- *			sleep time is used.
  */
-static inline void mutex_init(mutex_t *mutex, int locked, long sleep_ns)
+static inline void mutex_init(mutex_t *mutex, int locked)
 {
-	if (locked)
-		atomic_set(-1, &mutex->lock);
-	else
-		atomic_set(0, &mutex->lock);
+	int ret;
 
-	atomic_set(0, &mutex->lock_lock);
-	atomic_set(0, &mutex->writer_pending);
+	if (locked) {
+		logger(LOGGER_ERR, LOGGER_C_THREADING,
+		       "Enabling lock in locked state not supported with pthreads\n");
+		return;
+	}
 
-	mutex->sleeptime.tv_sec = 0;
-	if (sleep_ns > 0)
-		mutex->sleeptime.tv_nsec = sleep_ns;
-	else
-		mutex->sleeptime.tv_nsec = MUTEX_DEFAULT_SLEEP_TIME_NS;
+	ret = pthread_rwlock_init(mutex, NULL);
+	if (ret) {
+		logger(LOGGER_ERR, LOGGER_C_THREADING,
+		       "Pthread lock initialization failed with %d\n", -ret);
+	}
+}
+
+static inline void mutex_destroy(mutex_t *mutex)
+{
+	pthread_rwlock_destroy(mutex);
 }
 
 /**
@@ -90,25 +69,7 @@ static inline void mutex_init(mutex_t *mutex, int locked, long sleep_ns)
  */
 static inline void mutex_lock(mutex_t *mutex)
 {
-	atomic_inc(&mutex->writer_pending);
-
-	while (1) {
-		/* Lock the potential non-atomic op of setting the lock. */
-		while (!atomic_cmpxchg(&mutex->lock_lock, 0, -1)) { }
-
-		/* Take the writer lock only if no writer lock is taken. */
-		if (atomic_cmpxchg(&mutex->lock, 0, -1)) {
-			/* Unlock the lock setting operation. */
-			atomic_cmpxchg(&mutex->lock_lock, -1, 0);
-			break;
-		}
-
-		/* Unlock the lock setting operation. */
-		atomic_cmpxchg(&mutex->lock_lock, -1, 0);
-		nanosleep(&mutex->sleeptime, NULL);
-	}
-
-	atomic_dec(&mutex->writer_pending);
+	pthread_rwlock_wrlock(mutex);
 }
 
 /**
@@ -117,14 +78,7 @@ static inline void mutex_lock(mutex_t *mutex)
  */
 static inline void mutex_unlock(mutex_t *mutex)
 {
-	/* Lock the potential non-atomic operation of setting the lock. */
-	while (!atomic_cmpxchg(&mutex->lock_lock, 0, -1)) { }
-
-	/* Release the writer lock. */
-	atomic_cmpxchg(&mutex->lock, -1, 0);
-
-	/* Unlock the lock setting operation. */
-	atomic_cmpxchg(&mutex->lock_lock, -1, 0);
+	pthread_rwlock_unlock(mutex);
 }
 
 /**
@@ -134,33 +88,7 @@ static inline void mutex_unlock(mutex_t *mutex)
  */
 static inline void mutex_reader_lock(mutex_t *mutex)
 {
-	/* If there is a writer pending, it takes precedence and reader waits */
-	while (!atomic_cmpxchg(&mutex->writer_pending, 0, 0))
-		nanosleep(&mutex->sleeptime, NULL);
-
-	while (1) {
-		/* Lock the potential non-atomic op of setting the lock. */
-		while (!atomic_cmpxchg(&mutex->lock_lock, 0, -1)) { }
-
-		/*
-		 * Take the reader lock only if no writer lock is taken.
-		 *
-		 * This is the place why we need mutex->lock_lock: neither
-		 * atomic_cmpxchg nor atomic_add_and_test provide an atomic
-		 * primitive to set the lock with a check.
-		 */
-		if (atomic_read(&mutex->lock) != -1) {
-			atomic_inc(&mutex->lock);
-
-			/* Unlock the lock setting operation. */
-			atomic_cmpxchg(&mutex->lock_lock, -1, 0);
-			break;
-		}
-
-		/* Unlock the lock setting operation. */
-		atomic_cmpxchg(&mutex->lock_lock, -1, 0);
-		nanosleep(&mutex->sleeptime, NULL);
-	}
+	pthread_rwlock_rdlock(mutex);
 }
 
 /**
@@ -169,14 +97,7 @@ static inline void mutex_reader_lock(mutex_t *mutex)
  */
 static inline void mutex_reader_unlock(mutex_t *mutex)
 {
-	/* Lock the potential non-atomic operation of setting the lock. */
-	while (!atomic_cmpxchg(&mutex->lock_lock, 0, -1)) { }
-
-	/* Release the reader lock */
-	atomic_dec(&mutex->lock);
-
-	/* Unlock the lock setting operation. */
-	atomic_cmpxchg(&mutex->lock_lock, -1, 0);
+	pthread_rwlock_unlock(mutex);
 }
 
-#endif /* _MUTEX_H */
+#endif /* _MUTEX_PTHREAD_H */

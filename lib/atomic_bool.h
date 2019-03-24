@@ -52,7 +52,7 @@ static inline void atomic_bool_mb(void)
  */
 static inline bool atomic_bool_read(const atomic_bool_t *v)
 {
-	int i;
+	bool i;
 
 	atomic_bool_mb();
 	i = ((v)->counter);

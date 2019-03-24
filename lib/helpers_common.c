@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -17,42 +17,44 @@
  * DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdint.h>
+#include <ctype.h>
 
-#include "logger.h"
 #include "internal.h"
-#include "threading_support.h"
-#include "totp.h"
 
-int main(int argc, char *argv[])
+/* remove wrong characters */
+int acvp_req_check_string(char *string, unsigned int slen)
 {
-	uint32_t totp_val, i;
-	int ret;
-	uint8_t seed[10] = { 0 };
+	if (!string || !slen)
+		return 0;
 
-	(void)argc;
-	(void)argv;
+	while (slen) {
+		if (!isalnum(*string) && *string != '_' && *string != '-' &&
+		    *string != '/' && *string != '.')
+			*string = '_';
 
-#ifdef DEBUG
-	logger_set_verbosity(LOGGER_DEBUG);
-#else
-	logger_set_verbosity(LOGGER_NONE);
-#endif
-
-	CKINT(thread_init(1));
-	CKINT(sig_install_handler());
-
-	CKINT(totp_set_seed(seed, sizeof(seed), 0, NULL));
-
-	for (i = 0; i < 3; i++) {
-		CKINT(totp(&totp_val));
-		printf("%u\n", totp_val);
+		string++;
+		slen--;
 	}
 
-out:
-	totp_release_seed();
-	thread_release(1, 1);
-	sig_uninstall_handler();
-	return -ret;
+	return 0;
+}
+
+int acvp_req_check_filename(char *string, unsigned int slen)
+{
+	if (!string || !slen)
+		return 0;
+
+	if (!string || !slen)
+		return 0;
+
+	while (slen) {
+		if (!isalnum(*string) && *string != '_' && *string != '-' &&
+		    *string != '.')
+			*string = '_';
+
+		string++;
+		slen--;
+	}
+
+	return 0;
 }
