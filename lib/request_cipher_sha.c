@@ -37,6 +37,8 @@ int acvp_req_set_algo_sha(const struct def_algo_sha *sha,
 {
 	int ret = 0;
 
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
 	CKINT(acvp_req_cipher_to_string(entry, sha->algorithm,
 				        ACVP_CIPHERTYPE_HASH, "algorithm"));
 	CKINT(json_object_object_add(entry, "inBit",

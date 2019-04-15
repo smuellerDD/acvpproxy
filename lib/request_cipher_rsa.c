@@ -516,6 +516,8 @@ int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 	const struct def_algo_rsa_component_sig_gen *component_sig;
 	int ret = -EINVAL;
 
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("RSA")));
 

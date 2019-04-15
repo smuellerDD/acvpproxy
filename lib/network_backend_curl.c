@@ -138,30 +138,30 @@ static size_t acvp_curl_write_cb(void *ptr, size_t size, size_t nmemb,
 	return bufsize;
 }
 
-static struct curl_slist
-*acvp_curl_add_auth_hdr(const struct acvp_auth_ctx *auth,
-			struct curl_slist *slist)
+static int
+acvp_curl_add_auth_hdr(const struct acvp_auth_ctx *auth,
+			struct curl_slist **slist)
 {
 	size_t bearer_size;
 	char *bearer;
 	const char bearer_header[] = "Authorization: Bearer ";
 
 	/* Create the Authorzation header if needed */
-	if (!auth || !auth->jwt_token || !auth->jwt_token_len)
-		return slist;
+	if (!slist || !auth || !auth->jwt_token || !auth->jwt_token_len)
+		return 0;
 
 	bearer_size = auth->jwt_token_len + sizeof(bearer_header);
-        bearer = calloc(1, bearer_size);
+	bearer = calloc(1, bearer_size);
 	if (!bearer)
-		return slist;
+		return -ENOMEM;
 
         snprintf(bearer, bearer_size, "%s%s", bearer_header, auth->jwt_token);
 	logger(LOGGER_DEBUG, LOGGER_C_CURL,
 	       "HTTP Authentication header: %s\n", bearer);
-        slist = curl_slist_append(slist, bearer);
+        *slist = curl_slist_append(*slist, bearer);
         free(bearer);
 
-	return slist;
+	return 0;
 }
 
 /*
@@ -197,13 +197,6 @@ static void acvp_curl_log_peer_cert(CURL *hnd)
 	}
 }
 
-enum acvp_http_type {
-	ACVP_HTTP_GET,
-	ACVP_HTTP_POST,
-	ACVP_HTTP_PUT,
-	ACVP_HTTP_DELETE,
-};
-
 static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 				 const struct acvp_buf *submit_buf,
 				 struct acvp_buf *response_buf,
@@ -215,7 +208,7 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	CURL *curl = NULL;
 	CURLcode cret;
 	ACVP_BUFFER_INIT(submit_tmp);
-	const char *url = netinfo->url;
+	const char *url = netinfo->url, *http_type_str;
 	char useragent[30];
 	int ret;
 	unsigned int retries = 0;
@@ -223,14 +216,13 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	CKNULL_LOG(net, -EINVAL, "Network context missing\n");
 	CKNULL_LOG(url, -EINVAL, "URL missing\n");
 
-	CKINT(acvp_versionstring(useragent, sizeof(useragent)));
+	CKINT(acvp_versionstring_short(useragent, sizeof(useragent)));
 
 	if (submit_buf)
 		slist = curl_slist_append(slist,
 					  "Content-Type: application/json");
 
-	slist = acvp_curl_add_auth_hdr(auth, slist);
-	CKNULL(slist, -ENOMEM);
+	CKINT(acvp_curl_add_auth_hdr(auth, &slist));
 
 	curl = curl_easy_init();
 	CKNULL(curl, -ENOMEM);
@@ -254,12 +246,14 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	CKINT(curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L));
 
 	switch (http_type) {
-	case ACVP_HTTP_GET:
+	case acvp_http_get:
+		http_type_str = "GET";
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,
 		       "Performing an HTTP GET operation\n");
 		/* Nothing special */
 		break;
-	case ACVP_HTTP_POST:
+	case acvp_http_post:
+		http_type_str = "POST";
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,
 		       "Performing an HTTP POST operation\n");
 		if (!submit_buf || !submit_buf->buf || !submit_buf->len) {
@@ -276,7 +270,8 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 		       "About to HTTP POST the following data:\n%s\n",
 		       submit_buf->buf);
 		break;
-	case ACVP_HTTP_PUT:
+	case acvp_http_put:
+		http_type_str = "PUT";
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,
 		       "Performing an HTTP PUT operation\n");
 		if (!submit_buf || !submit_buf->buf || !submit_buf->len) {
@@ -302,7 +297,8 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 		       "About to HTTP PUT the following data:\n%s\n",
 		       submit_buf->buf);
 		break;
-	case ACVP_HTTP_DELETE:
+	case acvp_http_delete:
+		http_type_str = "DELETE";
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,
 		       "Performing an HTTP DELETE operation\n");
 		CKINT(curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE"));
@@ -393,8 +389,8 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 		ret = 0;
 	} else {
 		logger(LOGGER_WARN, LOGGER_C_CURL,
-		       "Unable to HTTP GET data for URL %s: %d\n", url,
-		       ret);
+		       "Unable to HTTP %s data for URL %s: %d\n", http_type_str,
+		       url, ret);
 		ret = -ECONNREFUSED;
 	}
 
@@ -411,14 +407,14 @@ static int acvp_curl_http_post(const struct acvp_na_ex *netinfo,
 			       struct acvp_buf *response_buf)
 {
 	return acvp_curl_http_common(netinfo, submit_buf, response_buf,
-				     ACVP_HTTP_POST);
+				     acvp_http_post);
 }
 
 static int acvp_curl_http_get(const struct acvp_na_ex *netinfo,
 			      struct acvp_buf *response_buf)
 {
 	return acvp_curl_http_common(netinfo, NULL, response_buf,
-				     ACVP_HTTP_GET);
+				     acvp_http_get);
 }
 
 static int acvp_curl_http_put(const struct acvp_na_ex *netinfo,
@@ -426,12 +422,12 @@ static int acvp_curl_http_put(const struct acvp_na_ex *netinfo,
 			      struct acvp_buf *response_buf)
 {
 	return acvp_curl_http_common(netinfo, submit_buf, response_buf,
-				     ACVP_HTTP_PUT);
+				     acvp_http_put);
 }
 
 static int acvp_curl_http_delete(const struct acvp_na_ex *netinfo)
 {
-	return acvp_curl_http_common(netinfo, NULL, NULL, ACVP_HTTP_DELETE);
+	return acvp_curl_http_common(netinfo, NULL, NULL, acvp_http_delete);
 }
 
 extern int acvp_openssl_thread_setup(void);

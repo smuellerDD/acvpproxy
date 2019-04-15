@@ -1,6 +1,16 @@
 {
-	"moduleName": "OpenSSL (64 bit)",
-	"moduleVersion": "1.1.0",
-	"moduleDescription": "OpenSSL library implementation providing cryptographic services to Linux user space software components. The module was tested with 64 bit word size.",
-	"moduleType": 0
+  "moduleName":"OpenSSL (64 bit)",
+  "moduleVersion":"1.1.0",
+  "moduleDescription":"OpenSSL library implementation providing cryptographic services to Linux user space software components. The module was tested with 64 bit word size.",
+  "moduleType":0,
+  "acvpModuleIds":[
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (AESNI_AVX)",
+      "acvpModuleId":10584
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SHA3_AVX2)",
+      "acvpModuleId":1073741890
+    }
+  ]
 }

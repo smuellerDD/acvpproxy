@@ -22,7 +22,6 @@
 
 #include <pthread.h>
 
-#include "bool.h"
 #include "logger.h"
 
 /**
@@ -35,34 +34,6 @@ typedef pthread_mutex_t mutex_w_t;
 
 #define DEFINE_MUTEX_W_LOCKED(name)					\
 	error "DEFINE_MUTEX_LOCKED not implemented"
-
-/**
- * @brief Initialize a mutex
- * @param mutex [in] Lock variable to initialize.
- * @param locked [in] Specify whether the lock shall already be locked (1)
- *		      or unlocked (0).
- */
-static inline void mutex_w_init(mutex_w_t *mutex, int locked)
-{
-	int ret;
-
-	if (locked) {
-		logger(LOGGER_ERR, LOGGER_C_THREADING,
-		       "Enabling lock in locked state not supported with pthreads\n");
-		return;
-	}
-
-	ret = pthread_mutex_init(mutex, NULL);
-	if (ret) {
-		logger(LOGGER_ERR, LOGGER_C_THREADING,
-		       "Pthread lock initialization failed with %d\n", -ret);
-	}
-}
-
-static inline void mutex_w_destroy(mutex_w_t *mutex)
-{
-	pthread_mutex_destroy(mutex);
-}
 
 /**
  * Mutual exclusion lock (covering also the reader lock use case).
@@ -80,6 +51,31 @@ static inline void mutex_w_lock(mutex_w_t *mutex)
 static inline void mutex_w_unlock(mutex_w_t *mutex)
 {
 	pthread_mutex_unlock(mutex);
+}
+
+/**
+ * @brief Initialize a mutex
+ * @param mutex [in] Lock variable to initialize.
+ * @param locked [in] Specify whether the lock shall already be locked (1)
+ *		      or unlocked (0).
+ */
+static inline void mutex_w_init(mutex_w_t *mutex, int locked)
+{
+	int ret;
+
+	ret = pthread_mutex_init(mutex, NULL);
+	if (ret) {
+		logger(LOGGER_ERR, LOGGER_C_THREADING,
+		       "Pthread lock initialization failed with %d\n", -ret);
+	}
+
+	if (locked)
+		pthread_mutex_lock(mutex);
+}
+
+static inline void mutex_w_destroy(mutex_w_t *mutex)
+{
+	pthread_mutex_destroy(mutex);
 }
 
 /**

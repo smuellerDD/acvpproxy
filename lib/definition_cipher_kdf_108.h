@@ -89,6 +89,8 @@ struct def_algo_kdf_108 {
 	 * Minimum must be greater or equal to 1. Maximum must be less than
 	 * or equal to 4096.
 	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: always
 	 */
 	int supported_lengths[DEF_ALG_MAX_INT];

@@ -60,6 +60,8 @@ struct def_algo_kdf_ikev2 {
 	 * Minimum must be greater or equal to 64. Maximum must be less than
 	 * or equal to 2048.
 	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: always
 	 */
 	int initiator_nonce_length[DEF_ALG_MAX_INT];
@@ -69,6 +71,8 @@ struct def_algo_kdf_ikev2 {
 	 *
 	 * Minimum must be greater or equal to 64. Maximum must be less than
 	 * or equal to 2048.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
 	 *
 	 * required: always
 	 */
@@ -80,12 +84,16 @@ struct def_algo_kdf_ikev2 {
 	 * Minimum must be greater or equal to 224. Maximum must be less than
 	 * or equal to 8192.
 	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: always
 	 */
 	int diffie_hellman_shared_secret_length[DEF_ALG_MAX_INT];
 
 	/*
 	 * The lengths of derived key material the IUT supports.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
 	 *
 	 * Minimum must be greater than or equal to 160. Maximum must be less
 	 * than or equal to 16384.

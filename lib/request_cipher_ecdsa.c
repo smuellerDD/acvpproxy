@@ -36,6 +36,8 @@ static int acvp_req_ecdsa_keygen(const struct def_algo_ecdsa *ecdsa,
 	unsigned int found = 0;
 	int ret;
 
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
 	CKINT(acvp_req_cipher_to_array(entry, ecdsa->curve,
 				       ACVP_CIPHERTYPE_ECC, "curve"));
 

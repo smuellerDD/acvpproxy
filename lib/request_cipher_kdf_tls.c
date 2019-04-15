@@ -39,6 +39,8 @@ int acvp_req_set_algo_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 	int ret;
 	bool found = false;
 
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("kdf-components")));
 	CKINT(json_object_object_add(entry, "mode",

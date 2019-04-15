@@ -120,7 +120,7 @@ $(analyze_plists): %.plist: %.c
 scan: $(analyze_plists)
 
 cppcheck:
-	cppcheck --enable=performance --enable=warning --enable=portability *.h *.c
+	cppcheck --force -q --enable=performance --enable=warning --enable=portability *.h *.c
 
 install:
 	install -m 0755 $(LIBNAME) -D -t $(DESTDIR)$(LIBDIR)/

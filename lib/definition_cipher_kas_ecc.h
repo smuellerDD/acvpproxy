@@ -121,6 +121,8 @@ struct def_algo_kas_ecc_kdfnokc {
 	 * value is limited to 128, 192 and 256 bits. For HMAC-based MACs,
 	 * this value is allowed to be between 8 and 524288 bits.
 	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: always
 	 */
 	int keylen[DEF_ALG_MAX_INT];
@@ -239,6 +241,8 @@ struct def_algo_kas_ecc_kdfkc {
 	 * Key length supported by the MAC in bits. For AES-based MACs this
 	 * value is limited to 128, 192 and 256 bits. For HMAC-based MACs,
 	 * this value is allowed to be between 8 and 524288 bits.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
 	 *
 	 * required: always
 	 */

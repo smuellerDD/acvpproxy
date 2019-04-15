@@ -59,7 +59,7 @@ void acvp_op_enable(void)
 }
 
 int acvp_testid_url(const struct acvp_testid_ctx *testid_ctx,
-		    char *url, uint32_t urllen)
+		    char *url, uint32_t urllen, bool urlpath)
 {
 	int ret;
 
@@ -71,7 +71,11 @@ int acvp_testid_url(const struct acvp_testid_ctx *testid_ctx,
 		return -EINVAL;
 	}
 
-	CKINT(acvp_create_url(NIST_VAL_OP_REG, url, urllen));
+	if (urlpath) {
+		CKINT(acvp_create_urlpath(NIST_VAL_OP_REG, url, urllen));
+	} else {
+		CKINT(acvp_create_url(NIST_VAL_OP_REG, url, urllen));
+	}
 	CKINT(acvp_extend_string(url, urllen, "/%u", testid_ctx->testid));
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "testID URL: %s\n", url);
@@ -81,14 +85,14 @@ out:
 }
 
 int acvp_vectorset_url(const struct acvp_testid_ctx *testid_ctx, char *url,
-		       uint32_t urllen)
+		       uint32_t urllen, bool urlpath)
 {
 	int ret;
 
 	CKNULL_LOG(testid_ctx, -EINVAL, "testid_ctx missing\n");
 	CKNULL_LOG(url, -EINVAL, "URL buffer missing\n");
 
-	CKINT(acvp_testid_url(testid_ctx, url, urllen));
+	CKINT(acvp_testid_url(testid_ctx, url, urllen, urlpath));
 	CKINT(acvp_extend_string(url, urllen, "/%s", NIST_VAL_OP_VECTORSET));
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "vectorSet URL: %s\n", url);
@@ -98,7 +102,7 @@ out:
 }
 
 int acvp_vsid_url(const struct acvp_vsid_ctx *vsid_ctx, char *url,
-		  uint32_t urllen)
+		  uint32_t urllen, bool urlpath)
 {
 	const struct acvp_testid_ctx *testid_ctx;
 	int ret;
@@ -113,7 +117,7 @@ int acvp_vsid_url(const struct acvp_vsid_ctx *vsid_ctx, char *url,
 		return -EINVAL;
 	}
 
-	CKINT(acvp_vectorset_url(testid_ctx, url, urllen));
+	CKINT(acvp_vectorset_url(testid_ctx, url, urllen, urlpath));
 	CKINT(acvp_extend_string(url, urllen, "/%u", vsid_ctx->vsid));
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "vsID URL: %s\n", url);
@@ -348,16 +352,9 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 			    const struct acvp_buf *buf, int err))
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
-	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
-	struct acvp_na_ex netinfo;
 	struct json_object *resp = NULL, *data = NULL;
 	uint32_t sleep_time = 0;
 	int ret, ret2;
-
-	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
-
-	/* Refresh the ACVP JWT token by re-logging in. */
-	CKINT(acvp_login(testid_ctx));
 
 	if (vsid_ctx->vsid) {
 		logger_status(LOGGER_C_ANY,
@@ -366,25 +363,11 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 			      atomic_read(&glob_vsids_processed),
 			      atomic_read(&glob_vsids_to_process));
 	} else {
-		logger_status(LOGGER_C_ANY, "(Re)Try testID %u\n",
-			      testid_ctx->testid);
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY, "(Re)Try testID %u\n",
+		       testid_ctx->testid);
 	}
 
-	/*
-	 * Retrieve the result.
-	 * Do not use CKINT here to allow storing the server response as
-	 * debug message in any case, even if there is an error.
-	 */
-	CKINT(acvp_get_net(&netinfo.net));
-	netinfo.url = url;
-	netinfo.server_auth = testid_ctx->server_auth;
-	mutex_reader_lock(&auth->mutex);
-	ret2 = na->acvp_http_get(&netinfo, result_data);
-	mutex_reader_unlock(&auth->mutex);
-
-	logger(ret2 ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Process following server response (ret: %d): %s\n", ret,
-	       (result_data->buf) ? (char *)result_data->buf : "(null)");
+	ret2 = acvp_net_op(testid_ctx, url, NULL, result_data, acvp_http_get);
 
 	/* Store the debug version of the result unconditionally. */
 	if (debug_logger) {
@@ -459,7 +442,7 @@ int acvp_get_testvectors_expected(const struct acvp_vsid_ctx *vsid_ctx)
 	if (!req_details->request_sample)
 		return 0;
 
-	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url)));
+	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url), false));
 	CKINT(acvp_expected_url(url, sizeof(url)));
 	CKINT(acvp_process_retry(vsid_ctx, &buf, url,
 				 acvp_store_vector_debug));
@@ -483,11 +466,8 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 	char url[ACVP_NET_URL_MAXLEN];
 	int ret, ret2;
 
-	/* Refresh the ACVP JWT token by re-logging in. */
-	CKINT(acvp_login(testid_ctx));
-
 	/* Prepare the URL to be used for downloading the vsID */
-	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url)));
+	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url), false));
 
 	/* Do the actual download of the vsID */
 	ret2 = acvp_process_retry(vsid_ctx, &buf, url,
@@ -880,7 +860,6 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
-	struct acvp_na_ex netinfo;
 	struct json_object *request = NULL;
 	ACVP_BUFFER_INIT(register_buf);
 	ACVP_BUFFER_INIT(response_buf);
@@ -898,9 +877,6 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 
 	if (!req_details->dump_register)
 		sig_enqueue_ctx(testid_ctx);
-
-	/* Log into the ACVP server using the TOTP authentication */
-	CKINT(acvp_login(testid_ctx));
 
 	/*
 	 * Dump the constructed message if requested and return (i.e. no
@@ -928,20 +904,8 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_create_url(NIST_VAL_OP_REG, url, sizeof(url)));
 
 	/* Send the capabilities to the ACVP server. */
-	CKINT(acvp_get_net(&netinfo.net));
-	netinfo.url = url;
-	netinfo.server_auth = testid_ctx->server_auth;
-	mutex_reader_lock(&testid_ctx->server_auth->mutex);
-	ret2 = na->acvp_http_post(&netinfo, &register_buf, &response_buf);
-	mutex_reader_unlock(&testid_ctx->server_auth->mutex);
-
-	if (!response_buf.buf || !response_buf.len) {
-		ret = -ENODATA;
-		goto out;
-	}
-
-	logger(ret2 ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Process following server response: %s\n", response_buf.buf);
+	ret2 = acvp_net_op(testid_ctx, url, &register_buf, &response_buf,
+			   acvp_http_post);
 
 	/* Store the debug version of the result unconditionally. */
 	CKINT(acvp_store_register_debug(testid_ctx, &response_buf, ret2));
@@ -960,7 +924,7 @@ out:
 
 	if (ret && testid_ctx)
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Failure to submit testID %u\n",
+		       "Failure to request testID %u\n",
 		       testid_ctx->testid);
 
 	acvp_release_auth(testid_ctx);

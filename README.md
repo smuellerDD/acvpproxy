@@ -59,8 +59,73 @@ follows.
 7. Check the verdict.json file in the testvectors directory for the ACVP
    server verdict.
 
-Although the ACVP Proxy supports the entire ACVP v0.5 protocol, only the
-aforementioned steps are yet supported by the ACVP server.
+Test Publication Phase
+----------------------
+
+When communicating the cipher options, the test vectors and responses and the
+test verdicts in the process above, no information about the particular
+module like module name or version or vendor details is communicated.
+
+After obtaining the hopefully passing verdict the test session is eligible
+for obtaining a certificate (with the production server). For such publication
+the ACVP server now must receive all meta data characterizing the product.
+
+Below this README describes how the user shall maintain several JSON files
+defining the vendor, the module, and the operational environment. During the
+publication phase, the ACVP server is informed about this meta data and it
+is associated with the test session. That means that even yet unannounced
+products can be tested using the public servers since nobody will be able to
+associate the test session with a particular product before the publication
+phase.
+
+The publication phase is triggered with the `--publish` option. During the
+publication phase, the ACVP proxy will ensure the ACVP server receives the
+meta data and then combines it with the test session.
+
+Vendor ID / Module ID / Operational Environment ID
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To support the publication phase, the ACVP Proxy will add and maintain
+various ID entries in the JSON files explained below.
+
+These IDs point to the respective vendor, module or operational environment
+information maintained by the ACVP server for the given data set like vendor
+or contact person details. These IDs must be used by the ACVP Proxy for the
+final publication phase, i.e. when the option `--publish` is used. Before
+using them, the ACVP proxy will verify that the IDs still point to the
+entry with the same information as given by the JSON files.
+
+If the IDs do not exist in the JSON files, the ACVP Proxy tries to resolve them
+by looking up the ACVP server database which may take some time.
+
+In case the specified resource like vendor definition or module definition
+is not found, the definition is registered with the ACVP server if the
+`--register-definition` option is provided with the `acvp-proxy` tool.
+
+As mentioned, even existing IDs are checked with the ACVP server to verify
+the ACVP server still contains the proper information. If it does not
+and `--register-definition` is provided, it will request an update of the
+ACVP server entry.
+
+If the ACVP proxy identifies it needs to perform a register operation but
+the `--register-definition` option is not provided, it will issue a warning
+about the needed register operation and terminate. In this case, no add or
+update request is sent to the ACVP server.
+
+Please note: if the addition or update request is sent to the ACVP server,
+NIST will need to perform a manual step to verify the data. Thus, you MUST
+interact with NIST to have the request(s) approved. After the approval process
+the publication operation can be invoked again and the ACVP proxy will
+now fetch the registered ID information from the ACVP server. If the
+request was not yet approved at the time the ACVP proxy shall publish
+a particular module, it will identify this scenario and terminate with an
+error message.
+
+Note, if you maintain multiple modules which have the same, say, vendor
+definition or operational environment definition, and you have the respective
+IDs for one module already, you may copy them to the JSON files of the
+respective other modules. In this case, the ACVP proxy can skip the resolving
+operation that may be lengthy and simply verify the given ID.
 
 Prerequisites
 -------------
@@ -217,7 +282,11 @@ The JSON files in the `oe` directory must contain the following JSON keywords:
 * `oeEnvName`: Name of the operation environment (such as operating system and
   its version)
 
-* `cpe`: UNKNOWN
+* `cpe`: CPE tag (may be non-existant if `swid` exists)
+
+* `swid`: SWID tag (may be non-existant if `cpe` exists)
+
+* `oe_description`: Description of the operational environment
 
 * `manufacturer`: Manufacturer of the underlying CPU executing the module.
 

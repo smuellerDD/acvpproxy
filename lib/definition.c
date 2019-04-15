@@ -368,6 +368,7 @@ static void acvp_def_del_vendor(struct definition *def)
 	ACVP_PTR_FREE_NULL(vendor->vendor_url);
 	ACVP_PTR_FREE_NULL(vendor->contact_name);
 	ACVP_PTR_FREE_NULL(vendor->contact_email);
+	ACVP_PTR_FREE_NULL(vendor->contact_phone);
 	ACVP_PTR_FREE_NULL(vendor->addr_street);
 	ACVP_PTR_FREE_NULL(vendor->addr_locality);
 	ACVP_PTR_FREE_NULL(vendor->addr_region);
@@ -388,6 +389,8 @@ static void acvp_def_del_oe(struct definition *def)
 
 	ACVP_PTR_FREE_NULL(oe->oe_env_name);
 	ACVP_PTR_FREE_NULL(oe->cpe);
+	ACVP_PTR_FREE_NULL(oe->swid);
+	ACVP_PTR_FREE_NULL(oe->oe_description);
 	ACVP_PTR_FREE_NULL(oe->manufacturer);
 	ACVP_PTR_FREE_NULL(oe->proc_family);
 	ACVP_PTR_FREE_NULL(oe->proc_name);
@@ -396,6 +399,7 @@ static void acvp_def_del_oe(struct definition *def)
 	ACVP_PTR_FREE_NULL(def->oe);
 }
 
+static int acvp_def_get_module_id(struct def_info *def_info, uint32_t *id);
 static int acvp_def_add_info(struct definition *def, struct def_info *src,
 			     const char *impl_name)
 {
@@ -431,7 +435,7 @@ static int acvp_def_add_info(struct definition *def, struct def_info *src,
 
 	CKINT(acvp_duplicate(&info->def_module_file, src->def_module_file));
 
-	info->acvp_module_id = src->acvp_module_id;
+	acvp_def_get_module_id(info, &info->acvp_module_id);
 
 out:
 	if (ret)
@@ -457,6 +461,7 @@ static int acvp_def_add_vendor(struct definition *def, struct def_vendor *src)
 	CKINT(acvp_duplicate(&vendor->vendor_url, src->vendor_url));
 	CKINT(acvp_duplicate(&vendor->contact_name, src->contact_name));
 	CKINT(acvp_duplicate(&vendor->contact_email, src->contact_email));
+	CKINT(acvp_duplicate(&vendor->contact_phone, src->contact_phone));
 	CKINT(acvp_duplicate(&vendor->addr_street, src->addr_street));
 	CKINT(acvp_duplicate(&vendor->addr_locality, src->addr_locality));
 	CKINT(acvp_duplicate(&vendor->addr_region, src->addr_region));
@@ -466,6 +471,8 @@ static int acvp_def_add_vendor(struct definition *def, struct def_vendor *src)
 	CKINT(acvp_duplicate(&vendor->def_vendor_file, src->def_vendor_file));
 
 	vendor->acvp_vendor_id = src->acvp_vendor_id;
+	vendor->acvp_person_id = src->acvp_person_id;
+	vendor->acvp_addr_id = src->acvp_addr_id;
 
 out:
 	if (ret)
@@ -487,6 +494,8 @@ static int acvp_def_add_oe(struct definition *def, struct def_oe *src)
 	oe->env_type = src->env_type;
 	CKINT(acvp_duplicate(&oe->oe_env_name, src->oe_env_name));
 	CKINT(acvp_duplicate(&oe->cpe, src->cpe));
+	CKINT(acvp_duplicate(&oe->swid, src->swid));
+	CKINT(acvp_duplicate(&oe->oe_description, src->oe_description));
 	CKINT(acvp_duplicate(&oe->manufacturer, src->manufacturer));
 	CKINT(acvp_duplicate(&oe->proc_family, src->proc_family));
 	CKINT(acvp_duplicate(&oe->proc_name, src->proc_name));
@@ -564,7 +573,7 @@ static int acvp_def_write_json(struct json_object *config, const char *pathname)
 	struct flock lock;
 	int ret, fd;
 
-	fd = open(pathname, O_WRONLY);
+	fd = open(pathname, O_WRONLY | O_TRUNC);
 	if (fd < 0)
 		return -errno;
 
@@ -624,14 +633,13 @@ static int acvp_def_update_id(const char *pathname,
 
 	for (i = 0; i < list_entries; i++) {
 		/* Do not write a zero ID */
-		if (!list->name || !list->id)
+		if (!list[i].name || !list[i].id)
 			continue;
 
 		updated = true;
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Updating entry %s with %u\n",
-		       list->name, list->id);
-		CKINT(acvp_def_set_value(config, list->name, list->id));
-		list++;
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY, "Updating entry %s with %u\n",
+		       list[i].name, list[i].id);
+		CKINT(acvp_def_set_value(config, list[i].name, list[i].id));
 	}
 
 	if (updated)
@@ -644,10 +652,22 @@ out:
 
 int acvp_def_update_vendor_id(struct def_vendor *def_vendor)
 {
+	struct acvp_def_update_id_entry list[2];
+
+	list[0].name = "acvpVendorId";
+	list[0].id = def_vendor->acvp_vendor_id;
+	list[1].name = "acvpAddressId";
+	list[1].id = def_vendor->acvp_addr_id;
+
+	return acvp_def_update_id(def_vendor->def_vendor_file, list, 2);
+}
+
+int acvp_def_update_person_id(struct def_vendor *def_vendor)
+{
 	struct acvp_def_update_id_entry list;
 
-	list.name = "acvpVendorId";
-	list.id = def_vendor->acvp_vendor_id;
+	list.name = "acvpPersonId";
+	list.id = def_vendor->acvp_person_id;
 
 	return acvp_def_update_id(def_vendor->def_vendor_file, &list, 1);
 }
@@ -666,14 +686,117 @@ int acvp_def_update_oe_id(struct def_oe *def_oe)
 	return acvp_def_update_id(def_oe->def_oe_file, list, 3);
 }
 
+static int acvp_def_find_module_id(struct def_info *def_info,
+				   struct json_object *config,
+				   struct json_object **entry)
+{
+	struct json_object *id_list, *id_entry = NULL;
+	unsigned int i;
+	int ret;
+	bool found = false;
+
+	CKINT(json_find_key(config, "acvpModuleIds", &id_list,
+			    json_type_array));
+
+	for (i = 0; i < json_object_array_length(id_list); i++) {
+		const char *str;
+
+		id_entry = json_object_array_get_idx(id_list, i);
+
+		if (!id_entry)
+			break;
+
+		CKINT(json_get_string(id_entry, "acvpModuleName", &str));
+		if (strncmp(def_info->module_name, str,
+				strlen(def_info->module_name)))
+			continue;
+
+		found = true;
+		break;
+	}
+
+	if (found) {
+		*entry = id_entry;
+	} else {
+		ret = -ENOENT;
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_def_get_module_id(struct def_info *def_info, uint32_t *id)
+{
+	struct json_object *config = NULL;
+	struct json_object *entry;
+	int ret;
+
+	config = json_object_from_file(def_info->def_module_file);
+	CKNULL_LOG(config, -EFAULT,
+		   "Cannot parse operational environment config file\n");
+
+	CKINT(acvp_def_find_module_id(def_info, config, &entry));
+	CKINT(json_get_uint(entry, "acvpModuleId", id));
+
+out:
+	ACVP_JSON_PUT_NULL(config);
+	return ret;
+}
+
 int acvp_def_update_module_id(struct def_info *def_info)
 {
-	struct acvp_def_update_id_entry list;
+	struct json_object *config = NULL, *id_list, *id_entry;
+	int ret = 0;
+	bool updated = false;
 
-	list.name = "acvpModuleId";
-	list.id = def_info->acvp_module_id;
+	config = json_object_from_file(def_info->def_module_file);
+	CKNULL_LOG(config, -EFAULT,
+		   "Cannot parse operational environment config file\n");
 
-	return acvp_def_update_id(def_info->def_module_file, &list, 1);
+	ret = acvp_def_find_module_id(def_info, config, &id_entry);
+	if (ret) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+			       "Adding entry %s with %u\n",
+			       def_info->module_name,
+			       def_info->acvp_module_id);
+
+		ret = json_find_key(config, "acvpModuleIds", &id_list,
+				    json_type_array);
+		if (ret) {
+			/*
+			 * entire array acvpModuleIds does not exist,
+			 * create it
+			 */
+			id_list = json_object_new_array();
+			CKNULL(id_list, -ENOMEM);
+			CKINT(json_object_object_add(config, "acvpModuleIds",
+						     id_list));
+		}
+
+		id_entry = json_object_new_object();
+		CKNULL(id_entry, -ENOMEM);
+		CKINT(json_object_array_add(id_list, id_entry));
+
+		CKINT(json_object_object_add(id_entry, "acvpModuleName",
+				json_object_new_string(def_info->module_name)));
+		CKINT(json_object_object_add(id_entry, "acvpModuleId",
+				json_object_new_int(def_info->acvp_module_id)));
+		updated = true;
+	} else {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+			       "Updating entry %s with %u\n",
+			       def_info->module_name, def_info->acvp_module_id);
+		CKINT(acvp_def_set_value(id_entry, "acvpModuleId",
+					 def_info->acvp_module_id));
+		updated = true;
+	}
+
+	if (updated)
+		CKINT(acvp_def_write_json(config, def_info->def_module_file));
+
+out:
+	ACVP_JSON_PUT_NULL(config);
+	return ret;
 }
 
 static int acvp_check_features(uint64_t feature)
@@ -722,7 +845,6 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 		   "Cannot parse operational environment config file\n");
 	CKINT(json_get_string(oe_config, "oeEnvName",
 			      (const char **)&oe.oe_env_name));
-	CKINT(json_get_string(oe_config, "cpe", (const char **)&oe.cpe));
 	CKINT(json_get_string(oe_config, "manufacturer",
 			      (const char **)&oe.manufacturer));
 	CKINT(json_get_string(oe_config, "procFamily",
@@ -735,6 +857,20 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	CKINT(acvp_check_features(oe.features));
 	CKINT(json_get_uint(oe_config, "envType", (uint32_t *)&oe.env_type));
 	CKINT(acvp_module_oe_type(oe.env_type, NULL));
+
+	/*
+	 * No error handling - one or more may not exist.
+	 */
+	json_get_string(oe_config, "cpe", (const char **)&oe.cpe);
+	json_get_string(oe_config, "swid", (const char **)&oe.swid);
+	json_get_string(oe_config, "oe_description",
+			(const char **)&oe.oe_description);
+	if (!oe.cpe && !oe.swid) {
+		logger(LOGGER_ERR, LOGGER_C_ANY, "CPE or SWID missing\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	/*
 	 * No error handling - in case we cannot find entry, it will be
 	 * created.
@@ -745,6 +881,7 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	/* Unconstify harmless, because data will be duplicated */
 	oe.def_oe_file = (char *)oe_file;
 
+	memset(&info, 0, sizeof(info));
 	info_config = json_object_from_file(info_file);
 	CKNULL_LOG(info_config, -EFAULT,
 		   "Cannot parse module information config file\n");
@@ -757,14 +894,16 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	CKINT(json_get_uint(info_config, "moduleType",
 			    (uint32_t *)&info.module_type));
 	CKINT(acvp_module_oe_type(info.module_type, NULL));
+
 	/*
-	 * No error handling - in case we cannot find entry, it will be
-	 * created.
+	 * We do NOT read the acvpModuleId here - this is done when
+	 * instantiating the definition.
 	 */
-	json_get_uint(info_config, "acvpModuleId", &info.acvp_module_id);
+
 	/* Unconstify harmless, because data will be duplicated */
 	info.def_module_file = (char *)info_file;
 
+	memset(&vendor, 0, sizeof(vendor));
 	vendor_config = json_object_from_file(vendor_file);
 	CKNULL_LOG(info_config, -EFAULT,
 		   "Cannot parse vendor information config file\n");
@@ -776,6 +915,8 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 			      (const char **)&vendor.contact_name));
 	CKINT(json_get_string(vendor_config, "contactEmail",
 			      (const char **)&vendor.contact_email));
+	CKINT(json_get_string(vendor_config, "contactPhone",
+			      (const char **)&vendor.contact_phone));
 	CKINT(json_get_string(vendor_config, "addressStreet",
 			      (const char **)&vendor.addr_street));
 	CKINT(json_get_string(vendor_config, "addressCity",
@@ -791,6 +932,8 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	 * created.
 	 */
 	json_get_uint(vendor_config, "acvpVendorId", &vendor.acvp_vendor_id);
+	json_get_uint(vendor_config, "acvpPersonId", &vendor.acvp_person_id);
+	json_get_uint(vendor_config, "acvpAddressId", &vendor.acvp_addr_id);
 	/* Unconstify harmless, because data will be duplicated */
 	vendor.def_vendor_file = (char *)vendor_file;
 

@@ -213,8 +213,9 @@ int acvp_store_vector_request_debug(const struct acvp_testid_ctx *testid_ctx,
 				       "vector_request_response", err);
 }
 
-int acvp_store_vendor_debug(const struct acvp_testid_ctx *testid_ctx,
-			    const struct acvp_buf *buf, int err)
+static int acvp_store_debug(const struct acvp_testid_ctx *testid_ctx,
+			    const struct acvp_buf *buf, int err,
+			    const char *file)
 {
 	const struct definition *def = testid_ctx->def;
 
@@ -224,29 +225,40 @@ int acvp_store_vendor_debug(const struct acvp_testid_ctx *testid_ctx,
 	if (!def)
 		return 0;
 
-	return ds->acvp_datastore_write_testid(testid_ctx, "vendor.debug",
-					       true, buf);
+	return ds->acvp_datastore_write_testid(testid_ctx, file, true, buf);
+}
+
+int acvp_store_vendor_debug(const struct acvp_testid_ctx *testid_ctx,
+			    const struct acvp_buf *buf, int err)
+{
+	return acvp_store_debug(testid_ctx, buf, err, "vendor.debug");
 }
 
 int acvp_store_oe_debug(const struct acvp_testid_ctx *testid_ctx,
 			const struct acvp_buf *buf, int err)
 {
-	const struct definition *def = testid_ctx->def;
-
-	if (!err && logger_get_verbosity(LOGGER_C_ANY) < LOGGER_DEBUG)
-		return 0;
-
-	if (!def)
-		return 0;
-
-	return ds->acvp_datastore_write_testid(testid_ctx, "oe.debug",
-					       true, buf);
+	return acvp_store_debug(testid_ctx, buf, err, "oe.debug");
 }
 
 int acvp_store_module_debug(const struct acvp_testid_ctx *testid_ctx,
 			    const struct acvp_buf *buf, int err)
 {
+	return acvp_store_debug(testid_ctx, buf, err, "module.debug");
+}
+
+int acvp_store_person_debug(const struct acvp_testid_ctx *testid_ctx,
+			    const struct acvp_buf *buf, int err)
+{
+	return acvp_store_debug(testid_ctx, buf, err, "person.debug");
+}
+
+int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
+			    const struct acvp_buf *buf, int err,
+			    const char *file)
+{
 	const struct definition *def = testid_ctx->def;
+	char tmp[FILENAME_MAX];
+	int ret;
 
 	if (!err && logger_get_verbosity(LOGGER_C_ANY) < LOGGER_DEBUG)
 		return 0;
@@ -254,6 +266,11 @@ int acvp_store_module_debug(const struct acvp_testid_ctx *testid_ctx,
 	if (!def)
 		return 0;
 
-	return ds->acvp_datastore_write_testid(testid_ctx, "module.debug",
-					       true, buf);
+	snprintf(tmp, sizeof(tmp), "%s", file);
+	CKINT(acvp_req_check_filename(tmp, strlen(tmp)));
+
+	CKINT(ds->acvp_datastore_write_testid(testid_ctx, tmp, true, buf));
+
+out:
+	return ret;
 }

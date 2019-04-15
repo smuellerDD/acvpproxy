@@ -38,6 +38,15 @@ static inline bool acvp_match_cipher(cipher_t combination, cipher_t single)
 {
 	return ((combination &~ ~single) == single);
 }
+
+/*
+ * Add a domain specification with min/max/increment to entry at keyword
+ * key.
+ */
+int acvp_req_algo_domain(struct json_object *entry,
+			 unsigned int min, unsigned int max, unsigned int inc,
+			 const char *key);
+
 /*
  * Always create a JSON array even when there are no entries.
  * Note the caller must initialize entry as an array.
@@ -53,20 +62,6 @@ int acvp_req_algo_int_array(struct json_object *entry, const int vals[],
 			    const char *key);
 int acvp_req_algo_int_array_len(struct json_object *entry, const int vals[],
 				unsigned int numvals, const char *key);
-
-/*
- * Generate a JSON object of type range
- * Note the caller must initialize entry as an object.
- */
-int acvp_req_gen_range(struct json_object *entry,
-		       const struct def_algo_range *range, const char *key);
-
-/*
- * Generate a JSON object of type range
- * Note the caller must initialize entry as an object.
- */
-int acvp_req_gen_domain(struct json_object *entry,
-			const struct def_algo_range *range, const char *key);
 
 /*
  * Generate the prerequisite entry
@@ -108,6 +103,11 @@ int acvp_req_cipher_to_string(struct json_object *entry, cipher_t cipher,
 int acvp_req_cipher_to_array(struct json_object *entry, cipher_t cipher,
 			     cipher_t cipher_type_mask, const char *key);
 
+/*
+ * Add request revision number.
+ */
+int acvp_req_add_revision(struct json_object *entry, const char *str);
+
 /**
  * Construct the ACVP URL for the given path
  * @param path [in] Path name of the URL
@@ -117,7 +117,8 @@ int acvp_req_cipher_to_array(struct json_object *entry, cipher_t cipher,
 int acvp_create_url(const char *path, char *url, uint32_t urllen);
 
 /**
- * Construct the ACVP URL path (URL excluding host) for the given path
+ * Construct the ACVP URL path (URL excluding host and prefix) for the given
+ * path
  * @param path [in] Path name of the URL
  * @param url [out] URL buffer allocated by caller
  * @param urllen [in] Length of the URL buffer allocated by caller

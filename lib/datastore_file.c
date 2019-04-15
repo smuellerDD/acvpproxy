@@ -397,6 +397,41 @@ out:
 }
 
 static int
+acvp_datastore_file_uint(const char *pathname, const char *filename,
+			 uint32_t *id)
+{
+	struct stat statbuf;
+	int ret = 0;
+	char file[FILENAME_MAX];
+
+	/* Get message size */
+	snprintf(file, sizeof(file), "%s/%s", pathname, filename);
+
+	if (!stat(file, &statbuf) && statbuf.st_size) {
+		size_t msgsize_len;
+		uint32_t msgsize_int;
+		char *msgsize = NULL;
+
+		logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
+		       "Try to read integer value from file %s\n", file);
+		CKINT(acvp_datastore_read_data((uint8_t **)&msgsize,
+					       &msgsize_len, file));
+
+		msgsize_int = strtoul(msgsize, NULL, 10);
+		free(msgsize);
+
+		/* do not throw an error */
+		if (msgsize_int >= UINT_MAX)
+			*id = UINT_MAX;
+		else
+			*id = msgsize_int;
+	}
+
+out:
+	return ret;
+}
+
+static int
 acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
 {
 	struct acvp_auth_ctx *auth;
@@ -458,36 +493,22 @@ acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	}
 
 	/* Get message size */
-	snprintf(file, sizeof(file), "%s/%s",
-		 pathname, datastore->messagesizeconstraint);
-
-	/* Set default even if no file found */
 	auth->max_reg_msg_size = UINT_MAX;
-
-	if (!stat(file, &statbuf) && statbuf.st_size) {
-		size_t msgsize_len;
-		uint32_t msgsize_int;
-		char *msgsize = NULL;
-
-		logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-		       "Try to read message size constraint from file %s\n",
-		       file);
-		CKINT(acvp_datastore_read_data((uint8_t **)&msgsize,
-					       &msgsize_len, file));
-
-		msgsize_int = strtoul(msgsize, NULL, 10);
-		free(msgsize);
-
-		/* do not throw an error */
-		if (msgsize_int >= UINT_MAX)
-			auth->max_reg_msg_size = UINT_MAX;
-		else
-			auth->max_reg_msg_size = msgsize_int;
-	}
-
+	CKINT(acvp_datastore_file_uint(pathname,
+				       datastore->messagesizeconstraint,
+				       &auth->max_reg_msg_size));
 	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
 	       "Maximum file size constraint %u\n",
 	       auth->max_reg_msg_size);
+
+	/* Get testsession certificate ID */
+	auth->testsession_certificate_id = 0;
+	CKINT(acvp_datastore_file_uint(pathname,
+				       datastore->testsession_certificate_id,
+				       &auth->testsession_certificate_id));
+	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
+	       "Test session certificate ID: %u\n",
+	       auth->testsession_certificate_id);
 
 out:
 	return ret;
@@ -703,6 +724,9 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 	 * any more - the ACVP server will reject it.
 	 */
 	if (!stat(expected, &statbuf)) {
+		logger_status(LOGGER_C_DS_FILE,
+			      "Skipping submission for vsID %u since expected results are present (%s exists)\n",
+			      vsid_ctx->vsid, expected);
 		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
 		       "Skipping submission for vsID %u since expected results are present (%s exists)\n",
 		       vsid_ctx->vsid, expected);

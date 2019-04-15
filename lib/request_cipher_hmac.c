@@ -38,6 +38,8 @@ int acvp_req_set_algo_hmac(const struct def_algo_hmac *hmac,
 	int maclen;
 	int ret;
 
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
 	CKINT(acvp_req_cipher_to_string(entry, hmac->algorithm,
 					ACVP_CIPHERTYPE_MAC, "algorithm"));
 	CKINT(acvp_req_gen_prereq(&hmac->prereqvals, 1, entry));

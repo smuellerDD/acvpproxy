@@ -1,0 +1,18 @@
+{
+	"implementations": [
+		"SHA",
+		"HMAC",
+		"SHAKE",
+		"AES-SYM",
+		"AES-AEAD",
+		"TDES-SYM",
+		"DRBG",
+		"RSA",
+		"DSA",
+		"ECDSA",
+		"KAS-ECC",
+		"KAS-FFC",
+		"KDF",
+		"EDDSA"
+	]
+}

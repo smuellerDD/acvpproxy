@@ -32,11 +32,11 @@
 #include "threading_support.h"
 
 static int acvp_vsid_verdict_url(const struct acvp_vsid_ctx *vsid_ctx,
-				 char *url, uint32_t urllen)
+				 char *url, uint32_t urllen, bool urlpath)
 {
 	int ret;
 
-	CKINT(acvp_vsid_url(vsid_ctx, url, urllen));
+	CKINT(acvp_vsid_url(vsid_ctx, url, urllen, urlpath));
 	CKINT(acvp_extend_string(url, urllen, "/%s", NIST_VAL_OP_RESULTS));
 
 out:
@@ -44,12 +44,55 @@ out:
 }
 
 static int acvp_testid_verdict_url(const struct acvp_testid_ctx *testid_ctx,
-				   char *url, uint32_t urllen)
+				   char *url, uint32_t urllen, bool urlpath)
 {
 	int ret;
 
-	CKINT(acvp_testid_url(testid_ctx, url, urllen));
+	CKINT(acvp_testid_url(testid_ctx, url, urllen, urlpath));
 	CKINT(acvp_extend_string(url, urllen, "/%s", NIST_VAL_OP_RESULTS));
+
+out:
+	return ret;
+}
+
+static int acvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
+				const struct acvp_ctx *ctx,
+				const struct definition *def, uint32_t testid)
+{
+	int ret = 0;
+
+	testid_ctx->def = def;
+	testid_ctx->ctx = ctx;
+	testid_ctx->testid = testid;
+	atomic_set(0, &testid_ctx->vsids_to_process);
+	atomic_set(0, &testid_ctx->vsids_processed);
+
+	if (clock_gettime(CLOCK_REALTIME, &testid_ctx->start)) {
+		ret = -errno;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_copy_vsid_ctx(struct acvp_vsid_ctx *dst,
+			      const struct acvp_vsid_ctx *src)
+{
+	/*
+	 * We only copy the main structure, and do NOT duplicate the testID
+	 * ctx.
+	 */
+	memcpy(dst, src, sizeof(*dst));
+	return 0;
+}
+
+static int acvp_copy_testid_ctx(struct acvp_testid_ctx *dst,
+				const struct acvp_testid_ctx *src)
+{
+	int ret;
+
+	CKINT(acvp_init_testid_ctx(dst, src->ctx, src->def, src->testid));
 
 out:
 	return ret;
@@ -137,7 +180,7 @@ static int acvp_get_vsid_verdict(const struct acvp_vsid_ctx *vsid_ctx)
 	 * Construct the URL to get the server's response (i.e. final verdict)
 	 * for the given results.
 	 */
-	CKINT(acvp_vsid_verdict_url(vsid_ctx, url, sizeof(url)));
+	CKINT(acvp_vsid_verdict_url(vsid_ctx, url, sizeof(url), false));
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
 	       "Retrieve test results from URL %s\n", url);
 
@@ -190,35 +233,17 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
-	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
-	struct acvp_na_ex netinfo;
 	ACVP_BUFFER_INIT(tmp);
 	ACVP_BUFFER_INIT(result);
 	int ret, ret2;
 
 	CKNULL_LOG(url, -EFAULT, "URL missing\n");
 
-	/* Refresh the ACVP JWT token by re-logging in. */
-	CKINT(acvp_login(testid_ctx));
+	ret2 = acvp_net_op(testid_ctx, url, buf, &result,
+			   vsid_ctx->resubmit_result ?
+			   acvp_http_put : acvp_http_post);
 
-	/* Send the data */
-	CKINT(acvp_get_net(&netinfo.net));
-	netinfo.url = url;
-	netinfo.server_auth = auth;
-	mutex_reader_lock(&auth->mutex);
-	if (vsid_ctx->resubmit_result)
-		ret2 = na->acvp_http_put(&netinfo, buf, &result);
-	else
-		ret2 = na->acvp_http_post(&netinfo, buf, &result);
-	mutex_reader_unlock(&auth->mutex);
-
-	logger(ret2 ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Process following server response: %s\n",
-	       (result.buf) ? (char *)result.buf : "<no data>");
-
-	/* Store the debug information */
-	if (result.buf && result.len)
-		CKINT(acvp_store_submit_debug(vsid_ctx, &result, ret2));
+	CKINT(acvp_store_submit_debug(vsid_ctx, &result, ret2));
 
 	if (ret2) {
 		ret = ret2;
@@ -228,6 +253,8 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 	/*
 	 * Store status in verdict file to indicate that test responses
 	 * were uploaded to ACVP server.
+	 *
+	 * TODO: Maybe turn that into a real JSON-C operation?
 	 */
 	tmp.buf = (uint8_t *)"{ \"status\" : \"Test responses uploaded, verdict download pending\" }\n";
 	tmp.len = strlen((char *)tmp.buf);
@@ -243,37 +270,17 @@ out:
 	return ret;
 }
 
-
 /* POST /large */
-static int acvp_check_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
-				     const struct acvp_buf *submit_buf)
+static int acvp_get_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
+				   const struct acvp_buf *submit_buf,
+				   struct acvp_buf *received_buf)
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
-	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
-	struct acvp_na_ex netinfo;
-	ACVP_BUFFER_INIT(received_buf);
+	struct json_object *entry = NULL, *large = NULL;
 	ACVP_BUFFER_INIT(large_req_buf);
-	struct json_object *req = NULL, *entry = NULL, *large = NULL;
-	uint32_t max_msg_size;
-	char url[ACVP_NET_URL_MAXLEN];
-	const char *str, *json_large;
 	int ret;
-
-	/* Refresh the ACVP JWT token and max msg size by re-logging in. */
-	CKINT(acvp_login(testid_ctx));
-
-	CKINT(acvp_get_max_msg_size(testid_ctx, &max_msg_size));
-
-	if (max_msg_size >= submit_buf->len) {
-		/*
-		 * Construct the URL to submit the results for the given
-		 * vsID to.
-		 */
-		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Sending response to regular endpoint\n");
-		CKINT(acvp_vsid_verdict_url(vsid_ctx, url, sizeof(url)));
-		return acvp_response_upload(vsid_ctx, submit_buf, url);
-	}
+	char url[ACVP_NET_URL_MAXLEN], urlpath[ACVP_NET_URL_MAXLEN];
+	const char *json_large;
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
 	       "Sending response to large endpoint\n");
@@ -287,8 +294,14 @@ static int acvp_check_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
 
 	entry = json_object_new_object();
 	CKNULL(entry, ENOMEM);
-	json_object_object_add(entry, "submissionSize",
-			       json_object_new_int(submit_buf->len));
+
+	CKINT(json_object_object_add(entry, "submissionSize",
+				     json_object_new_int(submit_buf->len)));
+
+	CKINT(acvp_vsid_url(vsid_ctx, urlpath, sizeof(urlpath), true));
+	CKINT(json_object_object_add(entry, "vectorSetUrl",
+				     json_object_new_string(urlpath)));
+
 	CKINT(json_object_array_add(large, entry));
 	entry = NULL;
 
@@ -305,38 +318,103 @@ static int acvp_check_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
 	large_req_buf.buf = (uint8_t *)json_large;
 	large_req_buf.len = strlen(json_large);
 
-	/* Send the data */
-	CKINT(acvp_get_net(&netinfo.net));
-	netinfo.url = url;
-	netinfo.server_auth = auth;
-	mutex_reader_lock(&auth->mutex);
-	ret = na->acvp_http_post(&netinfo, &large_req_buf, &received_buf);
-	mutex_reader_unlock(&auth->mutex);
+	CKINT(acvp_net_op(testid_ctx, url, &large_req_buf, received_buf,
+			  acvp_http_post));
 
-	logger(ret ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Process following server response: %s\n", received_buf.buf);
+out:
+	ACVP_JSON_PUT_NULL(large);
+	ACVP_JSON_PUT_NULL(entry);
+	return ret;
+}
 
-	if (ret)
-		goto out;
+/* POST to large endpoint */
+static int acvp_submit_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
+				      const struct acvp_buf *large_endpoint,
+				      const struct acvp_buf *submit_buf)
+{
+	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
+	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
+	struct json_object *req = NULL, *entry = NULL;
+	struct acvp_testid_ctx tmptestid_ctx;
+	struct acvp_vsid_ctx tmpvsid_ctx;
+	int ret;
+	const char *str;
+
+	/*
+	 * We may get a new temporary authtoken for just this one /large
+	 * communication endpoint. For handling this authtoken, we need
+	 * to create a new vsID and testID context to keep the one-off
+	 * authtoken local to this one request.
+	 */
+	memset(&tmptestid_ctx, 0, sizeof(tmptestid_ctx));
+	/* Prepare a temporary context to hold the temporary auth token */
+	CKINT(acvp_copy_testid_ctx(&tmptestid_ctx, testid_ctx));
+	CKINT(acvp_init_auth(&tmptestid_ctx));
+	CKINT(acvp_copy_auth(tmptestid_ctx.server_auth, auth));
+	auth = tmptestid_ctx.server_auth;
+	CKINT(acvp_copy_vsid_ctx(&tmpvsid_ctx, vsid_ctx));
+	/* Set the temp testID context with the temp authtoken */
+	tmpvsid_ctx.testid_ctx = &tmptestid_ctx;
 
 	/*
 	 * Strip the version from the received array and return the array
 	 * entry containing the answer.
 	 */
-	CKINT(acvp_req_strip_version(received_buf.buf, &req, &entry));
+	CKINT(acvp_req_strip_version(large_endpoint->buf, &req, &entry));
+
+	/*
+	 * Get new access token if exists - we ignore any error as the
+	 * accessToken is optional at this point. Locking is not really needed
+	 * as we have a private authtoken. Yet, it remains to prevent future
+	 * bugs in case this authtoken may be shared among threads. Our current
+	 * locks hardly have any performance impacts.
+	 */
+	mutex_lock(&auth->mutex);
+	acvp_get_accesstoken(&tmptestid_ctx, entry, false);
+	mutex_unlock(&auth->mutex);
 
 	/* We know we are not modifying str, so constify is ok here */
-	CKINT(json_get_string(entry, "XXXXXX", (const char **)&str));
+	CKINT(json_get_string(entry, "url", (const char **)&str));
 	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Received large endpoint URI: %s\n",
 	       str);
 
-	//FIXME parse and validate str
-	CKINT(acvp_create_url(str, url, sizeof(url)));
-	CKINT(acvp_response_upload(vsid_ctx, submit_buf, url));
+	//WARNING: we use the URL from the server verbatim without checking!
+	CKINT(acvp_response_upload(&tmpvsid_ctx, submit_buf, str));
 
 out:
-	ACVP_JSON_PUT_NULL(large);
+	acvp_release_auth(&tmptestid_ctx);
 	ACVP_JSON_PUT_NULL(req);
+	return ret;
+}
+
+static int acvp_check_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
+				     const struct acvp_buf *submit_buf)
+{
+	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
+	ACVP_BUFFER_INIT(received_buf);
+	uint32_t max_msg_size;
+	int ret;
+	char url[ACVP_NET_URL_MAXLEN];
+
+	CKINT(acvp_get_max_msg_size(testid_ctx, &max_msg_size));
+
+	/* Check whether we need to request a /large endpoint communication */
+	if (max_msg_size >= submit_buf->len) {
+		/*
+		 * Construct the URL to submit the results for the given
+		 * vsID to.
+		 */
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Sending response to regular endpoint\n");
+		CKINT(acvp_vsid_verdict_url(vsid_ctx, url, sizeof(url), false));
+		return acvp_response_upload(vsid_ctx, submit_buf, url);
+	}
+
+	CKINT(acvp_get_large_endpoint(vsid_ctx, submit_buf, &received_buf));
+
+	CKINT(acvp_submit_large_endpoint(vsid_ctx, &received_buf, submit_buf));
+
+out:
 	acvp_free_buf(&received_buf);
 	return ret;
 }
@@ -523,7 +601,7 @@ static int acvp_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 	 * Construct the URL to get the server's response
 	 * (i.e. final verdict) for the test session.
 	 */
-	CKINT(acvp_testid_verdict_url(testid_ctx, url, sizeof(url)));
+	CKINT(acvp_testid_verdict_url(testid_ctx, url, sizeof(url), false));
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
 	       "Retrieve test session results from URL %s\n", url);
 
@@ -557,16 +635,7 @@ static int _acvp_respond(const struct acvp_ctx *ctx,
 	testid_ctx = calloc(1, sizeof(*testid_ctx));
 	CKNULL(testid_ctx, -ENOMEM);
 
-	testid_ctx->def = def;
-	testid_ctx->ctx = ctx;
-	testid_ctx->testid = testid;
-	atomic_set(0, &testid_ctx->vsids_to_process);
-	atomic_set(0, &testid_ctx->vsids_processed);
-
-	if (clock_gettime(CLOCK_REALTIME, &testid_ctx->start)) {
-		ret = -errno;
-		goto out;
-	}
+	CKINT(acvp_init_testid_ctx(testid_ctx, ctx, def, testid));
 
 	CKINT(acvp_respond_testid(testid_ctx));
 

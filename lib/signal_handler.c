@@ -130,7 +130,7 @@ static int acvp_cancel(struct acvp_testid_ctx *testid_ctx, int sig)
 
 	CKINT(acvp_get_net(&net));
 
-	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url)));
+	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url), false));
 
 	logger_status(LOGGER_C_SIGNALHANDLER,
 		      "Cancel outstanding request context with ACVP server\n");

@@ -34,16 +34,26 @@ int acvp_req_set_algo_shake(const struct def_algo_shake *shake,
 {
 	int ret;
 
+	if (!(shake->outlength[0] & DEF_ALG_RANGE_TYPE) ||
+	    shake->outlength[1] > 65536 ||
+	    acvp_range_min_val(shake->outlength) < 16) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "SHAKE output min/max definition does not match requirements (16 <= n <= 65536)\n");
+		return -EINVAL;
+	}
+
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
 	CKINT(acvp_req_cipher_to_string(entry, shake->algorithm,
 				        ACVP_CIPHERTYPE_HASH, "algorithm"));
 	CKINT(json_object_object_add(entry, "inBit",
 				     json_object_new_boolean(shake->inbit)));
 	CKINT(json_object_object_add(entry, "inEmpty",
-				     json_object_new_boolean(shake->inempty));
-	CKINT(acvp_req_algo_int_array(entry, shake->outlength,
-				      "outLength")));
+				     json_object_new_boolean(shake->inempty)));
 	CKINT(json_object_object_add(entry, "outBit",
 				     json_object_new_boolean(shake->outbit)));
+
+	CKINT(acvp_req_algo_int_array(entry, shake->outlength, "outputLength"));
 
 out:
 	return ret;

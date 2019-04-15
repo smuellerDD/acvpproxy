@@ -102,8 +102,9 @@ static const struct def_algo_prereqs openssl_gcm_prereqs[] = {
 /**************************************************************************
  * Hash Definitions
  **************************************************************************/
-#define OPENSSL_SHA(x)	GENERIC_SHA(x)
-#define OPENSSL_HMAC(x)	GENERIC_HMAC(x)
+#define OPENSSL_SHA(x)		GENERIC_SHA(x)
+#define OPENSSL_SHAKE(x)	GENERIC_SHAKE(x)
+#define OPENSSL_HMAC(x)		GENERIC_HMAC(x)
 #define OPENSSL_CMAC_AES						\
 	GENERIC_CMAC_AES((DEF_ALG_SYM_KEYLEN_128 | DEF_ALG_SYM_KEYLEN_192 | \
 			 DEF_ALG_SYM_KEYLEN_256))
@@ -791,6 +792,9 @@ static const struct def_algo openssl_sha3 [] = {
 	OPENSSL_HMAC(ACVP_HMACSHA3_256),
 	OPENSSL_HMAC(ACVP_HMACSHA3_384),
 	OPENSSL_HMAC(ACVP_HMACSHA3_512),
+
+	OPENSSL_SHAKE(ACVP_SHAKE128),
+	OPENSSL_SHAKE(ACVP_SHAKE256),
 };
 
 /**************************************************************************

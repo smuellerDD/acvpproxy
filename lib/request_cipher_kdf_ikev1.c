@@ -38,6 +38,8 @@ int acvp_req_set_algo_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
 	struct json_object *array, *tmp;
 	int ret;
 
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("kdf-components")));
 	CKINT(json_object_object_add(entry, "mode",

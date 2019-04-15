@@ -38,6 +38,8 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	struct json_object *tmp_array = NULL, *tmp = NULL;
 	int ret = -EINVAL;
 
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
 	CKINT(acvp_req_cipher_to_string(entry, sym->algorithm,
 				        ACVP_CIPHERTYPE_AES |
 				        ACVP_CIPHERTYPE_TDES |
@@ -137,7 +139,8 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	}
 
 	if ((acvp_match_cipher(sym->algorithm, ACVP_GCM) ||
-	     acvp_match_cipher(sym->algorithm, ACVP_CCM)) &&
+	     acvp_match_cipher(sym->algorithm, ACVP_CCM) ||
+	     acvp_match_cipher(sym->algorithm, ACVP_GCMSIV)) &&
 	    !sym->aadlen[0]) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "GCM/CCM mode definition: aadlen setting missing\n");

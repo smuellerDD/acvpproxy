@@ -110,7 +110,7 @@ $(analyze_plists): %.plist: %.c
 scan: $(analyze_plists)
 
 cppcheck:
-	cppcheck --enable=performance --enable=warning --enable=portability apps/*.h apps/*.c lib/*.c lib/*.h lib/module_implementations/*.c lib/module_implementations/*.h lib/json-c/*.c lib/json-c/*.h
+	cppcheck --force -q --enable=performance --enable=warning --enable=portability apps/*.h apps/*.c lib/*.c lib/*.h lib/module_implementations/*.c lib/module_implementations/*.h lib/json-c/*.c lib/json-c/*.h
 
 install:
 	install -m 0755 $(NAME) -D -t $(DESTDIR)$(BINDIR)/

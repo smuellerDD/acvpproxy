@@ -26,6 +26,36 @@
 #include "internal.h"
 #include "logger.h"
 
+static inline int acvp_req_check_zero(const int val)
+{
+	return ((val == DEF_ALG_ZERO_VALUE) ? 0 : val);
+}
+
+int acvp_req_algo_domain(struct json_object *entry,
+			 unsigned int min, unsigned int max, unsigned int inc,
+			 const char *key)
+{
+	struct json_object *lenarray, *len;
+	int ret;
+
+	/* We are required for SHAKE to use a min/max/inc domain */
+	lenarray = json_object_new_array();
+	CKNULL(lenarray, -ENOMEM);
+	CKINT(json_object_object_add(entry, key, lenarray));
+	len = json_object_new_object();
+	CKNULL(len, -ENOMEM);
+	CKINT(json_object_array_add(lenarray, len));
+	CKINT(json_object_object_add(len, "min",
+				json_object_new_int(acvp_req_check_zero(min))));
+	CKINT(json_object_object_add(len, "max",
+				json_object_new_int(acvp_req_check_zero(max))));
+	CKINT(json_object_object_add(len, "increment",
+				json_object_new_int(acvp_req_check_zero(inc))));
+
+out:
+	return ret;
+}
+
 static int _acvp_req_algo_int_array_always(struct json_object *entry,
 					   const int vals[],
 					   unsigned int numvals,
@@ -33,17 +63,27 @@ static int _acvp_req_algo_int_array_always(struct json_object *entry,
 {
 	struct json_object *tmp_array;
 	int ret = -EINVAL;
-
 	unsigned int i;
 
+	/*
+	 * Create a range domain.
+	 */
+	if (vals[0]  & DEF_ALG_RANGE_TYPE) {
+		return acvp_req_algo_domain(entry,
+					    (vals[0] & ~DEF_ALG_RANGE_TYPE),
+					    vals[1], vals[2], key);
+	}
+
+	/*
+	 * Create a domain consisting of finite set of integers.
+	 */
 	tmp_array = json_object_new_array();
 	CKNULL(tmp_array, -ENOMEM);
 	for (i = 0; i < numvals; i++) {
 		if (!vals[i])
 			break;
 		CKINT(json_object_array_add(tmp_array,
-			json_object_new_int((vals[i] == DEF_ALG_ZERO_VALUE) ?
-					     0 : vals[i])));
+			json_object_new_int(acvp_req_check_zero(vals[i]))));
 	}
 	json_object_object_add(entry, key, tmp_array);
 
@@ -150,62 +190,6 @@ int acvp_req_cipher_to_array(struct json_object *entry, cipher_t cipher,
 	return found ? 0 : -EINVAL;
 }
 
-int acvp_req_gen_range(struct json_object *entry,
-		       const struct def_algo_range *range, const char *key)
-{
-	struct json_object *tmp = json_object_new_object();
-	struct json_object *range_obj = json_object_new_object();
-	int ret = 0;
-
-	CKNULL(tmp, -ENOMEM);
-	CKNULL(range_obj, -ENOMEM);
-
-	json_object_object_add(tmp, "min", json_object_new_int(range->min));
-	json_object_object_add(tmp, "max", json_object_new_int(range->max));
-	json_object_object_add(tmp, "increment",
-			       json_object_new_int(range->increment));
-	json_object_object_add(range_obj, "myRange", tmp);
-	json_object_object_add(entry, key, range_obj);
-
-	return 0;
-
-out:
-	if (tmp)
-		json_object_put(tmp);
-	if (range_obj)
-		json_object_put(range_obj);
-	return ret;
-}
-
-int acvp_req_gen_domain(struct json_object *entry,
-			const struct def_algo_range *range, const char *key)
-{
-	struct json_object *tmp = json_object_new_object();
-	struct json_object *tmp_array = json_object_new_array();
-	int ret = 0;
-
-	CKNULL(tmp, -ENOMEM);
-	CKNULL(tmp_array, -ENOMEM);
-
-	CKINT(json_object_object_add(tmp, "min",
-				     json_object_new_int(range->min)));
-	CKINT(json_object_object_add(tmp, "max",
-				     json_object_new_int(range->max)));
-	CKINT(json_object_object_add(tmp, "increment",
-			       json_object_new_int(range->increment)));
-	CKINT(json_object_array_add(tmp_array, tmp));
-	CKINT(json_object_object_add(entry, key, tmp_array));
-
-	return 0;
-
-out:
-	if (tmp)
-		json_object_put(tmp);
-	if (tmp_array)
-		json_object_put(tmp_array);
-	return ret;
-}
-
 int acvp_req_gen_prereq(const struct def_algo_prereqs *prereqs,
 			unsigned int num, struct json_object *entry)
 {
@@ -257,7 +241,7 @@ int acvp_req_sym_keylen(struct json_object *entry, unsigned int keyflags)
 	if (keyflags & DEF_ALG_SYM_KEYLEN_256)
 		CKINT(json_object_array_add(tmp_array,
 					    json_object_new_int(256)));
-	json_object_object_add(entry, "keyLen", tmp_array);
+	CKINT(json_object_object_add(entry, "keyLen", tmp_array));
 	tmp_array = NULL;
 
 out:
@@ -347,9 +331,9 @@ int acvp_create_url(const char *path, char *url, uint32_t urllen)
 
 	CKINT(acvp_get_net(&net));
 
-	snprintf(url, urllen, "https://%s:%u/%s/%s",
-		 net->server_name, net->server_port, NIST_VAL_CTX,
-		 path);
+	snprintf(url, urllen, "https://%s:%u/%s/%s/%s",
+		 net->server_name, net->server_port, NIST_VAL_PREFIX,
+		 NIST_VAL_CTX, path);
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "ACVP URL: %s\n", url);
 
 out:
@@ -358,10 +342,17 @@ out:
 
 int acvp_get_trailing_number(const char *string, uint32_t *number)
 {
-	size_t len = strlen(string);
+	size_t len;
 	unsigned int numsep = 0;
 	const char *string_p = string;
 	const char *saveptr = NULL;
+
+	if (!string) {
+		*number = (uint32_t)-1;
+		return 0;
+	}
+
+	len = strlen(string);
 
 	/* Finding the pointer of the last slash */
 	while (len) {
@@ -410,4 +401,10 @@ int acvp_get_trailing_number(const char *string, uint32_t *number)
 	logger(LOGGER_ERR, LOGGER_C_ANY, "Number not found in string %s\n",
 	       string);
 	return -EINVAL;
+}
+
+int acvp_req_add_revision(struct json_object *entry, const char *str)
+{
+	return json_object_object_add(entry, "revision",
+				      json_object_new_string(str));
 }

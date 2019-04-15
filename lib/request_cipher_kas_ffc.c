@@ -317,6 +317,8 @@ int acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 	int ret;
 	bool found = false;
 
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("KAS-FFC")));
 

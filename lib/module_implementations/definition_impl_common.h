@@ -437,6 +437,31 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 			.algorithm = sha_def,				\
 			.inbit = false,					\
 			.inempty = true,				\
+			DEF_ALG_DOMAIN(.messagelength, DEF_ALG_ZERO_VALUE, 65536, 8),						\
+			}						\
+		},							\
+	}
+
+/**
+ * @brief SHAKE hash definition.
+ *
+ * Cipher definition properties
+ * 	* byte-wise processing
+ *	* byte-wise output
+ *	* support for zero length messages
+ *
+ * @param shake_def SHAKE definition provided with cipher_definitions.h
+ */
+#define GENERIC_SHAKE(shake_def)					\
+	{								\
+	.type = DEF_ALG_TYPE_SHAKE,					\
+	.algo = {							\
+		.shake = {						\
+			.algorithm = shake_def,				\
+			.inbit = false,					\
+			.inempty = true,				\
+			.outbit = false,				\
+			DEF_ALG_DOMAIN(.outlength, 16, 65536, 8),	\
 			}						\
 		},							\
 	}

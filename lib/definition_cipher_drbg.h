@@ -74,6 +74,9 @@ struct def_algo_drbg_caps {
 	/*
 	 * at least the maximum security strength supported by mechanism in
 	 * bits, larger values are optional
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: always
 	 */
 	int entropyinputlen[DEF_ALG_MAX_INT];
@@ -81,6 +84,9 @@ struct def_algo_drbg_caps {
 	/*
 	 * at least half of maximum security strength supported by mechanism
 	 * in bits, larger values are optional
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: always
 	 */
 	int noncelen[DEF_ALG_MAX_INT];
@@ -89,6 +95,9 @@ struct def_algo_drbg_caps {
 	 * at least the maximum security strength supported by mechanism in
 	 * bits, larger values are optional
 	 * Note, if the option is not supported, set all values to zero
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: always
 	 */
 	int persostringlen[DEF_ALG_MAX_INT];
@@ -97,6 +106,9 @@ struct def_algo_drbg_caps {
 	 * at least the maximum security strength supported by mechanism in
 	 * bits, larger values are optional
 	 * Note, if the option is not supported, set all values to zero
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: always
 	 */
 	int additionalinputlen[DEF_ALG_MAX_INT];

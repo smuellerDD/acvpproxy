@@ -40,11 +40,11 @@ extern "C"
 			* zero, the API is not considered stable
 			* and can change without a bump of the
 			* major version). */
-#define MINVERSION 6   /* API compatible, ABI may change,
+#define MINVERSION 7   /* API compatible, ABI may change,
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 5   /* API / ABI compatible, no functional
+#define PATCHLEVEL 0   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -308,19 +308,19 @@ int acvp_get_net(const struct acvp_net_ctx **net);
  * @brief obtain the testSession URL with the test id
  */
 int acvp_testid_url(const struct acvp_testid_ctx *testid,
-		    char *url, uint32_t urllen);
+		    char *url, uint32_t urllen, bool urlpath);
 
 /**
  * @brief obtain the vectorSet URL
  */
 int acvp_vectorset_url(const struct acvp_testid_ctx *testid_ctx, char *url,
-		       uint32_t urllen);
+		       uint32_t urllen, bool urlpath);
 
 /**
  * @brief obtain the vsID URL
  */
 int acvp_vsid_url(const struct acvp_vsid_ctx *vsid_ctx, char *url,
-		  uint32_t urllen);
+		  uint32_t urllen, bool urlpath);
 
 /**
  * @brief Convert environment ID to string.
@@ -334,6 +334,7 @@ void acvp_record_vsid_duration(const struct acvp_vsid_ctx *vsid_ctx,
 			       const char *pathname);
 void acvp_record_testid_duration(const struct acvp_testid_ctx *testid_ctx,
 				 const char *pathname);
+int acvp_versionstring_short(char *buf, size_t buflen);
 
 /************************************************************************
  * ACVP data transport support
@@ -360,6 +361,29 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 int acvp_process_retry_testid(const struct acvp_testid_ctx *testid_ctx,
 			      struct acvp_buf *result_data,
 			      const char *url);
+
+/**
+ * @brief Perform paged HTTP GET operation
+ *
+ * Some resources require paging in order to avoid returning large
+ * amounts of data.
+ *
+ * This function performs the HTTP GET operation and invokes @param cb
+ * for each found data entry. Note, the function returns < 0 on error if
+ * the @param cb returns < 0. If @param cb returns EINTR (positive value),
+ * the loop terminates. If the callback return 0, the loop iteration continues.
+ *
+ * @param testid_ctx TestID context with set credentials
+ * @param url URL to use for request
+ * @param private Private buffer pointer handed to callback without inspection
+ *		  by this function.
+ * @param cb Callback function to invoke for each found data entry
+ *
+ * @return 0 on success (no match), < 0 on error, EINTR (match found)
+ */
+int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
+		    void *private,
+		    int (*cb)(void *private, struct json_object *dataentry));
 
 /************************************************************************
  * ACVP fetching of test vectors
@@ -399,6 +423,13 @@ void acvp_op_enable(void);
  * ACVP publishing of data
  ************************************************************************/
 
+enum acvp_http_type {
+	acvp_http_post,
+	acvp_http_put,
+	acvp_http_delete,
+	acvp_http_get
+};
+
 /**
  * @brief Function to iterate over all test definitions and all testIDs in
  *	  those test definitions to invoke the callback with each found
@@ -410,15 +441,35 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 				   uint32_t testid));
 
 /**
+ * @brief Check whether the ID is a request ID and download the request
+ * in this case. Otherwise it is a noop.
+ */
+int acvp_def_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
+				   uint32_t *id);
+
+/**
  * @brief Helper to register various module_definitions
  */
 int acvp_def_register(const struct acvp_testid_ctx *testid_ctx,
 		      struct json_object *json,
-		      const char *url, uint32_t *id);
+		      const char *url, uint32_t *id,
+		      enum acvp_http_type submit_type);
+
+/**
+ * @brief Helper to perform HTTP operation
+ */
+int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
+		const char *url, const struct acvp_buf *submit,
+		struct acvp_buf *response, enum acvp_http_type nettype);
 /**
  * @brief Validate and potentially register vendor definition
  */
 int acvp_vendor_handle(const struct acvp_testid_ctx *testid_ctx);
+
+/**
+ * @brief Validate and potentially register person / contact definition
+ */
+int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx);
 
 /**
  * @brief Validate and potentially register operational environment definition
@@ -447,6 +498,14 @@ int acvp_init_auth(struct acvp_testid_ctx *testid_ctx);
 void acvp_release_auth(struct acvp_testid_ctx *testid_ctx);
 
 /**
+ * @brief parse the @param answer for an authtoken and set it either
+ * temporarily or permanently for the current session. Caller must hold
+ * auth->lock
+ */
+int acvp_get_accesstoken(const struct acvp_testid_ctx *testid_ctx,
+			 struct json_object *answer, bool permanently);
+
+/**
  * @brief Implement login processing with the TOTP logic. Note, this function
  * can be called multiple times even with a live authentication or expired
  * authentication. In this case, the function will refresh the authentication
@@ -460,6 +519,11 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx);
  */
 int acvp_set_authtoken(const struct acvp_testid_ctx *testid_ctx,
 		       const char *authtoken);
+
+/**
+ * @brief Duplicate the auth context
+ */
+int acvp_copy_auth(struct acvp_auth_ctx *dst, const struct acvp_auth_ctx *src);
 
 /**
  * @brief Get the maximum message size to be used with regular upload paths
@@ -535,6 +599,11 @@ int acvp_store_oe_debug(const struct acvp_testid_ctx *testid_ctx,
 			const struct acvp_buf *buf, int err);
 int acvp_store_module_debug(const struct acvp_testid_ctx *testid_ctx,
 			    const struct acvp_buf *buf, int err);
+int acvp_store_person_debug(const struct acvp_testid_ctx *testid_ctx,
+			    const struct acvp_buf *buf, int err);
+int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
+			    const struct acvp_buf *buf, int err,
+			    const char *file);
 
 int acvp_req_check_string(char *string, unsigned int slen);
 int acvp_req_check_filename(char *string, unsigned int slen);
@@ -555,6 +624,8 @@ int acvp_req_check_filename(char *string, unsigned int slen);
 #define ACVP_DS_JWTAUTHTOKEN			"jwt_authtoken.txt"
 /* Message size constraint - larger messages must use the /large endpoint */
 #define ACVP_DS_MESSAGESIZECONSTRAINT		"messagesizeconstraint.txt"
+/* Approval / Certificate ID */
+#define ACVP_DS_TESTSESSIONCERTIFICATEID	"testsession_certificate_id.txt"
 /* File that will hold the test verdict from the ACVP server */
 #define ACVP_DS_VERDICT				"verdict.json"
 /* File that contains the time stamp when the vector was uploaded */

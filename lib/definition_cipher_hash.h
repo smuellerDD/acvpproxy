@@ -58,7 +58,9 @@ struct def_algo_sha {
 	 * The message lengths in bits supported by the IUT.
 	 * Minimum allowed is 0, maximum allowed is 65535.
 	 *
-	 * required: optional
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * required: always
 	 */
 	int messagelength[DEF_ALG_MAX_INT];
 
@@ -99,7 +101,10 @@ struct def_algo_shake {
 	bool inempty;
 
 	/*
-	 * Output length for SHAKE (16 - 65536)
+	 * Minimum and maximum output length for SHAKE (16 - 65536)
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: always
 	 */
 	int outlength[DEF_ALG_MAX_INT];

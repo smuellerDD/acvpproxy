@@ -89,7 +89,7 @@ static int json_find_key(struct json_object *inobj, const char *name,
 		 */
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "JSON field %s does not exist\n", name);
-		return -EINVAL;
+		return -ENOENT;
 	}
 
 	if (!json_object_is_type(*out, type)) {
@@ -333,9 +333,7 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\tsubmitted for a vsID, resubmit the\n");
 	fprintf(stderr, "\t\t\t\t\tcurrent results on file to update the\n");
 	fprintf(stderr, "\t\t\t\t\tresults on the ACVP server\n");
-	fprintf(stderr, "\t   --register-module\t\tRegister module definition with ACVP\n");
-	fprintf(stderr, "\t   --register-vendor\t\tRegister vendor definition with ACVP\n");
-	fprintf(stderr, "\t   --register-oe\t\tRegister OE definition with ACVP\n\n");
+	fprintf(stderr, "\t   --register-definition\tRegister pending definitions with ACVP\n");
 
 	fprintf(stderr, "\t   --cipher-options <DIR>\tGet cipher options from ACVP server\n");
 	fprintf(stderr, "\t   --cipher-algo <ALGO>\t\tGet cipher options particular cipher\n");
@@ -447,9 +445,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"definition-basedir",	required_argument,	0, 0},
 
 			{"resubmit-result",	no_argument,		0, 0},
-			{"register-module",	no_argument,		0, 0},
-			{"register-vendor",	no_argument,		0, 0},
-			{"register-oe",		no_argument,		0, 0},
+			{"register-definition",	no_argument,		0, 0},
 
 			{"cipher-options",	required_argument,	0, 0},
 			{"cipher-algo",		required_argument,	0, 0},
@@ -613,19 +609,15 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				break;
 			case 27:
 				opts->acvp_ctx_options.register_new_module = true;
-				break;
-			case 28:
 				opts->acvp_ctx_options.register_new_vendor = true;
-				break;
-			case 29:
 				opts->acvp_ctx_options.register_new_oe = true;
 				break;
 
-			case 30:
+			case 28:
 				CKINT(duplicate_string(&opts->cipher_options_file,
 						       optarg));
 				break;
-			case 31:
+			case 29:
 				CKINT(duplicate_string(&opts->cipher_options_algo[opts->cipher_options_algo_idx],
 						       optarg));
 				opts->cipher_options_algo_idx++;
@@ -759,7 +751,7 @@ static void last_gen_cb(time_t now)
 		json_object_set_int64(totp_val, now);
 	}
 
-	fd = open(global_opts->configfile, O_WRONLY);
+	fd = open(global_opts->configfile, O_WRONLY | O_TRUNC);
 	if (fd < 0)
 		return;
 

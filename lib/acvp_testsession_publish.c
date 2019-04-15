@@ -34,7 +34,7 @@ static int acvp_get_testid_metadata(const struct acvp_testid_ctx *testid_ctx,
 	int ret, ret2;
 	char url[ACVP_NET_URL_MAXLEN];
 
-	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url)));
+	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url), false));
 
 	ret2 = acvp_process_retry_testid(testid_ctx, response_buf, url);
 
@@ -58,44 +58,48 @@ out:
 	return ret;
 }
 
+static int acvp_publish_write_id(const struct acvp_testid_ctx *testid_ctx,
+				 uint32_t validation_id)
+{
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
+	const struct acvp_req_ctx *req_details = &ctx->req_details;
+	ACVP_BUFFER_INIT(tmp);
+	int ret;
+	char msgid[12];
+
+	if (!validation_id)
+		return 0;
+
+	if (req_details->dump_register)
+		return 0;
+
+	snprintf(msgid, sizeof(msgid), "%u", validation_id);
+	tmp.buf = (uint8_t *)msgid;
+	tmp.len = strlen(msgid);
+	CKINT(ds->acvp_datastore_write_testid(testid_ctx,
+			datastore->testsession_certificate_id, true, &tmp));
+
+out:
+	return ret;
+}
+
 /* PUT /testSessions/<testSessionId> */
 static int acvp_publish_request(const struct acvp_testid_ctx *testid_ctx,
 				struct json_object *publish)
 {
-	const struct acvp_net_ctx *net;
-	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
-	struct acvp_na_ex netinfo;
-	ACVP_BUFFER_INIT(request_buf);
-	ACVP_BUFFER_INIT(response_buf);
+	uint32_t certificate_id = 0;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
-	/* Log into the ACVP server using the TOTP authentication */
-	CKINT(acvp_login(testid_ctx));
+	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url), false));
 
-	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url)));
+	CKINT(acvp_def_register(testid_ctx, publish, url, &certificate_id,
+				acvp_http_put));
 
-	request_buf.buf = (uint8_t *)json_object_to_json_string_ext(publish,
-					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE);
-	request_buf.len = strlen((char *)request_buf.buf);
-
-	CKINT(acvp_get_net(&net));
-	netinfo.net = net;
-	netinfo.url = url;
-	netinfo.server_auth = auth;
-	mutex_reader_lock(&auth->mutex);
-	ret = na->acvp_http_put(&netinfo, &request_buf, &response_buf);
-	mutex_reader_unlock(&auth->mutex);
-
-	if (response_buf.buf && response_buf.len) {
-		logger(ret ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Received following server response: %s\n",
-		       response_buf.buf);
-	}
+	CKINT(acvp_publish_write_id(testid_ctx, certificate_id));
 
 out:
-	acvp_free_buf(&response_buf);
 	return ret;
 }
 
@@ -186,6 +190,7 @@ static int acvp_publish_build(const struct acvp_testid_ctx *testid_ctx,
 	 * Thus, we do not add those.
 	 */
 
+	/* Build the JSON object to be submitted */
 	pub = json_object_new_object();
 	CKNULL(pub, -ENOMEM);
 
@@ -200,8 +205,6 @@ static int acvp_publish_build(const struct acvp_testid_ctx *testid_ctx,
 				 def_oe->acvp_oe_id));
 	CKINT(json_object_object_add(pub, "oeUrl",
 				     json_object_new_string(url)));
-
-	//TODO what signature is to be added?
 
 	json_logger(LOGGER_DEBUG2, LOGGER_C_ANY, pub, "Vendor JSON object");
 
@@ -218,8 +221,9 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
+	struct acvp_auth_ctx *auth;
 	struct json_object *json_publish = NULL;
-	int ret;
+	int ret, ret2;
 
 	CKNULL_LOG(testid_ctx, -EINVAL,
 		   "ACVP volatile request context missing\n");
@@ -232,8 +236,38 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 	/* Get auth token for test session */
 	CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
 
+	/* Check if we have an outstanding test session cert ID requests */
+	auth = testid_ctx->server_auth;
+	ret2 = acvp_def_obtain_request_result(testid_ctx,
+					      &auth->testsession_certificate_id);
+	CKINT(acvp_publish_write_id(testid_ctx,
+				    auth->testsession_certificate_id));
+	if (ret2) {
+		ret = ret2;
+		goto out;
+	}
+
+	/*
+	 * If we have an ID and reach here, it is a valid test session
+	 * certificate ID and we stop processing.
+	 */
+	if (auth->testsession_certificate_id) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Test session certificate ID %u successfully obtained - test session successfully processed\n",
+		       auth->testsession_certificate_id);
+		logger_status(LOGGER_C_ANY,
+			      "Test session certificate ID %u successfully obtained - test session successfully processed\n",
+			      auth->testsession_certificate_id);
+
+		ret = 0;
+		goto out;
+	}
+
 	/* Verify / register the vendor information */
 	CKINT(acvp_vendor_handle(testid_ctx));
+
+	/* Verify / register the person / contact information */
+	CKINT(acvp_person_handle(testid_ctx));
 
 	/* Verify / register the operational environment information */
 	CKINT(acvp_oe_handle(testid_ctx));
@@ -241,12 +275,9 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 	/* Verify / register the operational environment information */
 	CKINT(acvp_module_handle(testid_ctx));
 
-	/* No actual work if we just dumping the data */
-	if (req_details->dump_register)
-		goto out;
-
 	/* Will the ACVP server accept our publication request? */
-	CKINT(acvp_publish_ready(testid_ctx));
+	if (!req_details->dump_register)
+		CKINT(acvp_publish_ready(testid_ctx));
 
 	/* Create publication JSON data */
 	CKINT(acvp_publish_build(testid_ctx, &json_publish));

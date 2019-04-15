@@ -82,6 +82,7 @@ typedef uint64_t cipher_t;
 
 #define ACVP_GCM 		(ACVP_CIPHERTYPE_AEAD | 0x0000000100000000ULL)
 #define ACVP_CCM 		(ACVP_CIPHERTYPE_AEAD | 0x0000000200000000ULL)
+#define ACVP_GCMSIV 		(ACVP_CIPHERTYPE_AEAD | 0x0000000400000000ULL)
 #define ACVP_AEADMASK		(ACVP_CIPHERTYPE_AEAD | 0x0000000f00000000ULL)
 
 /* SHA and SHAKE are allowed to be ORed together */
@@ -174,6 +175,7 @@ static const struct cipher_def_map cipher_def_map[] = {
 	{ ACVP_XPN, "AES-XPN" },
 	{ ACVP_GCM, "AES-GCM" },
 	{ ACVP_CCM, "AES-CCM" },
+	{ ACVP_GCMSIV, "AES-GCM-SIV" },
 
 	{ ACVP_TDESECB, "TDES-ECB" },
 	{ ACVP_TDESCBC, "TDES-CBC" },

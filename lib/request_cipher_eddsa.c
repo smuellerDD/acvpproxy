@@ -36,6 +36,8 @@ static int acvp_req_eddsa_keygen(const struct def_algo_eddsa *eddsa,
 	unsigned int found = 0;
 	int ret;
 
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
 	CKINT_LOG(acvp_req_cipher_to_array(entry, eddsa->curve,
 					   ACVP_CIPHERTYPE_ECC, "curve"),
 		  "Addition of curve specification failed\n");

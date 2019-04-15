@@ -72,10 +72,23 @@ void acvp_release_auth(struct acvp_testid_ctx *testid_ctx)
 	ACVP_PTR_FREE_NULL(testid_ctx->server_auth);
 }
 
-int acvp_set_authtoken(const struct acvp_testid_ctx *testid_ctx,
-		       const char *authtoken)
+int acvp_copy_auth(struct acvp_auth_ctx *dst, const struct acvp_auth_ctx *src)
 {
-	const struct definition *def = testid_ctx->def;
+	int ret = 0;
+
+	dst->jwt_token = strndup(src->jwt_token, ACVP_JWT_TOKEN_MAX);
+	CKNULL(dst->jwt_token, -ENOMEM);
+	dst->jwt_token_len = src->jwt_token_len;
+
+	dst->jwt_token_generated = src->jwt_token_len;
+
+out:
+	return ret;
+}
+
+static int acvp_set_authtoken_temp(const struct acvp_testid_ctx *testid_ctx,
+				   const char *authtoken)
+{
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	int ret = 0;
 
@@ -86,7 +99,20 @@ int acvp_set_authtoken(const struct acvp_testid_ctx *testid_ctx,
 
 	auth->jwt_token_generated = time(NULL);
 
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Access token: %s\n", auth->jwt_token);
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Access token: %s\n",
+	       auth->jwt_token);
+
+out:
+	return ret;
+}
+
+int acvp_set_authtoken(const struct acvp_testid_ctx *testid_ctx,
+		       const char *authtoken)
+{
+	const struct definition *def = testid_ctx->def;
+	int ret = 0;
+
+	CKINT(acvp_set_authtoken_temp(testid_ctx, authtoken));
 
 	/* Store the refreshed JWT auth token */
 	if (def)
@@ -108,12 +134,38 @@ int acvp_get_max_msg_size(const struct acvp_testid_ctx *testid_ctx,
 	return 0;
 }
 
+int acvp_get_accesstoken(const struct acvp_testid_ctx *testid_ctx,
+			 struct json_object *answer, bool permanently)
+{
+	int ret;
+	const char *otp_accesstoken;
+
+	/*
+	 * Get OTP access token and store it in the JWT token location.
+	 *
+	 * Note, the register operation returns the real JWT which shall
+	 * replace this access token.
+	 *
+	 * The release call here also drops the shared secret K at this point
+	 * as we do not need it any more.
+	 */
+	CKINT(json_get_string(answer, "accessToken", &otp_accesstoken));
+	/* Set the JWT token for use and write it to the data store */
+	if (permanently) {
+		CKINT(acvp_set_authtoken(testid_ctx, otp_accesstoken));
+	} else {
+		CKINT(acvp_set_authtoken_temp(testid_ctx, otp_accesstoken));
+	}
+
+out:
+	return ret;
+}
+
 static int acvp_process_login(const struct acvp_testid_ctx *testid_ctx,
 			      struct acvp_buf *response)
 {
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct json_object *req = NULL, *entry = NULL;
-	const char *otp_accesstoken;
 	int ret;
 	bool largeendpoint;
 
@@ -131,44 +183,18 @@ static int acvp_process_login(const struct acvp_testid_ctx *testid_ctx,
 	 */
 	CKINT(acvp_req_strip_version(response->buf, &req, &entry));
 
-	/*
-	 * Get OTP access token and store it in the JWT token location.
-	 *
-	 * Note, the register operation returns the real JWT which shall
-	 * replace this access token.
-	 *
-	 * The release call here also drops the shared secret K at this point
-	 * as we do not need it any more.
-	 */
-	CKINT(json_get_string(entry, "accessToken", &otp_accesstoken));
-
 	/* Get the size constraint information. */
 	auth->max_reg_msg_size = UINT_MAX;
 	ret = json_get_bool(entry, "largeEndpointRequired", &largeendpoint);
 	if (!ret && largeendpoint) {
-		unsigned long val;
-		const char *sizeconstraint;
-
-		CKINT(json_get_string(entry, "sizeConstraintMessage",
-				      &sizeconstraint));
-
-		val = strtoul(sizeconstraint, NULL, 10);
-		if (val >= UINT_MAX) {
-			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "Cannot parse message size constraint string into 32 bit integer: %s\n",
-			       sizeconstraint);
-			ret = -ERANGE;
-			goto out;
-		}
-
-		auth->max_reg_msg_size = (uint32_t)val;
+		CKINT(json_get_uint(entry, "sizeConstraint",
+				    &auth->max_reg_msg_size));
 	}
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Maximum message size: %u\n",
 	       auth->max_reg_msg_size);
 
-	/* Set the JWT token for use and write it to the data store */
-	CKINT(acvp_set_authtoken(testid_ctx, otp_accesstoken));
+	CKINT(acvp_get_accesstoken(testid_ctx, entry, true));
 
 out:
 	ACVP_JSON_PUT_NULL(req);

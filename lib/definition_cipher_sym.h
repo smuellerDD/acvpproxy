@@ -112,6 +112,9 @@ struct def_algo_sym {
 	 * * AES-XTS: zero / two values divisible by 128,
 	 *	      zero / two values not divisible by 128,
 	 *	      maximum data length not to exceed 2^20
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: always
 	 */
 	int ptlen[DEF_ALG_MAX_INT];
@@ -121,6 +124,9 @@ struct def_algo_sym {
 	 * * general: between 8 and 1024 bits
 	 * * AES-CCM: between 56 and 104 in 8 bit increments (7 and 13 bytes)
 	 * * AES-GCM: up to 3 values between 8 and 1024 bits
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: only for all modes, except AES-ECB, TDES-ECB, AES-XTS
 	 */
 	int ivlen[DEF_ALG_MAX_INT];
@@ -162,6 +168,9 @@ struct def_algo_sym {
 	 * * AES-GCM: array of two values divisible by 128 (if supported) and
 	 *	      two values not divisible by 128
 	 * Note: any value equal to 0 implies that JSON entry is not generated.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: only for AES-CCM or AES-GCM modes
 	 */
 	int aadlen[DEF_ALG_MAX_INT];
@@ -171,6 +180,9 @@ struct def_algo_sym {
 	 * * AES-CCM: between 32 and 128 bits in 16 bits increments
 	 * * AES-GCM: between 32 and 128 bits in 16 bits increments
 	 * Note: a value of 0 implies that JSON entry is not generated.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
 	 * required: only for AES-CCM or AES-GCM modes
 	 */
 	int taglen[DEF_ALG_MAX_INT];

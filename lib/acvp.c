@@ -84,6 +84,7 @@ static void acvp_release_datastore(struct acvp_datastore_ctx *datastore)
 	ACVP_PTR_FREE_NULL(datastore->vectorfile);
 	ACVP_PTR_FREE_NULL(datastore->jwttokenfile);
 	ACVP_PTR_FREE_NULL(datastore->messagesizeconstraint);
+	ACVP_PTR_FREE_NULL(datastore->testsession_certificate_id);
 	ACVP_PTR_FREE_NULL(datastore->verdictfile);
 	ACVP_PTR_FREE_NULL(datastore->processedfile);
 	ACVP_PTR_FREE_NULL(datastore->srcserver);
@@ -116,7 +117,7 @@ static void acvp_constructor(void)
 ACVP_DEFINE_DESTRUCTOR(acvp_destructor)
 static void acvp_destructor(void)
 {
-	acvp_release_net(&net_global);
+ 	acvp_release_net(&net_global);
 }
 
 int acvp_get_net(const struct acvp_net_ctx **net)
@@ -389,6 +390,13 @@ out:
 	return ret;
 }
 
+int acvp_versionstring_short(char *buf, size_t buflen)
+{
+	return snprintf(buf, buflen, "ACVPProxy/%d.%d.%d",
+			MAJVERSION, MINVERSION, PATCHLEVEL);
+}
+
+
 DSO_PUBLIC
 int acvp_versionstring(char *buf, size_t buflen)
 {
@@ -499,6 +507,8 @@ int acvp_ctx_init(struct acvp_ctx **ctx,
 	CKINT(acvp_duplicate(&datastore->jwttokenfile, ACVP_DS_JWTAUTHTOKEN));
 	CKINT(acvp_duplicate(&datastore->messagesizeconstraint,
 			     ACVP_DS_MESSAGESIZECONSTRAINT));
+	CKINT(acvp_duplicate(&datastore->testsession_certificate_id,
+			     ACVP_DS_TESTSESSIONCERTIFICATEID));
 	CKINT(acvp_duplicate(&datastore->verdictfile, ACVP_DS_VERDICT));
 	CKINT(acvp_duplicate(&datastore->processedfile, ACVP_DS_PROCESSED));
 	CKINT(acvp_duplicate(&datastore->srcserver, ACVP_DS_SRCSERVER));

@@ -1,3 +1,21 @@
+v0.7.0
+- fix SHAKE support
+- add SHAKE definitions for OpenSSL
+- add AES-GCM-SIV support
+- add GET / POST /persons
+- add GET / PUT /persons/<personID>
+- add PUT /vendors/<vendorID>
+- add PUT /modules/<moduleID>
+- add PUT /dependencies/<dependencyID>
+- add PUT /oes/<dependencyID>
+- add Paging support
+- add bugfix when writing JSON files
+- ACVP v1.0 support: change URLs and versions
+- ACVP add revision support
+- make /large support working after it is enabled on ACVP server
+- add support for range domain values defined with DEF_ALG_DOMAIN
+- add tests verifying the generation of requests
+
 v0.6.5
 - add /large endpoint handling
 - speed up --cipher-options

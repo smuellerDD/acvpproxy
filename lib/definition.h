@@ -147,6 +147,18 @@ struct def_algo_map {
 	struct def_algo_map *next;
 };
 
+/* Warning, we operate with a signed int, so leave the highest bit untouched */
+#define ACVP_REQUEST_INITIAL	(1<<30)
+#define ACVP_REQUEST_PROCESSING	(1<<29)
+#define ACVP_REQUEST_MASK	(ACVP_REQUEST_INITIAL | ACVP_REQUEST_PROCESSING)
+
+static inline bool acvp_valid_id(uint32_t id)
+{
+	if (id == 0 || id & ACVP_REQUEST_MASK)
+		return false;
+	return true;
+}
+
 /**
  * @brief This data structure defines identifiers of the cipher implementation.
  *	  Note, this information will be posted at the CAVS web site.
@@ -166,6 +178,10 @@ struct def_algo_map {
  * @param def_module_file Configuration file holding the information
  * @param acvp_vendor_id Identifier assigned by the ACVP server to vendor
  *			 information.
+ * @param acvp_person_id Identifier assigned by the ACVP server to person /
+ *			 contact information.
+ * @param acvp_addr_id Identifier assigned by the ACVP server to address
+ *		       information.
  * @param acvp_module_id Identifier assigned by the ACVP server to module
  *			 information.
  */
@@ -179,6 +195,8 @@ struct def_info {
 
 	char *def_module_file;
 	uint32_t acvp_vendor_id;
+	uint32_t acvp_person_id;
+	uint32_t acvp_addr_id;
 	uint32_t acvp_module_id;
 };
 
@@ -192,35 +210,46 @@ struct def_info {
  *			       that the string is cleared of characters
  *			       inappropriate for file names.
  * @param vendor_url Specify the homepage of the vendor.
+ * @param acvp_vendor_id Identifier assigned by the ACVP server to vendor
+ *			 information.
+ *
  * @param contact_name Specify the contact person responsible for the CAVS
  *		       test request.
  * @param contact_email Specify the contact email of the person responsible for
  *			the CAVS test request.
+ * @param contact_phone Specify the contact telephone number
+ * @param acvp_person_id Identifier assigned by the ACVP server to person /
+ *			 contact information.
+ *
  * @param addr_street Address: Street
  * @param addr_locality Address: City
  * @param addr_region Address: State
  * @param addr_country: Address Country
  * @param addr_zipcode: Address: Zip code
+ * @param acvp_addr_id Identifier assigned by the ACVP server to address
+ *		       information.
+ *
  * @param def_vendor_file Configuration file holding the information
- * @param acvp_vendor_id Identifier assigned by the ACVP server to vendor
- *			 information.
  */
 struct def_vendor {
 	char *vendor_name;
 	char *vendor_name_filesafe;
 	char *vendor_url;
+	uint32_t acvp_vendor_id;
 
 	char *contact_name;
 	char *contact_email;
+	char *contact_phone;
+	uint32_t acvp_person_id;
 
 	char *addr_street;
 	char *addr_locality;
 	char *addr_region;
 	char *addr_country;
 	char *addr_zipcode;
+	uint32_t acvp_addr_id;
 
 	char *def_vendor_file;
-	uint32_t acvp_vendor_id;
 };
 
 /**
@@ -254,6 +283,8 @@ struct def_oe {
 	enum def_mod_type env_type;
 	char *oe_env_name;
 	char *cpe;
+	char *swid;
+	char *oe_description;
 
 	char *manufacturer;
 	char *proc_family;
@@ -365,6 +396,7 @@ int acvp_export_def_search(struct acvp_testid_ctx *testid_ctx);
  * @brief Update the vendor / OE / module ID in the configuration files
  */
 int acvp_def_update_vendor_id(struct def_vendor *def_vendor);
+int acvp_def_update_person_id(struct def_vendor *def_vendor);
 int acvp_def_update_oe_id(struct def_oe *def_oe);
 int acvp_def_update_module_id(struct def_info *def_info);
 void acvp_def_release_all(void);

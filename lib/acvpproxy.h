@@ -14,7 +14,7 @@
  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
  * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
- * DAMAGE.int acvp_list_unregistered_definitions(void)
+ * DAMAGE.
  */
 
 #ifndef ACVPPROXY_H
@@ -33,13 +33,14 @@ extern "C"
 {
 #endif
 
-#define ACVP_VERSION			"0.5"
+#define ACVP_VERSION			"1.0"
 
 /* acvp_protocol.txt: section 5.1 */
 #define NIST_DEFAULT_SERVER		"acvts.nist.gov"
 #define NIST_TEST_SERVER		"demo.acvts.nist.gov"
 #define NIST_DEFAULT_SERVER_PORT	443
-#define NIST_VAL_CTX			"acvp/acvp/v1"
+#define NIST_VAL_PREFIX			""
+#define NIST_VAL_CTX			"acvp/v1"
 
 /* acvp_protocol.txt: section 5.2 */
 #define NIST_VAL_OP_LOGIN		"login"
@@ -48,11 +49,14 @@ extern "C"
 #define NIST_VAL_OP_RESULTS		"results"
 #define NIST_VAL_OP_EXPECTED_RESULTS	"expected"
 #define NIST_VAL_OP_VENDOR		"vendors"
+#define NIST_VAL_OP_ADDRESSES		"addresses"
+#define NIST_VAL_OP_PERSONS		"persons"
 #define NIST_VAL_OP_OE			"oes"
 #define NIST_VAL_OP_MODULE		"modules"
 #define NIST_VAL_OP_DEPENDENCY		"dependencies"
 #define NIST_VAL_OP_ALGORITHMS		"algorithms"
 #define NIST_VAL_OP_LARGE		"large"
+#define NIST_VAL_OP_REQUESTS		"requests"
 
 /* acvp_protocol.txt: section 11.1 */
 #define ACVP_JWT_TOKEN_MAX      	1024
@@ -69,6 +73,12 @@ struct acvp_auth_ctx {
 	 * larger size must use the /large endpoint).
 	 */
 	uint32_t max_reg_msg_size;
+
+	/*
+	 * Certificate ID (or request for it) of test session. If 0, no
+	 * test session certificate ID was applied for yet.
+	 */
+	uint32_t testsession_certificate_id;
 
 	/*
 	 * As auth ctx is shared between multiple vsIds belonging to one testId,
@@ -139,6 +149,7 @@ struct acvp_datastore_ctx {
 	char *resultsfile;
 	char *jwttokenfile;
 	char *messagesizeconstraint;
+	char *testsession_certificate_id;
 	char *verdictfile;
 	char *processedfile;
 	char *srcserver;

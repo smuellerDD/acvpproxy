@@ -46,7 +46,7 @@ int json_find_key(struct json_object *inobj, const char *name,
 		 */
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "JSON field %s does not exist\n", name);
-		return -EINVAL;
+		return -ENOENT;
 	}
 
 	if (!json_object_is_type(*out, type)) {
