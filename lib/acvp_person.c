@@ -115,9 +115,9 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 	CKINT(json_get_string(json_vendor, "url", &personurl));
 	CKINT(acvp_get_trailing_number(personurl, &person_id));
 
-	/* No error handling as we check for the NULL value below */
 	CKINT(json_get_string(json_vendor, "fullName", &name));
 
+	/* No error handling as we check for the NULL value below */
 	json_get_string(json_vendor, "vendorUrl", &organizationurl);
 	CKINT(acvp_get_trailing_number(organizationurl, &organizationurl_id));
 

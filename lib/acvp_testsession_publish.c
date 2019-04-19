@@ -94,10 +94,15 @@ static int acvp_publish_request(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url), false));
 
-	CKINT(acvp_def_register(testid_ctx, publish, url, &certificate_id,
-				acvp_http_put));
+	ret = acvp_def_register(testid_ctx, publish, url, &certificate_id,
+				acvp_http_put);
 
-	CKINT(acvp_publish_write_id(testid_ctx, certificate_id));
+	/*
+	 * We always try to write the ID. If the ID is 0, acvp_publish_write_id
+	 * will not write it. In case of success (valid ID returned) or -EAGAIN
+	 * (a request ID is returned), the ID is written to disk.
+	 */
+	ret |= acvp_publish_write_id(testid_ctx, certificate_id);
 
 out:
 	return ret;

@@ -437,7 +437,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 			.algorithm = sha_def,				\
 			.inbit = false,					\
 			.inempty = true,				\
-			DEF_ALG_DOMAIN(.messagelength, DEF_ALG_ZERO_VALUE, 65536, 8),						\
+			DEF_ALG_DOMAIN(.messagelength, DEF_ALG_ZERO_VALUE, 65528, 8),						\
 			}						\
 		},							\
 	}

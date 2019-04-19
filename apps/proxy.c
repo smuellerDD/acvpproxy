@@ -93,7 +93,7 @@ static int json_find_key(struct json_object *inobj, const char *name,
 	}
 
 	if (!json_object_is_type(*out, type)) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "JSON data type %s does not match expected type %s for field %s\n",
 		       json_type_to_name(json_object_get_type(*out)),
 		       json_type_to_name(type), name);

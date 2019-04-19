@@ -62,7 +62,6 @@ static int acvp_def_register_get_id(struct acvp_buf *response, uint32_t *id)
 		       status);
 		status_flag = ACVP_REQUEST_PROCESSING;
 	} else {
-		//TODO: what shall we do with the other status information?
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "Request response indicates unsuccessful opoeration: %s\n",
 		       status);
@@ -79,7 +78,7 @@ static int acvp_def_register_get_id(struct acvp_buf *response, uint32_t *id)
 	/* Get the oe ID which is the last pathname component */
 	CKINT(acvp_get_trailing_number(uri, &tmp_id));
 
-	tmp_id &= ~(ACVP_REQUEST_MASK);
+	tmp_id &= ~ACVP_REQUEST_MASK;
 	tmp_id |= status_flag;
 
 	*id = tmp_id;
@@ -90,10 +89,10 @@ static int acvp_def_register_get_id(struct acvp_buf *response, uint32_t *id)
 	 */
 	if (status_flag) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Resource ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %u\n",
+		       "Request ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %u\n",
 		       (tmp_id & ~ACVP_REQUEST_MASK));
 		logger_status(LOGGER_C_ANY,
-			      "Resource ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %u\n",
+			      "Request ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %u\n",
 			      (tmp_id & ~ACVP_REQUEST_MASK));
 		ret = -EAGAIN;
 	}
