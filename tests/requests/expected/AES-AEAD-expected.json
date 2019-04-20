@@ -12,7 +12,7 @@
     "algorithms":[
       {
         "revision":"1.0",
-        "algorithm":"AES-GCM",
+        "algorithm":"ACVP-AES-GCM",
         "prereqVals":[
           {
             "algorithm":"AES",
@@ -65,7 +65,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"AES-CCM",
+        "algorithm":"ACVP-AES-CCM",
         "prereqVals":[
           {
             "algorithm":"AES",
@@ -111,7 +111,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"AES-CCM",
+        "algorithm":"ACVP-AES-CCM",
         "prereqVals":[
           {
             "algorithm":"AES",

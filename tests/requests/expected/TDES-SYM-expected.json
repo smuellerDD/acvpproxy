@@ -12,7 +12,7 @@
     "algorithms":[
       {
         "revision":"1.0",
-        "algorithm":"TDES-ECB",
+        "algorithm":"ACVP-TDES-ECB",
         "direction":[
           "encrypt",
           "decrypt"
@@ -32,7 +32,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"TDES-CBC",
+        "algorithm":"ACVP-TDES-CBC",
         "direction":[
           "encrypt",
           "decrypt"
@@ -55,7 +55,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"TDES-CTR",
+        "algorithm":"ACVP-TDES-CTR",
         "direction":[
           "encrypt",
           "decrypt"
@@ -78,7 +78,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"TDES-OFB",
+        "algorithm":"ACVP-TDES-OFB",
         "direction":[
           "encrypt",
           "decrypt"
@@ -101,7 +101,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"TDES-CFB1",
+        "algorithm":"ACVP-TDES-CFB1",
         "direction":[
           "encrypt",
           "decrypt"
@@ -124,7 +124,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"TDES-CFB8",
+        "algorithm":"ACVP-TDES-CFB8",
         "direction":[
           "encrypt",
           "decrypt"
@@ -147,7 +147,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"TDES-CFB64",
+        "algorithm":"ACVP-TDES-CFB64",
         "direction":[
           "encrypt",
           "decrypt"

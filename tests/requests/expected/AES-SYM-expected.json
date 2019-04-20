@@ -12,7 +12,7 @@
     "algorithms":[
       {
         "revision":"1.0",
-        "algorithm":"AES-ECB",
+        "algorithm":"ACVP-AES-ECB",
         "direction":[
           "encrypt",
           "decrypt"
@@ -31,7 +31,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"AES-CBC",
+        "algorithm":"ACVP-AES-CBC",
         "direction":[
           "encrypt",
           "decrypt"
@@ -53,7 +53,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"AES-CTR",
+        "algorithm":"ACVP-AES-CTR",
         "direction":[
           "encrypt",
           "decrypt"
@@ -75,7 +75,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"AES-KW",
+        "algorithm":"ACVP-AES-KW",
         "direction":[
           "encrypt",
           "decrypt"
@@ -100,7 +100,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"AES-KWP",
+        "algorithm":"ACVP-AES-KWP",
         "direction":[
           "encrypt",
           "decrypt"
@@ -126,7 +126,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"AES-XTS",
+        "algorithm":"ACVP-AES-XTS",
         "direction":[
           "encrypt",
           "decrypt"
@@ -148,7 +148,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"AES-OFB",
+        "algorithm":"ACVP-AES-OFB",
         "direction":[
           "encrypt",
           "decrypt"
@@ -170,7 +170,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"AES-CFB1",
+        "algorithm":"ACVP-AES-CFB1",
         "direction":[
           "encrypt",
           "decrypt"
@@ -192,7 +192,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"AES-CFB8",
+        "algorithm":"ACVP-AES-CFB8",
         "direction":[
           "encrypt",
           "decrypt"
@@ -214,7 +214,7 @@
       },
       {
         "revision":"1.0",
-        "algorithm":"AES-CFB128",
+        "algorithm":"ACVP-AES-CFB128",
         "direction":[
           "encrypt",
           "decrypt"
