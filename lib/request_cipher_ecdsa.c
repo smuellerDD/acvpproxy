@@ -69,8 +69,14 @@ out:
 static int acvp_req_ecdsa_keyver(const struct def_algo_ecdsa *ecdsa,
 				 struct json_object *entry)
 {
-	return acvp_req_cipher_to_array(entry, ecdsa->curve,
-					ACVP_CIPHERTYPE_ECC, "curve");
+	int ret;
+
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+	CKINT(acvp_req_cipher_to_array(entry, ecdsa->curve,
+				       ACVP_CIPHERTYPE_ECC, "curve"));
+
+out:
+	return ret;
 }
 
 
@@ -79,6 +85,8 @@ static int acvp_req_ecdsa_siggen(const struct def_algo_ecdsa *ecdsa,
 {
 	struct json_object *tmp, *cap_array;
 	int ret;
+
+	CKINT(acvp_req_add_revision(entry, "1.0"));
 
 	cap_array = json_object_new_array();
 	CKNULL(cap_array, -ENOMEM);
@@ -100,7 +108,13 @@ out:
 static int acvp_req_ecdsa_sigver(const struct def_algo_ecdsa *ecdsa,
 				 struct json_object *entry)
 {
-	return acvp_req_ecdsa_siggen(ecdsa, entry);
+	int ret;
+
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+	CKINT(acvp_req_ecdsa_siggen(ecdsa, entry));
+
+out:
+	return ret;
 }
 
 /*
