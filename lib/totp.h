@@ -67,6 +67,12 @@ int totp_set_seed(const uint8_t *K, uint32_t Klen, time_t last_gen,
  */
 void totp_release_seed(void);
 
+/**
+ * @brief terminate any pending generation operations without releasing
+ *	  the seed.
+ */
+void totp_term(void);
+
 #define TOTP_HASH_TYPE		HASH_TYPE_SHA256
 #ifndef TOTP_STEP_SIZE
 # define TOTP_STEP_SIZE		30

@@ -25,9 +25,25 @@
 #include "threading_support.h"
 #include "totp.h"
 
-int main(int argc, char *argv[])
+static int test_thread(void *arg)
 {
 	uint32_t totp_val, i;
+	int ret = 0;
+
+	(void)arg;
+
+	for (i = 0; i < 3; i++) {
+		CKINT(totp(&totp_val));
+		printf("%u\n", totp_val);
+	}
+
+out:
+	return ret;
+}
+
+int main(int argc, char *argv[])
+{
+	unsigned int i;
 	int ret;
 	uint8_t seed[10] = { 0 };
 
@@ -46,11 +62,12 @@ int main(int argc, char *argv[])
 	CKINT(totp_set_seed(seed, sizeof(seed), 0, NULL));
 
 	for (i = 0; i < 3; i++) {
-		CKINT(totp(&totp_val));
-		printf("%u\n", totp_val);
+		CKINT(thread_start(test_thread, NULL, 0, NULL));
+		logger(LOGGER_DEBUG, LOGGER_C_ANY, "Thread %u started %d\n", i, ret);
 	}
 
 out:
+	ret |= thread_wait();
 	totp_release_seed();
 	thread_release(1, 1);
 	sig_uninstall_handler();

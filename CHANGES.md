@@ -15,6 +15,8 @@ v0.7.0
 - make /large support working after it is enabled on ACVP server
 - add support for range domain values defined with DEF_ALG_DOMAIN
 - add tests verifying the generation of requests
+- update cipher names as mandated by ACVP
+- (hopefully last) fix of MQ server with different multthreaded clients
 
 v0.6.5
 - add /large endpoint handling

@@ -199,9 +199,6 @@ int totp_get_val(uint32_t *totp_val)
 	unsigned int wait_time;
 	int ret;
 
-	if (atomic_bool_read(&totp_shutdown))
-		return -EINTR;
-
 	mutex_w_lock(&totp_lock);
 
 	if (!totp_K || !totp_Klen || !totp_val) {
@@ -234,6 +231,7 @@ int totp_get_val(uint32_t *totp_val)
 		totp_last_gen_cb(totp_last_generated);
 
 out:
+	atomic_bool_set_false(&totp_shutdown);
 	mutex_w_unlock(&totp_lock);
 
 	return ret;
@@ -268,9 +266,14 @@ static void __totp_release_seed(void)
 	totp_Klen = 0;
 }
 
-void totp_release_seed(void)
+void totp_term(void)
 {
 	atomic_bool_set_true(&totp_shutdown);
+}
+
+void totp_release_seed(void)
+{
+	totp_term();
 	totp_mq_release();
 
 	mutex_w_lock(&totp_lock);

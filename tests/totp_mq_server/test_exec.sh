@@ -24,8 +24,8 @@ test1()
 	local res1=$(cat $OUTDIR/t1_p1)
 	local res2=$(cat $OUTDIR/t1_p2)
 
-	if [ $(echo $res1 | wc -w) -eq 3 -a \
-	     $(echo $res2 | wc -w) -eq 3 ]
+	if [ $(echo $res1 | wc -w) -eq 9 -a \
+	     $(echo $res2 | wc -w) -eq 9 ]
 	then
 		echo_pass "Test $NAME 1"
 	else
@@ -96,7 +96,7 @@ test_kill_caller1()
 # Expected result: First caller obtains all TOTP values
 test2()
 {
-	test_kill_caller2 2 5 3
+	test_kill_caller2 2 5 9
 }
 
 # Test 3
@@ -106,7 +106,7 @@ test2()
 # Expected result: First caller obtains all TOTP values
 test3()
 {
-	test_kill_caller2 3 35 3
+	test_kill_caller2 3 35 9
 }
 
 # Test 4
@@ -116,7 +116,7 @@ test3()
 # Expected result: 2nd caller receives all TOTP values
 test4()
 {
-	test_kill_caller1 4 5 3
+	test_kill_caller1 4 5 9
 }
 
 # Test 5
@@ -126,7 +126,7 @@ test4()
 # Expected result: 2nd caller receives all TOTP values
 test5()
 {
-	test_kill_caller1 5 35 3
+	test_kill_caller1 5 35 9
 }
 
 # Test 6
@@ -192,15 +192,15 @@ test6()
 	local res9=$(cat $OUTDIR/t6_p9)
 	local res10=$(cat $OUTDIR/t6_p10)
 
-	if [ $(echo $res2 | wc -w) -eq 3 -a \
-	     $(echo $res3 | wc -w) -eq 3 -a \
-	     $(echo $res4 | wc -w) -eq 3 -a \
-	     $(echo $res5 | wc -w) -eq 3 -a \
-	     $(echo $res6 | wc -w) -eq 3 -a \
-	     $(echo $res7 | wc -w) -eq 3 -a \
-	     $(echo $res8 | wc -w) -eq 3 -a \
-	     $(echo $res9 | wc -w) -eq 3 -a \
-	     $(echo $res10 | wc -w) -eq 3 ]
+	if [ $(echo $res2 | wc -w) -eq 9 -a \
+	     $(echo $res3 | wc -w) -eq 9 -a \
+	     $(echo $res4 | wc -w) -eq 9 -a \
+	     $(echo $res5 | wc -w) -eq 9 -a \
+	     $(echo $res6 | wc -w) -eq 9 -a \
+	     $(echo $res7 | wc -w) -eq 9 -a \
+	     $(echo $res8 | wc -w) -eq 9 -a \
+	     $(echo $res9 | wc -w) -eq 9 -a \
+	     $(echo $res10 | wc -w) -eq 9 ]
 	then
 		echo_pass "Test $NAME 6"
 	else
@@ -219,7 +219,7 @@ init()
 		exit 1
 	fi
 
-	make -s
+	CFLAGS="-DTOTP_STEP_SIZE=10" make -s
 
 	echo_info "Testing $NAME commences - may take several minutes per test"
 }

@@ -106,6 +106,11 @@ static inline unsigned int thread_get_special_slot(unsigned int thread_group)
 	return (THREADING_MAX_THREADS + (UINT_MAX - thread_group));
 }
 
+static inline bool thread_is_special(struct thread_ctx *tctx)
+{
+	return (tctx->thread_num >= THREADING_MAX_THREADS) ? true : false;
+}
+
 int thread_init(uint32_t groups)
 {
 	static uint32_t thread_initialized = 0;
@@ -171,6 +176,10 @@ static inline void thread_cleanup(struct thread_ctx *tctx)
 {
 	tctx->data = NULL;
 	tctx->start_routine = NULL;
+
+	/* Return values of special threads is irrelevant */
+	if (thread_is_special(tctx))
+		tctx->scheduled = false;
 }
 
 /* Thread structure cleanup when thread is terminated. */
