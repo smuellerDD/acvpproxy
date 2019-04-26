@@ -83,7 +83,7 @@ publication phase, the ACVP proxy will ensure the ACVP server receives the
 meta data and then combines it with the test session.
 
 Vendor ID / Module ID / Operational Environment ID
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------------------
 
 To support the publication phase, the ACVP Proxy will add and maintain
 various ID entries in the JSON files explained below.
