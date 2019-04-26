@@ -3,7 +3,6 @@
 :toc:
 :homepage: https://github.com/smuellerDD/acvpproxy
 
-[.lead]
 The ACVP Proxy allows the retrieving of test vectors from the ACVP
 servers. In addition, it allows the submission of test results to the ACVP
 servers and to retrieve the verdict of the test results.
@@ -21,45 +20,45 @@ and generates the test response files, see the ACVP Parser.
 The ACVP Proxy and the ACVP Parser collaborate in a full ACVP test cycle as
 follows.
 
-1. Find the right cipher definition or create a new definition with the
-   ACVP Proxy:
-   `acvp-proxy -l`
+. Find the right cipher definition or create a new definition with the
+  ACVP Proxy:
+  `acvp-proxy -l`
 
-2. Download the ACVP test vectors for the chosen cryptographic module using
-   the ACVP Proxy:
-   `acvp-proxy -m <cryptomodule> --request`
+. Download the ACVP test vectors for the chosen cryptographic module using
+  the ACVP Proxy:
+  `acvp-proxy -m <cryptomodule> --request`
 
-3. Send the entire testvectors data store to the IUT that is connected with the
-   ACVP Parser. You may use the following command:
-   `tar -cvzf testvectors-<vendor>-<date>.tar.gz testvectors/`
+. Send the entire testvectors data store to the IUT that is connected with the
+  ACVP Parser. You may use the following command:
+  `tar -cvzf testvectors-<vendor>-<date>.tar.gz testvectors/`
 
-   You may also create a symbolic link to the testvectors directory from the
-   ACVP Parser.
+  You may also create a symbolic link to the testvectors directory from the
+  ACVP Parser.
 
-4. Invoke the JSON files in the testvectors directory with the ACVP Parser:
-   `acvp-parser testvector-request.json testvector-response.json`
+.Invoke the JSON files in the testvectors directory with the ACVP Parser:
+  `acvp-parser testvector-request.json testvector-response.json`
 
-   You may use the helper script helper/exec_*.sh in the ACVP Parser code
-   to automate the processing of all JSON files.
+  You may use the helper script helper/exec_*.sh in the ACVP Parser code
+  to automate the processing of all JSON files.
 
-5. Load the generated testvector-response.json files into the testvectors/
-   data store of the ACVP Proxy. For example:
+. Load the generated testvector-response.json files into the testvectors/
+  data store of the ACVP Proxy. For example:
 
-   a. Create the archive with the responses from ACVP Parser:
-      `tar -cvzf testvectors-<vendor>-response-<date>.tar.gz testvectors/`
+.. Create the archive with the responses from ACVP Parser:
+   `tar -cvzf testvectors-<vendor>-response-<date>.tar.gz testvectors/`
 
-   b. Unpack the testvector-responses.json files into the ACVP Proxy
-      testvectors/ directory:
-      `tar -xvzf testvectors-<vendor>-response-<date>.tar.gz *testvector-response.json`
+.. Unpack the testvector-responses.json files into the ACVP Proxy
+   testvectors/ directory:
+   `tar -xvzf testvectors-<vendor>-response-<date>.tar.gz *testvector-response.json`
 
    You may skip this copying business if the ACVP Proxy and ACVP Parser both
    access the very same testvectors directory.
 
-6. Use the ACVP Proxy to submit the test responses and fetch the verdicts.
-   `acvp-proxy -m <cryptomodule>`
+. Use the ACVP Proxy to submit the test responses and fetch the verdicts.
+  `acvp-proxy -m <cryptomodule>`
 
-7. Check the verdict.json file in the testvectors directory for the ACVP
-   server verdict.
+. Check the verdict.json file in the testvectors directory for the ACVP
+  server verdict.
 
 == Test Publication Phase
 
