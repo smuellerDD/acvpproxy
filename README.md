@@ -15,6 +15,8 @@ according to the ACVP protocol specification. An example implementation
 that parses these JSON files, invokes the cryptographic implementation
 and generates the test response files, see the ACVP Parser.
 
+The ACVP Proxy is proudly supported by [atsec information security corp](https://www.atsec.com).
+
 == Interaction of ACVP Proxy and ACVP Parser - First Steps
 
 The ACVP Proxy and the ACVP Parser collaborate in a full ACVP test cycle as

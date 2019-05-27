@@ -42,7 +42,6 @@
 #define OPT_STR_TLSKEYFILE		"tlsKeyFile"
 #define OPT_STR_TLSCERTFILE		"tlsCertFile"
 #define OPT_STR_TLSKEYPASSCODE		"tlsKeyPasscode"
-#define OPT_STR_TLSCABUNDLE		"tlsCaBundle"
 #define OPT_STR_TOTPSEEDFILE		"totpSeedFile"
 
 #define OPT_CIPHER_OPTIONS_MAX		512
@@ -52,15 +51,6 @@ struct opt_data {
 	struct acvp_opts_ctx acvp_ctx_options;
 	char *specific_modversion;
 
-	char *seed_base64;
-	uint32_t seed_base64_len;
-
-	char *configfile;
-	struct json_object *config;
-	const char *tlskey;
-	const char *tlspasscode;
-	const char *tlscert;
-	const char *tlscabundle;
 	char *basedir;
 	char *secure_basedir;
 	char *definition_basedir;
@@ -73,6 +63,10 @@ struct opt_data {
 	bool dump_register;
 	bool request_sample;
 	bool official_testing;
+
+	bool match;
+	char *match_expected;
+	char *match_actual;
 };
 
 /*
@@ -80,193 +74,6 @@ struct opt_data {
  * callback function of last_gen_cb.
  */
 static struct opt_data *global_opts = NULL;
-
-static int json_find_key(struct json_object *inobj, const char *name,
-			 struct json_object **out, enum json_type type)
-{
-	if (!json_object_object_get_ex(inobj, name, out)) {
-		/*
-		 * Use debug level only as optional fields may be searched
-		 * for.
-		 */
-		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "JSON field %s does not exist\n", name);
-		return -ENOENT;
-	}
-
-	if (!json_object_is_type(*out, type)) {
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "JSON data type %s does not match expected type %s for field %s\n",
-		       json_type_to_name(json_object_get_type(*out)),
-		       json_type_to_name(type), name);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int json_get_uint64(struct json_object *obj, const char *name,
-			   uint64_t *integer)
-{
-	struct json_object *o = NULL;
-	int64_t tmp;
-	int ret = json_find_key(obj, name, &o, json_type_int);
-
-	if (ret)
-		return ret;
-
-	tmp = json_object_get_int64(o);
-
-	*integer = (uint64_t)tmp;
-
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Found integer %s with value %lu\n",
-	       name, *integer);
-
-	return 0;
-}
-
-static int json_get_string(struct json_object *obj, const char *name,
-			   const char **outbuf)
-{
-	struct json_object *o = NULL;
-	const char *string;
-	int ret = json_find_key(obj, name, &o, json_type_string);
-
-	if (ret)
-		return ret;
-
-	string = json_object_get_string(o);
-
-	logger(LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Found string data %s with value %s\n", name,
-	       string);
-
-	*outbuf = string;
-
-	return 0;
-}
-
-static int read_complete(int fd, char *buf, uint32_t buflen)
-{
-	ssize_t ret;
-
-	if (buflen > INT_MAX)
-		return -EINVAL;
-
-	do {
-		ret = read(fd, buf, buflen);
-		if (0 < ret) {
-			buflen -= ret;
-			buf += ret;
-		}
-	} while ((0 < ret || EINTR == errno) && buflen);
-
-	if (buflen == 0)
-		return 0;
-	return -EFAULT;
-}
-
-static int load_config(struct opt_data *opts)
-{
-	struct stat statbuf;
-	struct flock lock;
-	int ret;
-	int fd;
-	const char *seedfile;
-
-	fd = open(global_opts->configfile, O_RDONLY);
-	if (fd < 0) {
-		ret = -errno;
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Cannot open config file %s\n",
-		       opts->configfile);
-		return ret;
-	}
-
-	memset (&lock, 0, sizeof(lock));
-
-	/*
-	 * Place a write lock on the file. This call will put us to sleep if
-	 * there is another lock.
-	 */
-	fcntl(fd, F_SETLKW, &lock);
-
-	opts->config = json_object_from_fd(fd);
-
-	/* Release the lock. */
-	lock.l_type = F_UNLCK;
-	fcntl(fd, F_SETLKW, &lock);
-
-	close(fd);
-
-	if (!opts->config) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Cannot parse config file %s\n", opts->configfile);
-		return -EFAULT;
-	}
-
-	/* Allow an empty key file */
-	ret = json_get_string(opts->config, OPT_STR_TLSKEYFILE, &opts->tlskey);
-	if (ret)
-		opts->tlskey = NULL;
-
-	/* Allow an empty passcode entry */
-	ret = json_get_string(opts->config, OPT_STR_TLSKEYPASSCODE,
-			      &opts->tlspasscode);
-	if (ret)
-		opts->tlspasscode = NULL;
-
-	CKINT(json_get_string(opts->config, OPT_STR_TLSCERTFILE,
-			      &opts->tlscert));
-	ret = json_get_string(opts->config, OPT_STR_TLSCABUNDLE,
-			      &opts->tlscabundle);
-	if (ret)
-		opts->tlscabundle = NULL;
-
-	CKINT(json_get_string(opts->config, OPT_STR_TOTPSEEDFILE, &seedfile));
-
-	if (stat(seedfile, &statbuf)) {
-		ret = -errno;
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Error accessing seed file %s (%d)\n", seedfile,
-		       ret);
-		goto out;
-	}
-
-	if (!statbuf.st_size) {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Seed file %s empty (%d)\n",
-		       seedfile, ret);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	fd = open(seedfile, O_RDONLY | O_CLOEXEC);
-	if (fd < 0) {
-		ret = -errno;
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Cannot open seed file %s (%d)\n", seedfile, ret);
-		goto out;
-	}
-
-	opts->seed_base64_len = statbuf.st_size;
-	opts->seed_base64 = malloc(statbuf.st_size);
-	if (!opts->seed_base64) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	CKINT(read_complete(fd, opts->seed_base64, opts->seed_base64_len));
-
-	while (isspace(opts->seed_base64[opts->seed_base64_len - 1]))
-		opts->seed_base64_len--;
-
-	logger(LOGGER_DEBUG, LOGGER_C_ANY,
-	       "TOTP seed file %s read into memory\n", seedfile);
-
-out:
-	if (fd >= 0)
-		close(fd);
-	return ret;
-}
 
 static void usage(void)
 {
@@ -336,7 +143,7 @@ static void usage(void)
 	fprintf(stderr, "\t-s --secure-basedir\t\tBase directory for sensitive data\n");
 	fprintf(stderr, "\t   --definition-basedir\t\tBase directory for module definition\n\n");
 
-	fprintf(stderr, "\t   --resubmit-result\t\tIn case test results were already\n");
+	fprintf(stderr, "\t   --resubmit-results\t\tIn case test results were already\n");
 	fprintf(stderr, "\t\t\t\t\tsubmitted for a vsID, resubmit the\n");
 	fprintf(stderr, "\t\t\t\t\tcurrent results on file to update the\n");
 	fprintf(stderr, "\t\t\t\t\tresults on the ACVP server\n");
@@ -373,10 +180,6 @@ static void free_opts(struct opt_data *opts)
 		free(search->processor);
 	if (opts->specific_modversion)
 		free(opts->specific_modversion);
-	if (opts->seed_base64)
-		free(opts->seed_base64);
-	if (opts->configfile)
-		free(opts->configfile);
 	if (opts->basedir)
 		free(opts->basedir);
 	if (opts->secure_basedir)
@@ -385,9 +188,12 @@ static void free_opts(struct opt_data *opts)
 		free(opts->definition_basedir);
 	if (opts->cipher_options_file)
 		free(opts->cipher_options_file);
+	if (opts->match_actual)
+		free(opts->match_actual);
+	if (opts->match_expected)
+		free(opts->match_expected);
 	for (i = 0; i < opts->cipher_options_algo_idx; i++)
 		free(opts->cipher_options_algo[i]);
-	json_object_put(opts->config);
 }
 
 static int duplicate_string(char **dst, char *src)
@@ -456,6 +262,9 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 
 			{"cipher-options",	required_argument,	0, 0},
 			{"cipher-algo",		required_argument,	0, 0},
+
+			{"match-expected",	required_argument,	0, 0},
+			{"match-actual",	required_argument,	0, 0},
 
 			{0, 0, 0, 0}
 		};
@@ -588,10 +397,6 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			case 19:
 				opts->request_sample = true;
 				break;
-			case 20:
-				CKINT(duplicate_string(&opts->configfile,
-						       optarg));
-				break;
 			case 21:
 				CKINT(acvp_def_config(optarg));
 				modconf_loaded = 1;
@@ -635,6 +440,19 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				}
 				break;
 
+			case 30:
+				CKINT(duplicate_string(&opts->match_expected,
+						       optarg));
+				if (opts->match_actual)
+					opts->match = true;
+				break;
+			case 31:
+				CKINT(duplicate_string(&opts->match_actual,
+						       optarg));
+				if (opts->match_expected)
+					opts->match = true;
+				break;
+
 			default:
 				usage();
 				ret = -EINVAL;
@@ -668,15 +486,12 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 		case 'u':
 			listunregistered = 1;
 			break;
-		case 'c':
-			CKINT(duplicate_string(&opts->configfile, optarg));
-			break;
 		case 'd':
 			CKINT(acvp_def_config(optarg));
 			modconf_loaded = 1;
 			break;
 		case 'o':
-			opts->official_testing = true;
+			opts->official_testing = 1;
 			break;
 		case 'b':
 			CKINT(duplicate_string(&opts->basedir, optarg));
@@ -719,16 +534,6 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 		goto out;
 	}
 
-	if (!opts->configfile) {
-		if (opts->official_testing)
-			opts->configfile = strdup("acvpproxy_conf_production.json");
-		else
-			opts->configfile = strdup("acvpproxy_conf.json");
-		CKNULL(opts->configfile, -ENOMEM);
-	}
-
-	CKINT(load_config(opts));
-
 	return ret;
 
 out:
@@ -736,87 +541,19 @@ out:
 	exit(-ret);
 }
 
-static void memset_secure(void *s, int c, uint32_t n)
-{
-	memset(s, c, n);
-	__asm__ __volatile__("" : : "r" (s) : "memory");
-}
-
-static void last_gen_cb(time_t now)
-{
-	struct json_object *totp_val;
-	struct flock lock;
-	int ret;
-	int fd;
-
-	if (!global_opts || !global_opts->configfile)
-		return;
-
-	ret = json_find_key(global_opts->config, OPT_STR_TOTPLASTGEN, &totp_val,
-			    json_type_int);
-	if (ret) {
-		json_object_object_add(global_opts->config, OPT_STR_TOTPLASTGEN,
-				       json_object_new_int64(now));
-	} else {
-		json_object_set_int64(totp_val, now);
-	}
-
-	fd = open(global_opts->configfile, O_WRONLY | O_TRUNC);
-	if (fd < 0)
-		return;
-
-	memset (&lock, 0, sizeof(lock));
-
-	/*
-	 * Place a write lock on the file. This call will put us to sleep if
-	 * there is another lock.
-	 */
-	fcntl(fd, F_SETLKW, &lock);
-
-	json_object_to_fd(fd, global_opts->config, JSON_C_TO_STRING_PRETTY |
-			  JSON_C_TO_STRING_NOSLASHESCAPE);
-
-	/* Release the lock. */
-	lock.l_type = F_UNLCK;
-	fcntl(fd, F_SETLKW, &lock);
-
-	close(fd);
-
-	return;
-}
-
 static int set_totp_seed(struct opt_data *opts)
 {
 	int ret;
-	uint8_t *seed = NULL;
-	uint32_t seed_len;
-	uint64_t totp_last_gen;
+	uint8_t seed[16];
 
-	ret = base64_decode(opts->seed_base64, opts->seed_base64_len,
-			    &seed, &seed_len);
-	if (ret) {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Base64 decoding failed\n");
-		ret = -EFAULT;
-		goto out;
-	}
-	memset_secure(opts->seed_base64, 0, opts->seed_base64_len);
+	(void)opts;
 
-	ret = json_get_uint64(opts->config, OPT_STR_TOTPLASTGEN,
-			      &totp_last_gen);
-	if (ret)
-		totp_last_gen = 0;
-
-	CKINT(acvp_init(seed, seed_len, (time_t)totp_last_gen, &last_gen_cb));
+	CKINT(acvp_init(seed, sizeof(seed), 0, NULL));
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
 	       "TOTP base64 seed converted into binary and applied\n");
 
 out:
-	/* securely dispose of the seed */
-	if (seed) {
-		memset_secure(seed, 0, seed_len);
-		free(seed);
-	}
 	return ret;
 }
 
@@ -831,15 +568,13 @@ static int initialize_ctx(struct acvp_ctx **ctx, struct opt_data *opts)
 		CKINT(acvp_req_production(*ctx));
 		CKINT(acvp_set_net(NIST_DEFAULT_SERVER,
 				   NIST_DEFAULT_SERVER_PORT,
-				   opts->tlscabundle,
-				   opts->tlscert, opts->tlskey,
-				   opts->tlspasscode));
+				   NULL /*"../acvp-keys/acvp.nist.gov.crt"*/,
+				   "foo.cer", "foo.pem", NULL));
 	} else {
 		CKINT(acvp_set_net(NIST_TEST_SERVER,
 				   NIST_DEFAULT_SERVER_PORT,
-				   opts->tlscabundle,
-				   opts->tlscert, opts->tlskey,
-				   opts->tlspasscode));
+				   NULL /*"../acvp-keys/acvp.nist.gov.crt"*/,
+				   "foo.cer", "foo.pem", NULL));
 	}
 
 	/* Submit requests and retrieve test vectors */
@@ -979,6 +714,45 @@ out:
 	return ret;
 }
 
+static int match_expected(const char *actualfile, const char *expectedfile)
+{
+	struct json_object *actual = NULL, *expobj = NULL;
+	int ret;
+
+	/* Open and parse expected test result */
+	expobj = json_object_from_file(expectedfile);
+	CKNULL_LOG(expobj, -EFAULT, "Cannot parse expected file\n");
+
+	/* Open and parse actual test result */
+	actual = json_object_from_file(actualfile);
+	CKNULL_LOG(actual, -EFAULT, "Cannot parse actual file\n");
+
+	ret = json_object_equal(expobj, actual);
+	if (ret) {
+		if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_WARN) {
+			fprintf_green(stdout, "[PASSED] ");
+			fprintf(stdout,"compare %s with %s\n", actualfile,
+			        expectedfile);
+		}
+		ret = 0;
+	} else {
+		if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_WARN) {
+			fprintf_red(stdout, "[FAILED] ");
+			fprintf(stdout, "compare %s with %s\n", actualfile,
+			        expectedfile);
+		}
+		ret = -EIO;
+	}
+
+out:
+	if (actual)
+		json_object_put(actual);
+	if (expobj)
+		json_object_put(expobj);
+
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	struct opt_data opts;
@@ -1001,6 +775,8 @@ int main(int argc, char *argv[])
 		CKINT(do_register(&opts));
 	} else if (opts.publish) {
 		CKINT(do_publish(&opts));
+	} else if (opts.match) {
+		CKINT(match_expected(opts.match_actual, opts.match_expected));
 	} else {
 		CKINT(do_submit(&opts));
 	}

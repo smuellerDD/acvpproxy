@@ -1,3 +1,21 @@
+v0.7.1
+- add ECDSA dependency to ECDH
+- enable multi-threaded --publish
+- enable support for registering dependencies together with OEs
+- support demo IDs vs production IDs
+- fix -b option
+- add AES_CBC_CS[1|2|3]
+- add support for automatically select acvpproxy_conf_production.json
+  configuration file when using the --official option. See apps/README.md for
+  details
+- add search support when validating meta data without ID
+- add hints for using libcurl with Apple Secure Transport on MacOS
+- add hints that OpenSSL <= 1.0.2 threading is broken even though threading
+  callbacks are registered - this implies that still random crashes when using
+  OpenSSL <= 1.0.2 may be observed - see README.openssl.md
+- support for validating CA certificates and CA certificate bundles added
+- add certificate chain bundle for ACVP demo server
+
 v0.7.0
 - fix SHAKE support
 - add SHAKE definitions for OpenSSL

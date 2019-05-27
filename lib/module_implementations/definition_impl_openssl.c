@@ -585,6 +585,21 @@ static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
 /**************************************************************************
  * ECDH Definitions
  **************************************************************************/
+static const struct def_algo_prereqs openssl_ecdh_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "ECDSA",
+		.valvalue = "same"
+	},
+};
+
 static const struct def_algo_kas_ecc_nokdfnokc openssl_kas_ecc_nokdfnokc_ec = {
 	.kas_ecc_paramset = DEF_ALG_KAS_ECC_EC,
 	.curve = ACVP_NISTP256,
@@ -607,7 +622,7 @@ static const struct def_algo_kas_ecc_nokdfnokc openssl_kas_ecc_nokdfnokc_ee = {
 	{								\
 	.type = DEF_ALG_TYPE_KAS_ECC,					\
 	.algo.kas_ecc = {						\
-		DEF_PREREQS(openssl_rsa_prereqs),			\
+		DEF_PREREQS(openssl_ecdh_prereqs),			\
 		.kas_ecc_function = DEF_ALG_KAS_ECC_PARTIALVAL,		\
 		.kas_ecc_schema = DEF_ALG_KAS_ECC_EPHEMERAL_UNIFIED,	\
 		.kas_ecc_role = DEF_ALG_KAS_ECC_INITIATOR |		\
@@ -731,9 +746,6 @@ static const struct def_algo openssl_sha [] = {
 	OPENSSL_HMAC(ACVP_HMACSHA2_384),
 	OPENSSL_HMAC(ACVP_HMACSHA2_512),
 
-	OPENSSL_DRBG_HMAC,
-	OPENSSL_DRBG_HASH,
-
 	OPENSSL_RSA_KEYGEN,
 	OPENSSL_RSA_SIGGEN,
 	OPENSSL_RSA_SIGVER,
@@ -795,6 +807,26 @@ static const struct def_algo openssl_sha3 [] = {
 
 	OPENSSL_SHAKE(ACVP_SHAKE128),
 	OPENSSL_SHAKE(ACVP_SHAKE256),
+};
+
+static const struct def_algo openssl_10x_sym_drbg [] = {
+	OPENSSL_AES_ECB,
+	OPENSSL_DRBG_CTR,
+};
+
+static const struct def_algo openssl_10x_hash_drbg [] = {
+	OPENSSL_SHA(ACVP_SHA1),
+	OPENSSL_SHA(ACVP_SHA224),
+	OPENSSL_SHA(ACVP_SHA256),
+	OPENSSL_SHA(ACVP_SHA384),
+	OPENSSL_SHA(ACVP_SHA512),
+	OPENSSL_HMAC(ACVP_HMACSHA1),
+	OPENSSL_HMAC(ACVP_HMACSHA2_224),
+	OPENSSL_HMAC(ACVP_HMACSHA2_256),
+	OPENSSL_HMAC(ACVP_HMACSHA2_384),
+	OPENSSL_HMAC(ACVP_HMACSHA2_512),
+	OPENSSL_DRBG_HMAC,
+	OPENSSL_DRBG_HASH,
 };
 
 /**************************************************************************
@@ -940,6 +972,48 @@ static struct def_algo_map openssl_algo_map [] = {
 		.algo_name = "OpenSSL",
 		.processor = "X86",
 		.impl_name = "SHA3_ASM"
+	}, {
+
+	/*
+	 * OpenSSL 1.0.x upstream DRBG implementation that may have been
+	 * forward-ported to 1.1.x (e.g. on RHEL8)
+	 * The different instances relate to the different implementations of
+	 * the underlying cipher
+	 **********************************************************************/
+		SET_IMPLEMENTATION(openssl_10x_sym_drbg),
+		.algo_name = "OpenSSL",
+		.processor = "",
+		.impl_name = "DRBG_10X_AESNI"
+	}, {
+		SET_IMPLEMENTATION(openssl_10x_sym_drbg),
+		.algo_name = "OpenSSL",
+		.processor = "",
+		.impl_name = "DRBG_10X_AESASM"
+	}, {
+		SET_IMPLEMENTATION(openssl_10x_sym_drbg),
+		.algo_name = "OpenSSL",
+		.processor = "",
+		.impl_name = "DRBG_10X_BAES_CTASM"
+	}, {
+		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
+		.algo_name = "OpenSSL",
+		.processor = "",
+		.impl_name = "DRBG_10X_SHA_AVX2"
+	}, {
+		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
+		.algo_name = "OpenSSL",
+		.processor = "",
+		.impl_name = "DRBG_10X_SHA_AVX"
+	}, {
+		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
+		.algo_name = "OpenSSL",
+		.processor = "",
+		.impl_name = "DRBG_10X_SHA_SSSE3"
+	}, {
+		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
+		.algo_name = "OpenSSL",
+		.processor = "",
+		.impl_name = "DRBG_10X_SHA_ASM"
 	},
 };
 

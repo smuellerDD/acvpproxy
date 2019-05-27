@@ -64,6 +64,7 @@ static void acvp_release_net(struct acvp_net_ctx *net)
 			      strlen(net->certs_clnt_passcode));
 	}
 	ACVP_PTR_FREE_NULL(net->certs_clnt_passcode);
+	memset(net, 0, sizeof(*net));
 }
 
 static void acvp_release_modinfo(struct acvp_modinfo_ctx *modinfo)
@@ -227,6 +228,12 @@ static int acvp_cert_type(const char *file, char *curl_type,
 	return -EINVAL;
 }
 
+static bool acvp_production = false;
+bool acvp_req_is_production(void)
+{
+	return acvp_production;
+}
+
 /*****************************************************************************
  * API calls
  *****************************************************************************/
@@ -386,6 +393,8 @@ int acvp_req_production(struct acvp_ctx *ctx)
 	/* Require encryption on the server side. */
 	req_details->encryptAtRest = true;
 
+	acvp_production = true;
+
 out:
 	return ret;
 }
@@ -484,10 +493,11 @@ int acvp_ctx_init(struct acvp_ctx **ctx,
 
 	datastore = &(*ctx)->datastore;
 	if (datastore_basedir) {
-		CKINT(acvp_duplicate(&datastore->secure_basedir,
+		CKINT(acvp_duplicate(&datastore->basedir,
 				     datastore_basedir));
 	} else {
 		CKINT(acvp_duplicate(&datastore->basedir, ACVP_DS_DATADIR));
+
 	}
 
 	/*

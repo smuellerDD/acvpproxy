@@ -56,14 +56,6 @@
  * If the first ACVP proxy process terminates, it also terminates the TOTP
  * server. This implies that another process will try to start the server
  * thread.
- *
- * In addition to the TOTP server, a TOTP ping server is started which the
- * client can use to check whether the TOTP server is alive. This helps if
- * the server process died with an uncaught signal and the message queue was
- * not cleaned up properly. I.e. when the client finds a message queue but the
- * server does not respond to a ping, the client can safely assume the server
- * is dead, delete the message queue and start the whole message queue system
- * again with the server and client.
  ****************************************************************************/
 
 #ifdef ACVP_TOTP_MQ_SERVER
@@ -72,8 +64,6 @@
 #define TOTP_MQ_PROJ_ID		1122334455
 #define TOTP_MSG_TYPE_PING	1 /* Ping from client to server, no data */
 #define TOTP_MSG_TYPE_TOTP	2 /* Message from server to client with TOTP */
-#define TOTP_MSG_TYPE_ECHO_REQ	3 /* Send echo request */
-#define TOTP_MSG_TYPE_ECHO_REP	4 /* Send echo reply */
 
 static atomic_t mq_server = ATOMIC_INIT(-1);
 static atomic_t mq_client = ATOMIC_INIT(-1);
@@ -195,7 +185,7 @@ out:
  *
  * If not, remove the message queue if exists to prevent having a stale MQ.
  */
-static int totp_is_mq_alive(bool *answer)
+static bool totp_is_mq_alive(void)
 {
 	struct msqid_ds mq_stat;
 	time_t max_wait;
@@ -203,25 +193,19 @@ static int totp_is_mq_alive(bool *answer)
 	key_t key = ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID);
 
 	if (key == -1)
-		return -errno;
+		return false;
 	tmpmq = msgget(key, 0);
 
 	/* Message queue does not exist */
-	if (tmpmq == -1) {
-		*answer = false;
-		return 0;
-	}
+	if (tmpmq == -1)
+		return false;
 
-	if (msgctl(tmpmq, IPC_STAT, &mq_stat)) {
-		*answer = false;
-		return 0;
-	}
+	if (msgctl(tmpmq, IPC_STAT, &mq_stat))
+		return false;
 
 	max_wait = time(NULL);
-	if (max_wait == (time_t)-1) {
-		*answer = false;
-		return 0;
-	}
+	if (max_wait == (time_t)-1)
+		return false;
 
 	/* Give it some grace time of 2 seconds */
 	max_wait -= TOTP_STEP_SIZE + 2;
@@ -239,12 +223,10 @@ static int totp_is_mq_alive(bool *answer)
 		/* We terminate our server if running and reset MQ values */
 		totp_mq_term_server();
 
-		*answer = false;
+		return false;
 	}
 
-	*answer = true;
-
-	return 0;
+	return true;
 }
 
 static int totp_mq_start_server(void)
@@ -266,7 +248,6 @@ static int totp_mq_start_server(void)
 	atomic_set(msgget(key, (IPC_CREAT | IPC_EXCL | 0600)), &mq_server);
 	if (atomic_read(&mq_server) == -1) {
 		int errsv = errno;
-		bool alive = false;
 
 		/* Creation failed with an error other than EEXIST. */
 		if (errsv != EEXIST) {
@@ -282,8 +263,7 @@ static int totp_mq_start_server(void)
 		 * up. This implies that even a valid server is terminated and
 		 * there is a new election process to start a new server.
 		 */
-		CKINT(totp_is_mq_alive(&alive));
-		if (alive)
+		if (totp_is_mq_alive())
 			return EINTR;
 		else
 			return EEXIST;
@@ -360,10 +340,7 @@ static int totp_mq_start(bool restart)
 
 	if (restart) {
 		/* Check if MQ is alive and kill it if not */
-		bool alive = false;
-
-		CKINT(totp_is_mq_alive(&alive));
-		if (alive)
+		if (totp_is_mq_alive())
 			goto out;
 
 		totp_mq_term_server();
@@ -422,7 +399,6 @@ int totp_mq_get_val(uint32_t *totp_val)
 	ssize_t read;
 	unsigned int retries = 0;
 	int ret, errsv;
-	bool alive = false;
 
 	if (atomic_read(&mq_client) == -1) {
 		ret = -EOPNOTSUPP;
@@ -467,8 +443,7 @@ int totp_mq_get_val(uint32_t *totp_val)
 			const struct timespec sleeptime = {.tv_sec = 0,
 							   .tv_nsec = 1 << 27 };
 
-			CKINT(totp_is_mq_alive(&alive));
-			if (!alive) {
+			if (!totp_is_mq_alive()) {
 				ret = EAGAIN;
 				break;
 			}

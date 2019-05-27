@@ -180,3 +180,140 @@ void bin2print(const unsigned char *bin, uint32_t binlen,
 	fprintf(out, "%s = %s\n", explanation, (hex) ? hex : "");
 	free(hex);
 }
+
+static int _bin2hex_html(const unsigned char *str, uint32_t strlen,
+			 char *html, uint32_t htmllen, uint32_t *reqlen)
+{
+	/*
+	 * Characters that do not need to be converted as per RFC 3986
+	 * section 2.3
+	 */
+	const char unreserved[] = "abcdefghijklmnopqrstuvwxyz"
+				  "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+				  "0123456789"
+				  "-._~";
+
+	while (strlen) {
+		unsigned int charbytes;
+		unsigned int hexbytes;
+		unsigned int i;
+		unsigned int is_unreserved = 0;
+
+		if ((*str &~ 0x7f) == 0)
+			charbytes = 1;
+		else if ((*str &~ 0x1f) == 0xc0)
+			charbytes = 2;
+		else if ((*str &~ 0xf) == 0xe0)
+			charbytes = 3;
+		else if ((*str &~ 7) == 0xf0)
+			charbytes = 4;
+		else
+			return -EINVAL;
+
+		if (charbytes == 1) {
+			for (i = 0; i < sizeof(unreserved) - 1; i++) {
+				if (*str == unreserved[i]) {
+					is_unreserved = 1;
+					break;
+				}
+			}
+		}
+
+		/*
+		 * For non-unreserved characters each byte has to be
+		 * pre-pended with a percent sign.
+		 */
+		if (!is_unreserved)
+			hexbytes = charbytes * 3;
+		else
+			hexbytes = charbytes;
+
+		/* We only count the number of bytes */
+		if (reqlen) {
+			*reqlen += hexbytes;
+			strlen -= charbytes;
+			str += charbytes;
+			continue;
+		}
+
+		/* ensure we have sufficient space */
+		if (hexbytes >= htmllen)
+			return -ENOMEM;
+		if (charbytes > strlen)
+			return -ENOMEM;
+
+		/*
+		 * Operate byte-wise: add "%" followed by a one-character
+		 * bin2hex.
+		 */
+		for (i = 0; i < charbytes; i++) {
+			if (!is_unreserved) {
+				*html = '%';
+				html++;
+				htmllen--;
+
+				bin2hex(str, 1, html, htmllen, 1);
+				str++;
+				strlen--;
+				html += 2;
+				htmllen -= 2;
+			} else {
+				/* Simply copy unreserved to destination */
+				*html = *str;
+				str++;
+				strlen--;
+				html++;
+				htmllen--;
+			}
+		}
+	}
+
+	/* Ensure we have a trailing NULL terminator */
+	if (reqlen) {
+		*reqlen += 1;
+	} else {
+		*html = '\0';
+	}
+
+	return 0;
+}
+
+int bin2hex_html(const char *str, uint32_t strlen,
+		 char *html, uint32_t htmllen)
+{
+	return _bin2hex_html((const unsigned char *)str, strlen, html, htmllen,
+			     NULL);
+}
+
+int bin2hex_html_alloc(const char *str, uint32_t strlen,
+		       char **html, uint32_t *htmllen)
+{
+	uint32_t outlen = 0;
+	char *out = NULL;
+	int ret;
+
+	if (!strlen)
+		return -EINVAL;
+
+	ret = _bin2hex_html((const unsigned char *)str, strlen, NULL, 0,
+			    &outlen);
+	if (ret)
+		return ret;
+
+	out = calloc(1, outlen + 1);
+	if (!out)
+		return -errno;
+
+	ret = _bin2hex_html((const unsigned char *)str, strlen, out, outlen,
+			    NULL);
+	if (ret) {
+		free(out);
+		return ret;
+	}
+
+	*html = out;
+	*htmllen = outlen;
+
+	return 0;
+
+}

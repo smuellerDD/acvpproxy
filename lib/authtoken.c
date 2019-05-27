@@ -99,9 +99,6 @@ static int acvp_set_authtoken_temp(const struct acvp_testid_ctx *testid_ctx,
 
 	auth->jwt_token_generated = time(NULL);
 
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Access token: %s\n",
-	       auth->jwt_token);
-
 out:
 	return ret;
 }
@@ -173,9 +170,6 @@ static int acvp_process_login(const struct acvp_testid_ctx *testid_ctx,
 		logger(LOGGER_ERR, LOGGER_C_ANY, "No response data found\n");
 		return -EINVAL;
 	}
-
-	logger(LOGGER_DEBUG,LOGGER_C_ANY,
-	       "Process following server response: %s\n", response->buf);
 
 	/*
 	 * Strip the version from the received array and return the array

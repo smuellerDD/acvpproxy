@@ -21,6 +21,7 @@
 #include "errno.h"
 #include "string.h"
 
+#include "binhexbin.h"
 #include "internal.h"
 #include "json_wrapper.h"
 #include "logger.h"
@@ -163,36 +164,16 @@ static int acvp_module_match(struct def_info *def_info,
 	CKINT(acvp_get_trailing_number(moduleurl, &module_id));
 
 	CKINT(json_get_string(json_module, "name", &str));
-	if (strncmp(def_info->module_name, str,
-		    strlen(def_info->module_name))) {
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Module name mismatch for module ID %u (expected: %s, found: %s)\n",
-		       def_info->acvp_module_id, def_info->module_name,
-		       str);
-		ret = -ENOENT;
-		goto out;
-	}
+	CKINT(acvp_str_match(def_info->module_name, str,
+			     def_info->acvp_module_id));
 
 	CKINT(json_get_string(json_module, "version", &str));
-	if (strncmp(def_info->module_version, str,
-		    strlen(def_info->module_version))) {
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Module name mismatch for module ID %u (expected: %s, found: %s)\n",
-		       def_info->acvp_module_id, def_info->module_version,
-		       str);
-		ret = -ENOENT;
-		goto out;
-	}
+	CKINT(acvp_str_match(def_info->module_version, str,
+			     def_info->acvp_module_id));
 
 	CKINT(acvp_module_oe_type(def_info->module_type, &type_string));
 	CKINT(json_get_string(json_module, "type", &str));
-	if (strncmp(type_string, str, strlen(type_string))) {
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Module name mismatch for module ID %u (expected: %s, found: %s)\n",
-		       def_info->acvp_module_id, type_string, str);
-		ret = -ENOENT;
-		goto out;
-	}
+	CKINT(acvp_str_match(type_string, str, def_info->acvp_module_id));
 
 	CKINT(acvp_module_check_id(json_module, "vendorUrl",
 				   def_info->acvp_vendor_id));
@@ -261,7 +242,7 @@ out:
 /* POST / PUT /modules */
 static int acvp_module_register(const struct acvp_testid_ctx *testid_ctx,
 				struct def_info *def_info,
-				const char *url,
+				char *url, unsigned int urllen,
 				enum acvp_http_type type)
 {
 	struct json_object *json_info = NULL;
@@ -270,13 +251,10 @@ static int acvp_module_register(const struct acvp_testid_ctx *testid_ctx,
 	/* Build JSON object with the oe specification */
 	CKINT(acvp_module_build(def_info, &json_info));
 
-	CKINT(acvp_def_register(testid_ctx, json_info, url,
-				&def_info->acvp_module_id, type));
+	CKINT(acvp_meta_register(testid_ctx, json_info, url, urllen,
+				 &def_info->acvp_module_id, type));
 
 out:
-	/* Write the newly obtained ID to the configuration file */
-	acvp_def_update_module_id(def_info);
-
 	ACVP_JSON_PUT_NULL(json_info);
 	return ret;
 }
@@ -300,18 +278,14 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 
 			CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url,
 					      sizeof(url)));
-			CKINT(acvp_extend_string(url, sizeof(url), "/%u",
-						 def_info->acvp_module_id));
 			CKINT(acvp_module_register(testid_ctx, def_info, url,
-						   acvp_http_put));
+						   sizeof(url), acvp_http_put));
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Definition for module ID %u different than found on ACVP server - you need to perform a (re)register operation\n",
 			       def_info->acvp_module_id);
 			goto out;
 		}
-	} else {
-		ret |= acvp_def_update_module_id(def_info);
 	}
 
 out:
@@ -343,12 +317,20 @@ static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
-	char url[ACVP_NET_URL_MAXLEN];
+	char url[ACVP_NET_URL_MAXLEN], queryoptions[256], modulestr[128];
 
 	logger_status(LOGGER_C_ANY,
 		      "Searching for module reference - this may take time\n");
 
 	CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
+
+	/* Set a query option consisting of module name */
+	CKINT(bin2hex_html(def_info->module_name,
+			   strlen(def_info->module_name),
+			   modulestr, sizeof(modulestr)));
+	snprintf(queryoptions, sizeof(queryoptions), "name[0]=contains:%s",
+		 modulestr);
+	CKINT(acvp_append_urloptions(queryoptions, url, sizeof(url)));
 
 	CKINT(acvp_paging_get(testid_ctx, url, def_info,
 			      &acvp_module_match_cb));
@@ -357,6 +339,7 @@ static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	if (!ret) {
 		if (ctx_opts->register_new_module) {
 			CKINT(acvp_module_register(testid_ctx, def_info, url,
+						   sizeof(url),
 						   acvp_http_post));
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -364,9 +347,6 @@ static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 			ret = -ENOENT;
 			goto out;
 		}
-	} else if (ret == EINTR) {
-		/* Write the newly obtained ID to the configuration file */
-		CKINT(acvp_def_update_module_id(def_info));
 	}
 
 out:
@@ -381,7 +361,7 @@ int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx)
 	struct def_info *def_info;
 	struct def_vendor *def_vendor;
 	struct json_object *json_module = NULL;
-	int ret = 0, ret2;
+	int ret = 0;
 
 	CKNULL_LOG(testid_ctx, -EINVAL,
 		   "Module handling: testid_ctx missing\n");
@@ -397,44 +377,44 @@ int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx)
 	CKNULL_LOG(ctx, -EINVAL, "Vendor validation: ACVP context missing\n");
 	req_details = &ctx->req_details;
 
+	def_info->acvp_vendor_id = def_vendor->acvp_vendor_id;
+	def_info->acvp_person_id = def_vendor->acvp_person_id;
+	def_info->acvp_addr_id = def_vendor->acvp_addr_id;
+
 	if (!acvp_valid_id(def_vendor->acvp_vendor_id) ||
 	    !acvp_valid_id(def_vendor->acvp_person_id) ||
 	    !acvp_valid_id(def_vendor->acvp_addr_id)) {
 		logger(req_details->dump_register ? LOGGER_WARN : LOGGER_ERR,
 		       LOGGER_C_ANY, "Module handling: vendor / person / address ID missing\n");
 
-		if (!req_details->dump_register)
-			return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
-	def_info->acvp_vendor_id = def_vendor->acvp_vendor_id;
-	def_info->acvp_person_id = def_vendor->acvp_person_id;
-	def_info->acvp_addr_id = def_vendor->acvp_addr_id;
+	/* Lock def_info */
+	CKINT(acvp_def_get_module_id(def_info));
 
 	if (req_details->dump_register) {
 		char url[ACVP_NET_URL_MAXLEN];
 
 		CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
-		acvp_module_register(testid_ctx, def_info, url, acvp_http_post);
-		goto out;
+		acvp_module_register(testid_ctx, def_info, url, sizeof(url),
+				     acvp_http_post);
+		goto unlock;
 	}
 
 	/* Check if we have an outstanding request */
-	ret2 = acvp_def_obtain_request_result(testid_ctx,
-					      &def_info->acvp_module_id);
-	/* Write the newly obtained ID to the configuration file */
-	CKINT(acvp_def_update_module_id(def_info));
-	if (ret2) {
-		ret = ret2;
-		goto out;
-	}
+	CKINT_ULCK(acvp_meta_obtain_request_result(testid_ctx,
+						   &def_info->acvp_module_id));
 
 	if (def_info->acvp_module_id) {
-		CKINT(acvp_module_validate_one(testid_ctx, def_info));
+		CKINT_ULCK(acvp_module_validate_one(testid_ctx, def_info));
 	} else {
-		CKINT(acvp_module_validate_all(testid_ctx, def_info));
+		CKINT_ULCK(acvp_module_validate_all(testid_ctx, def_info));
 	}
 
+unlock:
+	ret |= acvp_def_put_module_id(def_info);
 out:
 	ACVP_JSON_PUT_NULL(json_module);
 	return ret;

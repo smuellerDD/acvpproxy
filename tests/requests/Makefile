@@ -41,6 +41,18 @@ INCLUDE_DIRS	:= ../../lib ../../lib/module_implementations ../../apps
 LIBRARY_DIRS	:=
 LIBRARIES	:= curl pthread
 
+ifeq ($(UNAME_S),Darwin)
+#TODO can we remove the special entry for LIBRARY_DIRS?
+LIBRARY_DIRS	+= /usr/local/opt/openssl/lib
+INCLUDE_DIRS	+= /usr/local/opt/openssl/include
+LIBRARIES	+= crypto
+LDFLAGS		+= -framework Foundation
+M_SRCS		:= $(wildcard ../../apps/*.m)
+M_OBJS		:= ${M_SRCS:.m=.o}
+else
+M_OBJS		:=
+endif
+
 CFLAGS		+= $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 LDFLAGS		+= $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))
 LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))

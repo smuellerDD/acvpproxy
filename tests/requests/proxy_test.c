@@ -727,7 +727,7 @@ static int match_expected(const char *actualfile, const char *expectedfile)
 
 	/* Open and parse actual test result */
 	actual = json_object_from_file(actualfile);
-	CKNULL_LOG(actual, -EFAULT, "Cannot parse expected file\n");
+	CKNULL_LOG(actual, -EFAULT, "Cannot parse actual file\n");
 
 	ret = json_object_equal(expobj, actual);
 	if (ret) {

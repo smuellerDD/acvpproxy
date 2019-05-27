@@ -39,7 +39,6 @@ extern "C"
 #define NIST_DEFAULT_SERVER		"acvts.nist.gov"
 #define NIST_TEST_SERVER		"demo.acvts.nist.gov"
 #define NIST_DEFAULT_SERVER_PORT	443
-#define NIST_VAL_PREFIX			""
 #define NIST_VAL_CTX			"acvp/v1"
 
 /* acvp_protocol.txt: section 5.2 */

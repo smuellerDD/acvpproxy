@@ -94,8 +94,8 @@ static int acvp_publish_request(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url), false));
 
-	ret = acvp_def_register(testid_ctx, publish, url, &certificate_id,
-				acvp_http_put);
+	ret = acvp_meta_register(testid_ctx, publish, url, sizeof(url),
+				 &certificate_id, acvp_http_put);
 
 	/*
 	 * We always try to write the ID. If the ID is 0, acvp_publish_write_id
@@ -243,8 +243,8 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 
 	/* Check if we have an outstanding test session cert ID requests */
 	auth = testid_ctx->server_auth;
-	ret2 = acvp_def_obtain_request_result(testid_ctx,
-					      &auth->testsession_certificate_id);
+	ret2 = acvp_meta_obtain_request_result(testid_ctx,
+					       &auth->testsession_certificate_id);
 	CKINT(acvp_publish_write_id(testid_ctx,
 				    auth->testsession_certificate_id));
 	if (ret2) {
@@ -258,27 +258,68 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 	 */
 	if (auth->testsession_certificate_id) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Test session certificate ID %u successfully obtained - test session successfully processed\n",
-		       auth->testsession_certificate_id);
+		       "Test session certificate ID %u %s obtained\n",
+		       auth->testsession_certificate_id,
+		       acvp_valid_id(auth->testsession_certificate_id) ?
+		       "successfully" : "not yet");
 		logger_status(LOGGER_C_ANY,
-			      "Test session certificate ID %u successfully obtained - test session successfully processed\n",
-			      auth->testsession_certificate_id);
+			      "Test session certificate ID %u %s obtained\n",
+			      auth->testsession_certificate_id,
+			      acvp_valid_id(auth->testsession_certificate_id) ?
+			      "successfully" : "not yet");
 
 		ret = 0;
 		goto out;
 	}
 
+	/*
+	 * The following error checking shall allow invocation of all
+	 * functions with a potential register operation even if the previous
+	 * register operation returned -EAGAIN (i.e. a register was performed).
+	 * Any other error will cause termination immediately.
+	 *
+	 * I.e. we allow all potential register operation to proceed. The final
+	 * publish operation, however, is only performed if no prior register
+	 * operations happened (i.e. if no -EAGAIN was returned beforehand).
+	 */
+
 	/* Verify / register the vendor information */
-	CKINT(acvp_vendor_handle(testid_ctx));
+	ret2 = acvp_vendor_handle(testid_ctx);
+	if (ret2 < 0) {
+		ret = ret2;
+		if (ret != -EAGAIN)
+			goto out;
+	}
 
 	/* Verify / register the person / contact information */
-	CKINT(acvp_person_handle(testid_ctx));
+	//TODO currently the person registering depends on the vendor ID
+	if (!ret) {
+		ret2 = acvp_person_handle(testid_ctx);
+		if (ret2 < 0) {
+			ret = ret2;
+			if (ret != -EAGAIN)
+				goto out;
+		}
+	}
 
 	/* Verify / register the operational environment information */
-	CKINT(acvp_oe_handle(testid_ctx));
+	ret2 = acvp_oe_handle(testid_ctx);
+	if (ret2 < 0) {
+		ret = ret2;
+		if (ret != -EAGAIN)
+			goto out;
+	}
 
 	/* Verify / register the operational environment information */
-	CKINT(acvp_module_handle(testid_ctx));
+	ret2 = acvp_module_handle(testid_ctx);
+	if (ret2 < 0) {
+		ret = ret2;
+		if (ret != -EAGAIN)
+			goto out;
+	}
+
+	if (ret)
+		goto out;
 
 	/* Will the ACVP server accept our publication request? */
 	if (!req_details->dump_register)

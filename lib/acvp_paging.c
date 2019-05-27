@@ -23,6 +23,7 @@
 #include "internal.h"
 #include "json_wrapper.h"
 #include "logger.h"
+#include "request_helper.h"
 
 static int acvp_paging_get_url_parameters(const char **url)
 {
@@ -69,8 +70,9 @@ int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
 	CKNULL(url, -EINVAL);
 	CKNULL(testid_ctx, -EINVAL);
 
-	snprintf(parametrized_url, sizeof(parametrized_url), "%s%s",
-		 url, "?limit=100");
+	strncpy(parametrized_url, url, sizeof(parametrized_url));
+	CKINT(acvp_append_urloptions("limit=100", parametrized_url,
+				     sizeof(parametrized_url)));
 
 	/* Loop over paging reply as long as there is a next pointer */
 	do {
@@ -105,9 +107,9 @@ int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
 				* parameters
 				*/
 				CKINT(acvp_paging_get_url_parameters(&next));
-				snprintf(parametrized_url,
-					 sizeof(parametrized_url), "%s%s",
-					 url, next);
+				CKINT(acvp_replace_urloptions(next,
+					parametrized_url,
+					sizeof(parametrized_url)));
 			}
 		}
 

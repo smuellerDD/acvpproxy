@@ -23,6 +23,7 @@
 #include <stdarg.h>
 
 #include "acvpproxy.h"
+#include "build_bug_on.h"
 #include "internal.h"
 #include "logger.h"
 
@@ -37,6 +38,9 @@ int acvp_req_algo_domain(struct json_object *entry,
 {
 	struct json_object *lenarray, *len;
 	int ret;
+
+	/* The range domain requires at least 3 fields */
+	BUILD_BUG_ON(DEF_ALG_MAX_INT < 3);
 
 	/* We are required for SHAKE to use a min/max/inc domain */
 	lenarray = json_object_new_array();
@@ -331,10 +335,62 @@ int acvp_create_url(const char *path, char *url, uint32_t urllen)
 
 	CKINT(acvp_get_net(&net));
 
-	snprintf(url, urllen, "https://%s:%u/%s/%s/%s",
-		 net->server_name, net->server_port, NIST_VAL_PREFIX,
-		 NIST_VAL_CTX, path);
+	snprintf(url, urllen, "https://%s:%u/%s/%s",
+		 net->server_name, net->server_port, NIST_VAL_CTX, path);
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "ACVP URL: %s\n", url);
+
+out:
+	return ret;
+}
+
+int acvp_append_urloptions(const char *options, char *url, uint32_t urllen)
+{
+	int ret = 0;
+
+	CKNULL_LOG(options, -EINVAL,
+		   "No HTTP options for URL provided\n");
+	CKNULL_LOG(url, -EINVAL,
+		   "No destination buffer for URL creation provided\n");
+
+	/*
+	 * HTTP options are separated from the URL using the question mark.
+	 * We allow the caller to already specify options, such as query
+	 * parameters where we already have such question mark. In this case
+	 * we only separate the search limits using the ampersand from
+	 * the other options.
+	 */
+	if (strstr(url, "?")) {
+		CKINT(acvp_extend_string(url, urllen, "%s%s", "&", options));
+	} else {
+		CKINT(acvp_extend_string(url, urllen, "%s%s", "?", options));
+	}
+
+	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "ACVP URL with options: %s\n",
+	       url);
+
+out:
+	return ret;
+}
+
+int acvp_replace_urloptions(const char *options, char *url, uint32_t urllen)
+{
+	int ret = 0;
+	char *url_p = url;
+
+	CKNULL_LOG(options, -EINVAL,
+		   "No HTTP options for URL provided\n");
+	CKNULL_LOG(url, -EINVAL,
+		   "No destination buffer for URL creation provided\n");
+
+	url_p = strstr(url, "?");
+	if (url_p) {
+		snprintf(url_p, urllen - (url - url_p), "%s", options);
+	} else {
+		CKINT(acvp_extend_string(url, urllen, "%s", options));
+	}
+
+	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "ACVP URL with options: %s\n",
+	       url);
 
 out:
 	return ret;

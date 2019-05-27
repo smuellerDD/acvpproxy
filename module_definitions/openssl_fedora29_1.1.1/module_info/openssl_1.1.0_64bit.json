@@ -10,7 +10,79 @@
     },
     {
       "acvpModuleName":"OpenSSL (64 bit) (SHA3_AVX2)",
-      "acvpModuleId":1073741890
+      "acvpModuleId":10639
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (AESASM_CLMULNI)",
+      "acvpModuleId":10629
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (AESNI)",
+      "acvpModuleId":10595
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (BAES_CTASM)",
+      "acvpModuleId":10591
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SHA_AVX2)",
+      "acvpModuleId":10589
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (BAES_CTASM_CLMULNI)",
+      "acvpModuleId":10588
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SHA3_ASM)",
+      "acvpModuleId":10630
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (BAES_CTASM_AVX)",
+      "acvpModuleId":10627
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (AESASM_ASM)",
+      "acvpModuleId":10624
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SHA_AVX)",
+      "acvpModuleId":10623
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (TDES_C)",
+      "acvpModuleId":10621
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (AESASM_AVX)",
+      "acvpModuleId":10619
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (AESNI_CLMULNI)",
+      "acvpModuleId":10617
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (AESNI_ASM)",
+      "acvpModuleId":10616
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (AESASM)",
+      "acvpModuleId":10614
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (BAES_CTASM_ASM)",
+      "acvpModuleId":10612
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SHA_SSSE3)",
+      "acvpModuleId":10611
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SHA3_AVX512)",
+      "acvpModuleId":10613
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SHA_ASM)",
+      "acvpModuleId":10609
     }
   ]
 }

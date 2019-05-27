@@ -27,6 +27,7 @@
 #include "binhexbin.h"
 #include "build_bug_on.h"
 #include "logger.h"
+#include "term_colors.h"
 
 #include "internal.h"
 
@@ -117,6 +118,7 @@ void logger(enum logger_verbosity severity, enum logger_class class,
 	time_t now;
 	struct tm now_detail;
 	va_list args;
+	int(* fprintf_color)(FILE *stream, const char *format, ...) = &fprintf;
 	int ret;
 	char msg[4096];
 	char sev[10];
@@ -137,9 +139,30 @@ void logger(enum logger_verbosity severity, enum logger_class class,
 	now = time(NULL);
 	localtime_r(&now, &now_detail);
 
-	fprintf(stderr, "ACVPProxy (%.2d:%.2d:%.2d) %s%s: %s",
-		now_detail.tm_hour, now_detail.tm_min, now_detail.tm_sec,
-	        sev, c, msg);
+	switch (severity) {
+	case LOGGER_DEBUG2:
+		fprintf_color = &fprintf_cyan;
+		break;
+	case LOGGER_DEBUG:
+		fprintf_color = &fprintf_blue;
+		break;
+	case LOGGER_VERBOSE:
+		fprintf_color = &fprintf_green;
+		break;
+	case LOGGER_WARN:
+		fprintf_color = &fprintf_yellow;
+		break;
+	case LOGGER_ERR:
+		fprintf_color = &fprintf_red;
+		break;
+	default:
+		fprintf_color = &fprintf;
+	}
+
+	fprintf_color(stderr, "ACVPProxy (%.2d:%.2d:%.2d) %s%s: ",
+		      now_detail.tm_hour, now_detail.tm_min, now_detail.tm_sec,
+		      sev, c);
+	fprintf(stderr, "%s", msg);
 }
 
 DSO_PUBLIC
@@ -167,9 +190,10 @@ void logger_status(enum logger_class class, const char *fmt, ...)
 	if (ret)
 		return;
 
-	fprintf(stderr, "ACVPProxy (%.2d:%.2d:%.2d) Status%s: %s",
-		now_detail.tm_hour, now_detail.tm_min, now_detail.tm_sec,
-	        c, msg);
+	fprintf_magenta(stderr, "ACVPProxy (%.2d:%.2d:%.2d) Status%s: ",
+			now_detail.tm_hour, now_detail.tm_min,
+			now_detail.tm_sec, c);
+	fprintf(stderr, "%s", msg);
 }
 
 DSO_PUBLIC

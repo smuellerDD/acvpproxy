@@ -125,6 +125,24 @@ int acvp_create_url(const char *path, char *url, uint32_t urllen);
  */
 int acvp_create_urlpath(const char *path, char *url, uint32_t urllen);
 
+/**
+ * Append HTTP options to an URL - the options must be given without HTTP
+ * option delimiter (i.e. the question mark or the ampersand)
+ * @param options [in] HTTP options to add
+ * @param url [out] URL buffer allocated by caller
+ * @param urllen [in] Length of the URL buffer allocated by caller
+ */
+int acvp_append_urloptions(const char *options, char *url, uint32_t urllen);
+
+/**
+ * Replace any potentially existing HTTP options of a URL - the new options must
+ * be given with the initial option delimiter (i.e. the question mark)
+ * @param options [in] HTTP options to add
+ * @param url [out] URL buffer allocated by caller
+ * @param urllen [in] Length of the URL buffer allocated by caller
+ */
+int acvp_replace_urloptions(const char *options, char *url, uint32_t urllen);
+
 /*
  * Duplicate string
  */

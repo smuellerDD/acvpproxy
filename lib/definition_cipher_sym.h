@@ -43,6 +43,9 @@ struct def_algo_sym {
 	/*
 	 * AES-ECB
 	 * AES-CBC
+	 * AES-CBC_CS1
+	 * AES-CBC_CS2
+	 * AES-CBC_CS3
 	 * AES-OFB
 	 * AES-CFB1
 	 * AES-CFB8

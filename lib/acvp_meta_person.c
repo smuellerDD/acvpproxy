@@ -21,6 +21,7 @@
 #include "errno.h"
 #include "string.h"
 
+#include "binhexbin.h"
 #include "internal.h"
 #include "json_wrapper.h"
 #include "logger.h"
@@ -218,7 +219,7 @@ out:
 /* POST / PUT /persons */
 static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 				struct def_vendor *def_vendor,
-				const char *url,
+				char *url, unsigned int urllen,
 				enum acvp_http_type type)
 {
 	struct json_object *json_person = NULL;
@@ -227,13 +228,10 @@ static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 	/* Build JSON object with the vendor specification */
 	CKINT(acvp_person_build(def_vendor, &json_person));
 
-	CKINT(acvp_def_register(testid_ctx, json_person, url,
-				&def_vendor->acvp_person_id, type));
+	CKINT(acvp_meta_register(testid_ctx, json_person, url, urllen,
+				 &def_vendor->acvp_person_id, type));
 
 out:
-	/* Write the newly obtained ID to the configuration file */
-	acvp_def_update_person_id(def_vendor);
-
 	ACVP_JSON_PUT_NULL(json_person);
 	return ret;
 }
@@ -257,18 +255,14 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 
 			CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url,
 					      sizeof(url)));
-			CKINT(acvp_extend_string(url, sizeof(url), "/%u",
-						 def_vendor->acvp_person_id));
 			CKINT(acvp_person_register(testid_ctx, def_vendor, url,
-						   acvp_http_put));
+						   sizeof(url), acvp_http_put));
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Definition for person ID %u different than found on ACVP server - you need to perform a (re)register operation\n",
 			       def_vendor->acvp_person_id);
 			goto out;
 		}
-	} else {
-		ret |= acvp_def_update_person_id(def_vendor);
 	}
 
 out:
@@ -300,12 +294,20 @@ static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
-	char url[ACVP_NET_URL_MAXLEN];
+	char url[ACVP_NET_URL_MAXLEN], queryoptions[256], personstr[128];
 
 	logger_status(LOGGER_C_ANY,
 		      "Searching for person reference - this may take time\n");
 
 	CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
+
+	/* Set a query option consisting of contact name */
+	CKINT(bin2hex_html(def_vendor->contact_name,
+			   strlen(def_vendor->contact_name),
+			   personstr, sizeof(personstr)));
+	snprintf(queryoptions, sizeof(queryoptions), "fullName[0]=contains:%s",
+		 personstr);
+	CKINT(acvp_append_urloptions(queryoptions, url, sizeof(url)));
 
 	CKINT(acvp_paging_get(testid_ctx, url, def_vendor,
 			      &acvp_person_match_cb));
@@ -314,6 +316,7 @@ static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	if (!ret) {
 		if (ctx_opts->register_new_vendor) {
 			CKINT(acvp_person_register(testid_ctx, def_vendor, url,
+						   sizeof(url),
 						   acvp_http_post));
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -321,9 +324,6 @@ static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 			ret = -ENOENT;
 			goto out;
 		}
-	} else if (ret == EINTR) {
-		/* Write the newly obtained ID to the configuration file */
-		CKINT(acvp_def_update_person_id(def_vendor));
 	}
 
 out:
@@ -337,7 +337,7 @@ int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx)
 	const struct definition *def;
 	struct def_vendor *def_vendor;
 	struct json_object *json_vendor = NULL;
-	int ret = 0, ret2;
+	int ret = 0;
 
 	CKNULL_LOG(testid_ctx, -EINVAL,
 		   "Vendor handling: testid_ctx missing\n");
@@ -349,39 +349,40 @@ int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx)
 		   "Vendor handling: vendor definitions missing\n");
 	CKNULL_LOG(ctx, -EINVAL, "Vendor validation: ACVP context missing\n");
 
-	if (!acvp_valid_id(def_vendor->acvp_vendor_id)) {
+	req_details = &ctx->req_details;
+
+	/* Lock def_vendor */
+	CKINT(acvp_def_get_person_id(def_vendor));
+
+	if (!req_details->dump_register &&
+	    !acvp_valid_id(def_vendor->acvp_vendor_id)) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
 		       "No ACVP vendor ID present to which a person contact can be linked to\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto unlock;
 	}
-
-	req_details = &ctx->req_details;
 
 	if (req_details->dump_register) {
 		char url[ACVP_NET_URL_MAXLEN];
 
 		CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
-		acvp_person_register(testid_ctx, def_vendor, url,
+		acvp_person_register(testid_ctx, def_vendor, url, sizeof(url),
 				     acvp_http_post);
-		goto out;
+		goto unlock;
 	}
 
 	/* Check if we have an outstanding request */
-	ret2 = acvp_def_obtain_request_result(testid_ctx,
-					      &def_vendor->acvp_person_id);
-	/* Write the newly obtained ID to the configuration file */
-	CKINT(acvp_def_update_person_id(def_vendor));
-	if (ret2) {
-		ret = ret2;
-		goto out;
-	}
+	CKINT_ULCK(acvp_meta_obtain_request_result(testid_ctx,
+						   &def_vendor->acvp_person_id));
 
 	if (def_vendor->acvp_person_id) {
-		CKINT(acvp_person_validate_one(testid_ctx, def_vendor));
+		CKINT_ULCK(acvp_person_validate_one(testid_ctx, def_vendor));
 	} else {
-		CKINT(acvp_person_validate_all(testid_ctx, def_vendor));
+		CKINT_ULCK(acvp_person_validate_all(testid_ctx, def_vendor));
 	}
 
+unlock:
+	ret |= acvp_def_put_person_id(def_vendor);
 out:
 	ACVP_JSON_PUT_NULL(json_vendor);
 	return ret;

@@ -405,7 +405,7 @@ static int thread_wait_all(bool system_threads)
 	for (i = 0; i < upper; i++) {
 		if (thread_dirty(i)) {
 			pthread_join(threads[i].thread_id, NULL);
-			ret = threads[i].ret_ancestor;
+			ret |= threads[i].ret_ancestor;
 			thread_cleanup_full(&threads[i]);
 			logger(LOGGER_VERBOSE, LOGGER_C_THREADING,
 			       "Thread %u terminated\n", i);

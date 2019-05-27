@@ -176,6 +176,9 @@ static void acvp_curl_log_peer_cert(CURL *hnd)
 	} ptr;
 	int i, ret;
 
+	if (logger_get_verbosity(LOGGER_C_CURL) < LOGGER_DEBUG)
+		return;
+
 	ptr.to_info = NULL;
 
 	ret = curl_easy_getinfo(hnd, CURLINFO_CERTINFO, &ptr.to_info);
@@ -191,8 +194,7 @@ static void acvp_curl_log_peer_cert(CURL *hnd)
 		for (slist = ptr.to_certinfo->certinfo[i];
 			slist;
 			slist = slist->next) {
-			logger(LOGGER_DEBUG, LOGGER_C_CURL,
-			       "TLS certificate %s\n", slist->data);
+			fprintf(stderr, "%s\n", slist->data);
 		}
 	}
 }
@@ -369,17 +371,27 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	/* Perform the HTTP request */
 	while (retries < ACVP_CURL_MAX_RETRIES) {
 		cret = curl_easy_perform(curl);
-		if (cret == CURLE_OK)
+		if (cret == CURLE_OK) {
+			ret = 0;
 			break;
+		}
+
+		ret = -ECONNREFUSED;
 
 		logger(LOGGER_WARN, LOGGER_C_CURL,
 		       "Curl HTTP operation failed with code %d (%s)\n",
 		       cret,  curl_easy_strerror(cret));
 
+		if (cret == CURLE_RECV_ERROR)
+			break;
+
 		retries++;
 		if (retries < ACVP_CURL_MAX_RETRIES)
 			CKINT(sleep_interruptible(10, &acvp_curl_interrupted));
 	}
+
+	if (ret)
+		goto out;
 
 	acvp_curl_log_peer_cert(curl);
 

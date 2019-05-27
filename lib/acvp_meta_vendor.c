@@ -21,6 +21,7 @@
 #include "errno.h"
 #include "string.h"
 
+#include "binhexbin.h"
 #include "internal.h"
 #include "json_wrapper.h"
 #include "logger.h"
@@ -120,15 +121,8 @@ static int acvp_vendor_match(struct def_vendor *def_vendor,
 	CKINT(acvp_get_trailing_number(vendorurl, &vendor_id));
 
 	CKINT(json_get_string(json_vendor, "name", &str));
-	if (strncmp(def_vendor->vendor_name, str,
-		    strlen(def_vendor->vendor_name))) {
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Vendor name mismatch for vendor ID %u (expected: %s, found: %s)\n",
-		       def_vendor->acvp_vendor_id, def_vendor->vendor_name,
-		       str);
-		ret = -ENOENT;
-		goto out;
-	}
+	CKINT(acvp_str_match(def_vendor->vendor_name, str,
+			     def_vendor->acvp_vendor_id));
 
 	CKINT(json_find_key(json_vendor, "addresses", &tmp, json_type_array));
 	for (i = 0; i < json_object_array_length(tmp); i++) {
@@ -204,7 +198,7 @@ out:
 /* POST / PUT /vendors */
 static int acvp_vendor_register(const struct acvp_testid_ctx *testid_ctx,
 				struct def_vendor *def_vendor,
-				const char *url,
+				char *url, unsigned int urllen,
 				enum acvp_http_type type)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
@@ -215,8 +209,8 @@ static int acvp_vendor_register(const struct acvp_testid_ctx *testid_ctx,
 	/* Build JSON object with the vendor specification */
 	CKINT(acvp_vendor_build(def_vendor, &json_vendor));
 
-	CKINT(acvp_def_register(testid_ctx, json_vendor, url,
-				&def_vendor->acvp_vendor_id, type));
+	CKINT(acvp_meta_register(testid_ctx, json_vendor, url, urllen,
+				 &def_vendor->acvp_vendor_id, type));
 	if (req_details->dump_register) {
 		goto out;
 	}
@@ -225,9 +219,6 @@ static int acvp_vendor_register(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_vendor_get_match(testid_ctx, def_vendor));
 
 out:
-	/* Write the newly obtained ID to the configuration file */
-	acvp_def_update_vendor_id(def_vendor);
-
 	ACVP_JSON_PUT_NULL(json_vendor);
 	return ret;
 }
@@ -251,18 +242,14 @@ static int acvp_vendor_validate_one(const struct acvp_testid_ctx *testid_ctx,
 
 			CKINT(acvp_create_url(NIST_VAL_OP_VENDOR, url,
 					      sizeof(url)));
-			CKINT(acvp_extend_string(url, sizeof(url), "/%u",
-						 def_vendor->acvp_vendor_id));
 			CKINT(acvp_vendor_register(testid_ctx, def_vendor, url,
-						   acvp_http_put));
+						   sizeof(url), acvp_http_put));
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Definition for vendor ID %u different than found on ACVP server - you need to perform a (re)register operation\n",
 			       def_vendor->acvp_vendor_id);
 			goto out;
 		}
-	} else {
-		ret |= (acvp_def_update_vendor_id(def_vendor));
 	}
 
 out:
@@ -294,12 +281,20 @@ static int acvp_vendor_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
-	char url[ACVP_NET_URL_MAXLEN];
+	char url[ACVP_NET_URL_MAXLEN], queryoptions[256], vendorstr[128];
 
 	logger_status(LOGGER_C_ANY,
 		      "Searching for vendor reference - this may take time\n");
 
 	CKINT(acvp_create_url(NIST_VAL_OP_VENDOR, url, sizeof(url)));
+
+	/* Set a query option consisting of vendor_name */
+	CKINT(bin2hex_html(def_vendor->vendor_name,
+			   strlen(def_vendor->vendor_name),
+			   vendorstr, sizeof(vendorstr)));
+	snprintf(queryoptions, sizeof(queryoptions), "name[0]=contains:%s",
+		 vendorstr);
+	CKINT(acvp_append_urloptions(queryoptions, url, sizeof(url)));
 
 	CKINT(acvp_paging_get(testid_ctx, url, def_vendor,
 			      &acvp_vendor_match_cb));
@@ -308,16 +303,14 @@ static int acvp_vendor_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	if (!ret) {
 		if (ctx_opts->register_new_vendor) {
 			CKINT(acvp_vendor_register(testid_ctx, def_vendor,
-						   url, acvp_http_post));
+						   url, sizeof(url),
+						   acvp_http_post));
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "No vendor definition found - request registering this module\n");
 			ret = -ENOENT;
 			goto out;
 		}
-	} else if (ret == EINTR) {
-		/* Write the newly obtained ID to the configuration file */
-		CKINT(acvp_def_update_vendor_id(def_vendor));
 	}
 
 out:
@@ -344,34 +337,37 @@ int acvp_vendor_handle(const struct acvp_testid_ctx *testid_ctx)
 	CKNULL_LOG(ctx, -EINVAL, "Vendor validation: ACVP context missing\n");
 	req_details = &ctx->req_details;
 
+	/* Lock def_vendor */
+	CKINT(acvp_def_get_vendor_id(def_vendor));
+
 	if (req_details->dump_register) {
 		char url[ACVP_NET_URL_MAXLEN];
 
 		CKINT(acvp_create_url(NIST_VAL_OP_VENDOR, url, sizeof(url)));
-		acvp_vendor_register(testid_ctx, def_vendor, url,
+		acvp_vendor_register(testid_ctx, def_vendor, url, sizeof(url),
 				     acvp_http_post);
-		goto out;
+		goto unlock;
 	}
 
 	/* Check if we have an outstanding request */
-	ret2 = acvp_def_obtain_request_result(testid_ctx,
-					      &def_vendor->acvp_vendor_id);
+	ret2 = acvp_meta_obtain_request_result(testid_ctx,
+					       &def_vendor->acvp_vendor_id);
 	/* Fetch address ID */
-	ret2 |= acvp_def_obtain_request_result(testid_ctx,
-					       &def_vendor->acvp_addr_id);
-	/* Write the newly obtained ID to the configuration file */
-	CKINT(acvp_def_update_vendor_id(def_vendor));
+	ret2 |= acvp_meta_obtain_request_result(testid_ctx,
+					        &def_vendor->acvp_addr_id);
 	if (ret2) {
 		ret = ret2;
-		goto out;
+		goto unlock;
 	}
 
 	if (def_vendor->acvp_vendor_id) {
-		CKINT(acvp_vendor_validate_one(testid_ctx, def_vendor));
+		CKINT_ULCK(acvp_vendor_validate_one(testid_ctx, def_vendor));
 	} else {
-		CKINT(acvp_vendor_validate_all(testid_ctx, def_vendor));
+		CKINT_ULCK(acvp_vendor_validate_all(testid_ctx, def_vendor));
 	}
 
+unlock:
+	ret |= acvp_def_put_vendor_id(def_vendor);
 out:
 	ACVP_JSON_PUT_NULL(json_vendor);
 	return ret;

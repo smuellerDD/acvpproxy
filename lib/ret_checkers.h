@@ -31,6 +31,12 @@ extern "C"
 		goto out;						\
 }
 
+#define CKINT_ULCK(x) {							\
+	ret = x;							\
+	if (ret < 0)							\
+		goto unlock;						\
+}
+
 #define CKINT_LOG(x, ...) {						\
 	ret = x;							\
 	if (ret < 0) {							\

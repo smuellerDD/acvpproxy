@@ -26,6 +26,7 @@
 #include <json-c/json.h>
 
 #include "acvpproxy.h"
+#include "atomic.h"
 #include "constructor.h"
 #include "definition_cipher_drbg.h"
 #include "definition_cipher_hash.h"
@@ -159,6 +160,11 @@ static inline bool acvp_valid_id(uint32_t id)
 	return true;
 }
 
+struct def_lock {
+	mutex_t lock;
+	atomic_t refcnt;
+};
+
 /**
  * @brief This data structure defines identifiers of the cipher implementation.
  *	  Note, this information will be posted at the CAVS web site.
@@ -198,6 +204,8 @@ struct def_info {
 	uint32_t acvp_person_id;
 	uint32_t acvp_addr_id;
 	uint32_t acvp_module_id;
+
+	struct def_lock *def_lock;
 };
 
 /**
@@ -250,6 +258,8 @@ struct def_vendor {
 	uint32_t acvp_addr_id;
 
 	char *def_vendor_file;
+
+	struct def_lock *def_lock;
 };
 
 /**
@@ -296,6 +306,8 @@ struct def_oe {
 	uint32_t acvp_oe_id;
 	uint32_t acvp_oe_dep_sw_id;
 	uint32_t acvp_oe_dep_proc_id;
+
+	struct def_lock *def_lock;
 };
 
 static const struct acvp_feature {
@@ -394,11 +406,26 @@ int acvp_export_def_search(struct acvp_testid_ctx *testid_ctx);
 
 /**
  * @brief Update the vendor / OE / module ID in the configuration files
+ *
+ * The *_get_* functions obtain the current IDs and lock the respective
+ * context. The *_put_* functions write the IDs to disk and unlock the
+ * context.
+ *
+ * @return: 0 on success, < 0 on error (when the *_get_* functions return an
+ *	    error, the lock is not taken).
  */
-int acvp_def_update_vendor_id(struct def_vendor *def_vendor);
-int acvp_def_update_person_id(struct def_vendor *def_vendor);
-int acvp_def_update_oe_id(struct def_oe *def_oe);
-int acvp_def_update_module_id(struct def_info *def_info);
+int acvp_def_get_vendor_id(struct def_vendor *def_vendor);
+int acvp_def_put_vendor_id(struct def_vendor *def_vendor);
+
+int acvp_def_get_person_id(struct def_vendor *def_vendor);
+int acvp_def_put_person_id(struct def_vendor *def_vendor);
+
+int acvp_def_get_oe_id(struct def_oe *def_oe);
+int acvp_def_put_oe_id(struct def_oe *def_oe);
+
+int acvp_def_get_module_id(struct def_info *def_info);
+int acvp_def_put_module_id(struct def_info *def_info);
+
 void acvp_def_release_all(void);
 
 #ifdef __cplusplus

@@ -242,9 +242,16 @@ out:
  ****************************************************************************/
 int totp(uint32_t *totp_val)
 {
+	int ret;
+
 	logger_status(LOGGER_C_MQSERVER,
 		      "Requesting OTP value, waiting ...\n");
-	if (totp_mq_get_val(totp_val))
+
+	ret = totp_mq_get_val(totp_val);
+	/* If we get a shutdown signal, stop any processing. */
+	if (ret == -ESHUTDOWN)
+		return ret;
+	else if (ret)
 		return totp_get_val(totp_val);
 
 	return 0;

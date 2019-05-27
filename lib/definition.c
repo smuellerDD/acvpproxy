@@ -41,6 +41,68 @@ static DEFINE_MUTEX_UNLOCKED(def_uninstantiated_mutex);
 static struct def_algo_map *def_uninstantiated_head = NULL;
 
 /*****************************************************************************
+ * Handle refcnt lock
+ *****************************************************************************/
+static int acvp_def_alloc_lock(struct def_lock **lock)
+{
+	struct def_lock *tmp;
+	int ret = 0;
+
+	tmp = calloc(1, sizeof(*tmp));
+	CKNULL(tmp, -ENOMEM);
+
+	mutex_init(&tmp->lock, 0);
+	atomic_set(0, &tmp->refcnt);
+
+	*lock = tmp;
+
+out:
+	return ret;
+}
+
+static void acvp_def_get_lock(struct def_lock *lock)
+{
+	atomic_inc(&lock->refcnt);
+}
+
+static void acvp_def_lock_lock(struct def_lock *lock)
+{
+	mutex_lock(&lock->lock);
+}
+
+static void acvp_def_lock_unlock(struct def_lock *lock)
+{
+	mutex_unlock(&lock->lock);
+}
+
+static void acvp_def_put_lock(struct def_lock *lock)
+{
+	if (!lock)
+		return;
+
+	/* Free if lock was not used so far (e.g. uninstantiated defs) */
+	if (!atomic_read(&lock->refcnt)) {
+		free(lock);
+		return;
+	}
+
+	/* Free if refcount is zero. */
+	if (atomic_dec_and_test(&lock->refcnt))
+		free(lock);
+}
+
+static void acvp_def_dealloc_unused_lock(struct def_lock *lock)
+{
+	if (!lock)
+		return;
+
+	if (!atomic_read(&lock->refcnt)) {
+		free(lock);
+		return;
+	}
+}
+
+/*****************************************************************************
  * Runtime registering code for cipher definitions
  *****************************************************************************/
 
@@ -351,6 +413,7 @@ static void acvp_def_del_info(struct definition *def)
 	ACVP_PTR_FREE_NULL(info->module_version_filesafe);
 	ACVP_PTR_FREE_NULL(info->module_description);
 	ACVP_PTR_FREE_NULL(info->def_module_file);
+	acvp_def_put_lock(info->def_lock);
 	ACVP_PTR_FREE_NULL(def->info);
 }
 
@@ -375,6 +438,7 @@ static void acvp_def_del_vendor(struct definition *def)
 	ACVP_PTR_FREE_NULL(vendor->addr_country);
 	ACVP_PTR_FREE_NULL(vendor->addr_zipcode);
 	ACVP_PTR_FREE_NULL(vendor->def_vendor_file);
+	acvp_def_put_lock(vendor->def_lock);
 	ACVP_PTR_FREE_NULL(def->vendor);
 }
 
@@ -396,10 +460,10 @@ static void acvp_def_del_oe(struct definition *def)
 	ACVP_PTR_FREE_NULL(oe->proc_name);
 	ACVP_PTR_FREE_NULL(oe->proc_series);
 	ACVP_PTR_FREE_NULL(oe->def_oe_file);
+	acvp_def_put_lock(oe->def_lock);
 	ACVP_PTR_FREE_NULL(def->oe);
 }
 
-static int acvp_def_get_module_id(struct def_info *def_info, uint32_t *id);
 static int acvp_def_add_info(struct definition *def, struct def_info *src,
 			     const char *impl_name)
 {
@@ -435,7 +499,11 @@ static int acvp_def_add_info(struct definition *def, struct def_info *src,
 
 	CKINT(acvp_duplicate(&info->def_module_file, src->def_module_file));
 
-	acvp_def_get_module_id(info, &info->acvp_module_id);
+	/* Use a global lock for all module definitions */
+	info->def_lock = src->def_lock;
+	acvp_def_get_lock(info->def_lock);
+
+	/* We do not read the module ID here. */
 
 out:
 	if (ret)
@@ -470,9 +538,9 @@ static int acvp_def_add_vendor(struct definition *def, struct def_vendor *src)
 
 	CKINT(acvp_duplicate(&vendor->def_vendor_file, src->def_vendor_file));
 
-	vendor->acvp_vendor_id = src->acvp_vendor_id;
-	vendor->acvp_person_id = src->acvp_person_id;
-	vendor->acvp_addr_id = src->acvp_addr_id;
+	/* Use a global lock for all vendor definitions */
+	vendor->def_lock = src->def_lock;
+	acvp_def_get_lock(vendor->def_lock);
 
 out:
 	if (ret)
@@ -507,6 +575,10 @@ static int acvp_def_add_oe(struct definition *def, struct def_oe *src)
 	oe->acvp_oe_dep_proc_id = src->acvp_oe_dep_proc_id;
 	oe->acvp_oe_dep_sw_id = src->acvp_oe_dep_sw_id;
 	oe->acvp_oe_id = src->acvp_oe_id;
+
+	/* Use a global lock for all OE definitions */
+	oe->def_lock = src->def_lock;
+	acvp_def_get_lock(oe->def_lock);
 
 out:
 	if (ret)
@@ -650,40 +722,191 @@ out:
 	return ret;
 }
 
-int acvp_def_update_vendor_id(struct def_vendor *def_vendor)
+#define ACVP_DEF_PRODUCTION_ID(x)					\
+	(acvp_req_is_production() ? x "Production" : x)
+
+static void acvp_def_read_vendor_id(struct json_object *vendor_config,
+				    struct def_vendor *def_vendor)
+{
+	/*
+	 * No error handling - in case we cannot find entry, it will be
+	 * created.
+	 */
+	json_get_uint(vendor_config, ACVP_DEF_PRODUCTION_ID("acvpVendorId"),
+		      &def_vendor->acvp_vendor_id);
+	json_get_uint(vendor_config, ACVP_DEF_PRODUCTION_ID("acvpAddressId"),
+		      &def_vendor->acvp_addr_id);
+}
+
+int acvp_def_get_vendor_id(struct def_vendor *def_vendor)
+{
+	struct json_object *vendor_config = NULL;
+	int ret = 0;
+
+	acvp_def_lock_lock(def_vendor->def_lock);
+
+	vendor_config = json_object_from_file(def_vendor->def_vendor_file);
+	CKNULL_LOG(vendor_config, -EFAULT,
+		   "Cannot parse vendor information config file\n");
+
+	acvp_def_read_vendor_id(vendor_config, def_vendor);
+
+out:
+	if (ret)
+		acvp_def_lock_unlock(def_vendor->def_lock);
+
+	ACVP_JSON_PUT_NULL(vendor_config);
+	return ret;
+}
+
+static int acvp_def_update_vendor_id(struct def_vendor *def_vendor)
 {
 	struct acvp_def_update_id_entry list[2];
 
-	list[0].name = "acvpVendorId";
+	list[0].name = ACVP_DEF_PRODUCTION_ID("acvpVendorId");
 	list[0].id = def_vendor->acvp_vendor_id;
-	list[1].name = "acvpAddressId";
+	list[1].name = ACVP_DEF_PRODUCTION_ID("acvpAddressId");
 	list[1].id = def_vendor->acvp_addr_id;
 
 	return acvp_def_update_id(def_vendor->def_vendor_file, list, 2);
 }
 
-int acvp_def_update_person_id(struct def_vendor *def_vendor)
+int acvp_def_put_vendor_id(struct def_vendor *def_vendor)
+{
+	int ret;
+
+	if (!def_vendor)
+		return 0;
+
+	CKINT(acvp_def_update_vendor_id(def_vendor));
+	acvp_def_lock_unlock(def_vendor->def_lock);
+
+out:
+	return ret;
+}
+
+static void acvp_def_read_person_id(struct json_object *vendor_config,
+				    struct def_vendor *def_vendor)
+{
+	/*
+	 * No error handling - in case we cannot find entry, it will be
+	 * created.
+	 */
+
+	json_get_uint(vendor_config, ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
+		      &def_vendor->acvp_person_id);
+}
+
+int acvp_def_get_person_id(struct def_vendor *def_vendor)
+{
+	struct json_object *vendor_config = NULL;
+	int ret = 0;
+
+	acvp_def_lock_lock(def_vendor->def_lock);
+
+	vendor_config = json_object_from_file(def_vendor->def_vendor_file);
+	CKNULL_LOG(vendor_config, -EFAULT,
+		   "Cannot parse vendor information config file\n");
+
+	/* Person ID depends on vendor ID and thus we read it. */
+	acvp_def_read_vendor_id(vendor_config, def_vendor);
+	acvp_def_read_person_id(vendor_config, def_vendor);
+
+out:
+	if (ret)
+		acvp_def_lock_unlock(def_vendor->def_lock);
+
+	ACVP_JSON_PUT_NULL(vendor_config);
+	return ret;
+}
+
+static int acvp_def_update_person_id(struct def_vendor *def_vendor)
 {
 	struct acvp_def_update_id_entry list;
 
-	list.name = "acvpPersonId";
+	list.name = ACVP_DEF_PRODUCTION_ID("acvpPersonId");
 	list.id = def_vendor->acvp_person_id;
 
 	return acvp_def_update_id(def_vendor->def_vendor_file, &list, 1);
 }
 
-int acvp_def_update_oe_id(struct def_oe *def_oe)
+int acvp_def_put_person_id(struct def_vendor *def_vendor)
+{
+	int ret;
+
+	if (!def_vendor)
+		return 0;
+
+	CKINT(acvp_def_update_person_id(def_vendor));
+	acvp_def_lock_unlock(def_vendor->def_lock);
+
+out:
+	return ret;
+}
+
+static void acvp_def_read_oe_id(struct json_object *oe_config,
+			        struct def_oe *def_oe)
+{
+	/*
+	 * No error handling - in case we cannot find entry, it will be
+	 * created.
+	 */
+
+	json_get_uint(oe_config, ACVP_DEF_PRODUCTION_ID("acvpOeId"),
+		      &def_oe->acvp_oe_id);
+	json_get_uint(oe_config, ACVP_DEF_PRODUCTION_ID("acvpOeDepProcId"),
+		      &def_oe->acvp_oe_dep_proc_id);
+	json_get_uint(oe_config, ACVP_DEF_PRODUCTION_ID("acvpOeDepSwId"),
+		      &def_oe->acvp_oe_dep_sw_id);
+}
+
+int acvp_def_get_oe_id(struct def_oe *def_oe)
+{
+	struct json_object *oe_config = NULL;
+	int ret = 0;
+
+	acvp_def_lock_lock(def_oe->def_lock);
+
+	oe_config = json_object_from_file(def_oe->def_oe_file);
+	CKNULL_LOG(oe_config, -EFAULT,
+		   "Cannot parse operational environment config file\n");
+
+	acvp_def_read_oe_id(oe_config, def_oe);
+
+out:
+	if (ret)
+		acvp_def_lock_unlock(def_oe->def_lock);
+
+	ACVP_JSON_PUT_NULL(oe_config);
+	return ret;
+}
+
+static int acvp_def_update_oe_id(struct def_oe *def_oe)
 {
 	struct acvp_def_update_id_entry list[3];
 
-	list[0].name = "acvpOeId";
+	list[0].name = ACVP_DEF_PRODUCTION_ID("acvpOeId");
 	list[0].id = def_oe->acvp_oe_id;
-	list[1].name = "acvpOeDepProcId";
+	list[1].name = ACVP_DEF_PRODUCTION_ID("acvpOeDepProcId");
 	list[1].id = def_oe->acvp_oe_dep_proc_id;
-	list[2].name = "acvpOeDepSwId";
+	list[2].name = ACVP_DEF_PRODUCTION_ID("acvpOeDepSwId");
 	list[2].id = def_oe->acvp_oe_dep_sw_id;
 
 	return acvp_def_update_id(def_oe->def_oe_file, list, 3);
+}
+
+int acvp_def_put_oe_id(struct def_oe *def_oe)
+{
+	int ret;
+
+	if (!def_oe)
+		return 0;
+
+	CKINT(acvp_def_update_oe_id(def_oe));
+	acvp_def_lock_unlock(def_oe->def_lock);
+
+out:
+	return ret;
 }
 
 static int acvp_def_find_module_id(struct def_info *def_info,
@@ -695,8 +918,8 @@ static int acvp_def_find_module_id(struct def_info *def_info,
 	int ret;
 	bool found = false;
 
-	CKINT(json_find_key(config, "acvpModuleIds", &id_list,
-			    json_type_array));
+	CKINT(json_find_key(config, ACVP_DEF_PRODUCTION_ID("acvpModuleIds"),
+			    &id_list, json_type_array));
 
 	for (i = 0; i < json_object_array_length(id_list); i++) {
 		const char *str;
@@ -706,7 +929,9 @@ static int acvp_def_find_module_id(struct def_info *def_info,
 		if (!id_entry)
 			break;
 
-		CKINT(json_get_string(id_entry, "acvpModuleName", &str));
+		CKINT(json_get_string(id_entry,
+				      ACVP_DEF_PRODUCTION_ID("acvpModuleName"),
+				      &str));
 		if (strncmp(def_info->module_name, str,
 				strlen(def_info->module_name)))
 			continue;
@@ -725,7 +950,7 @@ out:
 	return ret;
 }
 
-static int acvp_def_get_module_id(struct def_info *def_info, uint32_t *id)
+static int acvp_def_read_module_id(struct def_info *def_info, uint32_t *id)
 {
 	struct json_object *config = NULL;
 	struct json_object *entry;
@@ -736,18 +961,41 @@ static int acvp_def_get_module_id(struct def_info *def_info, uint32_t *id)
 		   "Cannot parse operational environment config file\n");
 
 	CKINT(acvp_def_find_module_id(def_info, config, &entry));
-	CKINT(json_get_uint(entry, "acvpModuleId", id));
+	CKINT(json_get_uint(entry, ACVP_DEF_PRODUCTION_ID("acvpModuleId"), id));
 
 out:
 	ACVP_JSON_PUT_NULL(config);
 	return ret;
 }
 
-int acvp_def_update_module_id(struct def_info *def_info)
+int acvp_def_get_module_id(struct def_info *def_info)
+{
+	acvp_def_lock_lock(def_info->def_lock);
+
+	/*
+	 * Return code not needed - if entry does not exist,
+	 * module id is zero.
+	 */
+	acvp_def_read_module_id(def_info, &def_info->acvp_module_id);
+
+	/*
+	 * As each instantiated module has its own module ID, each
+	 * def_info instance manages its own private ID. Hence, we do not
+	 * need to keep the lock unlike for the other IDs.
+	 */
+	acvp_def_lock_unlock(def_info->def_lock);
+
+	return 0;
+}
+
+static int acvp_def_update_module_id(struct def_info *def_info)
 {
 	struct json_object *config = NULL, *id_list, *id_entry;
 	int ret = 0;
 	bool updated = false;
+
+	if (!def_info->module_name || !def_info->acvp_module_id)
+		return 0;
 
 	config = json_object_from_file(def_info->def_module_file);
 	CKNULL_LOG(config, -EFAULT,
@@ -760,8 +1008,9 @@ int acvp_def_update_module_id(struct def_info *def_info)
 			       def_info->module_name,
 			       def_info->acvp_module_id);
 
-		ret = json_find_key(config, "acvpModuleIds", &id_list,
-				    json_type_array);
+		ret = json_find_key(config,
+				    ACVP_DEF_PRODUCTION_ID("acvpModuleIds"),
+				    &id_list, json_type_array);
 		if (ret) {
 			/*
 			 * entire array acvpModuleIds does not exist,
@@ -769,7 +1018,8 @@ int acvp_def_update_module_id(struct def_info *def_info)
 			 */
 			id_list = json_object_new_array();
 			CKNULL(id_list, -ENOMEM);
-			CKINT(json_object_object_add(config, "acvpModuleIds",
+			CKINT(json_object_object_add(config,
+				ACVP_DEF_PRODUCTION_ID("acvpModuleIds"),
 						     id_list));
 		}
 
@@ -777,16 +1027,19 @@ int acvp_def_update_module_id(struct def_info *def_info)
 		CKNULL(id_entry, -ENOMEM);
 		CKINT(json_object_array_add(id_list, id_entry));
 
-		CKINT(json_object_object_add(id_entry, "acvpModuleName",
+		CKINT(json_object_object_add(id_entry,
+				ACVP_DEF_PRODUCTION_ID("acvpModuleName"),
 				json_object_new_string(def_info->module_name)));
-		CKINT(json_object_object_add(id_entry, "acvpModuleId",
+		CKINT(json_object_object_add(id_entry,
+				ACVP_DEF_PRODUCTION_ID("acvpModuleId"),
 				json_object_new_int(def_info->acvp_module_id)));
 		updated = true;
 	} else {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 			       "Updating entry %s with %u\n",
 			       def_info->module_name, def_info->acvp_module_id);
-		CKINT(acvp_def_set_value(id_entry, "acvpModuleId",
+		CKINT(acvp_def_set_value(id_entry,
+					 ACVP_DEF_PRODUCTION_ID("acvpModuleId"),
 					 def_info->acvp_module_id));
 		updated = true;
 	}
@@ -796,6 +1049,21 @@ int acvp_def_update_module_id(struct def_info *def_info)
 
 out:
 	ACVP_JSON_PUT_NULL(config);
+	return ret;
+}
+
+int acvp_def_put_module_id(struct def_info *def_info)
+{
+	int ret;
+
+	if (!def_info)
+		return 0;
+
+	acvp_def_lock_lock(def_info->def_lock);
+	CKINT(acvp_def_update_module_id(def_info));
+	acvp_def_lock_unlock(def_info->def_lock);
+
+out:
 	return ret;
 }
 
@@ -826,6 +1094,10 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	struct def_vendor vendor;
 	int ret;
 
+	memset(&oe, 0, sizeof(oe));
+	memset(&info, 0, sizeof(info));
+	memset(&vendor, 0, sizeof(vendor));
+
 	CKNULL_LOG(oe_file, -EINVAL,
 		   "No operational environment file name given for definition config\n");
 	CKNULL_LOG(vendor_file, -EINVAL,
@@ -839,7 +1111,7 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	       "Reading module definitions from %s, %s, %s, %s\n",
 	       oe_file, vendor_file, info_file, impl_file);
 
-	memset(&oe, 0, sizeof(oe));
+	CKINT(acvp_def_alloc_lock(&oe.def_lock));
 	oe_config = json_object_from_file(oe_file);
 	CKNULL_LOG(oe_config, -EFAULT,
 		   "Cannot parse operational environment config file\n");
@@ -871,17 +1143,12 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 		goto out;
 	}
 
-	/*
-	 * No error handling - in case we cannot find entry, it will be
-	 * created.
-	 */
-	json_get_uint(oe_config, "acvpOeId", &oe.acvp_oe_id);
-	json_get_uint(oe_config, "acvpOeDepProcId", &oe.acvp_oe_dep_proc_id);
-	json_get_uint(oe_config, "acvpOeDepSwId", &oe.acvp_oe_dep_sw_id);
+	/* We do not read the OE / dependencies IDs here */
+
 	/* Unconstify harmless, because data will be duplicated */
 	oe.def_oe_file = (char *)oe_file;
 
-	memset(&info, 0, sizeof(info));
+	CKINT(acvp_def_alloc_lock(&info.def_lock));
 	info_config = json_object_from_file(info_file);
 	CKNULL_LOG(info_config, -EFAULT,
 		   "Cannot parse module information config file\n");
@@ -895,15 +1162,12 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 			    (uint32_t *)&info.module_type));
 	CKINT(acvp_module_oe_type(info.module_type, NULL));
 
-	/*
-	 * We do NOT read the acvpModuleId here - this is done when
-	 * instantiating the definition.
-	 */
+	/* We do not read the module ID here */
 
 	/* Unconstify harmless, because data will be duplicated */
 	info.def_module_file = (char *)info_file;
 
-	memset(&vendor, 0, sizeof(vendor));
+	CKINT(acvp_def_alloc_lock(&vendor.def_lock));
 	vendor_config = json_object_from_file(vendor_file);
 	CKNULL_LOG(info_config, -EFAULT,
 		   "Cannot parse vendor information config file\n");
@@ -927,13 +1191,9 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 			      (const char **)&vendor.addr_country));
 	CKINT(json_get_string(vendor_config, "addressZip",
 			      (const char **)&vendor.addr_zipcode));
-	/*
-	 * No error handling - in case we cannot find entry, it will be
-	 * created.
-	 */
-	json_get_uint(vendor_config, "acvpVendorId", &vendor.acvp_vendor_id);
-	json_get_uint(vendor_config, "acvpPersonId", &vendor.acvp_person_id);
-	json_get_uint(vendor_config, "acvpAddressId", &vendor.acvp_addr_id);
+
+	/* We do not read the vendor and person IDs here */
+
 	/* Unconstify harmless, because data will be duplicated */
 	vendor.def_vendor_file = (char *)vendor_file;
 
@@ -1011,8 +1271,18 @@ out:
 	ACVP_JSON_PUT_NULL(vendor_config);
 	ACVP_JSON_PUT_NULL(info_config);
 	ACVP_JSON_PUT_NULL(impl_config);
-	if (ret)
+
+	/*
+	 * In error case, acvp_def_release will free the lock, in successful
+	 * case we need to check if the lock is used at all and free it if not.
+	 */
+	if (ret) {
 		acvp_def_release(def);
+	} else {
+		acvp_def_dealloc_unused_lock(oe.def_lock);
+		acvp_def_dealloc_unused_lock(vendor.def_lock);
+		acvp_def_dealloc_unused_lock(info.def_lock);
+	}
 	return ret;
 }
 

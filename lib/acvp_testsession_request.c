@@ -454,6 +454,27 @@ out:
 	return ret;
 }
 
+void acvp_record_vsid_duration(const struct acvp_vsid_ctx *vsid_ctx,
+			       const char *pathname)
+{
+	ACVP_BUFFER_INIT(buf);
+	char string[16];
+
+	if (!vsid_ctx->start.tv_sec && !vsid_ctx->start.tv_nsec)
+		return;
+
+	/* Store the time the network communication took */
+	duration_string(&vsid_ctx->start, string, sizeof(string));
+	buf.buf = (uint8_t *)string;
+	buf.len = strlen(string);
+
+	/*
+	 * We deliberately do not catch the return code as this is a status
+	 * log information only. Hence, in case this write fails, do not worry.
+	 */
+	ds->acvp_datastore_write_vsid(vsid_ctx, pathname, false, &buf);
+}
+
 /* GET /testSessions/<testSessionId>/vectorSets/<vectorSetId> */
 int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 {
@@ -505,30 +526,12 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 		      atomic_read(&glob_vsids_processed),
 		      atomic_read(&glob_vsids_to_process));
 
+	/* Store the time the download took */
+	acvp_record_vsid_duration(vsid_ctx, ACVP_DS_DOWNLOADDURATION);
+
 out:
 	acvp_free_buf(&buf);
 	return ret;
-}
-
-void acvp_record_vsid_duration(const struct acvp_vsid_ctx *vsid_ctx,
-			       const char *pathname)
-{
-	ACVP_BUFFER_INIT(buf);
-	char string[16];
-
-	if (!vsid_ctx->start.tv_sec && !vsid_ctx->start.tv_nsec)
-		return;
-
-	/* Store the time the network communication took */
-	duration_string(&vsid_ctx->start, string, sizeof(string));
-	buf.buf = (uint8_t *)string;
-	buf.len = strlen(string);
-
-	/*
-	 * We deliberately do not catch the return code as this is a status
-	 * log information only. Hence, in case this write fails, do not worry.
-	 */
-	ds->acvp_datastore_write_vsid(vsid_ctx, pathname, false, &buf);
 }
 
 #ifdef ACVP_USE_PTHREAD
@@ -541,9 +544,6 @@ static int acvp_process_req_thread(void *arg)
 	free(tdata);
 
 	ret = acvp_get_testvectors(vsid_ctx);
-
-	/* Store the time the download took */
-	acvp_record_vsid_duration(vsid_ctx, ACVP_DS_DOWNLOADDURATION);
 
 	acvp_release_vsid_ctx(vsid_ctx);
 
@@ -820,9 +820,6 @@ static int acvp_process_req(struct acvp_testid_ctx *testid_ctx,
 		logger(LOGGER_ERR, LOGGER_C_ANY, "No response data found\n");
 		return -EINVAL;
 	}
-
-	logger(LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Process following server response: %s\n", response->buf);
 
 	/*
 	 * Strip the version from the received array and return the array

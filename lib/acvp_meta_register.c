@@ -28,7 +28,7 @@
  * Process the response of GET /requests/<requestID> without the HTTP
  * operation
  */
-static int acvp_def_register_get_id(struct acvp_buf *response, uint32_t *id)
+static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 {
 	struct json_object *resp = NULL, *data = NULL;
 	uint32_t status_flag = 0, tmp_id;
@@ -102,8 +102,8 @@ out:
 	return ret;
 }
 
-int acvp_def_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
-				   uint32_t *id)
+int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
+				    uint32_t *id)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
@@ -130,17 +130,17 @@ int acvp_def_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_net_op(testid_ctx, url, NULL, &response, acvp_http_get));
 
-	CKINT(acvp_def_register_get_id(&response, id));
+	CKINT(acvp_meta_register_get_id(&response, id));
 
 out:
 	acvp_free_buf(&response);
 	return ret;
 }
 
-int acvp_def_register(const struct acvp_testid_ctx *testid_ctx,
-		      struct json_object *json,
-		      const char *url, uint32_t *id,
-		      enum acvp_http_type submit_type)
+int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
+		       struct json_object *json,
+		       char *url, unsigned int urllen, uint32_t *id,
+		       enum acvp_http_type submit_type)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
@@ -155,7 +155,10 @@ int acvp_def_register(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Provided ID is a request ID */
 	if (*id & ACVP_REQUEST_MASK)
-		return acvp_def_obtain_request_result(testid_ctx, id);
+		return acvp_meta_obtain_request_result(testid_ctx, id);
+
+	if (acvp_valid_id(*id))
+		CKINT(acvp_extend_string(url, urllen, "/%u", *id));
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "Registering new object\n");
 
@@ -200,7 +203,7 @@ int acvp_def_register(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_net_op(testid_ctx, url, &submit, &response, submit_type));
 
-	CKINT(acvp_def_register_get_id(&response, id));
+	CKINT(acvp_meta_register_get_id(&response, id));
 
 out:
 	ACVP_JSON_PUT_NULL(json_submission);

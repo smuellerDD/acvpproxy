@@ -39,6 +39,11 @@ void bin2print(const unsigned char *bin, uint32_t binlen,
 void bin2hex(const uint8_t *bin, uint32_t binlen,
 	     char *hex, uint32_t hexlen, int u);
 
+int bin2hex_html(const char *str, uint32_t strlen,
+		 char *html, uint32_t htmllen);
+int bin2hex_html_alloc(const char *str, uint32_t strlen,
+		       char **html, uint32_t *htmllen);
+
 #ifdef __cplusplus
 }
 #endif

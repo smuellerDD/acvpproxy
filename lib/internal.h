@@ -44,7 +44,7 @@ extern "C"
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 0   /* API / ABI compatible, no functional
+#define PATCHLEVEL 1   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -444,16 +444,21 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
  * @brief Check whether the ID is a request ID and download the request
  * in this case. Otherwise it is a noop.
  */
-int acvp_def_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
-				   uint32_t *id);
+int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
+				    uint32_t *id);
 
 /**
  * @brief Helper to register various module_definitions
  */
-int acvp_def_register(const struct acvp_testid_ctx *testid_ctx,
-		      struct json_object *json,
-		      const char *url, uint32_t *id,
-		      enum acvp_http_type submit_type);
+int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
+		       struct json_object *json,
+		       char *url, unsigned int urllen, uint32_t *id,
+		       enum acvp_http_type submit_type);
+
+/**
+ * @brief Match two strings
+ */
+int acvp_str_match(const char *exp, const char *found, uint32_t id);
 
 /**
  * @brief Helper to perform HTTP operation
@@ -607,6 +612,8 @@ int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
 
 int acvp_req_check_string(char *string, unsigned int slen);
 int acvp_req_check_filename(char *string, unsigned int slen);
+
+bool acvp_req_is_production(void);
 
 /************************************************************************
  * Data storage location

@@ -373,7 +373,7 @@ struct def_algo_kas_ecc {
 	 * CCM
 	 * CMAC
 	 * DRBG
-	 * DSA
+	 * ECDSA
 	 * HMAC
 	 * SHA
 	 */
