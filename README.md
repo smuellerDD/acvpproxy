@@ -1,4 +1,4 @@
-= ACVP Proxy
+# ACVP Proxy
 
 :toc:
 :homepage: https://github.com/smuellerDD/acvpproxy
@@ -17,7 +17,7 @@ and generates the test response files, see the ACVP Parser.
 
 The ACVP Proxy is proudly supported by [atsec information security corp](https://www.atsec.com).
 
-== Interaction of ACVP Proxy and ACVP Parser - First Steps
+## Interaction of ACVP Proxy and ACVP Parser - First Steps
 
 The ACVP Proxy and the ACVP Parser collaborate in a full ACVP test cycle as
 follows.
@@ -62,7 +62,7 @@ follows.
 . Check the verdict.json file in the testvectors directory for the ACVP
   server verdict.
 
-== Test Publication Phase
+## Test Publication Phase
 
 When communicating the cipher options, the test vectors and responses and the
 test verdicts in the process above, no information about the particular
@@ -84,7 +84,7 @@ The publication phase is triggered with the `--publish` option. During the
 publication phase, the ACVP proxy will ensure the ACVP server receives the
 meta data and then combines it with the test session.
 
-=== Vendor ID / Module ID / Operational Environment ID
+### Vendor ID / Module ID / Operational Environment ID
 
 To support the publication phase, the ACVP Proxy will add and maintain
 various ID entries in the JSON files explained below.
@@ -128,7 +128,7 @@ IDs for one module already, you may copy them to the JSON files of the
 respective other modules. In this case, the ACVP proxy can skip the resolving
 operation that may be lengthy and simply verify the given ID.
 
-== Prerequisites
+## Prerequisites
 
 The code is written in clean and plain C-99 and has the following dependencies:
 
@@ -158,7 +158,7 @@ least on the following operating systems:
 
 - Solaris
 
-== Compilation
+## Compilation
 
 The ACVP Proxy is used by compiling the command line configuration
 application `acvp-proxy`. This application is compiled by calling make.
@@ -168,7 +168,7 @@ To compile the ACVP Proxy standalone shared library, call `make` in the
 
 Compiling with `make debug` allows debugging of the code.
 
-=== Building on Windows 10
+### Building on Windows 10
 
 To compile the tool on Windows 10, perform the following steps as administrator:
 
@@ -200,7 +200,7 @@ In addition, perform the following steps with your normal (developer) account:
 	make
 ```
 
-=== Building and Execution on Cygwin
+### Building and Execution on Cygwin
 
 The following steps are required to build the ACVP Proxy on Cygwin:
 
@@ -227,11 +227,11 @@ is started with the command:
 
 `net start cygserver`
 
-== Configuration File
+## Configuration File
 
 The ACVP proxy needs a configuration file as documented in apps/README.md.
 
-== Module Instantiation Configuration
+## Module Instantiation Configuration
 
 The ACVP Proxy contains the module cipher operation as part of its C code.
 
@@ -336,7 +336,7 @@ JSON keywords:
   supported names which match the `impl_name` variable in the algorithm
   definitions of the C code.
 
-== Usage
+## Usage
 
 The ACVP Proxy has the following use cases:
 
@@ -359,7 +359,7 @@ NOTE: If neiter `--request`, nor `--vsid <VSID>` or `--testid <TESTID>` is
 specified, the application will try to send out all existing test results
 which have not yet been submitted and obtain a verdict for them.
 
-== Signals
+## Signals
 
 The ACVP Proxy supports the following signals:
 
@@ -381,7 +381,7 @@ The stopping and restarting of downloads applies to the download of
 testvectors (i.e. when --request is used) as well as to the download of
 verdicts after the upload of the test responses.
 
-== Directory Structure To Maintain Test Vectors and Test Results
+## Directory Structure To Maintain Test Vectors and Test Results
 
 The test vectors and results are stored in the directories with the following
 structure: `testresults/<Module_Name>/<Module_Version>/<testsessionID>/<vsID>`.
@@ -428,7 +428,7 @@ internal or sensitive data as follows:
   ACVP server indicating the number of vsIDs as well as the testID
   with their URLs.
 
-== FIPS 140-2 Compliance
+## FIPS 140-2 Compliance
 
 The ACVP Proxy uses the following cryptographic support:
 
@@ -446,7 +446,7 @@ The ACVP Proxy uses the following cryptographic support:
   searched in the same directory as the ACVP Proxy executable. When the
   HMAC control file does not exist, it is created.
 
-= Architecture of ACVP Proxy
+# Architecture of ACVP Proxy
 
 The ACVP Proxy contains of the following components:
 
@@ -458,7 +458,7 @@ The ACVP Proxy contains of the following components:
   exports an API in `acvpproxy.h` that can be used by a wrapping
   application.
 
-== ACVP Proxy Library
+## ACVP Proxy Library
 
 The ACVP Proxy library provided in the `lib/` directory contains the heavy
 lifting. This library also contains an internal structure. The core ACVP
@@ -492,7 +492,7 @@ a respective different implementation:
   `definition_impl_openssl.c`. Each definition must have a unique module name
   and version combination to allow a user to point to it.
 
-== Threading Support
+## Threading Support
 
 Using the PTHREAD library support, threading is implemented. Concurrent
 threads are supported for the following operations:
@@ -503,16 +503,16 @@ threads are supported for the following operations:
 - Uploading of test responses and downloading the associated verdicts for
   each testsession ID and the assoicated vsID.
 
-== Debugging
+## Debugging
 
 Compile with `make debug` to compile debug symbols for debugging.
 
-= Addition of New Cipher Implementation Definitions
+# Addition of New Cipher Implementation Definitions
 
 The library is written such that new cipher implementations can be added to
 generate the required register information with the CAVS servers.
 
-== Registering
+## Registering
 
 A new cipher implementation is registered with the library using the API call
 of `acvp_register_algo_map`. This call should be made during the initialization
@@ -533,7 +533,7 @@ static void libgcrypt_register(void)
 }
 ```
 
-== Defining of Cipher Implementation Capabilities
+## Defining of Cipher Implementation Capabilities
 
 The function `acvp_register_algo_map` requires a completely defined data
 structure tree which contains all details of the cipher implementation. Thus,
@@ -543,7 +543,7 @@ definition must be filled in corresponding to the implementation details.
 The header files defining the data structures contain the documentation how
 the data needs to be filled in.
 
-= Author
+# Author
 
 Stephan Mueller <smueller@chronox.de>
 Copyright (C) 2018 - 2019

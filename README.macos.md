@@ -1,5 +1,4 @@
-Apple macOS Specialities
-========================
+# Apple macOS Specialities
 
 The ACVP Proxy potentially runs for an extended period of time. The Apple
 macOS power nap interferes with the ACVP Proxy. The per-application nap
