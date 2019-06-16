@@ -1,7 +1,6 @@
 {
   "vendorName":"atsec corp.",
   "vendorUrl":"www.atsec.com",
-  "acvpVendorId":10646,
   "contactName":"Stephan Müller",
   "contactEmail":"smueller@atsec.com",
   "contactPhone":"+1-512-615-7300",
@@ -10,6 +9,7 @@
   "addressState":"TX",
   "addressCountry":"USA",
   "addressZip":"78759",
-  "acvpAddressId":10588,
-  "acvpPersonId":14125
+  "acvpVendorId":11176,
+  "acvpAddressId":11139,
+  "acvpPersonId":14940
 }

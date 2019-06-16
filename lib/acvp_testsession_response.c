@@ -144,25 +144,14 @@ int acvp_list_verdict_vsid(int *idx_ptr, uint32_t *vsid, bool passed)
 static int acvp_check_verdict(const struct acvp_vsid_ctx *vsid_ctx,
 			      const struct acvp_buf *verdict_buf)
 {
-	struct json_object *verdict_full = NULL, *verdict;
 	int ret;
-	const char *result;
+	bool verdict;
 
-	CKINT_LOG(acvp_req_strip_version(verdict_buf->buf, &verdict_full,
-					 &verdict),
-		  "JSON parser cannot parse verdict data\n");
+	CKINT(acvp_get_verdict_json(verdict_buf, &verdict));
 
-	CKINT_LOG(json_get_string(verdict, "disposition", &result),
-		  "JSON parser cannot find verdict data\n");
-
-	if (strncmp(result, "passed", 6)) {
-		acvp_record_verdict_vsid(vsid_ctx->vsid, false);
-	} else {
-		acvp_record_verdict_vsid(vsid_ctx->vsid, true);
-	}
+	acvp_record_verdict_vsid(vsid_ctx->vsid, verdict);
 
 out:
-	ACVP_JSON_PUT_NULL(verdict_full);
 	return ret;
 }
 
@@ -485,6 +474,11 @@ static int acvp_process_one_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 
 	CKNULL_LOG(testid_ctx, -EINVAL,
 		   "ACVP testID request context missing\n");
+
+	/* The data store tells us to only fetch the verdict. */
+	if (vsid_ctx->fetch_verdict)
+		return acvp_get_vsid_verdict(vsid_ctx);
+
 	ctx = testid_ctx->ctx;
 	req = &ctx->req_details;
 

@@ -44,7 +44,7 @@ extern "C"
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 1   /* API / ABI compatible, no functional
+#define PATCHLEVEL 2   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -85,6 +85,8 @@ int acvp_req_set_algo_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 			      struct json_object *entry);
 int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 			      struct json_object *entry);
+int acvp_req_set_algo_pbkdf(const struct def_algo_pbkdf *pbkdf,
+			    struct json_object *entry);
 
 /* Data structure used to exchange information with network backend. */
 struct acvp_na_ex {
@@ -127,7 +129,8 @@ struct acvp_netaccess_be {
 	int (*acvp_http_put)(const struct acvp_na_ex *netinfo,
 			     const struct acvp_buf *submit_buf,
 			     struct acvp_buf *response_buf);
-	int (*acvp_http_delete)(const struct acvp_na_ex *netinfo);
+	int (*acvp_http_delete)(const struct acvp_na_ex *netinfo,
+				struct acvp_buf *response_buf);
 	void (*acvp_http_interrupt)(void);
 };
 
@@ -135,6 +138,24 @@ struct acvp_netaccess_be {
  * @brief Register network access backend.
  */
 void acvp_register_na(struct acvp_netaccess_be *netaccess);
+
+enum acvp_test_verdict {
+	acvp_verdict_unknown = 0,
+
+	acvp_verdict_fail,
+	acvp_verdict_pass,
+	acvp_verdict_unverified,
+};
+
+struct acvp_test_verdict_status {
+	enum acvp_test_verdict verdict;
+};
+
+static inline void acvp_store_verdict(struct acvp_test_verdict_status *verdict,
+				      bool test_passed)
+{
+	verdict->verdict = test_passed ? acvp_verdict_pass : acvp_verdict_fail;
+}
 
 /**
  * @brief Data structure instantiated for either request or submission with
@@ -147,6 +168,8 @@ struct acvp_testid_ctx {
 	struct acvp_auth_ctx *server_auth;
 	const struct definition *def;
 	const struct acvp_ctx *ctx;
+
+	struct acvp_test_verdict_status verdict;
 
 	atomic_t vsids_to_process;
 	atomic_t vsids_processed;
@@ -170,10 +193,29 @@ struct acvp_vsid_ctx {
 	uint32_t vsid;
 	const struct acvp_testid_ctx *testid_ctx;
 
+	struct acvp_test_verdict_status verdict;
+
+	/*
+	 * The following booleans are set by the database handler code to
+	 * tell the test response handling code what to do in case the
+	 * we have to deviate from the regular logic flow of uploading the
+	 * test response and download the verdict.
+	 */
+
+	/* The caller requested to resubmit the vsID test result */
 	bool resubmit_result;
+
+	/* The vsID test verdict file is present */
 	bool verdict_file_present;
+
+	/* The vsID test vector sample file is present */
 	bool sample_file_present;
+
+	/* The vsID test vector file is present */
 	bool vector_file_present;
+
+	/* vsID response handler shall only attempt to download the verdict. */
+	bool fetch_verdict;
 
 	struct timespec start;
 };
@@ -216,6 +258,8 @@ struct acvp_vsid_ctx {
  * @acvp_datastore_write_authoken: Store the authtoken found in datastore->auth.
  * @acvp_datastore_read_authtoken: Read the authtoken from the storage location
  *				   and place it into datastore->auth.
+ * @acvp_datastore_get_testid_verdict: Get verdict information for testID
+ * @acvp_datastore_get_vsid_verdict: Get verdict information for vsID
  */
 struct acvp_datastore_be {
 	int (*acvp_datastore_find_testsession)(
@@ -242,6 +286,9 @@ struct acvp_datastore_be {
 		const struct acvp_testid_ctx *testid_ctx);
 	int (*acvp_datastore_read_authtoken)(
 		const struct acvp_testid_ctx *testid_ctx);
+	int (*acvp_datastore_get_testid_verdict)(
+		struct acvp_testid_ctx *testid_ctx);
+	int (*acvp_datastore_get_vsid_verdict)(struct acvp_vsid_ctx *vsid_ctx);
 };
 
 /**
@@ -424,7 +471,7 @@ void acvp_op_enable(void);
  ************************************************************************/
 
 enum acvp_http_type {
-	acvp_http_post,
+	acvp_http_post = 1,
 	acvp_http_put,
 	acvp_http_delete,
 	acvp_http_get
@@ -455,10 +502,21 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 		       char *url, unsigned int urllen, uint32_t *id,
 		       enum acvp_http_type submit_type);
 
+/*
+ * Convert a URL into an ID
+ */
+int acvp_get_id_from_url(const char *url, uint32_t *id);
+
 /**
  * @brief Match two strings
  */
 int acvp_str_match(const char *exp, const char *found, uint32_t id);
+
+/**
+ * @brief Obtain the verdict from the JSON data.
+ */
+int acvp_get_verdict_json(const struct acvp_buf *verdict_buf,
+			  bool *test_passed);
 
 /**
  * @brief Helper to perform HTTP operation

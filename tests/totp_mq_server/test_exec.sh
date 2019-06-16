@@ -136,7 +136,13 @@ test5()
 test6()
 {
 	make clean
-	CFLAGS="$CFLAGS -DTOTP_STEP_SIZE=3" make -s
+
+	if [ -x "${GCOV}" ]
+	then
+		CFLAGS="$CFLAGS -DTOTP_STEP_SIZE=3" make -s gcov
+	else
+		CFLAGS="$CFLAGS -DTOTP_STEP_SIZE=3" make -s
+	fi
 
 	($EXEC > $OUTDIR/t6_p1) &
 	local pid1=$!
@@ -219,7 +225,13 @@ init()
 		exit 1
 	fi
 
-	CFLAGS="-DTOTP_STEP_SIZE=10" make -s
+	make clean
+	if [ -x "${GCOV}" ]
+	then
+		CFLAGS="-DTOTP_STEP_SIZE=10" make -s gcov
+	else
+		CFLAGS="-DTOTP_STEP_SIZE=10" make -s
+	fi
 
 	echo_info "Testing $NAME commences - may take several minutes per test"
 }
@@ -251,6 +263,16 @@ test7()
 	echo_pass "Test $NAME 7"
 }
 
+gcov_analysis()
+{
+	local tag=$1
+
+	gcov_analyze "../../lib/totp_mq_server.c" "$tag"
+	gcov_analyze "../../lib/totp.c" "$tag"
+	gcov_analyze "../../lib/threading_support.c" "$tag"
+	gcov_analyze "../../lib/signal_handler.c" "$tag"
+}
+
 init
 
 test1
@@ -258,7 +280,11 @@ test2
 test3
 test4
 test5
+gcov_analysis "test1-5"
+
 test6
 test7
+
+gcov_analysis "test6-7"
 
 exit_test

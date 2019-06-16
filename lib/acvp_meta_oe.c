@@ -202,7 +202,7 @@ static int acvp_oe_match_dep_sw(struct def_oe *def_oe,
 
 	/* Last step as we got a successful match: get the ID */
 	CKINT(json_get_string(json_oe, "url", &str));
-	CKINT(acvp_get_trailing_number(str, &def_oe->acvp_oe_dep_sw_id));
+	CKINT(acvp_get_id_from_url(str, &def_oe->acvp_oe_dep_sw_id));
 
 out:
 	return ret;
@@ -232,7 +232,7 @@ static int acvp_oe_match_dep_proc(struct def_oe *def_oe,
 
 	/* Last step as we got a successful match: get the ID */
 	CKINT(json_get_string(json_oe, "url", &str));
-	CKINT(acvp_get_trailing_number(str, &def_oe->acvp_oe_dep_proc_id));
+	CKINT(acvp_get_id_from_url(str, &def_oe->acvp_oe_dep_proc_id));
 
 out:
 	return ret;
@@ -295,7 +295,7 @@ out:
 	return ret;
 }
 
-/* POST / PUT /dependencies */
+/* POST / PUT / DELETE /dependencies */
 static int acvp_oe_register_dep(const struct acvp_testid_ctx *testid_ctx,
 				struct def_oe *def_oe,
 				enum acvp_oe_dep_types type,
@@ -363,14 +363,21 @@ static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
+	unsigned int http_type = 0;
 
 	ret = _acvp_oe_validate_one_dep(testid_ctx, def_oe, depid);
+	if (ret && ret != -ENOENT)
+		goto out;
 
 	/* If we did not find a match, update the module definition */
 	if (ret == -ENOENT) {
-		if (ctx_opts->register_new_oe) {
-			CKINT(acvp_oe_register_dep(testid_ctx, def_oe, type,
-						   acvp_http_put));
+		if (ctx_opts->update_db_entry & ACVP_OPTS_DELUP_OE) {
+			http_type = acvp_http_put;
+		} else if (ctx_opts->delete_db_entry &
+			   (ACVP_OPTS_DELUP_OE | ACVP_OPTS_DELUP_FORCE)) {
+			   http_type = acvp_http_delete;
+		} else if (ctx_opts->register_new_oe) {
+			http_type = acvp_http_post;
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Definition for OE dependency IDs %u/%u different than found on ACVP server - you need to perform a (re)register operation\n",
@@ -378,6 +385,19 @@ static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 			       def_oe->acvp_oe_dep_sw_id);
 			goto out;
 		}
+	/*
+	 * We only attempt a delete if we have a match between the ACVP server
+	 * DB and our configurations. We do not want to delete unknown
+	 * definitions. Yet, if we are forced to perform the delete, we will
+	 * do that.
+	 */
+	} else if (ctx_opts->delete_db_entry & ACVP_OPTS_DELUP_OE) {
+		http_type = acvp_http_delete;
+	}
+
+	if (http_type) {
+		CKINT(acvp_oe_register_dep(testid_ctx, def_oe, type,
+					   http_type));
 	}
 
 out:
@@ -403,6 +423,9 @@ static int acvp_oe_match_oe(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(json_get_string(json_oe, "name", &str));
 	CKINT(acvp_str_match(def_oe->oe_env_name, str, def_oe->acvp_oe_id));
+
+	CKINT(json_get_string(json_oe, "url", &str));
+	CKINT(acvp_get_trailing_number(str, &def_oe->acvp_oe_id));
 
 	CKINT(json_find_key(json_oe, "dependencies", &tmp, json_type_array));
 	for (i = 0; i < json_object_array_length(tmp); i++) {
@@ -481,7 +504,7 @@ static int acvp_oe_register_dep_type(const struct acvp_testid_ctx *testid_ctx,
 
 	if (ctx_opts->register_new_oe) {
 		CKINT(acvp_oe_register_dep(testid_ctx, def_oe, type,
-					     acvp_http_post));
+					   acvp_http_post));
 	} else {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "No dependencies definition found - request registering this module\n");
@@ -496,6 +519,8 @@ out:
 static int acvp_oe_validate_all_dep(const struct acvp_testid_ctx *testid_ctx,
 				    struct def_oe *def_oe)
 {
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN], queryoptions[384], procstr[128],
 	     swstr[128];
@@ -522,18 +547,31 @@ static int acvp_oe_validate_all_dep(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(_acvp_oe_validate_all(testid_ctx, def_oe, url,
 				    acvp_oe_match_dep));
 
+	/* We found an entry and do not need to do anything */
+	if (ret > 0) {
+		ret = 0;
+		goto out;
+	}
+
 	/* Our vendor data does not match any vendor on ACVP server */
-	if (!ret) {
-		if (!def_oe->acvp_oe_dep_proc_id) {
-			ret = acvp_oe_register_dep_type(testid_ctx, def_oe,
-							ACVP_OE_DEP_TYPE_PROC);
-		}
-		if (!def_oe->acvp_oe_dep_sw_id) {
-			ret |= acvp_oe_register_dep_type(testid_ctx, def_oe,
-							 ACVP_OE_DEP_TYPE_SW);
-		}
-		if (ret)
+	if (!def_oe->acvp_oe_dep_proc_id) {
+		ret = acvp_oe_register_dep_type(testid_ctx, def_oe,
+						ACVP_OE_DEP_TYPE_PROC);
+	} else if (ctx_opts->delete_db_entry & ACVP_OPTS_DELUP_OE) {
+		ret = acvp_oe_register_dep(testid_ctx, def_oe,
+					   ACVP_OE_DEP_TYPE_PROC,
+					   acvp_http_delete);
+		if (ret && ret != -EAGAIN)
 			goto out;
+	}
+
+	if (!def_oe->acvp_oe_dep_sw_id) {
+		ret |= acvp_oe_register_dep_type(testid_ctx, def_oe,
+						 ACVP_OE_DEP_TYPE_SW);
+	} else if (ctx_opts->delete_db_entry & ACVP_OPTS_DELUP_OE) {
+		ret |= acvp_oe_register_dep(testid_ctx, def_oe,
+					    ACVP_OE_DEP_TYPE_SW,
+					    acvp_http_delete);
 	}
 
 out:
@@ -556,17 +594,6 @@ static int acvp_oe_build_oe(const struct acvp_testid_ctx *testid_ctx,
 	int ret = 0;
 	char url[ACVP_NET_URL_MAXLEN];
 	bool depadded = false;
-
-	/*
-	 * {
-	 *	"name": "Ubuntu Linux 3.1 on AMD 6272 Opteron Processor with Acme package installed",
-	 *	"dependencyUrls": [
-	 *		"/acvp/v1/dependencies/4",
-	 *		"/acvp/v1/dependencies/5",
-	 *		"/acvp/v1/dependencies/7"
-	 *	]
-	 *}
-	 */
 
 	/* Validate dependencies and create JSON request. */
 	if (!def_oe->acvp_oe_dep_proc_id ||
@@ -650,7 +677,7 @@ out:
 	return ret;
 }
 
-/* POST / PUT /oes */
+/* POST / PUT / DELETE /oes */
 static int acvp_oe_register_oe(const struct acvp_testid_ctx *testid_ctx,
 			       struct def_oe *def_oe,
 			       char *url, unsigned int urllen,
@@ -660,7 +687,9 @@ static int acvp_oe_register_oe(const struct acvp_testid_ctx *testid_ctx,
 	int ret;
 
 	/* Build JSON object with the oe specification */
-	CKINT(acvp_oe_build_oe(testid_ctx, def_oe, &json_oe));
+	if (type != acvp_http_delete) {
+		CKINT(acvp_oe_build_oe(testid_ctx, def_oe, &json_oe));
+	}
 
 	CKINT(acvp_meta_register(testid_ctx, json_oe, url, urllen,
 				 &def_oe->acvp_oe_id, type));
@@ -678,6 +707,7 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
+	unsigned int http_type = 0;
 
 	CKNULL_LOG(ctx, -EINVAL,
 		   "Vendor validation: authentication context missing\n");
@@ -692,20 +722,40 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 
 	ret = _acvp_oe_validate_one(testid_ctx, def_oe, url,
 				    acvp_oe_match_oe);
+	if (ret && ret != -ENOENT)
+		goto out;
 
 	/* If we did not find a match, update the module definition */
 	if (ret == -ENOENT) {
-		if (ctx_opts->register_new_oe) {
-			CKINT(acvp_create_url(NIST_VAL_OP_OE, url,
-					      sizeof(url)));
-			CKINT(acvp_oe_register_oe(testid_ctx, def_oe, url,
-						  sizeof(url), acvp_http_put));
+		if (ctx_opts->update_db_entry & ACVP_OPTS_DELUP_OE) {
+			http_type = acvp_http_put;
+		} else if (ctx_opts->delete_db_entry &
+			   (ACVP_OPTS_DELUP_OE | ACVP_OPTS_DELUP_FORCE)) {
+			   http_type = acvp_http_delete;
+		} else if (ctx_opts->register_new_oe) {
+			http_type = acvp_http_post;
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Definition for OE IDs %u different than found on ACVP server - you need to perform a (re)register operation\n",
 			       def_oe->acvp_oe_id);
 			goto out;
 		}
+	/*
+	 * We only attempt a delete if we have a match between the ACVP server
+	 * DB and our configurations. We do not want to delete unknown
+	 * definitions. Yet, if we are forced to perform the delete, we will
+	 * do that.
+	 */
+	} else if (ctx_opts->delete_db_entry & ACVP_OPTS_DELUP_OE) {
+		http_type = acvp_http_delete;
+	}
+
+	if (http_type) {
+		char url[ACVP_NET_URL_MAXLEN];
+
+		CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
+		CKINT(acvp_oe_register_oe(testid_ctx, def_oe, url, sizeof(url),
+					  http_type));
 	}
 
 out:

@@ -105,6 +105,13 @@ struct def_algo_ecdsa {
 	 * required: always for ECDSA siggen and sigver
 	 */
 	cipher_t hashalg;
+
+	/*
+	 * Is the cipher request a request for component testing only?
+	 *
+	 * required: optional for ECDSA siggen
+	 */
+	bool component_test;
 };
 
 #ifdef __cplusplus

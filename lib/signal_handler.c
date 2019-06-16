@@ -139,7 +139,7 @@ static int acvp_cancel(struct acvp_testid_ctx *testid_ctx, int sig)
 	netinfo.net = net;
 	netinfo.url = url;
 	netinfo.server_auth = auth;
-	ret = na->acvp_http_delete(&netinfo);
+	ret = na->acvp_http_delete(&netinfo, NULL);
 
 out:
 	acvp_release_auth(testid_ctx);

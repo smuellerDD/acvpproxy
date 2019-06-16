@@ -79,14 +79,11 @@ out:
 	return ret;
 }
 
-
-static int acvp_req_ecdsa_siggen(const struct def_algo_ecdsa *ecdsa,
-				 struct json_object *entry)
+static int acvp_req_ecdsa_sig_helper(const struct def_algo_ecdsa *ecdsa,
+				     struct json_object *entry)
 {
 	struct json_object *tmp, *cap_array;
 	int ret;
-
-	CKINT(acvp_req_add_revision(entry, "1.0"));
 
 	cap_array = json_object_new_array();
 	CKNULL(cap_array, -ENOMEM);
@@ -105,13 +102,29 @@ out:
 	return ret;
 }
 
+static int acvp_req_ecdsa_siggen(const struct def_algo_ecdsa *ecdsa,
+				 struct json_object *entry)
+{
+	int ret;
+
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
+	CKINT(json_object_object_add(entry, "componentTest",
+			json_object_new_boolean(ecdsa->component_test)));
+
+	CKINT(acvp_req_ecdsa_sig_helper(ecdsa, entry));
+
+out:
+	return ret;
+}
+
 static int acvp_req_ecdsa_sigver(const struct def_algo_ecdsa *ecdsa,
 				 struct json_object *entry)
 {
 	int ret;
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
-	CKINT(acvp_req_ecdsa_siggen(ecdsa, entry));
+	CKINT(acvp_req_ecdsa_sig_helper(ecdsa, entry));
 
 out:
 	return ret;

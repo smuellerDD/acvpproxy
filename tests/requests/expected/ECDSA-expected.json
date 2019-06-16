@@ -57,6 +57,7 @@
         "algorithm":"ECDSA",
         "mode":"sigGen",
         "revision":"1.0",
+        "componentTest":false,
         "capabilities":[
           {
             "curve":[

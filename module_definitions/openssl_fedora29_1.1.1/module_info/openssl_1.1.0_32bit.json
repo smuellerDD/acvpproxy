@@ -5,84 +5,112 @@
   "moduleType":0,
   "acvpModuleIds":[
     {
-      "acvpModuleName":"OpenSSL (32 bit) (AESASM)",
-      "acvpModuleId":10593
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (AESASM_AVX)",
-      "acvpModuleId":10592
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (AESASM_ASM)",
-      "acvpModuleId":10594
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM)",
-      "acvpModuleId":10590
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (AESNI_CLMULNI)",
-      "acvpModuleId":10633
-    },
-    {
       "acvpModuleName":"OpenSSL (32 bit) (AESNI_AVX)",
-      "acvpModuleId":10631
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM_AVX)",
-      "acvpModuleId":10625
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (SHA3_ASM)",
-      "acvpModuleId":10626
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (SHA3_AVX512)",
-      "acvpModuleId":10628
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (SHA_ASM)",
-      "acvpModuleId":10622
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (AESNI)",
-      "acvpModuleId":10620
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM_CLMULNI)",
-      "acvpModuleId":10618
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (AESNI_ASM)",
-      "acvpModuleId":10615
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (SHA_AVX)",
-      "acvpModuleId":10610
+      "acvpModuleId":11190
     },
     {
       "acvpModuleName":"OpenSSL (32 bit) (SHA3_AVX2)",
-      "acvpModuleId":10608
+      "acvpModuleId":536871077
     },
     {
-      "acvpModuleName":"OpenSSL (32 bit) (AESASM_CLMULNI)",
-      "acvpModuleId":10607
+      "acvpModuleName":"OpenSSL (32 bit) (SHA3_ASM)",
+      "acvpModuleId":11184
     },
     {
-      "acvpModuleName":"OpenSSL (32 bit) (SHA_AVX2)",
-      "acvpModuleId":10606
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (SHA_SSSE3)",
-      "acvpModuleId":10605
-    },
-    {
-      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM_ASM)",
-      "acvpModuleId":10604
+      "acvpModuleName":"OpenSSL (32 bit) (SHA3_AVX512)",
+      "acvpModuleId":536871062
     },
     {
       "acvpModuleName":"OpenSSL (32 bit) (TDES_C)",
-      "acvpModuleId":10603
+      "acvpModuleId":11181
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESNI)",
+      "acvpModuleId":11176
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESNI_CLMULNI)",
+      "acvpModuleId":11221
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESNI_ASM)",
+      "acvpModuleId":11220
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESASM)",
+      "acvpModuleId":11218
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESASM_AVX)",
+      "acvpModuleId":11217
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESASM_CLMULNI)",
+      "acvpModuleId":11216
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESASM_ASM)",
+      "acvpModuleId":11214
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM)",
+      "acvpModuleId":536871090
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM_AVX)",
+      "acvpModuleId":536871092
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM_CLMULNI)",
+      "acvpModuleId":11208
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM_ASM)",
+      "acvpModuleId":11206
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SHA_AVX2)",
+      "acvpModuleId":536871098
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SHA_AVX)",
+      "acvpModuleId":536871104
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SHA_SSSE3)",
+      "acvpModuleId":11203
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SHA_ASM)",
+      "acvpModuleId":11204
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (DRBG_10X_AESNI)",
+      "acvpModuleId":11196
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (DRBG_10X_AESASM)",
+      "acvpModuleId":11194
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (DRBG_10X_BAES_CTASM)",
+      "acvpModuleId":11192
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (DRBG_10X_SHA_AVX2)",
+      "acvpModuleId":11199
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (DRBG_10X_SHA_AVX)",
+      "acvpModuleId":11198
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (DRBG_10X_SHA_ASM)",
+      "acvpModuleId":11223
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (DRBG_10X_SHA_SSSE3)",
+      "acvpModuleId":11224
     }
   ]
 }

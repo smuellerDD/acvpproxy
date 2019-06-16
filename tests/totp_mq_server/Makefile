@@ -57,6 +57,9 @@ C_SRCS := $(wildcard *.c)
 C_SRCS += $(wildcard $(ACVP_DIR)/lib/*.c) $(wildcard $(ACVP_DIR)/lib/hash/*.c) $(wildcard $(ACVP_DIR)/lib/json-c/*.c)
 C_SRCS := $(filter-out $(wildcard $(EXCLUDED)), $(C_SRCS))
 C_OBJS := ${C_SRCS:.c=.o}
+C_GCOV := ${C_SRCS:.c=.gcda}
+C_GCOV += ${C_SRCS:.c=.gcno}
+C_GCOV += ${C_SRCS:.c=.gcov}
 OBJS := $(C_OBJS)
 
 ifeq ($(UNAME_S),Darwin)
@@ -70,7 +73,13 @@ endif
 
 .PHONY: all scan install clean cppcheck distclean
 
-all: $(NAME)
+all: $(NAME) gcov
+
+# Compile for the use of GCOV
+# Usage after compilation: gcov <file>.c
+gcov: CFLAGS += -g -DDEBUG -fprofile-arcs -ftest-coverage
+gcov: LDFLAGS += -fprofile-arcs
+gcov: DBG-$(NAME)
 
 ###############################################################################
 #
@@ -80,6 +89,9 @@ all: $(NAME)
 
 $(NAME): $(OBJS)
 	$(CC) -o $(NAME) $(OBJS) $(LDFLAGS)
+
+DBG-$(NAME): $(OBJS)
+	$(CC) -g -DDEBUG -o $(NAME) $(OBJS) $(LDFLAGS)
 
 scan:	$(OBJS)
 	scan-build --use-analyzer=/usr/bin/clang $(CC) -o $(NAME) $(OBJS) $(LDFLAGS)
@@ -97,6 +109,8 @@ clean:
 	@- $(RM) $(OBJS)
 	@- $(RM) totp_test.o
 	@- $(RM) $(NAME)
+	@- $(RM) $(C_GCOV)
+	@- $(RM) *.gcov
 
 distclean: clean
 

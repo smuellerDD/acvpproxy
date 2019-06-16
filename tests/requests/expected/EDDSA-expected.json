@@ -34,6 +34,7 @@
       {
         "algorithm":"EDDSA",
         "mode":"keyVer",
+        "revision":"1.0",
         "curve":[
           "ED-25519"
         ],
@@ -51,6 +52,7 @@
       {
         "algorithm":"EDDSA",
         "mode":"sigGen",
+        "revision":"1.0",
         "curve":[
           "ED-25519"
         ],
@@ -70,6 +72,7 @@
       {
         "algorithm":"EDDSA",
         "mode":"sigVer",
+        "revision":"1.0",
         "curve":[
           "ED-25519"
         ],

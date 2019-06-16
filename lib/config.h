@@ -46,22 +46,13 @@ extern "C"
  * There is no other value that needs changing if the number of threads
  * shall be adjusted.
  */
-#define THREADING_MAX_THREADS 64
+#define THREADING_MAX_THREADS 512
 
 /*
  * Enable the TOTP message queue server
  * NOTE The message queue server requires ACVP_USE_PTHREAD to be set
  */
 #define ACVP_TOTP_MQ_SERVER
-
-/*
- * Use Ping server to detect stale message queue
- *
- * As spawning a new ACVP Proxy instance will always remove any message queue
- * the message queue per definition cannot become stale. This implies that
- * we do not need the ping server any more.
- */
-#undef ACVP_TOTP_PING_SERVER
 
 /*
  * Use the secure_getenv API call instead of getenv which is prone to security

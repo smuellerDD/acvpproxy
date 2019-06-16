@@ -232,6 +232,25 @@ struct acvp_opts_ctx {
 	 * ACVP server, register the module as new.
 	 */
 	bool register_new_module;
+
+	/*
+	 * Delete an entry in the ACVP database. The ID is taken from the
+	 * module's JSON configuration file.
+	 */
+#define ACVP_OPTS_DELUP_OE	(1<<0)	/** Delete / update OE entry */
+#define ACVP_OPTS_DELUP_VENDOR	(1<<1)	/** Delete / update vendor entry */
+#define ACVP_OPTS_DELUP_MODULE	(1<<2)	/** Delete / update module entry */
+#define ACVP_OPTS_DELUP_PERSON	(1<<3)	/** Delete / update person entry */
+#define ACVP_OPTS_DELUP_FORCE	(1<<30)	/** Force a deletion operation */
+	unsigned int delete_db_entry;
+
+	/*
+	 * Update an entry with the ACVP database. The ID is taken from the
+	 * module's JSON configuration file. The update takes only place if
+	 * there is no consistency between the local configuration and the
+	 * ACVP server's entry can be established.
+	 */
+	unsigned int update_db_entry;
 };
 
 struct acvp_ctx {
@@ -389,6 +408,33 @@ int acvp_respond(const struct acvp_ctx *ctx);
 int acvp_publish(const struct acvp_ctx *ctx);
 
 /**
+ * @brief List all currently pending requests for the given context, including
+ *	  any applicable search criteria. The command will list all
+ *	  pending requests on STDOUT.
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int acvp_list_request_ids(const struct acvp_ctx *ctx);
+
+/**
+ * @brief List all certificate IDs for the given (search) context. A test
+ *	  session ID is also a certificate id.
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int acvp_list_certificate_ids(const struct acvp_ctx *ctx);
+
+/**
+ * @brief List all test verdicts for the given (search) context.
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int acvp_list_verdicts(const struct acvp_ctx *ctx);
+
+/**
  * @brief Refresh JWT authentication token for all already obtained test vectors
  *	 limited by the search criteria.
  *
@@ -511,14 +557,16 @@ int acvp_list_failed_testid(int *idx_ptr, uint32_t *testid);
 int acvp_list_verdict_vsid(int *idx_ptr, uint32_t *vsid, bool passed);
 
 /**
- * Retrieve all details about cipher definitions from the ACVP server and dump
- * it.
+ * @brief Retrieve all details about cipher definitions from the ACVP server
+ *	  and dump it.
  *
  * @param ctx [in] ACVP Proxy library context
  * @param ciphername [in] Array of cipher names to search for - if NULL, the
  *			  list of ciphers is provided
  * @param ciphername_arraylen [in] Number of cipher name array entries
- * @param pathname [in] Directory to write the cipher definitions to
+ * @param pathname [in] Directory to write the cipher definitions to. If NULL
+ *			the library writes the list of supported ciphers to
+ *			STDOUT.
  *
  * @return 0 on success, < 0 on error
  */

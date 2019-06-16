@@ -154,7 +154,7 @@ static int acvp_module_match(struct def_info *def_info,
 			     struct json_object *json_module)
 {
 	struct json_object *tmp;
-	uint32_t id, module_id;
+	uint32_t id = 0, module_id;
 	unsigned int i;
 	int ret;
 	const char *str, *type_string, *moduleurl;
@@ -186,8 +186,8 @@ static int acvp_module_match(struct def_info *def_info,
 				json_object_array_get_idx(tmp, i);
 
 		/* Get the oe ID which is the last pathname component */
-		CKINT(acvp_get_trailing_number(json_object_get_string(contact),
-					       &id));
+		CKINT(acvp_get_id_from_url(json_object_get_string(contact),
+					   &id));
 
 		if (id == def_info->acvp_person_id) {
 			found = true;
@@ -239,7 +239,7 @@ out:
 	return ret;
 }
 
-/* POST / PUT /modules */
+/* POST / PUT / DELETE /modules */
 static int acvp_module_register(const struct acvp_testid_ctx *testid_ctx,
 				struct def_info *def_info,
 				char *url, unsigned int urllen,
@@ -249,7 +249,9 @@ static int acvp_module_register(const struct acvp_testid_ctx *testid_ctx,
 	int ret;
 
 	/* Build JSON object with the oe specification */
-	CKINT(acvp_module_build(def_info, &json_info));
+	if (type != acvp_http_delete) {
+		CKINT(acvp_module_build(def_info, &json_info));
+	}
 
 	CKINT(acvp_meta_register(testid_ctx, json_info, url, urllen,
 				 &def_info->acvp_module_id, type));
@@ -265,27 +267,46 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
+	unsigned int http_type = 0;
 
 	logger_status(LOGGER_C_ANY, "Validating module reference %u\n",
 		      def_info->acvp_module_id);
 
 	ret = acvp_module_get_match(testid_ctx, def_info);
+	if (ret && ret != -ENOENT)
+		goto out;
 
 	/* If we did not find a match, update the module definition */
 	if (ret == -ENOENT) {
-		if (ctx_opts->register_new_module) {
-			char url[ACVP_NET_URL_MAXLEN];
-
-			CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url,
-					      sizeof(url)));
-			CKINT(acvp_module_register(testid_ctx, def_info, url,
-						   sizeof(url), acvp_http_put));
+		if (ctx_opts->update_db_entry & ACVP_OPTS_DELUP_MODULE) {
+			http_type = acvp_http_put;
+		} else if (ctx_opts->delete_db_entry &
+			   (ACVP_OPTS_DELUP_MODULE | ACVP_OPTS_DELUP_FORCE)) {
+			http_type = acvp_http_delete;
+		} else if (ctx_opts->register_new_module) {
+			http_type = acvp_http_post;
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Definition for module ID %u different than found on ACVP server - you need to perform a (re)register operation\n",
 			       def_info->acvp_module_id);
 			goto out;
 		}
+	/*
+	 * We only attempt a delete if we have a match between the ACVP server
+	 * DB and our configurations. We do not want to delete unknown
+	 * definitions. Yet, if we are forced to perform the delete, we will
+	 * do that.
+	 */
+	} else if (ctx_opts->delete_db_entry & ACVP_OPTS_DELUP_MODULE) {
+		http_type = acvp_http_delete;
+	}
+
+	if (http_type) {
+		char url[ACVP_NET_URL_MAXLEN];
+
+		CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
+		CKINT(acvp_module_register(testid_ctx, def_info, url,
+					   sizeof(url), http_type));
 	}
 
 out:
@@ -335,18 +356,21 @@ static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_paging_get(testid_ctx, url, def_info,
 			      &acvp_module_match_cb));
 
+	/* We found an entry and do not need to do anything */
+	if (ret > 0) {
+		ret = 0;
+		goto out;
+	}
+
 	/* Our vendor data does not match any vendor on ACVP server */
-	if (!ret) {
-		if (ctx_opts->register_new_module) {
-			CKINT(acvp_module_register(testid_ctx, def_info, url,
-						   sizeof(url),
-						   acvp_http_post));
-		} else {
-			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "No module definition found - request registering this module\n");
-			ret = -ENOENT;
-			goto out;
-		}
+	if (ctx_opts->register_new_module) {
+		CKINT(acvp_module_register(testid_ctx, def_info, url,
+					   sizeof(url), acvp_http_post));
+	} else {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "No module definition found - request registering this module\n");
+		ret = -ENOENT;
+		goto out;
 	}
 
 out:

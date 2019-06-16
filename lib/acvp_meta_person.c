@@ -216,7 +216,7 @@ out:
 	return ret;
 }
 
-/* POST / PUT /persons */
+/* POST / PUT / DELETE /persons */
 static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 				struct def_vendor *def_vendor,
 				char *url, unsigned int urllen,
@@ -226,7 +226,9 @@ static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 	int ret;
 
 	/* Build JSON object with the vendor specification */
-	CKINT(acvp_person_build(def_vendor, &json_person));
+	if (type != acvp_http_delete) {
+		CKINT(acvp_person_build(def_vendor, &json_person));
+	}
 
 	CKINT(acvp_meta_register(testid_ctx, json_person, url, urllen,
 				 &def_vendor->acvp_person_id, type));
@@ -242,27 +244,46 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
+	unsigned int http_type = 0;
 
 	logger_status(LOGGER_C_ANY, "Validating person reference %u\n",
 		      def_vendor->acvp_person_id);
 
 	ret = acvp_person_get_match(testid_ctx, def_vendor);
+	if (ret && ret != -ENOENT)
+		goto out;
 
 	/* If we did not find a match, update the person definition */
 	if (ret == -ENOENT) {
-		if (ctx_opts->register_new_vendor) {
-			char url[ACVP_NET_URL_MAXLEN];
-
-			CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url,
-					      sizeof(url)));
-			CKINT(acvp_person_register(testid_ctx, def_vendor, url,
-						   sizeof(url), acvp_http_put));
+		if (ctx_opts->update_db_entry & ACVP_OPTS_DELUP_PERSON) {
+			http_type = acvp_http_put;
+		} else if (ctx_opts->delete_db_entry &
+			   (ACVP_OPTS_DELUP_PERSON | ACVP_OPTS_DELUP_FORCE)) {
+			http_type = acvp_http_delete;
+		} else if (ctx_opts->register_new_vendor) {
+			http_type = acvp_http_post;
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Definition for person ID %u different than found on ACVP server - you need to perform a (re)register operation\n",
 			       def_vendor->acvp_person_id);
 			goto out;
 		}
+	/*
+	 * We only attempt a delete if we have a match between the ACVP server
+	 * DB and our configurations. We do not want to delete unknown
+	 * definitions. Yet, if we are forced to perform the delete, we will
+	 * do that.
+	 */
+	} else if (ctx_opts->delete_db_entry & ACVP_OPTS_DELUP_PERSON) {
+		http_type = acvp_http_delete;
+	}
+
+	if (http_type) {
+		char url[ACVP_NET_URL_MAXLEN];
+
+		CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
+		CKINT(acvp_person_register(testid_ctx, def_vendor, url,
+					   sizeof(url), http_type));
 	}
 
 out:
@@ -312,18 +333,21 @@ static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_paging_get(testid_ctx, url, def_vendor,
 			      &acvp_person_match_cb));
 
+	/* We found an entry and do not need to do anything */
+	if (ret > 0) {
+		ret = 0;
+		goto out;
+	}
+
 	/* Our vendor data does not match any vendor on ACVP server */
-	if (!ret) {
-		if (ctx_opts->register_new_vendor) {
-			CKINT(acvp_person_register(testid_ctx, def_vendor, url,
-						   sizeof(url),
-						   acvp_http_post));
-		} else {
-			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "No person definition found - request registering this module\n");
-			ret = -ENOENT;
-			goto out;
-		}
+	if (ctx_opts->register_new_vendor) {
+		CKINT(acvp_person_register(testid_ctx, def_vendor, url,
+					   sizeof(url), acvp_http_post));
+	} else {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "No person definition found - request registering this module\n");
+		ret = -ENOENT;
+		goto out;
 	}
 
 out:

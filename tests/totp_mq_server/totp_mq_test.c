@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 	(void)argc;
 	(void)argv;
 
-#ifdef DEBUG
+#ifdef TESTDEBUG
 	logger_set_verbosity(LOGGER_DEBUG);
 #else
 	logger_set_verbosity(LOGGER_NONE);

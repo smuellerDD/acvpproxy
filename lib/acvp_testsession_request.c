@@ -253,6 +253,9 @@ static int acvp_req_set_algo(struct json_object *algorithms,
 		CKINT(acvp_req_set_algo_kdf_108(&def_algo->algo.kdf_108,
 						entry));
 		break;
+	case DEF_ALG_TYPE_PBKDF:
+		CKINT(acvp_req_set_algo_pbkdf(&def_algo->algo.pbkdf, entry));
+		break;
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "Unknown algorithm definition type\n");

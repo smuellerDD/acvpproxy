@@ -60,8 +60,11 @@ static int __base64_encode(const uint8_t *idata, uint32_t ilen,
 	if (ilen > (UINT_MAX / 2))
 		return -EINVAL;
 
-	if (!ilen)
+	if (!ilen) {
+		*olen = 0;
+		*odata = NULL;
 		return 0;
+	}
 
 	elen = 4 * ((ilen + 2) / 3);
 	encoded = malloc(elen);
@@ -112,8 +115,11 @@ int __base64_decode(const char *idata, uint32_t ilen,
 	if (ilen % 4 != 0)
 		return -EINVAL;
 
-	if (!ilen)
+	if (!ilen) {
+		*olen = 0;
+		*odata = NULL;
 		return 0;
+	}
 
 	dlen = ilen / 4 * 3;
 

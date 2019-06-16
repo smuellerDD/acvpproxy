@@ -694,6 +694,11 @@ static const struct def_algo_prereqs openssl_kdf_prereqs[] = {
 	}
 
 /**************************************************************************
+ * SP800-132 PBKDF Definitions
+ **************************************************************************/
+#define OPENSSL_PBKDF(x)	GENERIC_PBKDF(x)
+
+/**************************************************************************
  * OpenSSL Generic Definitions
  **************************************************************************/
 static const struct def_algo openssl_tdes [] = {
@@ -792,6 +797,11 @@ static const struct def_algo openssl_sha [] = {
 	OPENSSL_KDF,
 	OPENSSL_KAS_ECC,
 	OPENSSL_KAS_FFC,
+
+	OPENSSL_PBKDF(ACVP_SHA1 |
+		      ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |ACVP_SHA512 |
+		      ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |
+		      ACVP_SHA3_512),
 };
 
 static const struct def_algo openssl_sha3 [] = {

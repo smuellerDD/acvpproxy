@@ -19,16 +19,11 @@ test1()
 	else
 		echo_pass "Test $NAME 1"
 	fi
+
+	gcov_analyze "../../lib/binhexbin.c" "test1"
 }
 
-init()
-{
-	trap "make -s clean; exit" 0 1 2 3 15
-
-	make -s
-}
-
-init
+init_common
 
 test1
 

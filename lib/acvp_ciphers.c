@@ -61,11 +61,6 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 	int ret;
 	char prevname[30];
 
-	if (!pathname) {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Pathname missing\n");
-		return -EINVAL;
-	}
-
 	memset(prevname, 0, sizeof(prevname));
 
 	CKINT(json_find_key(response, "algorithms", &algorithms,
@@ -107,6 +102,18 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 
 		if (ciphername && !strstr(algoname, ciphername))
 			continue;
+
+		if (!pathname) {
+			const char * mode;
+
+			ret = json_get_string(algo, "mode", &mode);
+			if (ret) {
+				fprintf(stdout, "%s\n", algoname);
+			} else {
+				fprintf(stdout, "%s %s\n", algoname, mode);
+			}
+			continue;
+		}
 
 
 		/* Get details about cipher */

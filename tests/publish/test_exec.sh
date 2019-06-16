@@ -56,14 +56,13 @@ test_common()
 	else
 		echo_pass "Publish $testtype"
 	fi
+
+	gcov_analyze "../../lib/acvp_testsession_publish.c" "$testtype"
+	gcov_analyze "../../lib/definition.c" "$testtype"
 }
 
 init()
 {
-	trap "make -s clean; exit" 0 1 2 3 15
-
-	make -s
-
 	if [ ! -d ${ACTUALDIR} ]
 	then
 		mkdir ${ACTUALDIR}
@@ -80,6 +79,7 @@ init()
 	fi
 }
 
+init_common
 init
 
 test_common "ACVPProxy"

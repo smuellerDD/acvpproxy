@@ -53,6 +53,9 @@ C_SRCS := $(wildcard *.c)
 
 C_SRCS += $(ACVP_DIR)/lib/totp_mq_server.c $(ACVP_DIR)/lib/logger.c $(ACVP_DIR)/lib/threading_support.c $(ACVP_DIR)/lib/sleep.c $(wildcard $(ACVP_DIR)/lib/hash/*.c) $(ACVP_DIR)/lib/binhexbin.c
 C_OBJS := ${C_SRCS:.c=.o}
+C_GCOV := ${C_SRCS:.c=.gcda}
+C_GCOV += ${C_SRCS:.c=.gcno}
+C_GCOV += ${C_SRCS:.c=.gcov}
 OBJS := $(C_OBJS)
 
 ###############################################################################
@@ -60,16 +63,25 @@ OBJS := $(C_OBJS)
 
 .PHONY: all scan install clean cppcheck distclean
 
-all: $(NAME)
+all: $(NAME) gcov
+
+# Compile for the use of GCOV
+# Usage after compilation: gcov <file>.c
+gcov: CFLAGS += -g -DDEBUG -fprofile-arcs -ftest-coverage
+gcov: LDFLAGS += -fprofile-arcs
+gcov: DBG-$(NAME)
 
 ###############################################################################
 #
-# Build the library
+# Build the application
 #
 ###############################################################################
 
 $(NAME): $(OBJS)
 	$(CC) -o $(NAME) $(OBJS) $(LDFLAGS)
+
+DBG-$(NAME): $(OBJS)
+	$(CC) -g -DDEBUG -o $(NAME) $(OBJS) $(LDFLAGS)
 
 scan:	$(OBJS)
 	scan-build --use-analyzer=/usr/bin/clang $(CC) -o $(NAME) $(OBJS) $(LDFLAGS)
@@ -87,6 +99,8 @@ clean:
 	@- $(RM) $(OBJS)
 	@- $(RM) totp_test.o
 	@- $(RM) $(NAME)
+	@- $(RM) $(C_GCOV)
+	@- $(RM) *.gcov
 
 distclean: clean
 

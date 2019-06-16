@@ -77,6 +77,7 @@ C_SRCS := $(filter-out $(wildcard $(EXCLUDED)), $(C_SRCS))
 C_OBJS := ${C_SRCS:.c=.o}
 C_GCOV := ${C_SRCS:.c=.gcda}
 C_GCOV += ${C_SRCS:.c=.gcno}
+C_GCOV += ${C_SRCS:.c=.gcov}
 OBJS := $(M_OBJS) $(C_OBJS)
 
 analyze_srcs = $(filter %.c, $(sort $(C_SRCS)))
@@ -105,7 +106,7 @@ gcov: DBG-$(NAME)
 
 ###############################################################################
 #
-# Build the library
+# Build the application
 #
 ##############################################################################
 

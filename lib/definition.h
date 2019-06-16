@@ -43,6 +43,7 @@
 #include "definition_cipher_kdf_ikev2.h"
 #include "definition_cipher_kdf_tls.h"
 #include "definition_cipher_kdf_108.h"
+#include "definition_cipher_pbkdf.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -100,6 +101,8 @@ struct def_algo {
 		DEF_ALG_TYPE_KDF_TLS,
 		/** SP800-108 KDF */
 		DEF_ALG_TYPE_KDF_108,
+		/** SP800-132 PBKDF */
+		DEF_ALG_TYPE_PBKDF,
 	} type;
 	union {
 		/** DEF_ALG_TYPE_SYM */
@@ -136,6 +139,8 @@ struct def_algo {
 		struct def_algo_kdf_tls kdf_tls;
 		/** DEF_ALG_TYPE_KDF_108 */
 		struct def_algo_kdf_108 kdf_108;
+		/** DEF_ALG_TYPE_PBKDF */
+		struct def_algo_pbkdf pbkdf;
 	} algo;
 };
 
@@ -153,11 +158,23 @@ struct def_algo_map {
 #define ACVP_REQUEST_PROCESSING	(1<<29)
 #define ACVP_REQUEST_MASK	(ACVP_REQUEST_INITIAL | ACVP_REQUEST_PROCESSING)
 
+static inline uint32_t acvp_id(uint32_t id)
+{
+	return (id &~ ACVP_REQUEST_MASK);
+}
+
 static inline bool acvp_valid_id(uint32_t id)
 {
 	if (id == 0 || id & ACVP_REQUEST_MASK)
 		return false;
 	return true;
+}
+
+static inline bool acvp_request_id(uint32_t id)
+{
+	if (id & ACVP_REQUEST_MASK)
+		return true;
+	return false;
 }
 
 struct def_lock {

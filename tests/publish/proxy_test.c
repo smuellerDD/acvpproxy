@@ -543,7 +543,7 @@ out:
 
 static int set_totp_seed(struct opt_data *opts)
 {
-	int ret;
+	int ret = 0;
 	uint8_t seed[16];
 
 	(void)opts;
@@ -559,7 +559,7 @@ out:
 
 static int initialize_ctx(struct acvp_ctx **ctx, struct opt_data *opts)
 {
-	int ret;
+	int ret = 0;
 
 	CKINT(acvp_ctx_init(ctx, opts->basedir, opts->secure_basedir));
 
@@ -685,7 +685,7 @@ out:
 static int do_publish(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
-	int ret;
+	int ret = 0;
 
 	CKINT(initialize_ctx(&ctx, opts));
 
@@ -701,7 +701,7 @@ out:
 static int do_fetch_cipher_options(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
-	int ret;
+	int ret = 0;
 
 	CKINT(initialize_ctx(&ctx, opts));
 
@@ -756,7 +756,7 @@ out:
 int main(int argc, char *argv[])
 {
 	struct opt_data opts;
-	int ret;
+	int ret = 0;
 
 	memset(&opts, 0, sizeof(opts));
 	global_opts = &opts;

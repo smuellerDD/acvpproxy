@@ -78,7 +78,7 @@ static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 	/* Get the oe ID which is the last pathname component */
 	CKINT(acvp_get_trailing_number(uri, &tmp_id));
 
-	tmp_id &= ~ACVP_REQUEST_MASK;
+	tmp_id = acvp_id(tmp_id);
 	tmp_id |= status_flag;
 
 	*id = tmp_id;
@@ -90,10 +90,10 @@ static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 	if (status_flag) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Request ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %u\n",
-		       (tmp_id & ~ACVP_REQUEST_MASK));
+		       acvp_id(tmp_id));
 		logger_status(LOGGER_C_ANY,
 			      "Request ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %u\n",
-			      (tmp_id & ~ACVP_REQUEST_MASK));
+			      acvp_id(tmp_id));
 		ret = -EAGAIN;
 	}
 
@@ -116,11 +116,11 @@ int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
 		return 0;
 
 	/* The ID field does not contain a request ID */
-	if (!(tmp_id & ACVP_REQUEST_MASK))
+	if (!acvp_request_id(tmp_id))
 		return 0;
 
 	/* Remove the mask indicator */
-	tmp_id &= ~ACVP_REQUEST_MASK;
+	tmp_id = acvp_id(tmp_id);
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "Fetch request for ID %u\n",
 	       tmp_id);
@@ -154,52 +154,66 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 	CKNULL(id, -EINVAL);
 
 	/* Provided ID is a request ID */
-	if (*id & ACVP_REQUEST_MASK)
+	if (acvp_request_id(*id)) {
+		if (req_details->dump_register && json) {
+			fprintf(stdout, "%s\n",
+				json_object_to_json_string_ext(json,
+						JSON_C_TO_STRING_PRETTY |
+						JSON_C_TO_STRING_NOSLASHESCAPE));
+
+			return 0;
+		}
 		return acvp_meta_obtain_request_result(testid_ctx, id);
+	}
 
 	if (acvp_valid_id(*id))
 		CKINT(acvp_extend_string(url, urllen, "/%u", *id));
 
-	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "Registering new object\n");
+	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "%s object\n",
+	       (submit_type == acvp_http_delete) ? "Deleting" : "Registering");
 
-	/* Build the JSON object to be submitted */
-	json_submission = json_object_new_array();
-	CKNULL(json_submission, -ENOMEM);
+	if (json) {
+		/* Build the JSON object to be submitted */
+		json_submission = json_object_new_array();
+		CKNULL(json_submission, -ENOMEM);
 
-	/* Array entry for version */
-	CKINT(acvp_req_add_version(json_submission));
+		/* Array entry for version */
+		CKINT(acvp_req_add_version(json_submission));
 
-	/* Add oe to submission JSON object */
-	json_object_get(json);
-	CKINT(json_object_array_add(json_submission, json));
+		/* Add oe to submission JSON object */
+		json_object_get(json);
+		CKINT(json_object_array_add(json_submission, json));
 
-	if (req_details->dump_register) {
-		fprintf(stdout, "%s\n",
-			json_object_to_json_string_ext(json_submission,
-					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
-		ret = 0;
-		goto out;
+		if (req_details->dump_register) {
+			fprintf(stdout, "%s\n",
+				json_object_to_json_string_ext(json_submission,
+						JSON_C_TO_STRING_PRETTY |
+						JSON_C_TO_STRING_NOSLASHESCAPE));
+			ret = 0;
+			goto out;
+		}
+
+
+		tmpbuf.buf = (uint8_t *)json_object_to_json_string_ext(
+						json_submission,
+						JSON_C_TO_STRING_PRETTY |
+						JSON_C_TO_STRING_NOSLASHESCAPE);
+		tmpbuf.len = strlen((char *)tmpbuf.buf);
+		CKINT(ds->acvp_datastore_write_testid(
+						testid_ctx,
+						"operational_environment.json",
+						true, &tmpbuf));
+
+		/* Convert the JSON buffer into a string */
+		json_request = json_object_to_json_string_ext(json_submission,
+						JSON_C_TO_STRING_PLAIN |
+						JSON_C_TO_STRING_NOSLASHESCAPE);
+		CKNULL_LOG(json_request, -ENOMEM,
+			   "JSON object conversion into string failed\n");
+
+		submit.buf = (uint8_t *)json_request;
+		submit.len = strlen(json_request);
 	}
-
-
-	tmpbuf.buf = (uint8_t *)json_object_to_json_string_ext(json_submission,
-					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE);
-	tmpbuf.len = strlen((char *)tmpbuf.buf);
-	CKINT(ds->acvp_datastore_write_testid(testid_ctx,
-					      "operational_environment.json",
-					      true, &tmpbuf));
-
-	/* Convert the JSON buffer into a string */
-	json_request = json_object_to_json_string_ext(json_submission,
-					JSON_C_TO_STRING_PLAIN |
-					JSON_C_TO_STRING_NOSLASHESCAPE);
-	CKNULL_LOG(json_request, -ENOMEM,
-		   "JSON object conversion into string failed\n");
-
-	submit.buf = (uint8_t *)json_request;
-	submit.len = strlen(json_request);
 
 	CKINT(acvp_net_op(testid_ctx, url, &submit, &response, submit_type));
 
@@ -208,5 +222,25 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 out:
 	ACVP_JSON_PUT_NULL(json_submission);
 	acvp_free_buf(&response);
+	return ret;
+}
+
+int acvp_get_id_from_url(const char *url, uint32_t *id)
+{
+	uint32_t tmpid;
+	int ret;
+
+	/* We do not overwrite request IDs */
+	if (acvp_request_id(*id)) {
+		CKINT(acvp_get_trailing_number(url, &tmpid));
+
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Received ID %u from ACVP server, but have a request ID %u on file - not changing the request ID\n",
+		       tmpid, acvp_id(*id));
+	} else {
+		CKINT(acvp_get_trailing_number(url, id));
+	}
+
+out:
 	return ret;
 }

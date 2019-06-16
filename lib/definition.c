@@ -40,6 +40,8 @@ static struct definition *def_head = NULL;
 static DEFINE_MUTEX_UNLOCKED(def_uninstantiated_mutex);
 static struct def_algo_map *def_uninstantiated_head = NULL;
 
+static DEFINE_MUTEX_UNLOCKED(def_file_access_mutex);
+
 /*****************************************************************************
  * Handle refcnt lock
  *****************************************************************************/
@@ -295,8 +297,11 @@ out:
 int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
 		   struct json_object *def_config)
 {
+	const struct definition *def = testid_ctx->def;
+	const struct def_vendor *vendor = def->vendor;
+	const struct def_info *mod_info = def->info;
+	const struct def_oe *oe = def->oe;
 	struct acvp_search_ctx search;
-	struct definition *definition;
 	int ret;
 
 	memset(&search, 0, sizeof(search));
@@ -311,16 +316,14 @@ int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(json_get_string(def_config, "processor",
 			      (const char **)&search.processor));
 
-	definition = acvp_find_def(&search, NULL);
-
-	if (!definition) {
-		ret = -ENOENT;
-		goto out;
-	}
-
-	if (testid_ctx->def && (definition != testid_ctx->def)) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Crypto definition for testID %u for current search does not match with old search - refine your search options for the current invocation!\n",
+	if (!acvp_find_match(search.modulename, mod_info->module_name, false) ||
+	    !acvp_find_match(search.moduleversion, mod_info->module_version,
+			     false) ||
+	    !acvp_find_match(search.vendorname, vendor->vendor_name, false) ||
+	    !acvp_find_match(search.execenv, oe->oe_env_name, false) ||
+	    !acvp_find_match(search.processor, oe->proc_name, false)) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Crypto definition for testID %u for current search does not match with old search\n",
 		       testid_ctx->testid);
 		ret = -ENOENT;
 	} else {
@@ -642,44 +645,68 @@ out:
 
 static int acvp_def_write_json(struct json_object *config, const char *pathname)
 {
-	struct flock lock;
 	int ret, fd;
+
+	mutex_lock(&def_file_access_mutex);
 
 	fd = open(pathname, O_WRONLY | O_TRUNC);
 	if (fd < 0)
 		return -errno;
 
-	memset (&lock, 0, sizeof(lock));
-
-	/*
-	 * Place a write lock on the file. This call will put us to sleep if
-	 * there is another lock.
-	 */
-	fcntl(fd, F_SETLKW, &lock);
-
 	ret = json_object_to_fd(fd, config, JSON_C_TO_STRING_PRETTY |
 				JSON_C_TO_STRING_NOSLASHESCAPE);
 
-	/* Release the lock. */
-	lock.l_type = F_UNLCK;
-	fcntl(fd, F_SETLKW, &lock);
-
 	close(fd);
+
+	mutex_unlock(&def_file_access_mutex);
 
 	return ret;
 }
 
+static int acvp_def_read_json(struct json_object **config, const char *pathname)
+{
+	struct json_object *filecontent;
+	int ret = 0, fd;
+
+	mutex_reader_lock(&def_file_access_mutex);
+
+	fd = open(pathname, O_RDONLY);
+	if (fd < 0)
+		return -errno;
+
+	filecontent = json_object_from_fd(fd);
+
+	close(fd);
+
+	CKNULL(filecontent, -EFAULT);
+	*config = filecontent;
+
+out:
+	mutex_reader_unlock(&def_file_access_mutex);
+	return ret;
+}
+
 static int acvp_def_set_value(struct json_object *json,
-			      const char *name, uint32_t id)
+			      const char *name, uint32_t id, bool *set)
 {
 	struct json_object *val;
+	uint32_t tmp;
 	int ret;
 
 	ret = json_find_key(json, name, &val, json_type_int);
 	if (ret) {
 		json_object_object_add(json, name, json_object_new_int(id));
-	} else {
+		*set = true;
+		return 0;
+	}
+
+	tmp = json_object_get_int(val);
+	if (tmp >= INT_MAX)
+		return -EINVAL;
+
+	if (tmp != id) {
 		json_object_set_int(val, id);
+		*set = true;
 	}
 
 	return 0;
@@ -699,19 +726,19 @@ static int acvp_def_update_id(const char *pathname,
 	int ret = 0;
 	bool updated = false;
 
-	config = json_object_from_file(pathname);
-	CKNULL_LOG(config, -EFAULT,
-		   "Cannot parse operational environment config file\n");
+	CKINT_LOG(acvp_def_read_json(&config, pathname),
+		  "Cannot parse config file %s\n", pathname);
 
 	for (i = 0; i < list_entries; i++) {
 		/* Do not write a zero ID */
 		if (!list[i].name || !list[i].id)
 			continue;
 
-		updated = true;
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY, "Updating entry %s with %u\n",
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Updating entry %s with %u\n",
 		       list[i].name, list[i].id);
-		CKINT(acvp_def_set_value(config, list[i].name, list[i].id));
+		CKINT(acvp_def_set_value(config, list[i].name, list[i].id,
+					 &updated));
 	}
 
 	if (updated)
@@ -745,9 +772,10 @@ int acvp_def_get_vendor_id(struct def_vendor *def_vendor)
 
 	acvp_def_lock_lock(def_vendor->def_lock);
 
-	vendor_config = json_object_from_file(def_vendor->def_vendor_file);
-	CKNULL_LOG(vendor_config, -EFAULT,
-		   "Cannot parse vendor information config file\n");
+	CKINT_LOG(acvp_def_read_json(&vendor_config,
+				     def_vendor->def_vendor_file),
+		  "Cannot parse vendor information config file %s\n",
+		  def_vendor->def_vendor_file);
 
 	acvp_def_read_vendor_id(vendor_config, def_vendor);
 
@@ -804,9 +832,10 @@ int acvp_def_get_person_id(struct def_vendor *def_vendor)
 
 	acvp_def_lock_lock(def_vendor->def_lock);
 
-	vendor_config = json_object_from_file(def_vendor->def_vendor_file);
-	CKNULL_LOG(vendor_config, -EFAULT,
-		   "Cannot parse vendor information config file\n");
+	CKINT_LOG(acvp_def_read_json(&vendor_config,
+				     def_vendor->def_vendor_file),
+		  "Cannot parse vendor information config file %s\n",
+		  def_vendor->def_vendor_file);
 
 	/* Person ID depends on vendor ID and thus we read it. */
 	acvp_def_read_vendor_id(vendor_config, def_vendor);
@@ -867,9 +896,9 @@ int acvp_def_get_oe_id(struct def_oe *def_oe)
 
 	acvp_def_lock_lock(def_oe->def_lock);
 
-	oe_config = json_object_from_file(def_oe->def_oe_file);
-	CKNULL_LOG(oe_config, -EFAULT,
-		   "Cannot parse operational environment config file\n");
+	CKINT_LOG(acvp_def_read_json(&oe_config, def_oe->def_oe_file),
+		  "Cannot parse operational environment config file %s\n",
+		  def_oe->def_oe_file);
 
 	acvp_def_read_oe_id(oe_config, def_oe);
 
@@ -956,9 +985,9 @@ static int acvp_def_read_module_id(struct def_info *def_info, uint32_t *id)
 	struct json_object *entry;
 	int ret;
 
-	config = json_object_from_file(def_info->def_module_file);
-	CKNULL_LOG(config, -EFAULT,
-		   "Cannot parse operational environment config file\n");
+	CKINT_LOG(acvp_def_read_json(&config, def_info->def_module_file),
+		  "Cannot parse operational environment config file %s\n",
+		  def_info->def_module_file);
 
 	CKINT(acvp_def_find_module_id(def_info, config, &entry));
 	CKINT(json_get_uint(entry, ACVP_DEF_PRODUCTION_ID("acvpModuleId"), id));
@@ -997,9 +1026,9 @@ static int acvp_def_update_module_id(struct def_info *def_info)
 	if (!def_info->module_name || !def_info->acvp_module_id)
 		return 0;
 
-	config = json_object_from_file(def_info->def_module_file);
-	CKNULL_LOG(config, -EFAULT,
-		   "Cannot parse operational environment config file\n");
+	CKINT_LOG(acvp_def_read_json(&config, def_info->def_module_file),
+		  "Cannot parse operational environment config file %s\n",
+		  def_info->def_module_file);
 
 	ret = acvp_def_find_module_id(def_info, config, &id_entry);
 	if (ret) {
@@ -1040,8 +1069,7 @@ static int acvp_def_update_module_id(struct def_info *def_info)
 			       def_info->module_name, def_info->acvp_module_id);
 		CKINT(acvp_def_set_value(id_entry,
 					 ACVP_DEF_PRODUCTION_ID("acvpModuleId"),
-					 def_info->acvp_module_id));
-		updated = true;
+					 def_info->acvp_module_id, &updated));
 	}
 
 	if (updated)
@@ -1112,9 +1140,9 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	       oe_file, vendor_file, info_file, impl_file);
 
 	CKINT(acvp_def_alloc_lock(&oe.def_lock));
-	oe_config = json_object_from_file(oe_file);
-	CKNULL_LOG(oe_config, -EFAULT,
-		   "Cannot parse operational environment config file\n");
+	CKINT_LOG(acvp_def_read_json(&oe_config,oe_file),
+		  "Cannot parse operational environment config file %s\n",
+		  oe_file);
 	CKINT(json_get_string(oe_config, "oeEnvName",
 			      (const char **)&oe.oe_env_name));
 	CKINT(json_get_string(oe_config, "manufacturer",
@@ -1149,9 +1177,9 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	oe.def_oe_file = (char *)oe_file;
 
 	CKINT(acvp_def_alloc_lock(&info.def_lock));
-	info_config = json_object_from_file(info_file);
-	CKNULL_LOG(info_config, -EFAULT,
-		   "Cannot parse module information config file\n");
+	CKINT_LOG(acvp_def_read_json(&info_config, info_file),
+		  "Cannot parse module information config file %s\n",
+		  info_file);
 	CKINT(json_get_string(info_config, "moduleName",
 			      (const char **)&info.module_name));
 	CKINT(json_get_string(info_config, "moduleVersion",
@@ -1168,9 +1196,9 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	info.def_module_file = (char *)info_file;
 
 	CKINT(acvp_def_alloc_lock(&vendor.def_lock));
-	vendor_config = json_object_from_file(vendor_file);
-	CKNULL_LOG(info_config, -EFAULT,
-		   "Cannot parse vendor information config file\n");
+	CKINT_LOG(acvp_def_read_json(&vendor_config, vendor_file),
+		  "Cannot parse vendor information config file %s\n",
+		  vendor_file);
 	CKINT(json_get_string(vendor_config, "vendorName",
 			      (const char **)&vendor.vendor_name));
 	CKINT(json_get_string(vendor_config, "vendorUrl",
@@ -1197,9 +1225,9 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	/* Unconstify harmless, because data will be duplicated */
 	vendor.def_vendor_file = (char *)vendor_file;
 
-	impl_config = json_object_from_file(impl_file);
-	CKNULL_LOG(impl_config, -EFAULT,
-		   "Cannot parse cipher implementations config file\n");
+	CKINT_LOG(acvp_def_read_json(&impl_config, impl_file),
+		  "Cannot parse cipher implementations config file %s\n",
+		  impl_file);
 	CKINT(json_find_key(impl_config, "implementations",
 			    &impl_array, json_type_array));
 

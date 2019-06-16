@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "internal.h"
+#include "json_wrapper.h"
 
 int acvp_str_match(const char *exp, const char *found, uint32_t id)
 {
@@ -31,4 +32,36 @@ int acvp_str_match(const char *exp, const char *found, uint32_t id)
 	}
 
 	return 0;
+}
+
+int acvp_get_verdict_json(const struct acvp_buf *verdict_buf,
+			  bool *test_passed)
+{
+	struct json_object *verdict_full = NULL, *verdict;
+	int ret;
+	const char *result;
+
+	CKINT_LOG(acvp_req_strip_version(verdict_buf->buf, &verdict_full,
+					 &verdict),
+		  "JSON parser cannot parse verdict data\n");
+
+	ret = json_get_bool(verdict, "passed", test_passed);
+	if (!ret)
+		goto out;
+
+	CKINT(json_get_string(verdict, "disposition", &result));
+
+	if (ret < 0)
+		  logger(LOGGER_WARN, LOGGER_C_ANY,
+			 "JSON parser cannot find verdict data\n");
+
+	if (strncmp(result, "passed", 6)) {
+		*test_passed = false;
+	} else {
+		*test_passed = true;
+	}
+
+out:
+	ACVP_JSON_PUT_NULL(verdict_full);
+	return ret;
 }

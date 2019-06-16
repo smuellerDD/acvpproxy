@@ -1,3 +1,18 @@
+v0.7.2
+- add support for DELETE of all meta data endpoints
+- add support for listing certificate IDs and pending request IDs
+- add listing of request IDs
+- add listing of certificate IDs
+- add listing of verdicts
+- add PBKDF support
+- fix storing of OE ID
+- add ECDSA signature generation component testing support
+- add --update-definition command line option - per default the ACVP proxy
+  will now always register meta data with new entries in case the JSON
+  configuration data with its ID does not match with the ACVP server.
+  If the ACVP server shall be updated, --update-definition has to be used
+- add --cipher-list
+
 v0.7.1
 - add ECDSA dependency to ECDH
 - enable multi-threaded --publish

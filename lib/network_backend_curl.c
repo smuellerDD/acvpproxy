@@ -176,7 +176,7 @@ static void acvp_curl_log_peer_cert(CURL *hnd)
 	} ptr;
 	int i, ret;
 
-	if (logger_get_verbosity(LOGGER_C_CURL) < LOGGER_DEBUG)
+	if (logger_get_verbosity(LOGGER_C_CURL) < LOGGER_DEBUG2)
 		return;
 
 	ptr.to_info = NULL;
@@ -437,9 +437,11 @@ static int acvp_curl_http_put(const struct acvp_na_ex *netinfo,
 				     acvp_http_put);
 }
 
-static int acvp_curl_http_delete(const struct acvp_na_ex *netinfo)
+static int acvp_curl_http_delete(const struct acvp_na_ex *netinfo,
+				 struct acvp_buf *response_buf)
 {
-	return acvp_curl_http_common(netinfo, NULL, NULL, acvp_http_delete);
+	return acvp_curl_http_common(netinfo, NULL, response_buf,
+				     acvp_http_delete);
 }
 
 extern int acvp_openssl_thread_setup(void);

@@ -703,17 +703,29 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 	}
 
 	/* Create path names */
-	snprintf(resppath, sizeof(resppath), "%s/%u/%s", datastore_base,
-		 vsid_ctx->vsid, datastore->resultsfile);
+	CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, resppath,
+						 sizeof(resppath), false,
+						 false));
+	CKINT(acvp_extend_string(resppath, sizeof(resppath), "/%s",
+				 datastore->resultsfile));
 
-	snprintf(processedpath, sizeof(processedpath), "%s/%u/%s",
-		 secure_base, vsid_ctx->vsid, datastore->processedfile);
+	CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, processedpath,
+						 sizeof(processedpath), false,
+						 true));
+	CKINT(acvp_extend_string(processedpath, sizeof(processedpath), "/%s",
+				 datastore->processedfile));
 
-	snprintf(vectorfile, sizeof(vectorfile), "%s/%u/%s",
-		 datastore_base, vsid_ctx->vsid, datastore->vectorfile);
+	CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, vectorfile,
+						 sizeof(vectorfile), false,
+						 false));
+	CKINT(acvp_extend_string(vectorfile, sizeof(vectorfile), "/%s",
+				 datastore->vectorfile));
 
-	snprintf(expected, sizeof(expected), "%s/%u/%s",
-		 datastore_base, vsid_ctx->vsid, datastore->expectedfile);
+	CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, expected,
+						 sizeof(expected), false,
+						 false));
+	CKINT(acvp_extend_string(expected, sizeof(expected), "/%s",
+				 datastore->expectedfile));
 
 	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
 	       "Read response from %s and processed file from %s\n",
@@ -738,10 +750,32 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 	/* If there is already a processed file, do a resubmit */
 	if (!stat(processedpath, &statbuf)) {
 		if (!ctx_opts->resubmit_result) {
+			char verdict_file[FILENAME_MAX];
+
 			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
 			       "Skipping submission for vsID %u since it was submitted already (%s exists)\n",
 			       vsid_ctx->vsid, processedpath);
-			return 0;
+
+			CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx,
+				verdict_file, sizeof(verdict_file), false,
+				false));
+			CKINT(acvp_extend_string(verdict_file,
+						 sizeof(verdict_file),
+						"/%s", datastore->verdictfile));
+			if (stat(verdict_file, &statbuf)) {
+				/*
+				 * Tell the callback to only download the
+				 * verdict file but not process any results.
+				 *
+				 * This may happen if we uploaded a result, but
+				 * the verdict download got interrupted and
+				 * we want to retry to download the result.
+				 */
+				vsid_ctx->fetch_verdict = true;
+				return cb(vsid_ctx, NULL);
+			} else {
+				return 0;
+			}
 		} else {
 			vsid_ctx->resubmit_result = true;
 		}
@@ -886,6 +920,7 @@ static int acvp_datastore_file_find_responses_thread(void *arg)
 
 static int
 acvp_datastore_find_verdict(const struct acvp_datastore_ctx *datastore,
+			    struct acvp_test_verdict_status *verdict,
 			    char *verdict_dir, size_t verdict_dir_len)
 {
 	struct stat statbuf;
@@ -893,11 +928,62 @@ acvp_datastore_find_verdict(const struct acvp_datastore_ctx *datastore,
 
 	CKINT(acvp_extend_string(verdict_dir, verdict_dir_len,
 				 "/%s", datastore->verdictfile));
+
 	/* Verdict file exists, return information to  */
 	if (!stat(verdict_dir, &statbuf)) {
+		ACVP_BUFFER_INIT(verdict_buf);
+		int fd;
+		bool test_passed;
+
 		/* Positive return code as this is no error */
-		return EEXIST;
+		if (!verdict)
+			return EEXIST;
+
+		fd = open(verdict_dir, O_RDONLY | O_CLOEXEC);
+		if (fd < 0) {
+			ret = -errno;
+
+			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+			       "Cannot open file %s (%d)\n", verdict_dir, ret);
+			goto out;
+		}
+
+		verdict_buf.buf = mmap(NULL, statbuf.st_size, PROT_READ,
+				       MAP_SHARED, fd, 0);
+		if (verdict_buf.buf == MAP_FAILED) {
+			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+			       "Cannot mmap file %s\n", verdict_dir);
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		verdict_buf.len = statbuf.st_size;
+		ret = acvp_get_verdict_json(&verdict_buf, &test_passed);
+
+		munmap(verdict_buf.buf, statbuf.st_size);
+		close(fd);
+
+		if (ret) {
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			       "File %s does not contain valid verdict\n",
+			       verdict_dir);
+			/*
+			 * We are not stopping here and will not goto out,
+			 * since we will report that the ID is unverified.
+			 */
+		}
+
+		acvp_store_verdict(verdict, test_passed);
+
+		return 0;
 	}
+
+	/*
+	 * If we have a verdict to fill and we reach here, we have no verdict
+	 * file.
+	 */
+	if (verdict)
+		verdict->verdict = acvp_verdict_unknown;
 
 out:
 	return ret;
@@ -924,7 +1010,38 @@ acvp_datastore_find_testid_verdict(const struct acvp_testid_ctx *testid_ctx)
 		/* If pathname does not exist, we ignore it. */
 		return 0;
 	} else {
-		CKINT(acvp_datastore_find_verdict(datastore, verdict_file,
+		CKINT(acvp_datastore_find_verdict(datastore, NULL, verdict_file,
+						  sizeof(verdict_file)));
+	}
+
+out:
+	return ret;
+}
+
+static int
+acvp_datastore_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
+{
+	const struct acvp_ctx *ctx;
+	const struct acvp_datastore_ctx *datastore;
+	char verdict_file[FILENAME_MAX];
+	int ret;
+
+	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
+		     "Data store backend exchange info missing\n");
+
+	ctx = testid_ctx->ctx;
+	datastore = &ctx->datastore;
+
+	ret = acvp_datastore_file_vectordir(testid_ctx, verdict_file,
+					    sizeof(verdict_file), false,
+					    false);
+	if (ret) {
+		/* If pathname does not exist, we ignore it. */
+		return 0;
+	} else {
+		CKINT(acvp_datastore_find_verdict(datastore,
+						  &testid_ctx->verdict,
+						  verdict_file,
 						  sizeof(verdict_file)));
 	}
 
@@ -958,7 +1075,42 @@ acvp_datastore_find_vsid_verdict(const struct acvp_vsid_ctx *vsid_ctx)
 		/* If pathname does not exist, we ignore it. */
 		return 0;
 	} else {
-		CKINT(acvp_datastore_find_verdict(datastore, verdict_file,
+		CKINT(acvp_datastore_find_verdict(datastore, NULL, verdict_file,
+						  sizeof(verdict_file)));
+	}
+
+out:
+	return ret;
+}
+
+static int
+acvp_datastore_get_vsid_verdict(struct acvp_vsid_ctx *vsid_ctx)
+{
+	const struct acvp_testid_ctx *testid_ctx;
+	const struct acvp_ctx *ctx;
+	const struct acvp_datastore_ctx *datastore;
+	char verdict_file[FILENAME_MAX];
+	int ret;
+
+	CKNULL_C_LOG(vsid_ctx, -EINVAL, LOGGER_C_DS_FILE,
+		     "Data store backend exchange info missing\n");
+	testid_ctx = vsid_ctx->testid_ctx;
+
+	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
+		     "Data store backend exchange info missing\n");
+
+	ctx = testid_ctx->ctx;
+	datastore = &ctx->datastore;
+
+	ret = acvp_datastore_file_vectordir_vsid(vsid_ctx, verdict_file,
+						 sizeof(verdict_file), false,
+						 false);
+	if (ret) {
+		/* If pathname does not exist, we ignore it. */
+		return 0;
+	} else {
+		CKINT(acvp_datastore_find_verdict(datastore, &vsid_ctx->verdict,
+						  verdict_file,
 						  sizeof(verdict_file)));
 	}
 
@@ -1053,8 +1205,11 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 	/*
 	 * Update testid_ctx:
 	 * In case a specific cipher definition is stored there, use it.
+	 *
+	 * In case we do not find a match, just disregard the current testID.
 	 */
-	CKINT(acvp_def_check(testid_ctx, secure_base));
+	if (acvp_def_check(testid_ctx, secure_base))
+		return 0;
 
 	dir = opendir(datastore_base);
 	CKNULL(dir, -errno);
@@ -1127,6 +1282,21 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 		}
 		if (ret == EEXIST)
 			vsid_ctx->verdict_file_present = true;
+
+		/*
+		 * If the testid_ctx contains a test verdict retrieval,
+		 * we only try to invoke the callback as our invocation
+		 * is only intended to retrieve the test verdict.
+		 */
+		if (testid_ctx->verdict.verdict) {
+			ret = cb(vsid_ctx, NULL);
+			acvp_release_vsid_ctx(vsid_ctx);
+
+			if (ret < 0)
+				goto out;
+
+			continue;
+		}
 
 #ifdef ACVP_USE_PTHREAD
 		/* Disable threading in DEBUG mode */
@@ -1322,7 +1492,9 @@ static struct acvp_datastore_be acvp_datastore_file = {
 	&acvp_datastore_file_write_testid,
 	&acvp_datastore_file_compare,
 	&acvp_datastore_file_write_authtoken,
-	&acvp_datastore_file_read_authtoken
+	&acvp_datastore_file_read_authtoken,
+	&acvp_datastore_get_testid_verdict,
+	&acvp_datastore_get_vsid_verdict,
 };
 
 ACVP_DEFINE_CONSTRUCTOR(acvp_datastore_init)

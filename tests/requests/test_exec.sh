@@ -60,10 +60,6 @@ test_common()
 
 init()
 {
-	trap "make -s clean; exit" 0 1 2 3 15
-
-	make -s
-
 	if [ ! -d ${ACTUALDIR} ]
 	then
 		mkdir ${ACTUALDIR}
@@ -80,6 +76,28 @@ init()
 	fi
 }
 
+gcov_analysis()
+{
+	gcov_analyze "../../lib/request_cipher_sha.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_hmac.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_shake.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_sym.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_drbg.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_rsa.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_dsa.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_ecdsa.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_kas_ecc.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_kas_ffc.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_kdf_108.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_kdf_ikev1.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_kdf_ikev2.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_kdf_ssh.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_kdf_tls.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_pbkdf.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_eddsa.c" "test_common"
+}
+
+init_common
 init
 
 test_common "SHA"
@@ -96,5 +114,7 @@ test_common "KAS-ECC"
 test_common "KAS-FFC"
 test_common "KDF"
 test_common "EDDSA"
+
+gcov_analysis
 
 exit_test

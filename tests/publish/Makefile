@@ -72,12 +72,14 @@ C_SRCS += $(wildcard ../../lib/json-c/*.c)
 C_SRCS := $(filter-out $(wildcard $(EXCLUDED)), $(C_SRCS))
 
 C_OBJS := ${C_SRCS:.c=.o}
+C_GCOV := ${C_SRCS:.c=.gcda}
+C_GCOV += ${C_SRCS:.c=.gcno}
 OBJS := $(M_OBJS) $(C_OBJS)
 
 analyze_srcs = $(filter %.c, $(sort $(C_SRCS)))
 analyze_plists = $(analyze_srcs:%.c=%.plist)
 
-.PHONY: all scan install clean cppcheck distclean debug asanaddress asanthread
+.PHONY: all scan install clean cppcheck distclean debug asanaddress asanthread gcov
 
 all: $(NAME)
 
@@ -91,6 +93,12 @@ asanaddress: DBG-$(NAME)
 asanthread: CFLAGS += -g -DDEBUG -fsanitize=thread -fno-omit-frame-pointer
 asanthread: LDFLAGS += -fsanitize=thread
 asanthread: DBG-$(NAME)
+
+# Compile for the use of GCOV
+# Usage after compilation: gcov <file>.c
+gcov: CFLAGS += -g -DDEBUG -fprofile-arcs -ftest-coverage
+gcov: LDFLAGS += -fprofile-arcs
+gcov: DBG-$(NAME)
 
 ###############################################################################
 #
@@ -127,6 +135,8 @@ clean:
 	@- $(RM) $(NAME)
 	@- $(RM) $(NAME)-*
 	@- $(RM) .$(NAME).hmac
+	@- $(RM) $(C_GCOV)
+	@- $(RM) *.gcov
 	@- $(RM) $(analyze_plists)
 
 distclean: clean

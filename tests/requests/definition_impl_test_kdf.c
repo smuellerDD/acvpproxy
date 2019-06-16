@@ -193,6 +193,62 @@ static const struct def_algo_prereqs tests_ikekdf_prereqs[] = {
 	TESTS_KDF_IKEV2_HASH(ACVP_SHA512)
 
 /**************************************************************************
+ * SSH Definitions
+ **************************************************************************/
+static const struct def_algo_prereqs tests_sshaeskdf_prereqs[] = {
+	{
+		.algorithm = "AES",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+};
+
+static const struct def_algo_prereqs tests_sshtdeskdf_prereqs[] = {
+	{
+		.algorithm = "TDES",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+};
+
+#define TESTS_SSH_KDF_AES						\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_SSH,					\
+	.algo.kdf_ssh = {						\
+		DEF_PREREQS(tests_sshaeskdf_prereqs),			\
+		.cipher = ACVP_AES128 | ACVP_AES192 | ACVP_AES256,	\
+		.hashalg = ACVP_SHA1 | ACVP_SHA256 |			\
+			   ACVP_SHA384 | ACVP_SHA512			\
+		}							\
+	}
+
+#define TESTS_SSH_KDF_TDES						\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_SSH,					\
+	.algo.kdf_ssh = {						\
+		DEF_PREREQS(tests_sshtdeskdf_prereqs),			\
+		.cipher = ACVP_TDES,					\
+		.hashalg = ACVP_SHA1 | ACVP_SHA256 |			\
+			   ACVP_SHA384 | ACVP_SHA512			\
+		}							\
+	}
+
+#define TESTS_SSH_KDF							\
+	TESTS_SSH_KDF_AES,						\
+	TESTS_SSH_KDF_TDES
+
+/**************************************************************************
+ * SP800-132 PBKDF Definitions
+ **************************************************************************/
+#define TESTS_PBKDF(x)	GENERIC_PBKDF(x)
+
+/**************************************************************************
  * Tests Generic Definitions
  **************************************************************************/
 static const struct def_algo tests[] = {
@@ -203,7 +259,14 @@ static const struct def_algo tests[] = {
 	TESTS_KDF_CMAC_AES,
 
 	TESTS_KDF_IKEV1,
-	TESTS_KDF_IKEV2
+	TESTS_KDF_IKEV2,
+
+	TESTS_SSH_KDF,
+
+	TESTS_PBKDF(ACVP_SHA1 |
+		    ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512 |
+		    ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |
+		    ACVP_SHA3_512),
 };
 
 /**************************************************************************

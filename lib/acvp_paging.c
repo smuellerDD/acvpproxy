@@ -70,7 +70,9 @@ int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
 	CKNULL(url, -EINVAL);
 	CKNULL(testid_ctx, -EINVAL);
 
-	strncpy(parametrized_url, url, sizeof(parametrized_url));
+	strncpy(parametrized_url, url, sizeof(parametrized_url) - 1);
+	/* Safety measure */
+	parametrized_url[FILENAME_MAX - 1] = '\0';
 	CKINT(acvp_append_urloptions("limit=100", parametrized_url,
 				     sizeof(parametrized_url)));
 

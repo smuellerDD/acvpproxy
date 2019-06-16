@@ -541,6 +541,41 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 		},							\
 	}
 
+/**************************************************************************
+ * KDF Definitions
+ **************************************************************************/
+static const struct def_algo_prereqs generic_pbkdf_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+};
+
+/**
+ * @brief PBKDF definition.
+ *
+ * Cipher definition properties
+ *	* dependency on SHA is satisfied within the same ACVP register op
+ * 	* byte-wise definition of key lengths and salt lengths
+ *	* arbitrary iteration count
+ *
+ * @param sha_def SHA definition provided with cipher_definitions.h
+ */
+#define GENERIC_PBKDF(sha_def)						\
+	{								\
+	.type = DEF_ALG_TYPE_PBKDF,					\
+	.algo = {							\
+		.pbkdf = {						\
+			.hashalg = sha_def,				\
+			DEF_PREREQS(generic_pbkdf_prereqs),		\
+			DEF_ALG_DOMAIN(.keylen, 128, 4096, 8),		\
+			DEF_ALG_DOMAIN(.iteration_count, 10, 1000, 1),	\
+			DEF_ALG_DOMAIN(.passwordlen, 8, 128, 1),	\
+			DEF_ALG_DOMAIN(.saltlen, 128, 4096, 8),		\
+			}						\
+		},							\
+	}
+
 #ifdef __cplusplus
 }
 #endif

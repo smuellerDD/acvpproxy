@@ -25,6 +25,8 @@
 #####################################################################
 
 failures=0
+GCOV=$(type -p gcov)
+GCOV_LOGDIR="gcov"
 
 # color -- emit ansi color codes
 color()
@@ -88,4 +90,47 @@ echo_final()
 exit_test()
 {
 	exit $failures
+}
+
+init_common()
+{
+	trap "make -s clean; exit" 0 1 2 3 15
+
+	make clean
+
+	if [ -x "${GCOV}" ]
+	then
+		make -s gcov
+	else
+		make -s
+	fi
+}
+
+gcov_analyze()
+{
+	local file=$1
+	local tag=$2
+
+	if [ ! -f "$file" ]
+	then
+		return
+	fi
+
+	if [ ! -x "${GCOV}" ]
+	then
+		return
+	fi
+
+	if [ ! -d "${GCOV_LOGDIR}" ]
+	then
+		mkdir ${GCOV_LOGDIR} 2>/dev/null
+		if [ $? -ne 0 ]
+		then
+			return
+		fi
+	fi
+
+	local gcov_log=$(basename $file)
+	gcov_log="${gcov_log}.${tag}.gcov_log"
+	${GCOV} $file > ${GCOV_LOGDIR}/$gcov_log
 }

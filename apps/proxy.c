@@ -67,9 +67,13 @@ struct opt_data {
 	char *cipher_options_file;
 	char *cipher_options_algo[OPT_CIPHER_OPTIONS_MAX];
 	size_t cipher_options_algo_idx;
+	bool cipher_list;
 
 	bool request;
 	bool publish;
+	bool list_certificate_ids;
+	bool list_pending_request_ids;
+	bool list_verdicts;
 	bool dump_register;
 	bool request_sample;
 	bool official_testing;
@@ -287,6 +291,7 @@ static void usage(void)
 	fprintf(stderr, "Download samples after vectors are obtained (CURRENTLY NOT SUPPORTED BY ACVP SERVER):\n");
 	fprintf(stderr, "  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] --request [--testid|--vsid ID] --sample\n\n");
 	fprintf(stderr, "Usage:\n");
+	fprintf(stderr, "\tModule search criteria limiting the scope of processed modules:\n");
 	fprintf(stderr, "\t-m --module <NAME>\t\tDefinition search criteria: Name of\n");
 	fprintf(stderr, "\t\t\t\t\tcrypto module to process\n");
 	fprintf(stderr, "\t-r --releaseversion <VERSION>\tDefinition search criteria: Version\n");
@@ -339,9 +344,27 @@ static void usage(void)
 	fprintf(stderr, "\t   --resubmit-result\t\tIn case test results were already\n");
 	fprintf(stderr, "\t\t\t\t\tsubmitted for a vsID, resubmit the\n");
 	fprintf(stderr, "\t\t\t\t\tcurrent results on file to update the\n");
-	fprintf(stderr, "\t\t\t\t\tresults on the ACVP server\n");
-	fprintf(stderr, "\t   --register-definition\tRegister pending definitions with ACVP\n");
+	fprintf(stderr, "\t\t\t\t\tresults on the ACVP server\n\n");
 
+	fprintf(stderr, "\tUpdate ACVP database with content from JSON configuration files:\n");
+	fprintf(stderr, "\t   --register-definition\tRegister pending definitions with ACVP\n");
+	fprintf(stderr, "\t   --delete-definition <TYPE>\tDelete definition at ACVP server\n");
+	fprintf(stderr, "\t   --update-definition <TYPE>\tUpdate definition at ACVP server\n");
+	fprintf(stderr, "\t\t\t\t\tTYPE: [oe|vendor|module|person|force]\n");
+	fprintf(stderr, "\t\t\t\t\tNote: Force implies that even when no\n");
+	fprintf(stderr, "\t\t\t\t\t      consistency is established between\n");
+	fprintf(stderr, "\t\t\t\t\t      the ACVP server and the local\n");
+	fprintf(stderr, "\t\t\t\t\t      definition selected with the TYPE,\n");
+	fprintf(stderr, "\t\t\t\t\t      it is deleted from the ACVP\n");
+	fprintf(stderr, "\t\t\t\t\t      server.\n\n");
+
+	fprintf(stderr, "\tList of IDs and verdicts:\n");
+	fprintf(stderr, "\t   --list-request-ids\t\tList all pending request IDs\n");
+	fprintf(stderr, "\t   --list-certificate-ids\tList all certificate IDs\n");
+	fprintf(stderr, "\t   --list-verdicts\t\tList all verdicts\n\n");
+
+	fprintf(stderr, "\tGathering cipher definitions from ACVP server:\n");
+	fprintf(stderr, "\t   --cipher-list\t\tList all ciphers supported by ACVP server\n");
 	fprintf(stderr, "\t   --cipher-options <DIR>\tGet cipher options from ACVP server\n");
 	fprintf(stderr, "\t   --cipher-algo <ALGO>\t\tGet cipher options particular cipher\n");
 
@@ -407,6 +430,55 @@ static int duplicate_string(char **dst, char *src)
 	return 0;
 }
 
+static bool ask_yes(const char *question)
+{
+	unsigned char answer;
+
+	fprintf_red(stdout, "%s (Y/N)? ", question);
+
+	while (1) {
+		answer = fgetc(stdin);
+
+		switch (answer) {
+		case 'y':
+		case 'Y':
+		case 'j':
+		case 'J':
+			return true;
+		case 'n':
+		case 'N':
+			return false;
+		default:
+			if (answer < 127 && answer > 31)
+				fprintf_red(stdout, "%s (Y/N)? ", question);
+			break;
+		}
+	}
+
+	return false;
+}
+
+static int convert_update_delete_type(const char *string, unsigned int *option)
+{
+	if (!strncmp(string, "oe", 2)) {
+		*option |= ACVP_OPTS_DELUP_OE;
+	} else if (!strncmp(string, "vendor", 6)) {
+		*option |= ACVP_OPTS_DELUP_VENDOR;
+	} else if (!strncmp(string, "person", 6)) {
+		*option |= ACVP_OPTS_DELUP_PERSON;
+	} else if (!strncmp(string, "module", 6)) {
+		*option |= ACVP_OPTS_DELUP_MODULE;
+	} else if (!strncmp(string, "force", 5)) {
+		*option |= ACVP_OPTS_DELUP_FORCE;
+	} else {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		"Unknown delete type %s\n", string);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 {
 	struct acvp_search_ctx *search = &opts->search;
@@ -453,9 +525,16 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 
 			{"resubmit-result",	no_argument,		0, 0},
 			{"register-definition",	no_argument,		0, 0},
+			{"delete-definition",	required_argument,	0, 0},
+			{"update-definition",	required_argument,	0, 0},
+
+			{"list-request-ids",	no_argument,		0, 0},
+			{"list-certificate-ids",no_argument,		0, 0},
+			{"list-verdicts",	no_argument,		0, 0},
 
 			{"cipher-options",	required_argument,	0, 0},
 			{"cipher-algo",		required_argument,	0, 0},
+			{"cipher-list",		no_argument,		0, 0},
 
 			{0, 0, 0, 0}
 		};
@@ -619,12 +698,30 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				opts->acvp_ctx_options.register_new_vendor = true;
 				opts->acvp_ctx_options.register_new_oe = true;
 				break;
-
 			case 28:
+				CKINT(convert_update_delete_type(optarg,
+				  &opts->acvp_ctx_options.delete_db_entry));
+				break;
+			case 29:
+				CKINT(convert_update_delete_type(optarg,
+				  &opts->acvp_ctx_options.update_db_entry));
+				break;
+
+			case 30:
+				opts->list_pending_request_ids = true;
+				break;
+			case 31:
+				opts->list_certificate_ids = true;
+				break;
+			case 32:
+				opts->list_verdicts = true;
+				break;
+
+			case 33:
 				CKINT(duplicate_string(&opts->cipher_options_file,
 						       optarg));
 				break;
-			case 29:
+			case 34:
 				CKINT(duplicate_string(&opts->cipher_options_algo[opts->cipher_options_algo_idx],
 						       optarg));
 				opts->cipher_options_algo_idx++;
@@ -633,6 +730,9 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					ret = -EOVERFLOW;
 					goto out;
 				}
+				break;
+			case 35:
+				opts->cipher_list = true;
 				break;
 
 			default:
@@ -701,6 +801,36 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			ret = -EINVAL;
 			goto out;
 			break;
+		}
+	}
+
+	if (opts->acvp_ctx_options.delete_db_entry == ACVP_OPTS_DELUP_FORCE) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Forcing a deletion without specifying the definition type to delete is useless, use --delete-definition once or more with an option of [oe|vendor|module|person]\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if ((logger_get_verbosity(LOGGER_C_ANY) > LOGGER_NONE) &&
+	    opts->acvp_ctx_options.delete_db_entry) {
+		if (!ask_yes("Are you sure to perform a deletion operation")) {
+			ret = -EINVAL;
+			goto out;
+		}
+
+		if ((opts->acvp_ctx_options.delete_db_entry &
+		     ACVP_OPTS_DELUP_FORCE) &&
+		    !ask_yes("Are you sure to perform a forced deletion operation")) {
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+
+	if ((logger_get_verbosity(LOGGER_C_ANY) > LOGGER_NONE) &&
+	    opts->acvp_ctx_options.update_db_entry) {
+		if (!ask_yes("Are you sure to perform an update operation")) {
+			ret = -EINVAL;
+			goto out;
 		}
 	}
 
@@ -963,6 +1093,38 @@ out:
 	return ret;
 }
 
+static int list_ids(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts));
+
+	if (opts->list_certificate_ids) {
+		CKINT(acvp_list_certificate_ids(ctx));
+	} else if (opts->list_pending_request_ids) {
+		CKINT(acvp_list_request_ids(ctx));
+	}
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int list_verdicts(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts));
+
+	CKINT(acvp_list_verdicts(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 static int do_fetch_cipher_options(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
@@ -995,12 +1157,17 @@ int main(int argc, char *argv[])
 
 	CKINT(set_totp_seed(&opts));
 
-	if (opts.cipher_options_file) {
+	if (opts.cipher_list || opts.cipher_options_file) {
 		CKINT(do_fetch_cipher_options(&opts));
 	} else if (opts.request) {
 		CKINT(do_register(&opts));
 	} else if (opts.publish) {
 		CKINT(do_publish(&opts));
+	} else if (opts.list_certificate_ids ||
+		   opts.list_pending_request_ids) {
+		CKINT(list_ids(&opts));
+	} else if (opts.list_verdicts) {
+		CKINT(list_verdicts(&opts));
 	} else {
 		CKINT(do_submit(&opts));
 	}

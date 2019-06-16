@@ -70,8 +70,14 @@ out:
 static int acvp_req_eddsa_keyver(const struct def_algo_eddsa *eddsa,
 				 struct json_object *entry)
 {
-	return acvp_req_cipher_to_array(entry, eddsa->curve,
-					ACVP_CIPHERTYPE_ECC, "curve");
+	int ret;
+
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+	CKINT(acvp_req_cipher_to_array(entry, eddsa->curve,
+				       ACVP_CIPHERTYPE_ECC, "curve"));
+
+out:
+	return ret;
 }
 
 
@@ -80,6 +86,8 @@ static int acvp_req_eddsa_siggen(const struct def_algo_eddsa *eddsa,
 {
 	int ret;
 	bool boolean;
+
+	CKINT(acvp_req_add_revision(entry, "1.0"));
 
 	CKINT_LOG(acvp_req_cipher_to_array(entry, eddsa->curve,
 					   ACVP_CIPHERTYPE_ECC, "curve"),
@@ -122,7 +130,13 @@ out:
 static int acvp_req_eddsa_sigver(const struct def_algo_eddsa *eddsa,
 				 struct json_object *entry)
 {
-	return acvp_req_eddsa_siggen(eddsa, entry);
+	int ret;
+
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+	CKINT(acvp_req_eddsa_siggen(eddsa, entry));
+
+out:
+	return ret;
 }
 
 /*

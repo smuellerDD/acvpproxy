@@ -55,7 +55,7 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 		ret2 = na->acvp_http_get(&netinfo, response);
 		break;
 	case acvp_http_delete:
-		ret2 = na->acvp_http_delete(&netinfo);
+		ret2 = na->acvp_http_delete(&netinfo, response);
 		break;
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY, "Wrong HTTP submit type %u\n",
