@@ -77,7 +77,7 @@ static struct opt_data *global_opts = NULL;
 
 static void usage(void)
 {
-	char version[50];
+	char version[200];
 
 	acvp_versionstring(version, sizeof(version));
 
@@ -217,7 +217,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 {
 	struct acvp_search_ctx *search = &opts->search;
 	int c = 0, ret;
-	char version[50] = { 0 };
+	char version[200] = { 0 };
 	unsigned long val = 0;
 	long lval;
 	unsigned int dolist = 0, listunregistered = 0, modconf_loaded = 0;

@@ -1,4 +1,4 @@
-/* ACVP Proxy hash and HMAC module definition
+/* ACVP test AEAD module definition
  *
  * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
  *

@@ -53,7 +53,7 @@ int acvp_req_set_algo_shake(const struct def_algo_shake *shake,
 	CKINT(json_object_object_add(entry, "outBit",
 				     json_object_new_boolean(shake->outbit)));
 
-	CKINT(acvp_req_algo_int_array(entry, shake->outlength, "outputLength"));
+	CKINT(acvp_req_algo_int_array(entry, shake->outlength, "outputLen"));
 
 out:
 	return ret;

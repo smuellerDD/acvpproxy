@@ -16,7 +16,7 @@
         "inBit":false,
         "inEmpty":true,
         "outBit":false,
-        "outputLength":[
+        "outputLen":[
           {
             "min":16,
             "max":65536,
@@ -30,7 +30,7 @@
         "inBit":false,
         "inEmpty":true,
         "outBit":false,
-        "outputLength":[
+        "outputLen":[
           {
             "min":16,
             "max":65536,

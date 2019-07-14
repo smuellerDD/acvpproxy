@@ -1,3 +1,14 @@
+v1.0.0
+- replace --list-certificate-ids with --list-available-ids
+- version crypto implementation
+- OpenSSL: Add SSH KDF
+- add: AES-FF1 and AES-FF3-1 support
+- production ACVP: use testvector-production and secure-datastore-production databases
+- add GMAC testing support
+- fix OE / Dependency meta data handling
+- first official ACVP certificate using the production server: https://csrc.nist.gov/projects/cryptographic-algorithm-validation-program/details?product=11251
+- Generic HMAC definition: use domain from 8 to 524288 bits for key size
+
 v0.7.2
 - add support for DELETE of all meta data endpoints
 - add support for listing certificate IDs and pending request IDs

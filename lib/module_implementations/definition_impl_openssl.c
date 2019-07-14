@@ -694,6 +694,57 @@ static const struct def_algo_prereqs openssl_kdf_prereqs[] = {
 	}
 
 /**************************************************************************
+ * SSH Definitions
+ **************************************************************************/
+static const struct def_algo_prereqs openssl_kdf_aes_prereqs[] = {
+	{
+		.algorithm = "AES",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+};
+
+static const struct def_algo_prereqs openssl_kdf_tdes_prereqs[] = {
+	{
+		.algorithm = "TDES",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+};
+
+#define OPENSSL_KDF_AES							\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_SSH,					\
+	.algo.kdf_ssh = {						\
+		DEF_PREREQS(openssl_kdf_aes_prereqs),			\
+		.cipher = ACVP_AES128 | ACVP_AES192 | ACVP_AES256,	\
+		.hashalg = ACVP_SHA1 | ACVP_SHA256 |			\
+			   ACVP_SHA384 | ACVP_SHA512			\
+		}							\
+	}
+
+#define OPENSSL_KDF_TDES						\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_SSH,					\
+	.algo.kdf_ssh = {						\
+		DEF_PREREQS(openssl_kdf_tdes_prereqs),			\
+		.cipher = ACVP_TDES,					\
+		.hashalg = ACVP_SHA1 | ACVP_SHA256 |			\
+			   ACVP_SHA384 | ACVP_SHA512			\
+		}							\
+	}
+
+#define OPENSSL_KDF_SSH							\
+	OPENSSL_KDF_AES,						\
+	OPENSSL_KDF_TDES
+
+/**************************************************************************
  * SP800-132 PBKDF Definitions
  **************************************************************************/
 #define OPENSSL_PBKDF(x)	GENERIC_PBKDF(x)
@@ -802,6 +853,10 @@ static const struct def_algo openssl_sha [] = {
 		      ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |ACVP_SHA512 |
 		      ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |
 		      ACVP_SHA3_512),
+};
+
+static const struct def_algo openssl_ssh [] = {
+	OPENSSL_KDF_SSH
 };
 
 static const struct def_algo openssl_sha3 [] = {
@@ -947,11 +1002,21 @@ static struct def_algo_map openssl_algo_map [] = {
 		.processor = "X86",
 		.impl_name = "SHA_AVX2"
 	}, {
+		SET_IMPLEMENTATION(openssl_ssh),
+		.algo_name = "OpenSSL",
+		.processor = "X86",
+		.impl_name = "SSH_AVX2"
+	}, {
 	/* OpenSSL SHA AVX implementation *************************************/
 		SET_IMPLEMENTATION(openssl_sha),
 		.algo_name = "OpenSSL",
 		.processor = "X86",
 		.impl_name = "SHA_AVX"
+	}, {
+		SET_IMPLEMENTATION(openssl_ssh),
+		.algo_name = "OpenSSL",
+		.processor = "X86",
+		.impl_name = "SSH_AVX"
 	}, {
 	/* OpenSSL SHA SSSE3 implementation ***********************************/
 		SET_IMPLEMENTATION(openssl_sha),
@@ -959,11 +1024,21 @@ static struct def_algo_map openssl_algo_map [] = {
 		.processor = "X86",
 		.impl_name = "SHA_SSSE3"
 	}, {
+		SET_IMPLEMENTATION(openssl_ssh),
+		.algo_name = "OpenSSL",
+		.processor = "X86",
+		.impl_name = "SSH_SSSE3"
+	}, {
 	/* OpenSSL SHA assembler implementation *******************************/
 		SET_IMPLEMENTATION(openssl_sha),
 		.algo_name = "OpenSSL",
 		.processor = "X86",
 		.impl_name = "SHA_ASM"
+	}, {
+		SET_IMPLEMENTATION(openssl_ssh),
+		.algo_name = "OpenSSL",
+		.processor = "X86",
+		.impl_name = "SSH_ASM"
 	}, {
 	/* OpenSSL SHA3 AVX2 implementation ***********************************/
 		SET_IMPLEMENTATION(openssl_sha3),

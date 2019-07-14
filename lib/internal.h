@@ -34,17 +34,17 @@ extern "C"
 {
 #endif
 
-#define MAJVERSION 0   /* API / ABI incompatible changes,
+#define MAJVERSION 1   /* API / ABI incompatible changes,
 			* functional changes that require consumer
 			* to be updated (as long as this number is
 			* zero, the API is not considered stable
 			* and can change without a bump of the
 			* major version). */
-#define MINVERSION 7   /* API compatible, ABI may change,
+#define MINVERSION 0   /* API compatible, ABI may change,
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 2   /* API / ABI compatible, no functional
+#define PATCHLEVEL 0   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -679,8 +679,10 @@ bool acvp_req_is_production(void);
 
 /* Data store directory for sensitive data including debug logs */
 #define ACVP_DS_CREDENTIALDIR			"secure-datastore"
+#define ACVP_DS_CREDENTIALDIR_PRODUCTION	"secure-datastore-production"
 /* Data store directory for testvectors and other regular data */
 #define ACVP_DS_DATADIR				"testvectors"
+#define ACVP_DS_DATADIR_PRODUCTION		"testvectors-production"
 /* File that will hold the test response data */
 #define ACVP_DS_TESTRESPONSE			"testvector-response.json"
 /* File that stores the test vector */

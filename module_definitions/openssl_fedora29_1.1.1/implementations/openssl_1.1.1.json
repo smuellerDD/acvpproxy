@@ -2,6 +2,10 @@
 	"implementations": [
 		"SHA3_AVX2",
 		"SHA3_AVX512",
-		"SHA3_ASM"
+		"SHA3_ASM",
+		"SSH_AVX2",
+		"SSH_AVX",
+		"SSH_SSSE3",
+		"SSH_ASM"
 	]
 }

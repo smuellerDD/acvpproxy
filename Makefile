@@ -80,6 +80,9 @@ C_GCOV += ${C_SRCS:.c=.gcno}
 C_GCOV += ${C_SRCS:.c=.gcov}
 OBJS := $(M_OBJS) $(C_OBJS)
 
+CRYPTOVERSION := $(shell cat lib/hash/hash.c lib/hash/hash.h lib/hash/hmac.c lib/hash/hmac.h lib/hash/sha1.c lib/hash/sha1.h lib/hash/sha224.c lib/hash/sha224.h lib/hash/sha256.c lib/hash/sha256.h lib/hash/sha384.c lib/hash/sha384.h lib/hash/sha512.c lib/hash/sha512.h | openssl sha1 | cut -f 2 -d " ")
+CFLAGS += -DCRYPTOVERSION=\"$(CRYPTOVERSION)\"
+
 analyze_srcs = $(filter %.c, $(sort $(C_SRCS)))
 analyze_plists = $(analyze_srcs:%.c=%.plist)
 
@@ -108,7 +111,7 @@ gcov: DBG-$(NAME)
 #
 # Build the application
 #
-##############################################################################
+###############################################################################
 
 $(NAME): $(OBJS)
 	$(CC) -o $(NAME) $(OBJS) $(LDFLAGS)
@@ -159,3 +162,4 @@ show_vars:
 	@echo EXCLUDED=$(EXCLUDED)
 	@echo SOURCES=$(C_SRCS)
 	@echo OBJECTS=$(OBJS)
+	@echo CRYPTOVERSION=$(CRYPTOVERSION)

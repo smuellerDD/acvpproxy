@@ -29,6 +29,42 @@
 #include "internal.h"
 #include "request_helper.h"
 
+static int acvp_req_sym_aes_ff_caps(const struct def_algo_sym_aes_ff *aes_ff,
+				    struct json_object *caps_entry)
+{
+	int ret = 0;
+
+	CKINT(json_object_object_add(caps_entry, "alphabet",
+				     json_object_new_string(aes_ff->alphabet)));
+
+	if (aes_ff->radix < 2 || aes_ff->radix > 62) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "AES FF radix over/underflow\n");
+		return -EINVAL;
+	}
+	CKINT(json_object_object_add(caps_entry, "radix",
+				     json_object_new_int(aes_ff->radix)));
+
+	if (aes_ff->minlen < 2 || aes_ff->minlen > aes_ff->maxlen) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "AES FF minimum length over/underflow\n");
+		return -EINVAL;
+	}
+	CKINT(json_object_object_add(caps_entry, "minLen",
+				     json_object_new_int(aes_ff->minlen)));
+
+	if (aes_ff->maxlen < aes_ff->minlen) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "AES FF maximum length over/underflow\n");
+		return -EINVAL;
+	}
+	CKINT(json_object_object_add(caps_entry, "maxLen",
+				     json_object_new_int(aes_ff->maxlen)));
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for symmetric ciphers
  */
@@ -39,6 +75,24 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	int ret = -EINVAL;
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
+
+	/*
+	 * AES_GCM with zero payload length is not allowed any more.
+	 */
+	if (acvp_match_cipher(sym->algorithm, ACVP_GCM)) {
+		unsigned int i;
+
+		for (i = 0; i < DEF_ALG_MAX_INT; i++) {
+			int ptlen = sym->ptlen[i] & ~DEF_ALG_RANGE_TYPE;
+
+			if (ptlen == DEF_ALG_ZERO_VALUE) {
+				logger(LOGGER_ERR, LOGGER_C_ANY,
+				       "AES GCM definition with zero plaintext length is disallowed - use the AES GMAC definition\n");
+				ret = -EINVAL;
+				goto out;
+			}
+		}
+	}
 
 	CKINT(acvp_req_cipher_to_string(entry, sym->algorithm,
 				        ACVP_CIPHERTYPE_AES |
@@ -62,7 +116,10 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 
 	CKINT(acvp_req_sym_keylen(entry, sym->keylen));
 
-	CKINT(acvp_req_algo_int_array_always(entry, sym->ptlen, "payloadLen"));
+	if (!acvp_match_cipher(sym->algorithm, ACVP_GMAC)) {
+		CKINT(acvp_req_algo_int_array_always(entry, sym->ptlen,
+						     "payloadLen"));
+	}
 
 	CKINT(acvp_req_algo_int_array(entry, sym->ivlen, "ivLen"));
 
@@ -304,6 +361,30 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		ret = -EINVAL;
 		goto out;
 		break;
+	}
+
+	if (acvp_match_cipher(sym->algorithm, ACVP_FF1) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_FF3_1)) {
+		struct json_object *caps_array, *caps_entry;
+		unsigned int i;
+
+		CKINT(acvp_req_algo_int_array(entry, sym->tweaklen,
+					      "tweakLen"));
+
+		caps_array = json_object_new_array();
+		CKNULL(caps_array, -ENOMEM);
+		CKINT(json_object_object_add(entry, "capabilities",
+					     caps_array));
+
+		for (i = 0; i < sym->capabilities_num; i++) {
+			const struct def_algo_sym_aes_ff *caps =
+						sym->capabilities.aes_ff + i;
+
+			caps_entry = json_object_new_object();
+			CKNULL(caps_entry, -ENOMEM);
+			CKINT(json_object_array_add(caps_array, caps_entry));
+			CKINT(acvp_req_sym_aes_ff_caps(caps, caps_entry));
+		}
 	}
 
 	return 0;

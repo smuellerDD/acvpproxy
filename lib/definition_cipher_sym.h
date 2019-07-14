@@ -36,6 +36,56 @@ extern "C"
 {
 #endif
 
+/****************************************************************************
+ * AES-FF1 and AES-FF3-1 capability data
+ ****************************************************************************/
+struct def_algo_sym_aes_ff {
+	/*
+	 * An alphabet the IUT supports for Format Preserving Encryption.
+	 * Example "0123456789abcdefghijklmnopqrstuvwxyz". Alphabets should be
+	 * a minimum of two characters, and a maximum of 62 (all numbers and
+	 * upper and lower case letters).
+	 *
+	 * required: always
+	 */
+	const char *alphabet;
+
+	/*
+	 * The number base for this capability, should match the number of
+	 * characters from the alphabet.
+	 *
+	 * min: 2
+	 * max 62
+	 *
+	 * required: always
+	 */
+	unsigned int radix;
+
+	/*
+	 * The minimum payload length the IUT can support for this alphabet.
+	 *
+	 * min: 2
+	 * max: maxlen
+	 *
+	 * required: always
+	 */
+	unsigned int minlen;
+
+	/*
+	 * The maximum payload length the IUT can support for this alphabet.
+	 *
+	 * min: minlen
+	 * max: variable calculation based on radix and algorithm, see
+	 *      [SP800-38Gr1].
+	 *
+	 * required: always
+	 */
+	unsigned int maxlen;
+};
+
+/****************************************************************************
+ * Symmetric cipher  common data
+ ****************************************************************************/
 /*
  * Symmetric ciphers of AES and TDES, including AEAD ciphers
  */
@@ -46,12 +96,15 @@ struct def_algo_sym {
 	 * AES-CBC_CS1
 	 * AES-CBC_CS2
 	 * AES-CBC_CS3
+	 * AES-FF1
+	 * AES-FF3-1
 	 * AES-OFB
 	 * AES-CFB1
 	 * AES-CFB8
 	 * AES-CFB128
 	 * AES-CTR
 	 * AES-GCM
+	 * AES-GMAC
 	 * AES-XPN
 	 * AES-CCM
 	 * AES-XTS
@@ -248,6 +301,32 @@ struct def_algo_sym {
 		DEF_ALG_SYM_CTRINCREMENT_INCREMENT,
 		DEF_ALG_SYM_CTRINCREMENT_DECREMENT
 	} ctrincrement;
+
+	/*
+	 * The domain of values allowed for ACVP-AES-FF1's tweak value.
+	 * Allowed range is 0-128 bits mod 8.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * required: only for AES-FF1 and AES-FF3-1
+	 */
+	int tweaklen[DEF_ALG_MAX_INT];
+
+	/*
+	 * Specific capabilities for the AES-FF1 and AES-FF3-1 cipher.
+	 *
+	 * required: only for AES-FF1 and AES-FF3-1
+	 */
+	union {
+		const struct def_algo_sym_aes_ff *aes_ff;
+	} capabilities;
+
+	/*
+	 * Number of capabilities, if 0, no entry is added to JSON
+	 * Note, the capabilities pointer above must point to the first
+	 * entry of an array of capabilities!
+	 */
+	unsigned int capabilities_num;
 };
 
 #ifdef __cplusplus

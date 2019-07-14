@@ -1,7 +1,7 @@
 {
-  "oeEnvName":"Fedora 29",
+  "oeEnvName":"Fedora 30",
   "_swid_COMMENT":"from /etc/swid/swidtags.d/fedoraproject.org/org.fedoraproject.Fedora-29.swidtag",
-  "swid":"org.fedoraproject.Fedora-29",
+  "swid":"org.fedoraproject.Fedora-30",
   "_oe_description_COMMENT":"from /etc/swid/swidtags.d/fedoraproject.org/org.fedoraproject.Fedora-29.swidtag",
   "oe_description":"Linux distribution developed by the community-supported Fedora Project and sponsored by Red Hat, Inc.",
   "manufacturer":"Intel",
@@ -12,5 +12,8 @@
   "envType":0,
   "acvpOeDepProcId":20094,
   "acvpOeDepSwId":20095,
-  "acvpOeId":19621
+  "acvpOeId":19621,
+  "acvpOeIdProduction":21645,
+  "acvpOeDepProcIdProduction":23611,
+  "acvpOeDepSwIdProduction":23612
 }

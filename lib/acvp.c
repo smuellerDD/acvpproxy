@@ -372,6 +372,7 @@ DSO_PUBLIC
 int acvp_req_production(struct acvp_ctx *ctx)
 {
 	struct acvp_req_ctx *req_details;
+	struct acvp_datastore_ctx *datastore;
 	int ret = 0;
 
 	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
@@ -395,6 +396,21 @@ int acvp_req_production(struct acvp_ctx *ctx)
 
 	acvp_production = true;
 
+	datastore = &ctx->datastore;
+	if (!strncmp(datastore->basedir, ACVP_DS_DATADIR,
+		     strlen(ACVP_DS_DATADIR))) {
+		ACVP_PTR_FREE_NULL(datastore->basedir);
+		CKINT(acvp_duplicate(&datastore->basedir,
+				     ACVP_DS_DATADIR_PRODUCTION));
+	}
+
+	if (!strncmp(datastore->secure_basedir, ACVP_DS_CREDENTIALDIR,
+		     strlen(ACVP_DS_CREDENTIALDIR))) {
+		ACVP_PTR_FREE_NULL(datastore->secure_basedir);
+		CKINT(acvp_duplicate(&datastore->secure_basedir,
+				     ACVP_DS_CREDENTIALDIR_PRODUCTION));
+	}
+
 out:
 	return ret;
 }
@@ -405,12 +421,19 @@ int acvp_versionstring_short(char *buf, size_t buflen)
 			MAJVERSION, MINVERSION, PATCHLEVEL);
 }
 
+#ifdef CRYPTOVERSION
+#define _CRYPTOVERSION CRYPTOVERSION
+#else
+#define _CRYPTOVERSION NULL
+#endif
 
 DSO_PUBLIC
 int acvp_versionstring(char *buf, size_t buflen)
 {
-	return snprintf(buf, buflen, "ACVPProxy/%d.%d.%d\nDatastore version %d",
-			MAJVERSION, MINVERSION, PATCHLEVEL, ACVP_DS_VERSION);
+	return snprintf(buf, buflen,
+			"ACVPProxy/%d.%d.%d\nDatastore version %d\nCrypto version: %s",
+			MAJVERSION, MINVERSION, PATCHLEVEL, ACVP_DS_VERSION,
+			_CRYPTOVERSION ? _CRYPTOVERSION : "undefined");
 }
 
 DSO_PUBLIC
@@ -497,7 +520,6 @@ int acvp_ctx_init(struct acvp_ctx **ctx,
 				     datastore_basedir));
 	} else {
 		CKINT(acvp_duplicate(&datastore->basedir, ACVP_DS_DATADIR));
-
 	}
 
 	/*

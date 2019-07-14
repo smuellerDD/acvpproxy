@@ -51,9 +51,9 @@ static const struct def_algo acvpproxy[] = {
 static struct def_algo_map acvpproxy_algo_map [] = {
 	{
 		SET_IMPLEMENTATION(acvpproxy),
-		.algo_name = "ACVPProxy",
+		.algo_name = "Crypto for ACVPProxy",
 		.processor = "",
-		.impl_name = "Common"
+		.impl_name = "Generic C"
 	}
 };
 

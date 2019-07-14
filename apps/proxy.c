@@ -71,7 +71,7 @@ struct opt_data {
 
 	bool request;
 	bool publish;
-	bool list_certificate_ids;
+	bool list_available_ids;
 	bool list_pending_request_ids;
 	bool list_verdicts;
 	bool dump_register;
@@ -274,7 +274,7 @@ out:
 
 static void usage(void)
 {
-	char version[50];
+	char version[200];
 
 	acvp_versionstring(version, sizeof(version));
 
@@ -360,15 +360,18 @@ static void usage(void)
 
 	fprintf(stderr, "\tList of IDs and verdicts:\n");
 	fprintf(stderr, "\t   --list-request-ids\t\tList all pending request IDs\n");
-	fprintf(stderr, "\t   --list-certificate-ids\tList all certificate IDs\n");
+	fprintf(stderr, "\t   --list-available-ids\t\tList all available IDs\n");
 	fprintf(stderr, "\t   --list-verdicts\t\tList all verdicts\n\n");
 
 	fprintf(stderr, "\tGathering cipher definitions from ACVP server:\n");
-	fprintf(stderr, "\t   --cipher-list\t\tList all ciphers supported by ACVP server\n");
+	fprintf(stderr, "\t   --cipher-list\t\tList all ciphers supported by ACVP\n");
+	fprintf(stderr, "\t\t\t\t\tserver\n");
 	fprintf(stderr, "\t   --cipher-options <DIR>\tGet cipher options from ACVP server\n");
-	fprintf(stderr, "\t   --cipher-algo <ALGO>\t\tGet cipher options particular cipher\n");
+	fprintf(stderr, "\t\t\t\t\tand store them in <DIR>\n");
+	fprintf(stderr, "\t   --cipher-algo <ALGO>\t\tGet cipher options particular cipher\n\n");
 
-	fprintf(stderr, "\n\t-v --verbose\t\t\tVerbose logging, multiple options\n");
+	fprintf(stderr, "\tAuxiliary options:\n");
+	fprintf(stderr, "\t-v --verbose\t\t\tVerbose logging, multiple options\n");
 	fprintf(stderr, "\t\t\t\t\tincrease verbosity\n");
 	fprintf(stderr, "\t\t\t\t\tNote: In debug mode (3 or more -v),\n");
 	fprintf(stderr, "\t\t\t\t\t      threading is disabled.\n");
@@ -483,7 +486,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 {
 	struct acvp_search_ctx *search = &opts->search;
 	int c = 0, ret;
-	char version[50] = { 0 };
+	char version[200] = { 0 };
 	unsigned long val = 0;
 	long lval;
 	unsigned int dolist = 0, listunregistered = 0, modconf_loaded = 0;
@@ -529,7 +532,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"update-definition",	required_argument,	0, 0},
 
 			{"list-request-ids",	no_argument,		0, 0},
-			{"list-certificate-ids",no_argument,		0, 0},
+			{"list-available-ids",	no_argument,		0, 0},
 			{"list-verdicts",	no_argument,		0, 0},
 
 			{"cipher-options",	required_argument,	0, 0},
@@ -711,7 +714,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				opts->list_pending_request_ids = true;
 				break;
 			case 31:
-				opts->list_certificate_ids = true;
+				opts->list_available_ids = true;
 				break;
 			case 32:
 				opts->list_verdicts = true;
@@ -1100,8 +1103,8 @@ static int list_ids(struct opt_data *opts)
 
 	CKINT(initialize_ctx(&ctx, opts));
 
-	if (opts->list_certificate_ids) {
-		CKINT(acvp_list_certificate_ids(ctx));
+	if (opts->list_available_ids) {
+		CKINT(acvp_list_available_ids(ctx));
 	} else if (opts->list_pending_request_ids) {
 		CKINT(acvp_list_request_ids(ctx));
 	}
@@ -1163,7 +1166,7 @@ int main(int argc, char *argv[])
 		CKINT(do_register(&opts));
 	} else if (opts.publish) {
 		CKINT(do_publish(&opts));
-	} else if (opts.list_certificate_ids ||
+	} else if (opts.list_available_ids ||
 		   opts.list_pending_request_ids) {
 		CKINT(list_ids(&opts));
 	} else if (opts.list_verdicts) {

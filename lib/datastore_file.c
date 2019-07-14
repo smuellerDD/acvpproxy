@@ -709,9 +709,15 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 	CKINT(acvp_extend_string(resppath, sizeof(resppath), "/%s",
 				 datastore->resultsfile));
 
-	CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, processedpath,
+	ret = acvp_datastore_file_vectordir_vsid(vsid_ctx, processedpath,
 						 sizeof(processedpath), false,
-						 true));
+						 true);
+	/*
+	 * It is permissible to have a non-existing path here, we check it
+	 * further down with stat anyway.
+	 */
+	if (ret && ret != -ENOENT)
+		goto out;
 	CKINT(acvp_extend_string(processedpath, sizeof(processedpath), "/%s",
 				 datastore->processedfile));
 
@@ -773,17 +779,11 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 				 */
 				vsid_ctx->fetch_verdict = true;
 				return cb(vsid_ctx, NULL);
-			} else {
-				return 0;
 			}
 		} else {
 			vsid_ctx->resubmit_result = true;
 		}
 	}
-
-	logger_status(LOGGER_C_DS_FILE,
-		      "Start processing testID %u with vsID %u\n",
-		      testid_ctx->testid, vsid_ctx->vsid);
 
 	/* Get response file */
 	if (stat(resppath, &statbuf)) {
@@ -888,10 +888,6 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 	}
 
 out:
-	logger_status(LOGGER_C_DS_FILE,
-		      "Processing completed for testID %u with vsID %u with return code %d\n",
-		      testid_ctx->testid, vsid_ctx->vsid, ret);
-
 	return ret;
 }
 
@@ -1366,6 +1362,7 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 	struct dirent *dirent;
 	DIR *dir = NULL;
 	char pathname[FILENAME_MAX - 100];
+	char secure_base[FILENAME_MAX - 100];
 	unsigned int i = 0;
 	int ret;
 
@@ -1417,6 +1414,9 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 		if (!testid)
 			continue;
 
+		/* Fudge the testid_ctx */
+		testid_ctx.testid = testid;
+
 		/*
 		 * If specific testID is requested, only return requested
 		 * testID. If there is no testID search criteria, all testIDs
@@ -1446,9 +1446,6 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 			unsigned int i, found = 0;
 			char pathname[FILENAME_MAX];
 
-			/* Fudge the testid_ctx */
-			testid_ctx.testid = testid;
-
 			/* Fudge the vsid_ctx */
 			memset(&vsid_ctx, 0, sizeof(vsid_ctx));
 			vsid_ctx.testid_ctx = &testid_ctx;
@@ -1472,6 +1469,26 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 				continue;
 			}
 		}
+
+		/*
+		 * Check any potentially existing definition stored in
+		 * the secure database with the current module definition.
+		 * Skip the current definition if the stored definition does
+		 * not match.
+		 *
+		 * This is necessary if, for example we have one module with
+		 * two OE JSON definitions. If you perform a search with
+		 * the testid pointing to one of the two OEs, still both
+		 * OEs would be returned if this check is not made.
+		 */
+		ret = acvp_datastore_file_vectordir(&testid_ctx, secure_base,
+						    sizeof(secure_base), false,
+						    true);
+		if (!ret) {
+			if (acvp_def_check(&testid_ctx, secure_base))
+				continue;
+		}
+		ret = 0;
 
 		testids[i] = testid;
 		i++;

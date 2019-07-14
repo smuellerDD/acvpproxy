@@ -418,13 +418,13 @@ int acvp_publish(const struct acvp_ctx *ctx);
 int acvp_list_request_ids(const struct acvp_ctx *ctx);
 
 /**
- * @brief List all certificate IDs for the given (search) context. A test
+ * @brief List all available IDs for the given (search) context. A test
  *	  session ID is also a certificate id.
  *
  * @param ctx [in] ACVP Proxy library context
  * @return 0 on success, < 0 on error
  */
-int acvp_list_certificate_ids(const struct acvp_ctx *ctx);
+int acvp_list_available_ids(const struct acvp_ctx *ctx);
 
 /**
  * @brief List all test verdicts for the given (search) context.

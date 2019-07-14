@@ -1,0 +1,12 @@
+{
+  "moduleName":"Crypto for ACVPProxy",
+  "moduleVersion":"1.0",
+  "moduleDescription":"The ACVPProxy access the NIST ACVP server to obtain test vectors and return test responses. The covered cryptographic implementation is 1f404983c180b39c6fe0b56e1eddb1c7250f0fdd.",
+  "moduleType":0,
+  "acvpModuleIdsProduction":[
+    {
+      "acvpModuleNameProduction":"Crypto for ACVPProxy (Generic C)",
+      "acvpModuleIdProduction":11251
+    }
+  ]
+}
