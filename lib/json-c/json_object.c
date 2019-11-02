@@ -103,13 +103,13 @@ get_string_component(const struct json_object *jso)
 
 /* string escaping */
 
-static int json_escape_str(struct printbuf *pb, const char *str, int len, int flags)
+static int json_escape_str(struct printbuf *pb, const char *str, size_t len, int flags)
 {
 	int pos = 0, start_offset = 0;
 	unsigned char c;
 	while (len--)
 	{
-		c = str[pos];
+		c = (unsigned char)str[pos];
 		switch(c)
 		{
 		case '\b':
@@ -623,7 +623,7 @@ static int json_object_int_to_json_string(struct json_object* jso,
 	/* room for 19 digits, the sign char, and a null term */
 	char sbuf[21];
 	snprintf(sbuf, sizeof(sbuf), "%" PRId64, jso->o.c_int64);
-	return printbuf_memappend (pb, sbuf, strlen(sbuf));
+	return printbuf_memappend (pb, sbuf, (int)strlen(sbuf));
 }
 
 struct json_object* json_object_new_int(int32_t i)
@@ -865,7 +865,7 @@ static int json_object_double_to_json_string_format(struct json_object* jso,
 			}
 			/* drop trailing zeroes */
 			*(++p) = 0;
-			size = p-buf;
+			size = (int)(p-buf);
 		}
 	}
 	// although unlikely, snprintf can fail
@@ -930,7 +930,7 @@ struct json_object* json_object_new_double_s(double d, const char *ds)
 int json_object_userdata_to_json_string(struct json_object *jso,
 	struct printbuf *pb, int level, int flags)
 {
-	int userdata_len = strlen((const char *)jso->_userdata);
+	int userdata_len = (int)strlen((const char *)jso->_userdata);
 
 	(void)level;
 	(void)flags;
@@ -1012,7 +1012,7 @@ static int json_object_string_to_json_string(struct json_object* jso,
 	(void)level;
 
 	printbuf_strappend(pb, "\"");
-	json_escape_str(pb, get_string_component(jso), jso->o.c_string.len, flags);
+	json_escape_str(pb, get_string_component(jso), (size_t)jso->o.c_string.len, flags);
 	printbuf_strappend(pb, "\"");
 	return 0;
 }
@@ -1031,9 +1031,9 @@ struct json_object* json_object_new_string(const char *s)
 		return NULL;
 	jso->_delete = &json_object_string_delete;
 	jso->_to_json_string = &json_object_string_to_json_string;
-	jso->o.c_string.len = strlen(s);
+	jso->o.c_string.len = (int)strlen(s);
 	if(jso->o.c_string.len < LEN_DIRECT_STRING_DATA) {
-		memcpy(jso->o.c_string.str.data, s, jso->o.c_string.len);
+		memcpy(jso->o.c_string.str.data, s, (size_t)jso->o.c_string.len);
 	} else {
 		jso->o.c_string.str.ptr = strdup(s);
 		if (!jso->o.c_string.str.ptr)
@@ -1057,7 +1057,7 @@ struct json_object* json_object_new_string_len(const char *s, int len)
 	if(len < LEN_DIRECT_STRING_DATA) {
 		dstbuf = jso->o.c_string.str.data;
 	} else {
-		jso->o.c_string.str.ptr = (char*)malloc(len + 1);
+		jso->o.c_string.str.ptr = (char*)malloc((unsigned long)(len + 1));
 		if (!jso->o.c_string.str.ptr)
 		{
 			json_object_generic_delete(jso);
@@ -1066,7 +1066,7 @@ struct json_object* json_object_new_string_len(const char *s, int len)
 		}
 		dstbuf = jso->o.c_string.str.ptr;
 	}
-	memcpy(dstbuf, (const void *)s, len);
+	memcpy(dstbuf, (const void *)s, (size_t)len);
 	dstbuf[len] = '\0';
 	jso->o.c_string.len = len;
 	return jso;
@@ -1109,13 +1109,13 @@ int json_object_set_string_len(json_object* jso, const char* s, int len){
 		dstbuf=jso->o.c_string.str.data;
 		if (jso->o.c_string.len>=LEN_DIRECT_STRING_DATA) free(jso->o.c_string.str.ptr); 
 	} else {
-		dstbuf=(char *)malloc(len+1);
+		dstbuf=(char *)malloc((unsigned long)(len+1));
 		if (dstbuf==NULL) return 0;
 		if (jso->o.c_string.len>=LEN_DIRECT_STRING_DATA) free(jso->o.c_string.str.ptr);
 		jso->o.c_string.str.ptr=dstbuf;
 	}
 	jso->o.c_string.len=len;
-	memcpy(dstbuf, (const void *)s, len);
+	memcpy(dstbuf, (const void *)s, (size_t)len);
 	dstbuf[len] = '\0';
 	return 1; 
 }
@@ -1329,7 +1329,7 @@ int json_object_equal(struct json_object* jso1, struct json_object* jso2)
 			return (jso1->o.c_string.len == jso2->o.c_string.len &&
 				memcmp(get_string_component(jso1),
 				       get_string_component(jso2),
-				       jso1->o.c_string.len) == 0);
+				       (unsigned long)jso1->o.c_string.len) == 0);
 
 		case json_type_object:
 			return json_object_all_values_equal(jso1, jso2);
@@ -1445,7 +1445,7 @@ static int json_object_deep_copy_recursive(struct json_object *src, struct json_
 			/* This handles the `json_type_null` case */
 			if (!iter.val)
 				jso = NULL;
-			else if (json_object_deep_copy_recursive(iter.val, src, iter.key, -1, &jso, shallow_copy) < 0)
+			else if (json_object_deep_copy_recursive(iter.val, src, iter.key, (size_t)-1, &jso, shallow_copy) < 0)
 			{
 				json_object_put(jso);
 				return -1;
@@ -1505,7 +1505,7 @@ int json_object_deep_copy(struct json_object *src, struct json_object **dst, jso
 	if (shallow_copy == NULL)
 		shallow_copy = json_c_shallow_copy_default;
 
-	rc = json_object_deep_copy_recursive(src, NULL, NULL, -1, dst, shallow_copy);
+	rc = json_object_deep_copy_recursive(src, NULL, NULL, (size_t)-1, dst, shallow_copy);
 	if (rc < 0) {
 		json_object_put(*dst);
 		*dst = NULL;

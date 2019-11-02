@@ -51,7 +51,7 @@ static int
 acvp_datastore_write_data(const struct acvp_buf *data, const char *filename)
 {
 	FILE *file;
-	unsigned int written;
+	size_t written;
 	int ret = 0;
 
 	if (!data || !data->buf)
@@ -96,7 +96,7 @@ acvp_datastore_read_data(uint8_t **buf, size_t *buflen, const char *filename)
 	}
 
 	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE, "Reading file %s\n", filename);
-	l_buflen = statbuf.st_size;
+	l_buflen = (size_t)statbuf.st_size;
 	l_buf = calloc(1, l_buflen + 1);
 	CKNULL(l_buf, -ENOMEM);
 
@@ -181,7 +181,7 @@ static int acvp_datastore_check_version(char *basedir, bool createdir)
 
 		snprintf(version, sizeof(version), "%d", ACVP_DS_VERSION);
 		writebuf.buf = (uint8_t *)version;
-		writebuf.len = strlen(version);
+		writebuf.len = (uint32_t)strlen(version);
 		CKINT(acvp_datastore_write_data(&writebuf, verfile));
 
 		return 0;
@@ -348,7 +348,7 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	snprintf(file, sizeof(file), "%s/%s",
 		 pathname, datastore->jwttokenfile);
 	tmp.buf = (uint8_t *)auth->jwt_token;
-	tmp.len = auth->jwt_token_len;
+	tmp.len = (uint32_t)auth->jwt_token_len;
 	ret = acvp_datastore_write_data(&tmp, file);
 	if (ret) {
 		/*
@@ -389,7 +389,7 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 		 pathname, datastore->messagesizeconstraint);
 	snprintf(msgsize, sizeof(msgsize), "%u", auth->max_reg_msg_size);
 	tmp.buf = (uint8_t *)msgsize;
-	tmp.len = strlen(msgsize);
+	tmp.len = (uint32_t)strlen(msgsize);
 	CKINT(acvp_datastore_write_data(&tmp, file));
 
 out:
@@ -409,7 +409,7 @@ acvp_datastore_file_uint(const char *pathname, const char *filename,
 
 	if (!stat(file, &statbuf) && statbuf.st_size) {
 		size_t msgsize_len;
-		uint32_t msgsize_int;
+		unsigned long msgsize_int;
 		char *msgsize = NULL;
 
 		logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
@@ -424,7 +424,7 @@ acvp_datastore_file_uint(const char *pathname, const char *filename,
 		if (msgsize_int >= UINT_MAX)
 			*id = UINT_MAX;
 		else
-			*id = msgsize_int;
+			*id = (uint32_t)msgsize_int;
 	}
 
 out:
@@ -779,9 +779,9 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 				 */
 				vsid_ctx->fetch_verdict = true;
 				return cb(vsid_ctx, NULL);
+			} else {
+				return 0;
 			}
-		} else {
-			vsid_ctx->resubmit_result = true;
 		}
 	}
 
@@ -842,8 +842,8 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 			goto out;
 		}
 
-		resp_buf = mmap(NULL, statbuf.st_size, PROT_READ, MAP_SHARED,
-				fd, 0);
+		resp_buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ,
+				MAP_SHARED, fd, 0);
 		if (resp_buf == MAP_FAILED) {
 			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
 			       "Cannot mmap file %s\n", resppath);
@@ -853,14 +853,14 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 		}
 
 		buf.buf = resp_buf;
-		buf.len = statbuf.st_size;
+		buf.len = (uint32_t)statbuf.st_size;
 
 		/* Process response file */
 		ret = cb(vsid_ctx, &buf);
-		munmap(resp_buf, statbuf.st_size);
+		munmap(resp_buf, (size_t)statbuf.st_size);
 		close(fd);
 
-		if (ret)
+		if (ret < 0)
 			goto out;
 
 		/* Create processed file */
@@ -944,7 +944,7 @@ acvp_datastore_find_verdict(const struct acvp_datastore_ctx *datastore,
 			goto out;
 		}
 
-		verdict_buf.buf = mmap(NULL, statbuf.st_size, PROT_READ,
+		verdict_buf.buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ,
 				       MAP_SHARED, fd, 0);
 		if (verdict_buf.buf == MAP_FAILED) {
 			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
@@ -953,10 +953,10 @@ acvp_datastore_find_verdict(const struct acvp_datastore_ctx *datastore,
 			goto out;
 		}
 
-		verdict_buf.len = statbuf.st_size;
+		verdict_buf.len = (uint32_t)statbuf.st_size;
 		ret = acvp_get_verdict_json(&verdict_buf, &test_passed);
 
-		munmap(verdict_buf.buf, statbuf.st_size);
+		munmap(verdict_buf.buf, (size_t)statbuf.st_size);
 		close(fd);
 
 		if (ret) {
@@ -980,6 +980,66 @@ acvp_datastore_find_verdict(const struct acvp_datastore_ctx *datastore,
 	 */
 	if (verdict)
 		verdict->verdict = acvp_verdict_unknown;
+
+out:
+	return ret;
+}
+
+static int
+acvp_datastore_find_modinfo(const struct acvp_datastore_ctx *datastore,
+			    struct acvp_test_verdict_status *verdict,
+			    char *dir, size_t dir_len)
+{
+	struct stat statbuf;
+	int ret;
+
+	CKINT(acvp_extend_string(dir, dir_len, "/%s", datastore->vectorfile));
+
+	/* Verdict file exists, return information to  */
+	if (!stat(dir, &statbuf)) {
+		ACVP_BUFFER_INIT(buf);
+		int fd;
+
+		/* Positive return code as this is no error */
+		if (!verdict)
+			return EEXIST;
+
+		fd = open(dir, O_RDONLY | O_CLOEXEC);
+		if (fd < 0) {
+			ret = -errno;
+
+			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+			       "Cannot open file %s (%d)\n", dir, ret);
+			goto out;
+		}
+
+		buf.buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ,
+			       MAP_SHARED, fd, 0);
+		if (buf.buf == MAP_FAILED) {
+			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+			       "Cannot mmap file %s\n", buf);
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		buf.len = (uint32_t)statbuf.st_size;
+		ret = acvp_get_algoinfo_json(&buf, verdict);
+
+		munmap(buf.buf, (size_t)statbuf.st_size);
+		close(fd);
+
+		if (ret) {
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			       "File %s does not contain valid cipher information\n",
+			       dir);
+			/*
+			 * We are not stopping here and will not goto out,
+			 * since we will report that the ID is unverified.
+			 */
+		}
+
+		return 0;
+	}
 
 out:
 	return ret;
@@ -1019,7 +1079,7 @@ acvp_datastore_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx;
 	const struct acvp_datastore_ctx *datastore;
-	char verdict_file[FILENAME_MAX];
+	char vector_dir[FILENAME_MAX];
 	int ret;
 
 	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
@@ -1028,8 +1088,8 @@ acvp_datastore_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 	ctx = testid_ctx->ctx;
 	datastore = &ctx->datastore;
 
-	ret = acvp_datastore_file_vectordir(testid_ctx, verdict_file,
-					    sizeof(verdict_file), false,
+	ret = acvp_datastore_file_vectordir(testid_ctx, vector_dir,
+					    sizeof(vector_dir), false,
 					    false);
 	if (ret) {
 		/* If pathname does not exist, we ignore it. */
@@ -1037,8 +1097,16 @@ acvp_datastore_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 	} else {
 		CKINT(acvp_datastore_find_verdict(datastore,
 						  &testid_ctx->verdict,
-						  verdict_file,
-						  sizeof(verdict_file)));
+						  vector_dir,
+						  sizeof(vector_dir)));
+
+		CKINT(acvp_datastore_file_vectordir(testid_ctx, vector_dir,
+						    sizeof(vector_dir), false,
+						    false));
+		CKINT(acvp_datastore_find_modinfo(datastore,
+						  &testid_ctx->verdict,
+						  vector_dir,
+						  sizeof(vector_dir)));
 	}
 
 out:
@@ -1046,12 +1114,12 @@ out:
 }
 
 static int
-acvp_datastore_find_vsid_verdict(const struct acvp_vsid_ctx *vsid_ctx)
+acvp_datastore_find_vsid_verdict(struct acvp_vsid_ctx *vsid_ctx)
 {
 	const struct acvp_testid_ctx *testid_ctx;
 	const struct acvp_ctx *ctx;
 	const struct acvp_datastore_ctx *datastore;
-	char verdict_file[FILENAME_MAX];
+	char vector_dir[FILENAME_MAX];
 	int ret;
 
 	CKNULL_C_LOG(vsid_ctx, -EINVAL, LOGGER_C_DS_FILE,
@@ -1064,15 +1132,23 @@ acvp_datastore_find_vsid_verdict(const struct acvp_vsid_ctx *vsid_ctx)
 	ctx = testid_ctx->ctx;
 	datastore = &ctx->datastore;
 
-	ret = acvp_datastore_file_vectordir_vsid(vsid_ctx, verdict_file,
-						 sizeof(verdict_file), false,
+	ret = acvp_datastore_file_vectordir_vsid(vsid_ctx, vector_dir,
+						 sizeof(vector_dir), false,
 						 false);
 	if (ret) {
 		/* If pathname does not exist, we ignore it. */
 		return 0;
 	} else {
-		CKINT(acvp_datastore_find_verdict(datastore, NULL, verdict_file,
-						  sizeof(verdict_file)));
+		CKINT(acvp_datastore_find_verdict(datastore, NULL, vector_dir,
+						  sizeof(vector_dir)));
+
+		CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, vector_dir,
+							 sizeof(vector_dir),
+							 false, false));
+		CKINT(acvp_datastore_find_modinfo(datastore,
+						  &vsid_ctx->verdict,
+						  vector_dir,
+						  sizeof(vector_dir)));
 	}
 
 out:
@@ -1154,10 +1230,12 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 {
 	const struct acvp_ctx *ctx;
 	const struct acvp_datastore_ctx *datastore;
+	const struct acvp_opts_ctx *opts;
 	const struct definition *def;
 	struct dirent *dirent;
 	DIR *dir = NULL;
 	char datastore_base[FILENAME_MAX - 100];
+	char base[FILENAME_MAX - 100];
 	char secure_base[FILENAME_MAX - 100];
 	int ret;
 
@@ -1166,6 +1244,7 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 
 	ctx = testid_ctx->ctx;
 	datastore = &ctx->datastore;
+	opts = &ctx->options;
 	def = testid_ctx->def;
 
 	CKNULL_C_LOG(datastore, -EINVAL, LOGGER_C_DS_FILE,
@@ -1187,9 +1266,16 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 	else if (ret)
 		return ret;
 
+	ret = acvp_datastore_file_vectordir(testid_ctx, base, sizeof(base),
+					    false, false);
+	if (ret == -ENOENT)
+		return 0;
+	else if (ret)
+		return ret;
+
 	ret = acvp_datastore_file_vectordir(testid_ctx, secure_base,
-					    sizeof(secure_base), false,
-					    true);
+					    sizeof(secure_base),
+					    true, false);
 	if (ret == -ENOENT)
 		return 0;
 	else if (ret)
@@ -1204,7 +1290,7 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 	 *
 	 * In case we do not find a match, just disregard the current testID.
 	 */
-	if (acvp_def_check(testid_ctx, secure_base))
+	if (acvp_def_check(testid_ctx, base))
 		return 0;
 
 	dir = opendir(datastore_base);
@@ -1263,7 +1349,7 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 		vsid_ctx = calloc(1, sizeof(*vsid_ctx));
 		CKNULL(vsid_ctx, -ENOMEM);
 
-		vsid_ctx->vsid = vsid_val;
+		vsid_ctx->vsid = (uint32_t)vsid_val;
 		vsid_ctx->testid_ctx = testid_ctx;
 		if (clock_gettime(CLOCK_REALTIME, &vsid_ctx->start)) {
 			ret = -errno;
@@ -1296,7 +1382,7 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 
 #ifdef ACVP_USE_PTHREAD
 		/* Disable threading in DEBUG mode */
-		if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_DEBUG) {
+		if (opts->threading_disabled) {
 			logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
 			       "Disable threading support\n");
 			ret = acvp_datastore_process_vsid(vsid_ctx,
@@ -1362,8 +1448,8 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 	struct dirent *dirent;
 	DIR *dir = NULL;
 	char pathname[FILENAME_MAX - 100];
-	char secure_base[FILENAME_MAX - 100];
-	unsigned int i = 0;
+	char base[FILENAME_MAX - 100];
+	unsigned int tcount = 0;
 	int ret;
 
 	CKNULL_C_LOG(ctx, -EINVAL, LOGGER_C_DS_FILE,
@@ -1400,7 +1486,7 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 	CKNULL(dir, -errno);
 
 	/* Iterate through test session directory and process files */
-	while ((i < *testid_count) &&
+	while ((tcount < *testid_count) &&
 	       (dirent = readdir(dir)) != NULL) {
 		const struct acvp_search_ctx *search = &datastore->search;
 		unsigned long testid = strtoul(dirent->d_name, NULL, 10);
@@ -1415,7 +1501,7 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 			continue;
 
 		/* Fudge the testid_ctx */
-		testid_ctx.testid = testid;
+		testid_ctx.testid = (uint32_t)testid;
 
 		/*
 		 * If specific testID is requested, only return requested
@@ -1481,20 +1567,20 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 		 * the testid pointing to one of the two OEs, still both
 		 * OEs would be returned if this check is not made.
 		 */
-		ret = acvp_datastore_file_vectordir(&testid_ctx, secure_base,
-						    sizeof(secure_base), false,
-						    true);
+		ret = acvp_datastore_file_vectordir(&testid_ctx, base,
+						    sizeof(base), false,
+						    false);
 		if (!ret) {
-			if (acvp_def_check(&testid_ctx, secure_base))
+			if (acvp_def_check(&testid_ctx, base))
 				continue;
 		}
 		ret = 0;
 
-		testids[i] = testid;
-		i++;
+		testids[tcount] = (uint32_t)testid;
+		tcount++;
 	}
 
-	*testid_count = i;
+	*testid_count = tcount;
 
 out:
 	if (dir)

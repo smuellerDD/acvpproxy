@@ -84,12 +84,13 @@ static inline uint32_t ror(uint32_t x, int n)
 /* Byte swap for 32-bit and 64-bit integers. */
 static inline uint32_t _bswap32(uint32_t x)
 {
-	return ((rol(x, 8) & 0x00ff00ffL) | (ror(x, 8) & 0xff00ff00L));
+	return (uint32_t)((rol(x, 8) & 0x00ff00ffL) | (ror(x, 8) & 0xff00ff00L));
 }
 
 static inline uint64_t _bswap64(uint64_t x)
 {
-	return ((uint64_t)_bswap32(x) << 32) | (_bswap32(x >> 32));
+	return ((uint64_t)_bswap32((uint32_t)x) << 32) |
+		(uint64_t)(_bswap32((uint32_t)(x >> 32)));
 }
 
 #if GCC_VERSION >= 40400
@@ -140,10 +141,10 @@ static int hotp(const uint8_t *hmac_key, uint32_t hmac_key_len,
 
 	/* DT */
 	offset = md[mdlen - 1]      & 0xf;
-	truncated = (md[offset]     & 0x7f) << 24 |
-		    (md[offset + 1] & 0xff) << 16 |
-		    (md[offset + 2] & 0xff) <<  8 |
-		    (md[offset + 3] & 0xff);
+	truncated = (uint32_t)((md[offset]     & 0x7f) << 24) |
+		    (uint32_t)((md[offset + 1] & 0xff) << 16) |
+		    (uint32_t)((md[offset + 2] & 0xff) <<  8) |
+		    (uint32_t)((md[offset + 3] & 0xff));
 
 	*hotp_val = truncated % modulo;
 
@@ -190,7 +191,7 @@ static inline unsigned int totp_wait_time(time_t now)
 	if (now > TOTP_STEP_SIZE)
 		return 0;
 
-	return TOTP_STEP_SIZE - now;
+	return (unsigned int)(TOTP_STEP_SIZE - now);
 }
 
 int totp_get_val(uint32_t *totp_val)
@@ -233,6 +234,10 @@ int totp_get_val(uint32_t *totp_val)
 out:
 	atomic_bool_set_false(&totp_shutdown);
 	mutex_w_unlock(&totp_lock);
+
+	/* Make sure the sleep interruption is not turned into an error */
+	if (ret == -EINTR)
+		ret = 0;
 
 	return ret;
 }

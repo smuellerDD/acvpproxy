@@ -347,7 +347,7 @@ static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Set a query option consisting of module name */
 	CKINT(bin2hex_html(def_info->module_name,
-			   strlen(def_info->module_name),
+			   (uint32_t)strlen(def_info->module_name),
 			   modulestr, sizeof(modulestr)));
 	snprintf(queryoptions, sizeof(queryoptions), "name[0]=contains:%s",
 		 modulestr);

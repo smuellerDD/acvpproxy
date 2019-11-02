@@ -126,8 +126,23 @@ out:
 	return ret;
 }
 
+static void acvp_release_verdict(struct acvp_test_verdict_status *verdict)
+{
+	if (verdict->cipher_mode) {
+		free(verdict->cipher_mode);
+		verdict->cipher_mode = NULL;
+	}
+
+	if (verdict->cipher_name) {
+		free(verdict->cipher_name);
+		verdict->cipher_name = NULL;
+	}
+}
+
 void acvp_release_testid(struct acvp_testid_ctx *testid_ctx)
 {
+	acvp_release_verdict(&testid_ctx->verdict);
+
 	if (!testid_ctx)
 		return;
 
@@ -136,6 +151,8 @@ void acvp_release_testid(struct acvp_testid_ctx *testid_ctx)
 
 void acvp_release_vsid_ctx(struct acvp_vsid_ctx *vsid_ctx)
 {
+	acvp_release_verdict(&vsid_ctx->verdict);
+
 	if (!vsid_ctx)
 		return;
 
@@ -469,7 +486,7 @@ void acvp_record_vsid_duration(const struct acvp_vsid_ctx *vsid_ctx,
 	/* Store the time the network communication took */
 	duration_string(&vsid_ctx->start, string, sizeof(string));
 	buf.buf = (uint8_t *)string;
-	buf.len = strlen(string);
+	buf.len = (uint32_t)strlen(string);
 
 	/*
 	 * We deliberately do not catch the return code as this is a status
@@ -513,7 +530,7 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 
 	CKINT(acvp_get_net(&net));
 	tmp.buf = (uint8_t *)net->server_name;
-	tmp.len = strlen((char *)tmp.buf);
+	tmp.len = (uint32_t)strlen((char *)tmp.buf);
 	CKINT(ds->acvp_datastore_write_vsid(vsid_ctx, datastore->srcserver,
 					    true, &tmp));
 
@@ -616,6 +633,8 @@ out:
 static int acvp_process_vectors(struct acvp_testid_ctx *testid_ctx,
 				struct json_object *entry)
 {
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *opts = &ctx->options;
 	struct acvp_vsid_array vsid_array = { 0, NULL, NULL };
 	unsigned int i;
 	int ret;
@@ -663,7 +682,7 @@ static int acvp_process_vectors(struct acvp_testid_ctx *testid_ctx,
 
 #ifdef ACVP_USE_PTHREAD
 		/* Disable threading in DEBUG mode */
-		if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_DEBUG) {
+		if (opts->threading_disabled) {
 			logger(LOGGER_DEBUG, LOGGER_C_ANY,
 			       "Disable threading support\n");
 			ret = acvp_get_testvectors(vsid_ctx);
@@ -779,7 +798,7 @@ static int acvp_register_dump_request(struct acvp_testid_ctx *testid_ctx,
 		   "JSON object conversion into string failed\n");
 
 	register_buf.buf = (uint8_t *)json_request;
-	register_buf.len = strlen(json_request);
+	register_buf.len = (uint32_t)strlen(json_request);
 	CKINT(ds->acvp_datastore_write_testid(testid_ctx, filename,
 					      true, &register_buf));
 
@@ -899,7 +918,7 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 		   "JSON object conversion into string failed\n");
 
 	register_buf.buf = (uint8_t *)json_request;
-	register_buf.len = strlen(json_request);
+	register_buf.len = (uint32_t)strlen(json_request);
 
 	CKINT(acvp_create_url(NIST_VAL_OP_REG, url, sizeof(url)));
 
@@ -947,7 +966,7 @@ void acvp_record_testid_duration(const struct acvp_testid_ctx *testid_ctx,
 	/* Store the time the network operation took */
 	duration_string(&testid_ctx->start, string, sizeof(string));
 	buf.buf = (uint8_t *)string;
-	buf.len = strlen(string);
+	buf.len = (uint32_t)strlen(string);
 
 	/*
 	 * We deliberately do not catch the return code as this is a status
@@ -1029,6 +1048,7 @@ int acvp_register(const struct acvp_ctx *ctx)
 {
 	const struct acvp_datastore_ctx *datastore;
 	const struct acvp_search_ctx *search;
+	const struct acvp_opts_ctx *opts;
 	struct definition *def;
 	int ret;
 
@@ -1041,6 +1061,7 @@ int acvp_register(const struct acvp_ctx *ctx)
 
 	datastore = &ctx->datastore;
 	search = &datastore->search;
+	opts = &ctx->options;
 
 	/* Find a module definition */
 	def = acvp_find_def(search, NULL);
@@ -1068,7 +1089,7 @@ int acvp_register(const struct acvp_ctx *ctx)
 	while (def) {
 #ifdef ACVP_USE_PTHREAD
 		/* Disable threading in DEBUG mode */
-		if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_DEBUG) {
+		if (opts->threading_disabled) {
 			logger(LOGGER_DEBUG, LOGGER_C_ANY,
 			       "Disable threading support\n");
 			CKINT(_acvp_register(ctx, def));
@@ -1092,7 +1113,6 @@ int acvp_register(const struct acvp_ctx *ctx)
 #else
 		CKINT(_acvp_register(ctx, def));
 #endif
-
 
 		/* Check if we find another module definition. */
 		def = acvp_find_def(search, def);

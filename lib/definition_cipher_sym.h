@@ -59,7 +59,7 @@ struct def_algo_sym_aes_ff {
 	 *
 	 * required: always
 	 */
-	unsigned int radix;
+	int radix;
 
 	/*
 	 * The minimum payload length the IUT can support for this alphabet.
@@ -69,7 +69,7 @@ struct def_algo_sym_aes_ff {
 	 *
 	 * required: always
 	 */
-	unsigned int minlen;
+	int minlen;
 
 	/*
 	 * The maximum payload length the IUT can support for this alphabet.
@@ -80,7 +80,7 @@ struct def_algo_sym_aes_ff {
 	 *
 	 * required: always
 	 */
-	unsigned int maxlen;
+	int maxlen;
 };
 
 /****************************************************************************

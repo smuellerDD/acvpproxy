@@ -1,3 +1,29 @@
+v1.1.0
+- fix: update PBKDF to match published ACVP definition
+- fix: do not log mmap()ed buffer as vsnprintf performs a strlen() operation and
+       the mmap buffer is not guaranteed to be NULL terminated
+- move the definition_reference.json file from the secure data base to the
+  test vector data base to allow users to map the test vectors to the right
+  IUT
+- --list-verdicts now contains cipher reference
+- Data store version 3: definition_reference.json moved from secure to nonsecure data base. File is also extended to provide more information testing framework.
+ This additional data is not required by the ACVP Proxy. Hence, if you have
+ a datastore version 2, simply copy that file from the secure to the non-secure
+ datastore and bump the datastore version to 3 manually.
+- fix: bug fixes around re-downloading verdicts
+- enhancement: add fuzzy search capability for an individual search criteria by
+  prepending the search string with "f:", e.g.
+        acvp-proxy -m f:module_name_substring -p specific_processor
+- fix: resubmission of results working now (but not yet supported by server)
+- enhancement: add ACVP server error parser to validate errors which we can ignore
+- add --publish-prereqs: resolution of ACVP Issue 733 may affect this option
+  in the future
+- fix: NIST requires the OE name to be unique - the proxy now concatenates
+  the OE software and hardware information into one string for guaranteeing
+  uniqueness
+- fix: Generate UTF-8 characters in JSON output
+=== Tool version was used to obtain ACVP certificates A6 through A32) ===
+
 v1.0.0
 - replace --list-certificate-ids with --list-available-ids
 - version crypto implementation

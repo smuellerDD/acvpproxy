@@ -24,6 +24,8 @@
 
 int acvp_str_match(const char *exp, const char *found, uint32_t id)
 {
+	if (!exp || !found)
+		return 0;
 	if (strncmp(exp, found, strlen(exp))) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Mismatch for ID %u (expected: %s, found: %s)\n",
@@ -49,11 +51,14 @@ int acvp_get_verdict_json(const struct acvp_buf *verdict_buf,
 	if (!ret)
 		goto out;
 
-	CKINT(json_get_string(verdict, "disposition", &result));
-
-	if (ret < 0)
-		  logger(LOGGER_WARN, LOGGER_C_ANY,
-			 "JSON parser cannot find verdict data\n");
+	ret = json_get_string(verdict, "disposition", &result);
+	if (ret < 0) {
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "JSON parser cannot find verdict data\n");
+		*test_passed = false;
+		ret = 0;
+		goto out;
+	}
 
 	if (strncmp(result, "passed", 6)) {
 		*test_passed = false;
@@ -63,5 +68,31 @@ int acvp_get_verdict_json(const struct acvp_buf *verdict_buf,
 
 out:
 	ACVP_JSON_PUT_NULL(verdict_full);
+	return ret;
+}
+
+int acvp_get_algoinfo_json(const struct acvp_buf *buf,
+			   struct acvp_test_verdict_status *verdict)
+{
+	struct json_object *algo_full = NULL, *algo;
+	int ret;
+	const char *tmp;
+
+	CKINT_LOG(acvp_req_strip_version(buf->buf, &algo_full,
+					 &algo),
+		  "JSON parser cannot parse verdict data\n");
+
+	CKINT(json_get_string(algo, "algorithm", &tmp));
+	CKINT(acvp_duplicate(&verdict->cipher_name, tmp));
+
+	ret = json_get_string(algo, "mode", &tmp);
+	if (!ret) {
+		CKINT(acvp_duplicate(&verdict->cipher_mode, tmp));
+	} else {
+		ret = 0;
+	}
+
+out:
+	ACVP_JSON_PUT_NULL(algo_full);
 	return ret;
 }

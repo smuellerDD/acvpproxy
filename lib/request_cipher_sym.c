@@ -65,6 +65,32 @@ out:
 	return ret;
 }
 
+static int _acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
+				    struct json_object *entry, bool complete)
+{
+	int ret = 0;
+
+	if (complete || sym->prereqvals_num) {
+		CKINT(acvp_req_cipher_to_string(entry, sym->algorithm,
+						ACVP_CIPHERTYPE_AES |
+						ACVP_CIPHERTYPE_TDES |
+						ACVP_CIPHERTYPE_AEAD,
+						"algorithm"));
+
+		CKINT(acvp_req_gen_prereq(sym->prereqvals, sym->prereqvals_num,
+					  entry));
+	}
+
+out:
+	return ret;
+}
+
+int acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
+			    struct json_object *entry)
+{
+	return _acvp_req_set_prereq_sym(sym, entry, false);
+}
+
 /*
  * Generate algorithm entry for symmetric ciphers
  */
@@ -94,14 +120,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		}
 	}
 
-	CKINT(acvp_req_cipher_to_string(entry, sym->algorithm,
-				        ACVP_CIPHERTYPE_AES |
-				        ACVP_CIPHERTYPE_TDES |
-				        ACVP_CIPHERTYPE_AEAD,
-					"algorithm"));
-
-	CKINT(acvp_req_gen_prereq(sym->prereqvals, sym->prereqvals_num,
-				  entry));
+	CKINT(_acvp_req_set_prereq_sym(sym, entry, true));
 
 	tmp_array = json_object_new_array();
 	CKNULL(tmp_array, -ENOMEM);

@@ -127,7 +127,7 @@ out:
 	return ret;
 }
 
-static int acvp_req_rsa_hashalg(cipher_t hashalg,
+static int acvp_req_rsa_hashalg(cipher_t hashalg, enum rsa_modulo modulo,
 				struct json_object *entry, enum saltlen saltlen)
 {
 	struct json_object *hash_array;
@@ -157,9 +157,11 @@ static int acvp_req_rsa_hashalg(cipher_t hashalg,
 				CKINT(json_object_object_add(tmp, "saltLen",
 						json_object_new_int(0)));
 			} else if (saltlen == DEF_ALG_RSA_PSS_SALT_HASHLEN) {
-				unsigned int hashlen;
+				int hashlen;
 
-				if (!strncmp(algo, "SHA2-224", 8))
+				if (!strncmp(algo, "SHA-1", 8))
+					hashlen = 20;
+				else if (!strncmp(algo, "SHA2-224", 8))
 					hashlen = 28;
 				else if (!strncmp(algo, "SHA2-256", 8))
 					hashlen = 32;
@@ -169,9 +171,13 @@ static int acvp_req_rsa_hashalg(cipher_t hashalg,
 					hashlen = 28;
 				else if (!strncmp(algo, "SHA2-512/256", 12))
 					hashlen = 32;
-				else if (!strncmp(algo, "SHA2-512", 8))
-					hashlen = 64;
-				else {
+				else if (!strncmp(algo, "SHA2-512", 8)) {
+					/* FIPS 186-4 section 5.5 bullet (e) */
+					if (modulo == DEF_ALG_RSA_MODULO_1024)
+						hashlen = 62;
+					else
+						hashlen = 64;
+				} else {
 					logger(LOGGER_WARN, LOGGER_C_ANY,
 					       "Unknown hash value %s\n", algo);
 					ret = -EINVAL;
@@ -345,7 +351,8 @@ static int acvp_req_rsa_siggen_caps(enum rsa_mode rsa_mode,
 	int ret = 0;
 
 	CKINT(acvp_req_rsa_modulo(rsa_mode, caps->rsa_modulo, caps_entry));
-	CKINT(acvp_req_rsa_hashalg(caps->hashalg, caps_entry, saltlen));
+	CKINT(acvp_req_rsa_hashalg(caps->hashalg, caps->rsa_modulo, caps_entry,
+				   saltlen));
 
 out:
 	return ret;
@@ -414,7 +421,8 @@ static int acvp_req_rsa_sigver_caps(enum rsa_mode rsa_mode,
 	int ret = 0;
 
 	CKINT(acvp_req_rsa_modulo(rsa_mode, caps->rsa_modulo, caps_entry));
-	CKINT(acvp_req_rsa_hashalg(caps->hashalg, caps_entry, saltlen));
+	CKINT(acvp_req_rsa_hashalg(caps->hashalg, caps->rsa_modulo, caps_entry,
+				   saltlen));
 
 out:
 	return ret;
@@ -510,13 +518,14 @@ out:
 /*
  * Generate algorithm entry for symmetric ciphers
  */
-int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
-			  struct json_object *entry)
+static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
+				  struct json_object *entry, bool full)
 {
 	const struct def_algo_rsa_component_sig_gen *component_sig;
 	int ret = -EINVAL;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
+	if (full)
+		CKINT(acvp_req_add_revision(entry, "1.0"));
 
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("RSA")));
@@ -525,33 +534,40 @@ int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 	case DEF_ALG_RSA_MODE_KEYGEN:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("keyGen")));
-		CKINT(acvp_req_rsa_keygen(rsa, entry));
+		if (full)
+			CKINT(acvp_req_rsa_keygen(rsa, entry));
 		break;
 	case DEF_ALG_RSA_MODE_SIGGEN:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigGen")));
-		CKINT(acvp_req_rsa_siggen(rsa, entry));
+		if (full)
+			CKINT(acvp_req_rsa_siggen(rsa, entry));
 		break;
 	case DEF_ALG_RSA_MODE_SIGVER:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigVer")));
-		CKINT(acvp_req_rsa_sigver(rsa, entry));
+		if (full)
+			CKINT(acvp_req_rsa_sigver(rsa, entry));
 		break;
 	case DEF_ALG_RSA_MODE_LEGACY_SIGVER:
 		CKINT(json_object_object_add(entry, "mode",
-					json_object_new_string("legacySigVer")));
-		CKINT(acvp_req_rsa_sigver(rsa, entry));
+				json_object_new_string("legacySigVer")));
+		if (full)
+			CKINT(acvp_req_rsa_sigver(rsa, entry));
 		break;
 	case DEF_ALG_RSA_MODE_COMPONENT_SIG_PRIMITIVE:
 		component_sig = rsa->gen_info.component_sig;
 		CKINT(json_object_object_add(entry, "mode",
 			json_object_new_string("signaturePrimitive")));
-		CKINT(acvp_req_rsa_keyformat(component_sig->keyformat, entry));
+		if (full)
+			CKINT(acvp_req_rsa_keyformat(component_sig->keyformat,
+						     entry));
 		break;
 	case DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE:
 		CKINT(json_object_object_add(entry, "mode",
 			json_object_new_string("decryptionPrimitive")));
-		CKINT(acvp_req_rsa_component_dec(rsa, entry));
+		if (full)
+			CKINT(acvp_req_rsa_component_dec(rsa, entry));
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
@@ -570,3 +586,16 @@ int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 out:
 	return ret;
 }
+
+int acvp_req_set_prereq_rsa(const struct def_algo_rsa *rsa,
+			    struct json_object *entry)
+{
+	return _acvp_req_set_algo_rsa(rsa, entry, false);
+}
+
+int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
+			  struct json_object *entry)
+{
+	return _acvp_req_set_algo_rsa(rsa, entry, true);
+}
+

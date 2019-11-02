@@ -179,10 +179,10 @@ int base64_decode_safe(const char *idata, uint32_t ilen,
 ACVP_DEFINE_CONSTRUCTOR(base64_init)
 static void base64_init(void)
 {
-	unsigned int i;
+	unsigned char i;
 
 	for (i = 0; i < 64; i++)
-		decoding_table[(unsigned char)encoding_table[i]] = i;
+		decoding_table[(unsigned char)encoding_table[i]] = (char)i;
 	for (i = 0; i < 64; i++)
-		decoding_table_safe[(unsigned char)encoding_table_safe[i]] = i;
+		decoding_table_safe[(unsigned char)encoding_table_safe[i]] = (char)i;
 }

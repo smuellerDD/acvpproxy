@@ -29,6 +29,23 @@
 #include "internal.h"
 #include "request_helper.h"
 
+int acvp_req_set_prereq_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
+				struct json_object *entry)
+{
+	int ret;
+
+	CKINT(json_object_object_add(entry, "algorithm",
+				     json_object_new_string("kdf-components")));
+	CKINT(json_object_object_add(entry, "mode",
+				     json_object_new_string("ssh")));
+
+	CKINT(acvp_req_gen_prereq(kdf_ssh->prereqvals, kdf_ssh->prereqvals_num,
+				  entry));
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for KDF SSH
  */
@@ -39,13 +56,7 @@ int acvp_req_set_algo_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(json_object_object_add(entry, "algorithm",
-				     json_object_new_string("kdf-components")));
-	CKINT(json_object_object_add(entry, "mode",
-				     json_object_new_string("ssh")));
-
-	CKINT(acvp_req_gen_prereq(kdf_ssh->prereqvals, kdf_ssh->prereqvals_num,
-				  entry));
+	CKINT(acvp_req_set_prereq_kdf_ssh(kdf_ssh, entry));
 
 	if (!(kdf_ssh->cipher & ACVP_AES128 || kdf_ssh->cipher & ACVP_AES192 ||
 	      kdf_ssh->cipher & ACVP_AES256 || kdf_ssh->cipher & ACVP_TDES)) {

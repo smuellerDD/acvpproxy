@@ -40,7 +40,7 @@ extern "C"
 			* zero, the API is not considered stable
 			* and can change without a bump of the
 			* major version). */
-#define MINVERSION 0   /* API compatible, ABI may change,
+#define MINVERSION 1   /* API compatible, ABI may change,
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
@@ -53,40 +53,88 @@ extern "C"
  */
 int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 			  struct json_object *entry);
+int acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
+			    struct json_object *entry);
+
 int acvp_req_set_algo_sha(const struct def_algo_sha *sha,
 			  struct json_object *entry);
 int acvp_req_set_algo_shake(const struct def_algo_shake *shake,
 			    struct json_object *entry);
+
 int acvp_req_set_algo_hmac(const struct def_algo_hmac *hmac,
 			   struct json_object *entry);
+int acvp_req_set_prereq_hmac(const struct def_algo_hmac *hmac,
+			     struct json_object *entry);
+
 int acvp_req_set_algo_cmac(const struct def_algo_cmac *cmac,
 			   struct json_object *entry);
+int acvp_req_set_prereq_cmac(const struct def_algo_cmac *cmac,
+			     struct json_object *entry);
+
 int acvp_req_set_algo_drbg(const struct def_algo_drbg *drbg,
 			   struct json_object *entry);
+int acvp_req_set_prereq_drbg(const struct def_algo_drbg *drbg,
+			     struct json_object *entry);
+
 int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 			  struct json_object *entry);
+int acvp_req_set_prereq_rsa(const struct def_algo_rsa *rsa,
+			    struct json_object *entry);
+
 int acvp_req_set_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
 			    struct json_object *entry);
+int acvp_req_set_prereq_ecdsa(const struct def_algo_ecdsa *ecdsa,
+			      struct json_object *entry);
+
 int acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
 			    struct json_object *entry);
+int acvp_req_set_prereq_eddsa(const struct def_algo_eddsa *eddsa,
+			      struct json_object *entry);
+
 int acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
 			  struct json_object *entry);
+int acvp_req_set_prereq_dsa(const struct def_algo_dsa *dsa,
+			    struct json_object *entry);
+
 int acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 			      struct json_object *entry);
+int acvp_req_set_prereq_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
+				struct json_object *entry);
+
 int acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 			      struct json_object *entry);
+int acvp_req_set_prereq_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
+			      struct json_object *entry);
+
 int acvp_req_set_algo_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
 			      struct json_object *entry);
+int acvp_req_set_prereq_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
+				struct json_object *entry);
+
 int acvp_req_set_algo_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
 			        struct json_object *entry);
+int acvp_req_set_prereq_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
+				  struct json_object *entry);
+
 int acvp_req_set_algo_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
 			        struct json_object *entry);
+int acvp_req_set_prereq_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
+				  struct json_object *entry);
+
 int acvp_req_set_algo_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 			      struct json_object *entry);
+int acvp_req_set_prereq_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
+				struct json_object *entry);
+
 int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 			      struct json_object *entry);
+int acvp_req_set_prereq_kdf_108(const struct def_algo_kdf_108 *kdf_108,
+				struct json_object *entry);
+
 int acvp_req_set_algo_pbkdf(const struct def_algo_pbkdf *pbkdf,
 			    struct json_object *entry);
+int acvp_req_set_prereq_pbkdf(const struct def_algo_pbkdf *pbkdf,
+			      struct json_object *entry);
 
 /* Data structure used to exchange information with network backend. */
 struct acvp_na_ex {
@@ -149,6 +197,8 @@ enum acvp_test_verdict {
 
 struct acvp_test_verdict_status {
 	enum acvp_test_verdict verdict;
+	char *cipher_name;
+	char *cipher_mode;
 };
 
 static inline void acvp_store_verdict(struct acvp_test_verdict_status *verdict,
@@ -201,9 +251,6 @@ struct acvp_vsid_ctx {
 	 * we have to deviate from the regular logic flow of uploading the
 	 * test response and download the verdict.
 	 */
-
-	/* The caller requested to resubmit the vsID test result */
-	bool resubmit_result;
 
 	/* The vsID test verdict file is present */
 	bool verdict_file_present;
@@ -518,6 +565,12 @@ int acvp_str_match(const char *exp, const char *found, uint32_t id);
 int acvp_get_verdict_json(const struct acvp_buf *verdict_buf,
 			  bool *test_passed);
 
+/*
+ * @brief Obtain cipher information from JSON data.
+ */
+int acvp_get_algoinfo_json(const struct acvp_buf *buf,
+			   struct acvp_test_verdict_status *verdict);
+
 /**
  * @brief Helper to perform HTTP operation
  */
@@ -668,8 +721,8 @@ int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
 			    const struct acvp_buf *buf, int err,
 			    const char *file);
 
-int acvp_req_check_string(char *string, unsigned int slen);
-int acvp_req_check_filename(char *string, unsigned int slen);
+int acvp_req_check_string(char *string, size_t slen);
+int acvp_req_check_filename(char *string, size_t slen);
 
 bool acvp_req_is_production(void);
 
@@ -708,7 +761,7 @@ bool acvp_req_is_production(void);
 #define ACVP_DS_UPLOADDURATION			"upload_duration.txt"
 /* File containing the version information of the data store */
 #define ACVP_DS_VERSIONFILE			"datastore_version.txt"
-#define ACVP_DS_VERSION				2
+#define ACVP_DS_VERSION				3
 /* File holding the unambiguous search criteria to look up cipher definition */
 #define ACVP_DS_DEF_REFERENCE			"definition_reference.json"
 /* File holding the ACVP request */

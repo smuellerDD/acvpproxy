@@ -196,48 +196,59 @@ static int acvp_req_dsa_sigver(const struct def_algo_dsa *dsa,
 /*
  * Generate algorithm entry for symmetric ciphers
  */
-int acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
-			  struct json_object *entry)
+static int _acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
+				  struct json_object *entry, bool full)
 {
-	struct json_object *algspecs, *caparray = NULL;
+	struct json_object *algspecs = NULL, *caparray = NULL;
 	int ret = 0;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
+	if (full) {
+		CKINT(acvp_req_add_revision(entry, "1.0"));
+
+		caparray = json_object_new_array();
+		CKNULL(caparray, -ENOMEM);
+
+		algspecs = json_object_new_object();
+		CKNULL(algspecs, -ENOMEM);
+		CKINT(json_object_array_add(caparray, algspecs));
+
+		CKINT(json_object_object_add(entry, "capabilities", caparray));
+		caparray = NULL;
+	}
 
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("DSA")));
-
-	caparray = json_object_new_array();
-	CKNULL(caparray, -ENOMEM);
-	algspecs = json_object_new_object();
-	CKNULL(algspecs, -ENOMEM);
-	CKINT(json_object_array_add(caparray, algspecs));
 
 	switch (dsa->dsa_mode) {
 	case DEF_ALG_DSA_MODE_PQGGEN:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("pqgGen")));
-		CKINT(acvp_req_dsa_pqggen(dsa, algspecs));
+		if (full)
+			CKINT(acvp_req_dsa_pqggen(dsa, algspecs));
 		break;
 	case DEF_ALG_DSA_MODE_PQGVER:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("pqgVer")));
-		CKINT(acvp_req_dsa_pqgver(dsa, algspecs));
+		if (full)
+			CKINT(acvp_req_dsa_pqgver(dsa, algspecs));
 		break;
 	case DEF_ALG_DSA_MODE_KEYGEN:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("keyGen")));
-		CKINT(acvp_req_dsa_keygen(dsa, algspecs));
+		if (full)
+			CKINT(acvp_req_dsa_keygen(dsa, algspecs));
 		break;
 	case DEF_ALG_DSA_MODE_SIGGEN:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigGen")));
-		CKINT(acvp_req_dsa_siggen(dsa, algspecs));
+		if (full)
+			CKINT(acvp_req_dsa_siggen(dsa, algspecs));
 		break;
 	case DEF_ALG_DSA_MODE_SIGVER:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigVer")));
-		CKINT(acvp_req_dsa_sigver(dsa, algspecs));
+		if (full)
+			CKINT(acvp_req_dsa_sigver(dsa, algspecs));
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
@@ -249,11 +260,21 @@ int acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
 
 	CKINT(acvp_req_gen_prereq(dsa->prereqvals, dsa->prereqvals_num,
 				  entry));
-	CKINT(json_object_object_add(entry, "capabilities", caparray));
-	caparray = NULL;
 
 out:
 	if (caparray)
 		json_object_put(caparray);
 	return ret;
+}
+
+int acvp_req_set_prereq_dsa(const struct def_algo_dsa *dsa,
+			    struct json_object *entry)
+{
+	return _acvp_req_set_algo_dsa(dsa, entry, false);
+}
+
+int acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
+			  struct json_object *entry)
+{
+	return _acvp_req_set_algo_dsa(dsa, entry, true);
 }

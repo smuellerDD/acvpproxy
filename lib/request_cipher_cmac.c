@@ -29,6 +29,19 @@
 #include "internal.h"
 #include "request_helper.h"
 
+int acvp_req_set_prereq_cmac(const struct def_algo_cmac *cmac,
+			     struct json_object *entry)
+{
+	int ret;
+
+	CKINT(acvp_req_cipher_to_string(entry, cmac->algorithm,
+					ACVP_CIPHERTYPE_MAC, "algorithm"));
+	CKINT(acvp_req_gen_prereq(&cmac->prereqvals, 1, entry));
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for CMACs
  */
@@ -41,9 +54,7 @@ int acvp_req_set_algo_cmac(const struct def_algo_cmac *cmac,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_cipher_to_string(entry, cmac->algorithm,
-					ACVP_CIPHERTYPE_MAC, "algorithm"));
-	CKINT(acvp_req_gen_prereq(&cmac->prereqvals, 1, entry));
+	CKINT(acvp_req_set_prereq_cmac(cmac, entry));
 
 	caps_array = json_object_new_array();
 	CKNULL(caps_array, -ENOMEM);

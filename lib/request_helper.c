@@ -33,7 +33,7 @@ static inline int acvp_req_check_zero(const int val)
 }
 
 int acvp_req_algo_domain(struct json_object *entry,
-			 unsigned int min, unsigned int max, unsigned int inc,
+			 int min, int max, int inc,
 			 const char *key)
 {
 	struct json_object *lenarray, *len;
@@ -89,7 +89,7 @@ static int _acvp_req_algo_int_array_always(struct json_object *entry,
 		CKINT(json_object_array_add(tmp_array,
 			json_object_new_int(acvp_req_check_zero(vals[i]))));
 	}
-	json_object_object_add(entry, key, tmp_array);
+	CKINT(json_object_object_add(entry, key, tmp_array));
 
 	return 0;
 
@@ -213,10 +213,10 @@ int acvp_req_gen_prereq(const struct def_algo_prereqs *prereqs,
 
 		tmp = json_object_new_object();
 		CKNULL(tmp, -ENOMEM);
-		json_object_object_add(tmp, "algorithm",
-			json_object_new_string(prereqs->algorithm));
-		json_object_object_add(tmp, "valValue",
-			json_object_new_string(prereqs->valvalue));
+		CKINT(json_object_object_add(tmp, "algorithm",
+				json_object_new_string(prereqs->algorithm)));
+		CKINT(json_object_object_add(tmp, "valValue",
+				json_object_new_string(prereqs->valvalue)));
 		CKINT(json_object_array_add(tmp_array, tmp));
 
 		prereqs++;
@@ -265,7 +265,7 @@ int acvp_req_tdes_keyopt(struct json_object *entry, cipher_t algorithm)
 		CKNULL(tmp_array, -ENOMEM);
 		CKINT(json_object_array_add(tmp_array,
 					    json_object_new_int(1)));
-		json_object_object_add(entry, "keyingOption", tmp_array);
+		CKINT(json_object_object_add(entry, "keyingOption", tmp_array));
 		tmp_array = NULL;
 	}
 
@@ -292,12 +292,12 @@ int acvp_duplicate_string(char **dst, const char *src)
 	return 0;
 }
 
-int acvp_extend_string(char *string, unsigned int stringmaxlen,
+int acvp_extend_string(char *string, size_t stringmaxlen,
 		       const char *fmt, ...)
 {
 	va_list args;
 	char part[FILENAME_MAX];
-	unsigned int stringlen = strlen(string);
+	size_t stringlen = strlen(string);
 
 	va_start(args, fmt);
 	vsnprintf(part, sizeof(part), fmt, args);
@@ -384,7 +384,8 @@ int acvp_replace_urloptions(const char *options, char *url, uint32_t urllen)
 
 	url_p = strstr(url, "?");
 	if (url_p) {
-		snprintf(url_p, urllen - (url - url_p), "%s", options);
+		snprintf(url_p, (size_t)(urllen - (url - url_p)),
+			 "%s", options);
 	} else {
 		CKINT(acvp_extend_string(url, urllen, "%s", options));
 	}

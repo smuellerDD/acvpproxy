@@ -29,15 +29,10 @@
 #include "internal.h"
 #include "request_helper.h"
 
-/*
- * Generate algorithm entry for PBKDF
- */
-int acvp_req_set_algo_pbkdf(const struct def_algo_pbkdf *pbkdf,
-			    struct json_object *entry)
+int acvp_req_set_prereq_pbkdf(const struct def_algo_pbkdf *pbkdf,
+			      struct json_object *entry)
 {
 	int ret;
-
-	CKINT(acvp_req_add_revision(entry, "1.0"));
 
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("kdf-components")));
@@ -47,18 +42,43 @@ int acvp_req_set_algo_pbkdf(const struct def_algo_pbkdf *pbkdf,
 	CKINT(acvp_req_gen_prereq(pbkdf->prereqvals,
 				  pbkdf->prereqvals_num, entry));
 
-	CKINT(acvp_req_algo_int_array(entry, pbkdf->iteration_count,
+out:
+	return ret;
+}
+
+/*
+ * Generate algorithm entry for PBKDF
+ */
+int acvp_req_set_algo_pbkdf(const struct def_algo_pbkdf *pbkdf,
+			    struct json_object *entry)
+{
+	struct json_object *caps_array, *one_entry;
+	int ret;
+
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
+	CKINT(acvp_req_set_prereq_pbkdf(pbkdf, entry));
+
+	caps_array = json_object_new_array();
+	CKNULL(caps_array, -ENOMEM);
+	CKINT(json_object_object_add(entry, "capabilities", caps_array));
+
+	one_entry = json_object_new_object();
+	CKNULL(one_entry, -ENOMEM);
+	CKINT(json_object_array_add(caps_array, one_entry));
+
+	CKINT(acvp_req_algo_int_array(one_entry, pbkdf->iteration_count,
 				      "iterationCount"));
 
-	CKINT(acvp_req_algo_int_array(entry, pbkdf->keylen, "keyLen"));
+	CKINT(acvp_req_algo_int_array(one_entry, pbkdf->keylen, "keyLen"));
 
-	CKINT(acvp_req_algo_int_array(entry, pbkdf->passwordlen,
+	CKINT(acvp_req_algo_int_array(one_entry, pbkdf->passwordlen,
 				      "passwordLen"));
 
-	CKINT(acvp_req_algo_int_array(entry, pbkdf->saltlen, "saltLen"));
+	CKINT(acvp_req_algo_int_array(one_entry, pbkdf->saltlen, "saltLen"));
 
-	CKINT(acvp_req_cipher_to_array(entry, pbkdf->hashalg,
-				       ACVP_CIPHERTYPE_HASH, "hashAlg"));
+	CKINT(acvp_req_cipher_to_array(one_entry, pbkdf->hashalg,
+				       ACVP_CIPHERTYPE_HASH, "hmacAlg"));
 
 out:
 	return ret;

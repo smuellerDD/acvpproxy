@@ -22,7 +22,7 @@
 #include "internal.h"
 
 /* remove wrong characters */
-int acvp_req_check_string(char *string, unsigned int slen)
+int acvp_req_check_string(char *string, size_t slen)
 {
 	if (!string || !slen)
 		return 0;
@@ -39,7 +39,7 @@ int acvp_req_check_string(char *string, unsigned int slen)
 	return 0;
 }
 
-int acvp_req_check_filename(char *string, unsigned int slen)
+int acvp_req_check_filename(char *string, size_t slen)
 {
 	if (!string || !slen)
 		return 0;

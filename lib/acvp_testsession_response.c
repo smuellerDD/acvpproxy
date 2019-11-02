@@ -202,15 +202,66 @@ static int acvp_get_vsid_verdict(const struct acvp_vsid_ctx *vsid_ctx)
 		logger(LOGGER_WARN, LOGGER_C_ANY,
 		       "Verdict verification failed for vsID %u\n",
 		       vsid_ctx->vsid);
-		/*
-		 * We only log the error, but do not cause the operation to
-		 * fail, since this is a convenience function.
-		 */
-		ret = 0;
 	}
+
+	/* Ensure that testID verdict is re-downloaded */
+	ret = EAGAIN;
 
 out:
 	acvp_free_buf(&result);
+	return ret;
+}
+
+/* Process any return code from the ACVP server */
+static int acvp_response_error_handler(const struct acvp_buf *response_buf,
+				       int http_ret)
+{
+	struct json_object *response = NULL, *entry = NULL;
+	const char *error_str;
+	int ret;
+
+	if (http_ret == 0)
+		return 0;
+
+	if (!response_buf->buf || !response_buf->len)
+		return http_ret;
+
+	/*
+	 * Strip the version from the received array and return the array
+	 * entry containing the answer.
+	 */
+	if (acvp_req_strip_version(response_buf->buf, &response, &entry)) {
+		ret = http_ret;
+		goto out;
+	}
+
+	if (json_get_string(entry, "error", &error_str)) {
+		/* If we have no error entry, we cannot assess the response */
+		ret = http_ret;
+		goto out;
+	}
+
+	/*
+	 * Vectors were uploaded, we clear the error to allow downloading of
+	 * verdict.
+	 */
+	if (strstr(error_str, "KAT_RECEIVED")) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "ACVP server already received responses, continuing to obtain verdict\n");
+		ret = 0;
+		goto out;
+	}
+
+	ret = http_ret;
+
+
+out:
+	if (ret) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Recevied following ACVP server error response: %s\n",
+		       response_buf->buf);
+	}
+	ACVP_JSON_PUT_NULL(response);
 	return ret;
 }
 
@@ -221,6 +272,7 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *opts = &ctx->options;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	ACVP_BUFFER_INIT(tmp);
 	ACVP_BUFFER_INIT(result);
@@ -229,15 +281,12 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 	CKNULL_LOG(url, -EFAULT, "URL missing\n");
 
 	ret2 = acvp_net_op(testid_ctx, url, buf, &result,
-			   vsid_ctx->resubmit_result ?
+			   opts->resubmit_result ?
 			   acvp_http_put : acvp_http_post);
 
 	CKINT(acvp_store_submit_debug(vsid_ctx, &result, ret2));
 
-	if (ret2) {
-		ret = ret2;
-		goto out;
-	}
+	CKINT(acvp_response_error_handler(&result, ret2));
 
 	/*
 	 * Store status in verdict file to indicate that test responses
@@ -246,7 +295,7 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 	 * TODO: Maybe turn that into a real JSON-C operation?
 	 */
 	tmp.buf = (uint8_t *)"{ \"status\" : \"Test responses uploaded, verdict download pending\" }\n";
-	tmp.len = strlen((char *)tmp.buf);
+	tmp.len = (uint32_t)strlen((char *)tmp.buf);
 	CKINT(ds->acvp_datastore_write_vsid(vsid_ctx, datastore->verdictfile,
 					    false, &tmp));
 
@@ -285,7 +334,7 @@ static int acvp_get_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
 	CKNULL(entry, ENOMEM);
 
 	CKINT(json_object_object_add(entry, "submissionSize",
-				     json_object_new_int(submit_buf->len)));
+				     json_object_new_int((int)submit_buf->len)));
 
 	CKINT(acvp_vsid_url(vsid_ctx, urlpath, sizeof(urlpath), true));
 	CKINT(json_object_object_add(entry, "vectorSetUrl",
@@ -305,7 +354,7 @@ static int acvp_get_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
 	       "Requesting large endpoint for data size %u\n", submit_buf->len);
 
 	large_req_buf.buf = (uint8_t *)json_large;
-	large_req_buf.len = strlen(json_large);
+	large_req_buf.len = (uint32_t)strlen(json_large);
 
 	CKINT(acvp_net_op(testid_ctx, url, &large_req_buf, received_buf,
 			  acvp_http_post));
@@ -413,6 +462,7 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *opts = &ctx->options;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	const struct acvp_net_ctx *net;
 	ACVP_BUFFER_INIT(tmp);
@@ -421,7 +471,7 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 	CKINT(acvp_get_net(&net));
 
 	tmp.buf = (uint8_t *)net->server_name;
-	tmp.len = strlen((char *)tmp.buf);
+	tmp.len = (uint32_t)strlen((char *)tmp.buf);
 	ret = ds->acvp_datastore_compare(vsid_ctx, datastore->srcserver, true,
 					 &tmp);
 	if (ret < 0) {
@@ -451,7 +501,7 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 	 * Only upload test results if not already done so or explicitly
 	 * requested by user.
 	 */
-	if (!vsid_ctx->verdict_file_present || vsid_ctx->resubmit_result) {
+	if (!vsid_ctx->verdict_file_present || opts->resubmit_result) {
 		CKINT(acvp_check_large_endpoint(vsid_ctx, buf));
 	}
 
@@ -476,8 +526,12 @@ static int acvp_process_one_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 		   "ACVP testID request context missing\n");
 
 	/* The data store tells us to only fetch the verdict. */
-	if (vsid_ctx->fetch_verdict)
+	if (vsid_ctx->fetch_verdict) {
+		/* Unconstify allowed as we operate on an atomic primitive. */
+		atomic_inc((atomic_t *)&testid_ctx->vsids_to_process);
+		atomic_inc(&glob_vsids_to_process);
 		return acvp_get_vsid_verdict(vsid_ctx);
+	}
 
 	ctx = testid_ctx->ctx;
 	req = &ctx->req_details;
@@ -579,7 +633,7 @@ static int acvp_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 	char url[ACVP_NET_URL_MAXLEN];
 
 	if (!testid_ctx->testid ||
-	    (atomic_read(&testid_ctx->vsids_processed) !=
+	    (atomic_read(&testid_ctx->vsids_processed) <
 	     atomic_read(&testid_ctx->vsids_to_process))) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Not all test verdicts downloaded, skipping retrival of test session verdict\n");
@@ -590,7 +644,6 @@ static int acvp_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 
 	/* Get auth token for test session */
 	CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
-
 	/*
 	 * Construct the URL to get the server's response
 	 * (i.e. final verdict) for the test session.
@@ -684,6 +737,7 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 {
 	const struct acvp_datastore_ctx *datastore;
 	const struct acvp_search_ctx *search;
+	const struct acvp_opts_ctx *opts;
 	struct definition *def;
 	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
 	int ret;
@@ -698,6 +752,7 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 
 	datastore = &ctx->datastore;
 	search = &datastore->search;
+	opts = &ctx->options;
 
 	/* Find a module definition */
 	def = acvp_find_def(search, NULL);
@@ -738,7 +793,7 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 
 #ifdef ACVP_USE_PTHREAD
 			/* Disable threading in DEBUG mode */
-			if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_DEBUG) {
+			if (opts->threading_disabled) {
 				logger(LOGGER_DEBUG, LOGGER_C_ANY,
 				       "Disable threading support\n");
 				CKINT(cb(ctx, def, testids[i]));

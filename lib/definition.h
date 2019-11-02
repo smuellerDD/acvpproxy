@@ -156,11 +156,14 @@ struct def_algo_map {
 /* Warning, we operate with a signed int, so leave the highest bit untouched */
 #define ACVP_REQUEST_INITIAL	(1<<30)
 #define ACVP_REQUEST_PROCESSING	(1<<29)
-#define ACVP_REQUEST_MASK	(ACVP_REQUEST_INITIAL | ACVP_REQUEST_PROCESSING)
+#define ACVP_REQUEST_REJECTED	(1<<28)
+#define ACVP_REQUEST_MASK	(ACVP_REQUEST_INITIAL |			\
+				 ACVP_REQUEST_PROCESSING |		\
+				 ACVP_REQUEST_REJECTED)
 
 static inline uint32_t acvp_id(uint32_t id)
 {
-	return (id &~ ACVP_REQUEST_MASK);
+	return (id &~ (uint32_t)ACVP_REQUEST_MASK);
 }
 
 static inline bool acvp_valid_id(uint32_t id)

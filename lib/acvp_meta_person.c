@@ -324,7 +324,7 @@ static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Set a query option consisting of contact name */
 	CKINT(bin2hex_html(def_vendor->contact_name,
-			   strlen(def_vendor->contact_name),
+			   (uint32_t)strlen(def_vendor->contact_name),
 			   personstr, sizeof(personstr)));
 	snprintf(queryoptions, sizeof(queryoptions), "fullName[0]=contains:%s",
 		 personstr);

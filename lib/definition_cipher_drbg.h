@@ -117,7 +117,7 @@ struct def_algo_drbg_caps {
 	 * One value of the number of returned bits supported by DRBG
 	 * required: always
 	 */
-	unsigned int returnedbitslen;
+	int returnedbitslen;
 };
 
 struct def_algo_drbg {

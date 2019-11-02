@@ -156,6 +156,8 @@ static bool acvp_find_match(const char *searchstr, const char *defstr,
 	/* If no searchstring is provided, we match */
 	if (!searchstr)
 		return true;
+	if (!defstr)
+		return true;
 
 	if (fuzzy_search) {
 		/* We perform a substring search */
@@ -167,11 +169,17 @@ static bool acvp_find_match(const char *searchstr, const char *defstr,
 		else
 			return false;
 	} else {
+		size_t defstr_len = strlen(defstr);
+		size_t searchstr_len = strlen(searchstr);
+
 		/* Exact search */
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Exact search for %s in string %s\n", searchstr, defstr);
 
-		if (strncmp(searchstr, defstr, strlen(defstr)))
+		if (defstr_len != searchstr_len)
+			return false;
+
+		if (strncmp(searchstr, defstr, defstr_len))
 			return false;
 		else
 			return true;
@@ -216,27 +224,27 @@ struct definition *acvp_find_def(const struct acvp_search_ctx *search,
 
 		if (!acvp_find_match(search->modulename,
 				     mod_info->module_name,
-				     search->fuzzy_name_search))
+				     search->modulename_fuzzy_search))
 			continue;
 
 		if (!acvp_find_match(search->moduleversion,
 				     mod_info->module_version,
-				     search->fuzzy_name_search))
+				     search->moduleversion_fuzzy_search))
 			continue;
 
 		if (!acvp_find_match(search->vendorname,
 				     vendor->vendor_name,
-				     search->fuzzy_name_search))
+				     search->vendorname_fuzzy_search))
 			continue;
 
 		if (!acvp_find_match(search->execenv,
 				     oe->oe_env_name,
-				     search->fuzzy_name_search))
+				     search->execenv_fuzzy_search))
 			continue;
 
 		if (!acvp_find_match(search->processor,
 				     oe->proc_name,
-				     search->fuzzy_name_search))
+				     search->processor_fuzzy_search))
 			continue;
 
 		break;
@@ -272,10 +280,15 @@ int acvp_export_def_search(struct acvp_testid_ctx *testid_ctx)
 			json_object_new_string(mod_info->module_version)));
 	CKINT(json_object_object_add(s, "vendorName",
 			json_object_new_string(vendor->vendor_name)));
-	CKINT(json_object_object_add(s, "execenv",
-			json_object_new_string(oe->oe_env_name)));
+	if (oe->oe_env_name)
+		CKINT(json_object_object_add(s, "execenv",
+				json_object_new_string(oe->oe_env_name)));
 	CKINT(json_object_object_add(s, "processor",
 			json_object_new_string(oe->proc_name)));
+	CKINT(json_object_object_add(s, "processorFamily",
+			json_object_new_string(oe->proc_family)));
+	CKINT(json_object_object_add(s, "processorSeries",
+			json_object_new_string(oe->proc_series)));
 
 	/* Convert the JSON buffer into a string */
 	str = json_object_to_json_string_ext(s, JSON_C_TO_STRING_PRETTY  |
@@ -285,9 +298,9 @@ int acvp_export_def_search(struct acvp_testid_ctx *testid_ctx)
 
 	/* Write the JSON data to disk */
 	tmp.buf = (uint8_t *)str;
-	tmp.len = strlen(str);
+	tmp.len = (uint32_t)strlen(str);
 	CKINT(ds->acvp_datastore_write_testid(testid_ctx, ACVP_DS_DEF_REFERENCE,
-					      true, &tmp));
+					      false, &tmp));
 
 out:
 	ACVP_JSON_PUT_NULL(s);
@@ -311,8 +324,10 @@ int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
 			      (const char **)&search.moduleversion));
 	CKINT(json_get_string(def_config, "vendorName",
 			      (const char **)&search.vendorname));
-	CKINT(json_get_string(def_config, "execenv",
-			      (const char **)&search.execenv));
+	ret = json_get_string(def_config, "execenv",
+			      (const char **)&search.execenv);
+	if (ret < 0)
+		search.execenv = NULL;
 	CKINT(json_get_string(def_config, "processor",
 			      (const char **)&search.processor));
 
@@ -357,14 +372,53 @@ int acvp_list_unregistered_definitions(void)
 	return 0;
 }
 
+static void acvp_get_max(int *len, const char *str)
+{
+	int tmp = str ? (int)strlen(str) : 0;
+
+	if (tmp > *len)
+		*len = tmp;
+}
+
 DSO_PUBLIC
 int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 {
 	struct definition *def;
 	unsigned int vsid = 0;
-	int found = 0;
+	int v_len = 11, o_len = 2, p_len = 4, m_len = 11, mv_len = 7;
+	char bottomline[200];
 
-	fprintf(stderr, "Vendor Name | Operational Environment | Processor | Module Name | Module Version | vsIDs\n");
+	/* Finding maximum sizes */
+	def = acvp_find_def(search, NULL);
+	if (!def) {
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "No cipher implementation found for search criteria\n");
+		return -EINVAL;
+	}
+
+	while (def) {
+		const struct def_info *mod_info = def->info;
+		const struct def_vendor *vendor = def->vendor;
+		const struct def_oe *oe = def->oe;
+
+		acvp_get_max(&v_len, vendor->vendor_name);
+		acvp_get_max(&o_len, oe->oe_env_name);
+		acvp_get_max(&p_len, oe->proc_name);
+		acvp_get_max(&m_len, mod_info->module_name);
+		acvp_get_max(&mv_len, mod_info->module_version);
+
+		/* Check if we find another module definition. */
+		def = acvp_find_def(search, def);
+	}
+
+	/* Printing data */
+	fprintf(stderr, "%*s | %*s | %*s | %*s | %*s | %5s\n",
+		v_len, "Vendor Name",
+		o_len, "OE",
+		p_len, "Proc",
+		m_len, "Module Name",
+		mv_len, "Version",
+		"vsIDs");
 
 	def = acvp_find_def(search, NULL);
 	if (!def) {
@@ -378,11 +432,13 @@ int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 		const struct def_vendor *vendor = def->vendor;
 		const struct def_oe *oe = def->oe;
 
-		fprintf(stderr, "%s | %s | %s | %s | %s | %u\n",
-			vendor->vendor_name, oe->oe_env_name, oe->proc_name,
-			mod_info->module_name, mod_info->module_version,
+		fprintf(stderr, "%*s | %*s | %*s | %*s | %*s | %5u\n",
+			v_len, vendor->vendor_name,
+			o_len, oe->oe_env_name ? oe->oe_env_name : "",
+			p_len, oe->proc_name,
+			m_len, mod_info->module_name,
+			mv_len, mod_info->module_version,
 			def->num_algos);
-		found = 1;
 
 		vsid += def->num_algos;
 
@@ -390,13 +446,16 @@ int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 		def = acvp_find_def(search, def);
 	}
 
-	fprintf(stderr,
-		"====================================================\n");
+	v_len += o_len + p_len + m_len + mv_len + 15 + 5;
+	if (v_len < 0)
+		v_len = 20;
+	if (v_len > (int)sizeof(bottomline))
+		v_len = sizeof(bottomline) - 1;
+	memset(bottomline, 61, (unsigned long)v_len);
+	bottomline[v_len] = '\0';
+	fprintf(stderr, "%s\n", bottomline);
 	fprintf(stderr,
 		"Expected numbers of vsIDs for listed definitions: %u\n", vsid);
-
-	if (!found)
-		fprintf(stderr, "none\n");
 
 	return 0;
 }
@@ -480,7 +539,7 @@ static int acvp_def_add_info(struct definition *def, struct def_info *src,
 	def->info = info;
 
 	if (impl_name) {
-		uint32_t len = strlen(src->module_name) + strlen(impl_name) + 4;
+		size_t len = strlen(src->module_name) + strlen(impl_name) + 4;
 
 		info->module_name = malloc(len);
 		CKNULL(info->module_name, -ENOMEM);
@@ -695,17 +754,30 @@ static int acvp_def_set_value(struct json_object *json,
 
 	ret = json_find_key(json, name, &val, json_type_int);
 	if (ret) {
-		json_object_object_add(json, name, json_object_new_int(id));
+		/* No addition of entry if it was rejected */
+		if (id & ACVP_REQUEST_REJECTED)
+			return 0;
+
+		json_object_object_add(json, name,
+				       json_object_new_int((int)id));
 		*set = true;
 		return 0;
 	}
 
-	tmp = json_object_get_int(val);
+	/* Delete entry */
+	if (id & ACVP_REQUEST_REJECTED) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Removing ID entry for %s\n", name);
+		json_object_object_del(json, name);
+		return 0;
+	}
+
+	tmp = (uint32_t)json_object_get_int(val);
 	if (tmp >= INT_MAX)
 		return -EINVAL;
 
 	if (tmp != id) {
-		json_object_set_int(val, id);
+		json_object_set_int(val, (int)id);
 		*set = true;
 	}
 
@@ -1060,8 +1132,8 @@ static int acvp_def_update_module_id(struct def_info *def_info)
 				ACVP_DEF_PRODUCTION_ID("acvpModuleName"),
 				json_object_new_string(def_info->module_name)));
 		CKINT(json_object_object_add(id_entry,
-				ACVP_DEF_PRODUCTION_ID("acvpModuleId"),
-				json_object_new_int(def_info->acvp_module_id)));
+			ACVP_DEF_PRODUCTION_ID("acvpModuleId"),
+			json_object_new_int((int)def_info->acvp_module_id)));
 		updated = true;
 	} else {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
@@ -1140,11 +1212,19 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	       oe_file, vendor_file, info_file, impl_file);
 
 	CKINT(acvp_def_alloc_lock(&oe.def_lock));
-	CKINT_LOG(acvp_def_read_json(&oe_config,oe_file),
+	CKINT_LOG(acvp_def_read_json(&oe_config, oe_file),
 		  "Cannot parse operational environment config file %s\n",
 		  oe_file);
-	CKINT(json_get_string(oe_config, "oeEnvName",
-			      (const char **)&oe.oe_env_name));
+	ret = json_get_string(oe_config, "oeEnvName",
+			      (const char **)&oe.oe_env_name);
+	if (ret < 0) {
+		struct json_object *o = NULL;
+
+		CKINT(json_find_key(oe_config, "oeEnvName", &o,
+				    json_type_null));
+		oe.oe_env_name = NULL;
+	}
+
 	CKINT(json_get_string(oe_config, "manufacturer",
 			      (const char **)&oe.manufacturer));
 	CKINT(json_get_string(oe_config, "procFamily",

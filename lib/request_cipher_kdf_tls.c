@@ -29,6 +29,23 @@
 #include "internal.h"
 #include "request_helper.h"
 
+int acvp_req_set_prereq_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
+				struct json_object *entry)
+{
+	int ret;
+
+	CKINT(json_object_object_add(entry, "algorithm",
+				     json_object_new_string("kdf-components")));
+	CKINT(json_object_object_add(entry, "mode",
+				     json_object_new_string("tls")));
+
+	CKINT(acvp_req_gen_prereq(kdf_tls->prereqvals, kdf_tls->prereqvals_num,
+				  entry));
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for KDF TLS
  */
@@ -41,13 +58,7 @@ int acvp_req_set_algo_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(json_object_object_add(entry, "algorithm",
-				     json_object_new_string("kdf-components")));
-	CKINT(json_object_object_add(entry, "mode",
-				     json_object_new_string("tls")));
-
-	CKINT(acvp_req_gen_prereq(kdf_tls->prereqvals, kdf_tls->prereqvals_num,
-				  entry));
+	CKINT(acvp_req_set_prereq_kdf_tls(kdf_tls, entry));
 
 	version = json_object_new_array();
 	CKNULL(version, -ENOMEM);

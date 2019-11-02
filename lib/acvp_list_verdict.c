@@ -28,8 +28,34 @@
 
 static DEFINE_MUTEX_W_UNLOCKED(acvp_list_verdicts_mutex);
 
-static void acvp_list_verdict_print(struct acvp_test_verdict_status *verdict)
+static void acvp_list_verdict_print(struct acvp_test_verdict_status *verdict,
+				    bool vsid)
 {
+	unsigned int namelen = vsid ? 20 : 26;
+	unsigned int modelen = 16;
+	unsigned int stringlen = verdict->cipher_name ?
+				 (unsigned int)strlen(verdict->cipher_name) : 0;
+
+	if (stringlen > namelen) {
+		stringlen -= namelen;
+		if (stringlen > modelen)
+			modelen = 0;
+		else
+			modelen -= stringlen;
+	}
+
+	if (verdict->cipher_name) {
+		fprintf(stdout, "%-*s ", namelen, verdict->cipher_name);
+	} else {
+		fprintf(stdout, "%-*s ", namelen, "=");
+	}
+
+	if (verdict->cipher_mode) {
+		fprintf(stdout, "%-*s ", modelen, verdict->cipher_mode);
+	} else {
+		fprintf(stdout, "%-*s ", modelen, "-");
+	}
+
 	if (!verdict->verdict) {
 		fprintf_blue(stdout, "UNVERIFIED\n");
 		return;
@@ -61,8 +87,8 @@ static int acvp_list_verdicts_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 	memcpy(&tmp_ctx, vsid_ctx, sizeof(tmp_ctx));
 	CKINT(ds->acvp_datastore_get_vsid_verdict(&tmp_ctx));
 
-	fprintf(stdout, "\tVector set ID %u\t\t", vsid_ctx->vsid);
-	acvp_list_verdict_print(&tmp_ctx.verdict);
+	fprintf(stdout, "\tVector set ID %-6u ", vsid_ctx->vsid);
+	acvp_list_verdict_print(&tmp_ctx.verdict, true);
 
 out:
 	return ret;
@@ -72,6 +98,7 @@ static int acvp_list_verdicts_cb(const struct acvp_ctx *ctx,
 				 const struct definition *def,
 				 const uint32_t testid)
 {
+	const struct def_info *def_info = def->info;
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	int ret = 0;
 
@@ -88,8 +115,11 @@ static int acvp_list_verdicts_cb(const struct acvp_ctx *ctx,
 
 	CKINT(ds->acvp_datastore_get_testid_verdict(testid_ctx));
 
-	fprintf(stdout, "Test session ID %u\t\t\t", testid_ctx->testid);
-	acvp_list_verdict_print(&testid_ctx->verdict);
+	fprintf(stdout, "Test session ID %-6u ", testid_ctx->testid);
+	testid_ctx->verdict.cipher_name = def_info->module_name;
+	testid_ctx->verdict.cipher_mode = NULL;
+	acvp_list_verdict_print(&testid_ctx->verdict, false);
+	testid_ctx->verdict.cipher_name = NULL;
 
 	CKINT(ds->acvp_datastore_find_responses(testid_ctx,
 						acvp_list_verdicts_vsid));

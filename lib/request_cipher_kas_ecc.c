@@ -325,14 +325,15 @@ out:
 /*
  * Generate algorithm entry for SHA hashes
  */
-int acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
-			      struct json_object *entry)
+static int _acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
+				      struct json_object *entry, bool full)
 {
 	struct json_object *tmp, *tmp2;
 	int ret;
 	bool found = false;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
+	if (full)
+		CKINT(acvp_req_add_revision(entry, "1.0"));
 
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("KAS-ECC")));
@@ -348,6 +349,9 @@ int acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 
 	CKINT(acvp_req_gen_prereq(kas_ecc->prereqvals, kas_ecc->prereqvals_num,
 				  entry));
+
+	if (!full)
+		goto out;
 
 	tmp = json_object_new_array();
 	CKNULL(tmp, -ENOMEM);
@@ -463,4 +467,16 @@ int acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 
 out:
 	return ret;
+}
+
+int acvp_req_set_prereq_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
+				struct json_object *entry)
+{
+	return _acvp_req_set_algo_kas_ecc(kas_ecc, entry, false);
+}
+
+int acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
+			      struct json_object *entry)
+{
+	return _acvp_req_set_algo_kas_ecc(kas_ecc, entry, true);
 }

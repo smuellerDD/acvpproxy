@@ -310,14 +310,15 @@ out:
 /*
  * Generate algorithm entry for SHA hashes
  */
-int acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
-			      struct json_object *entry)
+static int _acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
+				      struct json_object *entry, bool full)
 {
 	struct json_object *tmp, *tmp2;
 	int ret;
 	bool found = false;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
+	if (full)
+		CKINT(acvp_req_add_revision(entry, "1.0"));
 
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("KAS-FFC")));
@@ -329,6 +330,9 @@ int acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 
 	CKINT(acvp_req_gen_prereq(kas_ffc->prereqvals, kas_ffc->prereqvals_num,
 				  entry));
+
+	if (!full)
+		goto out;
 
 	tmp = json_object_new_array();
 	CKNULL(tmp, -ENOMEM);
@@ -427,4 +431,16 @@ int acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 
 out:
 	return ret;
+}
+
+int acvp_req_set_prereq_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
+			      struct json_object *entry)
+{
+	return _acvp_req_set_algo_kas_ffc(kas_ffc, entry, false);
+}
+
+int acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
+			      struct json_object *entry)
+{
+	return _acvp_req_set_algo_kas_ffc(kas_ffc, entry, true);
 }

@@ -111,7 +111,7 @@ struct def_algo_kas_ffc_kdfnokc {
 	 *
 	 * required: only for AES-CCM
 	 */
-	unsigned int noncelen;
+	int noncelen;
 
 	/*
 	 * The mac len for use with AES-CCM.
@@ -120,7 +120,7 @@ struct def_algo_kas_ffc_kdfnokc {
 	 *
 	 * required: only for AES-CCM
 	 */
-	unsigned int maclen;
+	int maclen;
 
 	/*
 	 * KDF options (one or more of DEF_ALG_KAS_FFC_CONCATENATION,

@@ -311,7 +311,7 @@ static int acvp_vendor_validate_all(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Set a query option consisting of vendor_name */
 	CKINT(bin2hex_html(def_vendor->vendor_name,
-			   strlen(def_vendor->vendor_name),
+			   (uint32_t)strlen(def_vendor->vendor_name),
 			   vendorstr, sizeof(vendorstr)));
 	snprintf(queryoptions, sizeof(queryoptions), "name[0]=contains:%s",
 		 vendorstr);

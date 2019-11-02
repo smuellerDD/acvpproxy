@@ -355,10 +355,9 @@ static const struct def_algo_rsa_keygen_caps openssl_rsa_keygen_caps[] = { {
 }, {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
 	OPENSSL_RSA_KEYGEN_CAPS_COMMON
-// TODO reenable after https://github.com/usnistgov/ACVP/issues/273 is fixed
-//}, {
-//	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
-//	OPENSSL_RSA_KEYGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	OPENSSL_RSA_KEYGEN_CAPS_COMMON
 } };
 
 static const struct def_algo_rsa_keygen openssl_rsa_keygen = {
@@ -396,10 +395,9 @@ static const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps[] = { {
 }, {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
 	OPENSSL_RSA_SIGGEN_CAPS_COMMON
-// TODO reenable after https://github.com/usnistgov/ACVP/issues/273 is fixed
-//}, {
-//	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
-//	OPENSSL_RSA_SIGGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	OPENSSL_RSA_SIGGEN_CAPS_COMMON
 } };
 
 static const struct def_algo_rsa_siggen openssl_rsa_siggen[] = { {
@@ -431,10 +429,9 @@ static const struct def_algo_rsa_sigver_caps openssl_rsa_sigver_caps[] = { {
 }, {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
 	OPENSSL_RSA_SIGVER_CAPS_COMMON,
-// TODO reenable after https://github.com/usnistgov/ACVP/issues/273 is fixed
-//}, {
-//	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
-//	OPENSSL_RSA_SIGVER_CAPS_COMMON,
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	OPENSSL_RSA_SIGVER_CAPS_COMMON,
 } };
 
 static const struct def_algo_rsa_sigver openssl_rsa_sigver[] = { {

@@ -29,6 +29,21 @@
 #include "internal.h"
 #include "request_helper.h"
 
+int acvp_req_set_prereq_drbg(const struct def_algo_drbg *drbg,
+			     struct json_object *entry)
+{
+	int ret;
+
+	CKINT(json_object_object_add(entry, "algorithm",
+				     json_object_new_string(drbg->algorithm)));
+
+	CKINT(acvp_req_gen_prereq(drbg->prereqvals, drbg->prereqvals_num,
+				  entry));
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for DRBG
  */
@@ -42,11 +57,7 @@ int acvp_req_set_algo_drbg(const struct def_algo_drbg *drbg,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(json_object_object_add(entry, "algorithm",
-				     json_object_new_string(drbg->algorithm)));
-
-	CKINT(acvp_req_gen_prereq(drbg->prereqvals, drbg->prereqvals_num,
-				  entry));
+	CKINT(acvp_req_set_prereq_drbg(drbg, entry));
 
 	tmp_array = json_object_new_array();
 	CKNULL(tmp_array, -ENOMEM);

@@ -154,7 +154,7 @@ int acvp_duplicate_string(char **dst, const char *src);
  * @param stringmaxlen [in] Buffer size of string
  * @param fmt [in] Format string of the data to append
  */
-int acvp_extend_string(char *string, unsigned int stringmaxlen,
+int acvp_extend_string(char *string, size_t stringmaxlen,
 		       const char *fmt, ...);
 
 /**

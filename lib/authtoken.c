@@ -80,7 +80,7 @@ int acvp_copy_auth(struct acvp_auth_ctx *dst, const struct acvp_auth_ctx *src)
 	CKNULL(dst->jwt_token, -ENOMEM);
 	dst->jwt_token_len = src->jwt_token_len;
 
-	dst->jwt_token_generated = src->jwt_token_len;
+	dst->jwt_token_generated = src->jwt_token_generated;
 
 out:
 	return ret;
@@ -288,7 +288,7 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 		       " to refresh existing auth token" : "" );
 
 	login_buf.buf = (uint8_t *)json_login;
-	login_buf.len = strlen(json_login);
+	login_buf.len = (uint32_t)strlen(json_login);
 
 	CKINT(acvp_get_net(&net));
 	CKINT(acvp_create_url(NIST_VAL_OP_LOGIN, url, sizeof(url)));

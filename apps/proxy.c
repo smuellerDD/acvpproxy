@@ -160,7 +160,7 @@ static int read_complete(int fd, char *buf, uint32_t buflen)
 	do {
 		ret = read(fd, buf, buflen);
 		if (0 < ret) {
-			buflen -= ret;
+			buflen -= (uint32_t)ret;
 			buf += ret;
 		}
 	} while ((0 < ret || EINTR == errno) && buflen);
@@ -251,8 +251,8 @@ static int load_config(struct opt_data *opts)
 		goto out;
 	}
 
-	opts->seed_base64_len = statbuf.st_size;
-	opts->seed_base64 = malloc(statbuf.st_size);
+	opts->seed_base64_len = (uint32_t)statbuf.st_size;
+	opts->seed_base64 = malloc((size_t)statbuf.st_size);
 	if (!opts->seed_base64) {
 		ret = -ENOMEM;
 		goto out;
@@ -303,15 +303,17 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\tto process\n");
 	fprintf(stderr, "\t-p --processor <NAME>\t\tDefinition search criteria: Name of \n");
 	fprintf(stderr, "\t\t\t\t\tprocessor executing crypto module\n");
-	fprintf(stderr, "\t-f --fuzzy\t\t\tPerform a fuzzy search (perform a\n");
-	fprintf(stderr, "\t\t\t\t\tsubstring search)\n");
+	fprintf(stderr, "\t-f --fuzzy\t\t\tPerform a fuzzy search for all search \n");
+	fprintf(stderr, "\t\t\t\t\tcriteria (perform a substring search)\n");
 	fprintf(stderr, "\n\tNote: The search critera allow narrowing the processed module\n");
 	fprintf(stderr, "\tdefinitions found with the list operation. The less search criteria are\n");
 	fprintf(stderr, "\tprovided, the broader the scope is. If no search critera are provided,\n");
-
 	fprintf(stderr, "\tall module definitions are in scope. For example, using --request with\n");
 	fprintf(stderr, "\tno search criteria implies that test vectors for all module\n");
 	fprintf(stderr, "\timplementations known to the library are requested.\n\n");
+	fprintf(stderr, "\tNote 2: Prepending the search strings with \"f:\" requests a fuzzy search\n");
+	fprintf(stderr, "\tfor only that particular search criteria.\n\n");
+
 	fprintf(stderr, "\t-c --config\t\t\tConfiguration file\n");
 	fprintf(stderr, "\t-l --list\t\t\tList supported crypto modules\n");
 	fprintf(stderr, "\t-u --unregistered\t\tList unregistered crypto definitions\n");
@@ -347,6 +349,7 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\tresults on the ACVP server\n\n");
 
 	fprintf(stderr, "\tUpdate ACVP database with content from JSON configuration files:\n");
+	fprintf(stderr, "\t   --publish-prereqs\t\tAdd prerequisites to publication request\n");
 	fprintf(stderr, "\t   --register-definition\tRegister pending definitions with ACVP\n");
 	fprintf(stderr, "\t   --delete-definition <TYPE>\tDelete definition at ACVP server\n");
 	fprintf(stderr, "\t   --update-definition <TYPE>\tUpdate definition at ACVP server\n");
@@ -416,7 +419,7 @@ static void free_opts(struct opt_data *opts)
 	json_object_put(opts->config);
 }
 
-static int duplicate_string(char **dst, char *src)
+static int duplicate_string(char **dst, const char *src)
 {
 	if (*dst)
 		free(*dst);
@@ -440,7 +443,7 @@ static bool ask_yes(const char *question)
 	fprintf_red(stdout, "%s (Y/N)? ", question);
 
 	while (1) {
-		answer = fgetc(stdin);
+		answer = (unsigned char)fgetc(stdin);
 
 		switch (answer) {
 		case 'y':
@@ -480,6 +483,41 @@ static int convert_update_delete_type(const char *string, unsigned int *option)
 	}
 
 	return 0;
+}
+
+static int parse_fuzzy_flag(bool *fuzzy_search_flag, char **dst,
+			    const char *src)
+{
+	int ret;
+	char *fuzzing_request;
+
+	if (!src) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Empty string for fuzzy search provided\n");
+		return -EINVAL;
+	}
+
+	fuzzing_request = strstr(src, "f:");
+
+	/*
+	 * Only honor the fuzzing request string if placed at the beginning
+	 * of the string.
+	 */
+	if (fuzzing_request && fuzzing_request == src) {
+		*fuzzy_search_flag = true;
+		src += 2;
+	}
+
+	/*
+	 * In case no fuzzy search flag is provided, we do NOT set the
+	 * *fuzzy_search_flag to false, because the caller may have provided
+	 * the -f command line option.
+	 */
+
+	CKINT(duplicate_string(dst, src));
+
+out:
+	return ret;
 }
 
 static int parse_opts(int argc, char *argv[], struct opt_data *opts)
@@ -530,6 +568,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"register-definition",	no_argument,		0, 0},
 			{"delete-definition",	required_argument,	0, 0},
 			{"update-definition",	required_argument,	0, 0},
+			{"publish-prereqs",	required_argument,	0, 0},
 
 			{"list-request-ids",	no_argument,		0, 0},
 			{"list-available-ids",	no_argument,		0, 0},
@@ -550,9 +589,12 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			switch (opt_index) {
 			case 0:
 				logger_inc_verbosity();
+				if (logger_get_verbosity(LOGGER_C_ANY) >=
+							LOGGER_DEBUG)
+					opts->acvp_ctx_options.threading_disabled = true;
 				break;
 			case 1:
-				lval = strtoul(optarg, NULL, 10);
+				lval = strtol(optarg, NULL, 10);
 				if (lval == LONG_MAX) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "undefined logging class value\n");
@@ -588,27 +630,36 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				break;
 
 			case 5:
-				CKINT(duplicate_string(&search->modulename,
-						       optarg));
+				CKINT(parse_fuzzy_flag(
+					&search->modulename_fuzzy_search,
+					&search->modulename, optarg));
 				break;
 			case 6:
-				CKINT(duplicate_string(&search->vendorname,
-						       optarg));
+				CKINT(parse_fuzzy_flag(
+					&search->vendorname_fuzzy_search,
+					&search->vendorname, optarg));
 				break;
 			case 7:
-				CKINT(duplicate_string(&search->execenv,
-						       optarg));
+				CKINT(parse_fuzzy_flag(
+					&search->execenv_fuzzy_search,
+					&search->execenv, optarg));
 				break;
 			case 8:
-				CKINT(duplicate_string(&search->moduleversion,
-						       optarg));
+				CKINT(parse_fuzzy_flag(
+					&search->moduleversion_fuzzy_search,
+					&search->moduleversion, optarg));
 				break;
 			case 9:
-				CKINT(duplicate_string(&search->processor,
-						       optarg));
+				CKINT(parse_fuzzy_flag(
+					&search->processor_fuzzy_search,
+					&search->processor, optarg));
 				break;
 			case 10:
-				search->fuzzy_name_search = true;
+				search->modulename_fuzzy_search = true;
+				search->moduleversion_fuzzy_search = true;
+				search->vendorname_fuzzy_search = true;
+				search->execenv_fuzzy_search = true;
+				search->processor_fuzzy_search = true;
 				break;
 
 			case 11:
@@ -637,7 +688,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					ret = -EINVAL;
 					goto out;
 				}
-				search->submit_vsid[search->nr_submit_vsid++] = val;
+				search->submit_vsid[search->nr_submit_vsid++] = (unsigned int)val;
 				break;
 			case 15:
 				if (search->nr_submit_testid >= MAX_SUBMIT_ID) {
@@ -655,7 +706,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					ret = -EINVAL;
 					goto out;
 				}
-				search->submit_testid[search->nr_submit_testid++] = val;
+				search->submit_testid[search->nr_submit_testid++] = (unsigned int)val;
 				break;
 			case 16:
 				opts->request = true;
@@ -709,22 +760,28 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				CKINT(convert_update_delete_type(optarg,
 				  &opts->acvp_ctx_options.update_db_entry));
 				break;
-
 			case 30:
-				opts->list_pending_request_ids = true;
+				opts->acvp_ctx_options.publish_prereqs = true;
 				break;
+
 			case 31:
-				opts->list_available_ids = true;
+				opts->list_pending_request_ids = true;
+				opts->acvp_ctx_options.threading_disabled = true;
 				break;
 			case 32:
+				opts->list_available_ids = true;
+				opts->acvp_ctx_options.threading_disabled = true;
+				break;
+			case 33:
 				opts->list_verdicts = true;
+				opts->acvp_ctx_options.threading_disabled = true;
 				break;
 
-			case 33:
+			case 34:
 				CKINT(duplicate_string(&opts->cipher_options_file,
 						       optarg));
 				break;
-			case 34:
+			case 35:
 				CKINT(duplicate_string(&opts->cipher_options_algo[opts->cipher_options_algo_idx],
 						       optarg));
 				opts->cipher_options_algo_idx++;
@@ -734,7 +791,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					goto out;
 				}
 				break;
-			case 35:
+			case 36:
 				opts->cipher_list = true;
 				break;
 
@@ -747,22 +804,32 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			break;
 
 		case 'm':
-			CKINT(duplicate_string(&search->modulename, optarg));
+			CKINT(parse_fuzzy_flag(&search->modulename_fuzzy_search,
+					       &search->modulename, optarg));
 			break;
 		case 'n':
-			CKINT(duplicate_string(&search->vendorname, optarg));
+			CKINT(parse_fuzzy_flag(&search->vendorname_fuzzy_search,
+					       &search->vendorname, optarg));
 			break;
 		case 'e':
-			CKINT(duplicate_string(&search->execenv, optarg));
+			CKINT(parse_fuzzy_flag(&search->execenv_fuzzy_search,
+					       &search->execenv, optarg));
 			break;
 		case 'r':
-			CKINT(duplicate_string(&search->moduleversion, optarg));
+			CKINT(parse_fuzzy_flag(
+					&search->moduleversion_fuzzy_search,
+					&search->moduleversion, optarg));
 			break;
 		case 'p':
-			CKINT(duplicate_string(&search->processor, optarg));
+			CKINT(parse_fuzzy_flag(&search->processor_fuzzy_search,
+					       &search->processor, optarg));
 			break;
 		case 'f':
-			search->fuzzy_name_search = true;
+			search->modulename_fuzzy_search = true;
+			search->moduleversion_fuzzy_search = true;
+			search->vendorname_fuzzy_search = true;
+			search->execenv_fuzzy_search = true;
+			search->processor_fuzzy_search = true;
 			break;
 
 		case 'l':
@@ -790,6 +857,9 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 
 		case 'v':
 			logger_inc_verbosity();
+			if (logger_get_verbosity(LOGGER_C_ANY) >=
+						 LOGGER_DEBUG)
+				opts->acvp_ctx_options.threading_disabled = true;
 			break;
 		case 'q':
 			logger_set_verbosity(LOGGER_NONE);
@@ -1160,7 +1230,8 @@ int main(int argc, char *argv[])
 
 	CKINT(set_totp_seed(&opts));
 
-	if (opts.cipher_list || opts.cipher_options_file) {
+	if (opts.cipher_list || opts.cipher_options_algo_idx ||
+	    opts.cipher_options_file) {
 		CKINT(do_fetch_cipher_options(&opts));
 	} else if (opts.request) {
 		CKINT(do_register(&opts));

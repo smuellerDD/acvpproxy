@@ -279,7 +279,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				logger_inc_verbosity();
 				break;
 			case 1:
-				lval = strtoul(optarg, NULL, 10);
+				lval = strtol(optarg, NULL, 10);
 				if (lval == LONG_MAX) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "undefined logging class value\n");
@@ -335,7 +335,11 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 						       optarg));
 				break;
 			case 10:
-				search->fuzzy_name_search = true;
+				search->modulename_fuzzy_search = true;
+				search->moduleversion_fuzzy_search = true;
+				search->vendorname_fuzzy_search = true;
+				search->execenv_fuzzy_search = true;
+				search->processor_fuzzy_search = true;
 				break;
 
 			case 11:
@@ -364,7 +368,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					ret = -EINVAL;
 					goto out;
 				}
-				search->submit_vsid[search->nr_submit_vsid++] = val;
+				search->submit_vsid[search->nr_submit_vsid++] = (unsigned int)val;
 				break;
 			case 15:
 				if (search->nr_submit_testid >= MAX_SUBMIT_ID) {
@@ -382,7 +386,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					ret = -EINVAL;
 					goto out;
 				}
-				search->submit_testid[search->nr_submit_testid++] = val;
+				search->submit_testid[search->nr_submit_testid++] = (unsigned int)val;
 				break;
 			case 16:
 				opts->request = true;
@@ -477,7 +481,11 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			CKINT(duplicate_string(&search->processor, optarg));
 			break;
 		case 'f':
-			search->fuzzy_name_search = true;
+			search->modulename_fuzzy_search = true;
+			search->moduleversion_fuzzy_search = true;
+			search->vendorname_fuzzy_search = true;
+			search->execenv_fuzzy_search = true;
+			search->processor_fuzzy_search = true;
 			break;
 
 		case 'l':

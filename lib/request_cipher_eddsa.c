@@ -142,8 +142,8 @@ out:
 /*
  * Generate algorithm entry for symmetric ciphers
  */
-int acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
-			    struct json_object *entry)
+static int _acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
+				    struct json_object *entry, bool full)
 {
 	int ret = -EINVAL;
 
@@ -154,22 +154,26 @@ int acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
 	case DEF_ALG_EDDSA_MODE_KEYGEN:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("keyGen")));
-		CKINT(acvp_req_eddsa_keygen(eddsa, entry));
+		if (full)
+			CKINT(acvp_req_eddsa_keygen(eddsa, entry));
 		break;
 	case DEF_ALG_EDDSA_MODE_KEYVER:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("keyVer")));
-		CKINT(acvp_req_eddsa_keyver(eddsa, entry));
+		if (full)
+			CKINT(acvp_req_eddsa_keyver(eddsa, entry));
 		break;
 	case DEF_ALG_EDDSA_MODE_SIGGEN:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigGen")));
-		CKINT(acvp_req_eddsa_siggen(eddsa, entry));
+		if (full)
+			CKINT(acvp_req_eddsa_siggen(eddsa, entry));
 		break;
 	case DEF_ALG_EDDSA_MODE_SIGVER:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigVer")));
-		CKINT(acvp_req_eddsa_sigver(eddsa, entry));
+		if (full)
+			CKINT(acvp_req_eddsa_sigver(eddsa, entry));
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
@@ -186,4 +190,16 @@ int acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
 
 out:
 	return ret;
+}
+
+int acvp_req_set_prereq_eddsa(const struct def_algo_eddsa *eddsa,
+			      struct json_object *entry)
+{
+	return _acvp_req_set_algo_eddsa(eddsa, entry, false);
+}
+
+int acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
+			    struct json_object *entry)
+{
+	return _acvp_req_set_algo_eddsa(eddsa, entry, true);
 }

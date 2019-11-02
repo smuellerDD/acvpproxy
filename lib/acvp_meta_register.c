@@ -61,6 +61,13 @@ static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 		       "Request response indicates request processing: %s\n",
 		       status);
 		status_flag = ACVP_REQUEST_PROCESSING;
+	} else if (!strncmp(status, "rejected", 10)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Request response indicates rejection of request: %s\n",
+		       status);
+		ret = -EPERM;
+		*id |= ACVP_REQUEST_REJECTED;
+		goto out;
 	} else {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "Request response indicates unsuccessful opoeration: %s\n",
@@ -198,7 +205,7 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 						json_submission,
 						JSON_C_TO_STRING_PRETTY |
 						JSON_C_TO_STRING_NOSLASHESCAPE);
-		tmpbuf.len = strlen((char *)tmpbuf.buf);
+		tmpbuf.len = (uint32_t)strlen((char *)tmpbuf.buf);
 		CKINT(ds->acvp_datastore_write_testid(
 						testid_ctx,
 						"operational_environment.json",
@@ -212,7 +219,7 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 			   "JSON object conversion into string failed\n");
 
 		submit.buf = (uint8_t *)json_request;
-		submit.len = strlen(json_request);
+		submit.len = (uint32_t)strlen(json_request);
 	}
 
 	CKINT(acvp_net_op(testid_ctx, url, &submit, &response, submit_type));

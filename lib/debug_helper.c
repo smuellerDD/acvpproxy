@@ -31,7 +31,7 @@
 /* String must not contain characters that move in the file hierarchy */
 int acvp_sanitize_string(char *string)
 {
-	unsigned int slen;
+	size_t slen;
 
 	if (!string)
 		return 0;
@@ -68,7 +68,7 @@ int acvp_store_vector_status(const struct acvp_vsid_ctx *vsid_ctx,
 	va_end(args);
 
 	tmp.buf = (uint8_t *)msg;
-	tmp.len = strlen(msg);
+	tmp.len = (uint32_t)strlen(msg);
 
 	snprintf(filename, sizeof(filename), "%s.status",
 		 datastore->vectorfile);

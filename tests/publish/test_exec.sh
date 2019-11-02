@@ -41,14 +41,16 @@ test_common()
 	fi
 
 	local result=$($EXEC -v -v -v -m "${testtype}" -f -s ${testtype}/secure-datastore/ -b ${testtype}/testvectors/ -d ${testtype}/acvpproxy_0.5/ --publish --dump-register 2>"${LOGDIR}/${testtype}${LOGFILE}" > "${ACTUALDIR}/${testtype}${ACTUALRES}")
-
 	if [ $? -ne 0 ]
 	then
 		echo_fail "Publish $testtype: $result"
 		return
 	fi
 
-	result=$($EXEC -s ${testtype}/secure-datastore/ -b ${testtype}/testvectors/ -d ${testtype}/acvpproxy_0.5/ --match-expected "${EXPECTEDDIR}/${testtype}${EXPECTEDRES}" --match-actual "${ACTUALDIR}/${testtype}${ACTUALRES}")
+	# we cannot use the parser's match logic as the output contains
+	# several fully complete JSON constructs
+#	result=$($EXEC -s ${testtype}/secure-datastore/ -b ${testtype}/testvectors/ -d ${testtype}/acvpproxy_0.5/ --match-expected "${EXPECTEDDIR}/${testtype}${EXPECTEDRES}" --match-actual "${ACTUALDIR}/${testtype}${ACTUALRES}")
+result=$(diff -wB "${EXPECTEDDIR}/${testtype}${EXPECTEDRES}" "${ACTUALDIR}/${testtype}${ACTUALRES}")
 
 	if [ $? -ne 0 ]
 	then

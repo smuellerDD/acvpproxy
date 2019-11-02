@@ -112,9 +112,21 @@ struct acvp_modinfo_ctx {
  * @param vendorname Vendor name as reported by the list operation
  * @param execenv Execution environment as reported by the list operation
  * @param processor Processor name as reported by the list operation
- * @param fuzzy_name_search Use the given search strings in a fuzzy search
- *			    (i.e. use strstr to search the name and not
- *			     strncmp)
+ * @param modulename_fuzzy_search Use the given search strings in a fuzzy search
+ *			    	  (i.e. use strstr to search the name and not
+ *			    	  strncmp) for modulename
+ * @param moduleversion_fuzzy_search Use the given search strings in a fuzzy
+ *				     search (i.e. use strstr to search the name
+ *				     and not strncmp) for moduleversion
+ * @param vendorname_fuzzy_search Use the given search strings in a fuzzy search
+ *			    	  (i.e. use strstr to search the name and not
+ *			    	  strncmp) for vendorname
+ * @param execenv_fuzzy_search Use the given search strings in a fuzzy search
+ *			       (i.e. use strstr to search the name and not
+ *			       strncmp) for execenv
+ * @param processor_fuzzy_search Use the given search strings in a fuzzy search
+ *			         (i.e. use strstr to search the name and not
+ *			         strncmp) for processor
  *
  * @param submit_vsids Array of vsIds to be processed (if empty, all vsIDs are
  *		       in scope).
@@ -129,7 +141,11 @@ struct acvp_search_ctx {
 	char *vendorname;
 	char *execenv;
 	char *processor;
-	bool fuzzy_name_search;
+	bool modulename_fuzzy_search;
+	bool moduleversion_fuzzy_search;
+	bool vendorname_fuzzy_search;
+	bool execenv_fuzzy_search;
+	bool processor_fuzzy_search;
 
 	unsigned int submit_vsid[MAX_SUBMIT_ID];
 	unsigned int nr_submit_vsid;
@@ -232,6 +248,14 @@ struct acvp_opts_ctx {
 	 * ACVP server, register the module as new.
 	 */
 	bool register_new_module;
+
+	/* Disable threading */
+	bool threading_disabled;
+
+	/*
+	 * Generate array with prerequisites during publication phase.
+	 */
+	bool publish_prereqs;
 
 	/*
 	 * Delete an entry in the ACVP database. The ID is taken from the

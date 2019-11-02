@@ -34,6 +34,14 @@
 #define HTTP_OK			200
 #define ACVP_CURL_MAX_RETRIES	3
 
+#define CURL_CKINT(x) {							\
+	cret = x;							\
+	if (cret) {							\
+		ret = -EFAULT;						\
+		goto out;						\
+	}								\
+}
+
 /*
  * Shall the ACVP operation be shut down?
  */
@@ -79,7 +87,7 @@ static size_t acvp_curl_read_cb(char *buffer, size_t size, size_t nitems,
 
 	memcpy(buffer, send_buf->buf, sendsize);
 	send_buf->buf += sendsize;
-	send_buf->len -= sendsize;
+	send_buf->len -= (uint32_t)sendsize;
 
 	logger(LOGGER_DEBUG2, LOGGER_C_CURL, "Number of bytes uploaded: %zu\n",
 	       sendsize);
@@ -124,7 +132,7 @@ static size_t acvp_curl_write_cb(void *ptr, size_t size, size_t nmemb,
 	}
 
 	resp_p = response_buf->buf + response_buf->len;
-	response_buf->len = totalsize;
+	response_buf->len = (uint32_t)totalsize;
 
 	memcpy(resp_p, ptr, bufsize);
 
@@ -174,7 +182,8 @@ static void acvp_curl_log_peer_cert(CURL *hnd)
 		struct curl_slist *to_info;
 		struct curl_certinfo *to_certinfo;
 	} ptr;
-	int i, ret;
+	int i;
+	CURLcode ret;
 
 	if (logger_get_verbosity(LOGGER_C_CURL) < LOGGER_DEBUG2)
 		return;
@@ -228,24 +237,24 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 
 	curl = curl_easy_init();
 	CKNULL(curl, -ENOMEM);
-	CKINT(curl_easy_setopt(curl, CURLOPT_URL, url));
-	CKINT(curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L));
-	CKINT(curl_easy_setopt(curl, CURLOPT_USERAGENT, useragent));
-	CKINT(curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_URL, url));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_USERAGENT, useragent));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist));
 
 	/* Required for multi-threaded applications */
-	CKINT(curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L));
 
 #if LIBCURL_VERSION_NUM < 0x072000
-	CKINT(curl_easy_setopt(curl, CURLOPT_PROGRESSFUNCTION,
-			       acvp_curl_progress_callback));
-	CKINT(curl_easy_setopt(curl, CURLOPT_PROGRESSDATA, NULL));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_PROGRESSFUNCTION,
+				    acvp_curl_progress_callback));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_PROGRESSDATA, NULL));
 #else
-	CKINT(curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION,
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION,
 			       acvp_curl_progress_callback));
-	CKINT(curl_easy_setopt(curl, CURLOPT_XFERINFODATA, NULL));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_XFERINFODATA, NULL));
 #endif
-	CKINT(curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L));
 
 	switch (http_type) {
 	case acvp_http_get:
@@ -263,14 +272,11 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 			ret = -EINVAL;
 			goto out;
 		}
-		CKINT(curl_easy_setopt(curl, CURLOPT_POST, 1L));
-		CKINT(curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
-				       (curl_off_t) submit_buf->len));
-		CKINT(curl_easy_setopt(curl, CURLOPT_POSTFIELDS,
-				       submit_buf->buf));
-		logger(LOGGER_DEBUG, LOGGER_C_CURL,
-		       "About to HTTP POST the following data:\n%s\n",
-		       submit_buf->buf);
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_POST, 1L));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
+					    (curl_off_t) submit_buf->len));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_POSTFIELDS,
+					    submit_buf->buf));
 		break;
 	case acvp_http_put:
 		http_type_str = "PUT";
@@ -288,13 +294,13 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 		 */
 		submit_tmp.buf = submit_buf->buf;
 		submit_tmp.len = submit_buf->len;
-		CKINT(curl_easy_setopt(curl, CURLOPT_READFUNCTION,
-				       acvp_curl_read_cb));
-		CKINT(curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L));
-		CKINT(curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE,
-				       (curl_off_t)submit_buf->len));
-		CKINT(curl_easy_setopt(curl, CURLOPT_READDATA,
-				       &submit_tmp));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_READFUNCTION,
+					    acvp_curl_read_cb));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE,
+					    (curl_off_t)submit_buf->len));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_READDATA,
+					    &submit_tmp));
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,
 		       "About to HTTP PUT the following data:\n%s\n",
 		       submit_buf->buf);
@@ -303,7 +309,8 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 		http_type_str = "DELETE";
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,
 		       "Performing an HTTP DELETE operation\n");
-		CKINT(curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE"));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST,
+					    "DELETE"));
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_CURL,
@@ -313,54 +320,54 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	}
 
 	if (logger_get_verbosity(LOGGER_C_CURL) >= LOGGER_VERBOSE)
-		CKINT(curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L));
 
 	if (net->certs_ca_file) {
-		CKINT(curl_easy_setopt(curl, CURLOPT_CAINFO,
-				       net->certs_ca_file));
-		CKINT(curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L));
-		CKINT(curl_easy_setopt(curl, CURLOPT_CERTINFO, 1L));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_CAINFO,
+					    net->certs_ca_file));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_CERTINFO, 1L));
 		logger(LOGGER_VERBOSE, LOGGER_C_CURL,
 		       "TLS peer verification enabled with CA file %s.\n",
 		       net->certs_ca_file);
 	} else {
-		CKINT(curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L));
 		logger(LOGGER_VERBOSE, LOGGER_C_CURL,
 		       "TLS peer verification disabled.\n");
 	}
 
-	CKINT(curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L));
 
 	if (net->certs_clnt_file) {
-		CKINT(curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE,
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE,
 				       net->certs_clnt_file_type));
-		CKINT(curl_easy_setopt(curl, CURLOPT_SSLCERT,
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_SSLCERT,
 				       net->certs_clnt_file));
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,
 		       "Setting certificate with type %s\n",
 		       net->certs_clnt_file_type);
 	}
 	if (net->certs_clnt_key_file) {
-		CKINT(curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE,
-				       net->certs_clnt_key_file_type))	;
-		CKINT(curl_easy_setopt(curl, CURLOPT_SSLKEY,
-				       net->certs_clnt_key_file));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE,
+					    net->certs_clnt_key_file_type));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_SSLKEY,
+					    net->certs_clnt_key_file));
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,
 		       "Setting private key with type %s\n",
 		       net->certs_clnt_key_file_type);
 	}
 	if (net->certs_clnt_passcode) {
-		CKINT(curl_easy_setopt(curl, CURLOPT_KEYPASSWD,
-				       net->certs_clnt_passcode));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_KEYPASSWD,
+					    net->certs_clnt_passcode));
 	}
 
 	/*
 	 * If the caller wants the HTTP data from the server
 	 * set the callback function
 	 */
-	CKINT(curl_easy_setopt(curl, CURLOPT_WRITEDATA, response_buf));
-	CKINT(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
-			       acvp_curl_write_cb));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_WRITEDATA, response_buf));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
+				    acvp_curl_write_cb));
 
 	/*
 	 * Clear any interrupt triggered by signal handler to allow

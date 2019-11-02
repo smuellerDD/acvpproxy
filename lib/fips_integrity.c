@@ -141,10 +141,11 @@ static int mmap_file(const char *filename, uint8_t **memory, uint32_t *size)
 		goto out;
 
 	*memory = NULL;
-	*size = sb.st_size;
+	*size = (uint32_t)sb.st_size;
 
 	if (sb.st_size) {
-		*memory = mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+		*memory = mmap(NULL, (size_t)sb.st_size, PROT_READ, MAP_SHARED,
+			       fd, 0);
 		if (*memory == MAP_FAILED)
 		{
 			*memory = NULL;
@@ -210,8 +211,8 @@ static int process_checkfile(const char *checkfile, const char *targetfile)
 			goto out;
 		}
 
-		ret = bin2hex_alloc(calculated, calculated_len, &hexhash,
-				    &hexhashlen);
+		ret = bin2hex_alloc(calculated, (uint32_t)calculated_len,
+				    &hexhash, &hexhashlen);
 		if (ret)
 			goto out;
 
@@ -235,7 +236,7 @@ static int process_checkfile(const char *checkfile, const char *targetfile)
 		uint8_t *binhash = NULL;
 		uint32_t binhashlen;
 		uint32_t hexhashlen = 0; // length of hash hex value
-		uint32_t linelen = strlen(buf);
+		uint32_t linelen = (uint32_t)strlen(buf);
 		uint32_t i;
 		unsigned char *calculated;
 		size_t calculated_len;
@@ -315,12 +316,12 @@ out:
 int fips_post_integrity(void)
 {
 	char *checkfile = NULL;
-	uint32_t n = 0;
+	size_t n = 0;
 	int ret = -EINVAL;
 	char fipsflag[1];
 #define BUFSIZE 4096
 	char selfname[BUFSIZE];
-	int32_t selfnamesize = 0;
+	ssize_t selfnamesize = 0;
 
 #ifdef HAVE_SECURE_GETENV
 	if (secure_getenv("ACVPPROXY_FORCE_FIPS")) {

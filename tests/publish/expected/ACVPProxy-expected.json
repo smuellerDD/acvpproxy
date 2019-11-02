@@ -44,7 +44,7 @@
     "family":"X86",
     "name":"i7",
     "series":"Broadwell",
-    "description":"TOBEDEFINED"
+    "description":"Processor i7 (processor family X86) from Intel"
   }
 ]
 [
@@ -63,7 +63,7 @@
     "acvVersion":"1.0"
   },
   {
-    "name":"Fedora 29",
+    "name":"Fedora 29 on Intel Broadwell i7",
     "dependencyUrls":[
       "/acvp/v1/dependencies/20094",
       "/acvp/v1/dependencies/20095"
@@ -75,7 +75,7 @@
     "acvVersion":"1.0"
   },
   {
-    "name":"ACVPProxy (Common)",
+    "name":"Crypto for ACVPProxy (Generic C)",
     "version":"0.5",
     "type":"Software",
     "vendorUrl":"/acvp/v1/vendors/10646",
@@ -84,14 +84,5 @@
       "/acvp/v1/persons/14125"
     ],
     "description":"The ACVPProxy access the NIST ACVP server to obtain test vectors and return test responses."
-  }
-]
-[
-  {
-    "acvVersion":"1.0"
-  },
-  {
-    "moduleUrl":"/acvp/v1/modules/10586",
-    "oeUrl":"/acvp/v1/oes/19621"
   }
 ]

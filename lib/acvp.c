@@ -354,7 +354,16 @@ int acvp_set_module(struct acvp_ctx *ctx,
 	CKINT(acvp_duplicate(&ctx_search->execenv, caller_search->execenv));
 	CKINT(acvp_duplicate(&ctx_search->processor, caller_search->processor));
 
-	ctx_search->fuzzy_name_search = caller_search->fuzzy_name_search;
+	ctx_search->modulename_fuzzy_search =
+				caller_search->modulename_fuzzy_search;
+	ctx_search->moduleversion_fuzzy_search =
+				caller_search->moduleversion_fuzzy_search;
+	ctx_search->vendorname_fuzzy_search =
+				caller_search->vendorname_fuzzy_search;
+	ctx_search->execenv_fuzzy_search =
+				caller_search->execenv_fuzzy_search;
+	ctx_search->processor_fuzzy_search =
+				caller_search->processor_fuzzy_search;
 
 	for (i = 0; i < caller_search->nr_submit_testid; i++)
 		ctx_search->submit_testid[i] = caller_search->submit_testid[i];

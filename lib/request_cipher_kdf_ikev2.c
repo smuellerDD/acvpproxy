@@ -29,6 +29,23 @@
 #include "internal.h"
 #include "request_helper.h"
 
+int acvp_req_set_prereq_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
+				  struct json_object *entry)
+{
+	int ret;
+
+	CKINT(json_object_object_add(entry, "algorithm",
+				     json_object_new_string("kdf-components")));
+	CKINT(json_object_object_add(entry, "mode",
+				     json_object_new_string("ikev2")));
+
+	CKINT(acvp_req_gen_prereq(kdf_ikev2->prereqvals,
+				  kdf_ikev2->prereqvals_num, entry));
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for KDF IKE v2
  */
@@ -40,13 +57,7 @@ int acvp_req_set_algo_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(json_object_object_add(entry, "algorithm",
-				     json_object_new_string("kdf-components")));
-	CKINT(json_object_object_add(entry, "mode",
-				     json_object_new_string("ikev2")));
-
-	CKINT(acvp_req_gen_prereq(kdf_ikev2->prereqvals,
-				  kdf_ikev2->prereqvals_num, entry));
+	CKINT(acvp_req_set_prereq_kdf_ikev2(kdf_ikev2, entry));
 
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);

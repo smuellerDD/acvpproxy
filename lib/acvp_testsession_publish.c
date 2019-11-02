@@ -76,7 +76,7 @@ static int acvp_publish_write_id(const struct acvp_testid_ctx *testid_ctx,
 
 	snprintf(msgid, sizeof(msgid), "%u", validation_id);
 	tmp.buf = (uint8_t *)msgid;
-	tmp.len = strlen(msgid);
+	tmp.len = (uint32_t)strlen(msgid);
 	CKINT(ds->acvp_datastore_write_testid(testid_ctx,
 			datastore->testsession_certificate_id, true, &tmp));
 
@@ -149,6 +149,127 @@ out:
 	return ret;
 }
 
+static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
+				struct json_object *pub)
+{
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
+	const struct definition *def = testid_ctx->def;
+	struct json_object *prereq, *entry = NULL;
+	unsigned int i;
+	int ret = 0;
+
+	if (!ctx_opts->publish_prereqs)
+		return 0;
+
+	prereq = json_object_new_array();
+	CKNULL(prereq, -ENOMEM);
+	for (i = 0; i < def->num_algos; i++) {
+		const struct def_algo *def_algo = def->algos + i;
+
+		entry = json_object_new_object();
+
+		switch(def_algo->type) {
+		case DEF_ALG_TYPE_SYM:
+			CKINT(acvp_req_set_prereq_sym(&def_algo->algo.sym,
+						      entry));
+			break;
+		case DEF_ALG_TYPE_SHA:
+			/* no prereq */
+			break;
+		case DEF_ALG_TYPE_SHAKE:
+			/* no prereq */
+			break;
+		case DEF_ALG_TYPE_HMAC:
+			CKINT(acvp_req_set_prereq_hmac(&def_algo->algo.hmac,
+						       entry));
+			break;
+		case DEF_ALG_TYPE_CMAC:
+			CKINT(acvp_req_set_prereq_cmac(&def_algo->algo.cmac,
+						       entry));
+			break;
+		case DEF_ALG_TYPE_DRBG:
+			CKINT(acvp_req_set_prereq_drbg(&def_algo->algo.drbg,
+						       entry));
+			break;
+		case DEF_ALG_TYPE_RSA:
+			CKINT(acvp_req_set_prereq_rsa(&def_algo->algo.rsa,
+						      entry));
+			break;
+		case DEF_ALG_TYPE_ECDSA:
+			CKINT(acvp_req_set_prereq_ecdsa(&def_algo->algo.ecdsa,
+							entry));
+			break;
+		case DEF_ALG_TYPE_EDDSA:
+			CKINT(acvp_req_set_prereq_eddsa(&def_algo->algo.eddsa,
+							entry));
+			break;
+		case DEF_ALG_TYPE_DSA:
+			CKINT(acvp_req_set_prereq_dsa(&def_algo->algo.dsa,
+						      entry));
+			break;
+		case DEF_ALG_TYPE_KAS_ECC:
+			CKINT(acvp_req_set_prereq_kas_ecc(
+					&def_algo->algo.kas_ecc, entry));
+			break;
+		case DEF_ALG_TYPE_KAS_FFC:
+			CKINT(acvp_req_set_prereq_kas_ffc(
+					&def_algo->algo.kas_ffc, entry));
+			break;
+		case DEF_ALG_TYPE_KDF_SSH:
+			CKINT(acvp_req_set_prereq_kdf_ssh(
+					&def_algo->algo.kdf_ssh, entry));
+			break;
+		case DEF_ALG_TYPE_KDF_IKEV1:
+			CKINT(acvp_req_set_prereq_kdf_ikev1(
+					&def_algo->algo.kdf_ikev1, entry));
+			break;
+		case DEF_ALG_TYPE_KDF_IKEV2:
+			CKINT(acvp_req_set_prereq_kdf_ikev2(
+					&def_algo->algo.kdf_ikev2, entry));
+			break;
+		case DEF_ALG_TYPE_KDF_TLS:
+			CKINT(acvp_req_set_prereq_kdf_tls(
+					&def_algo->algo.kdf_tls, entry));
+			break;
+		case DEF_ALG_TYPE_KDF_108:
+			CKINT(acvp_req_set_prereq_kdf_108(
+					&def_algo->algo.kdf_108, entry));
+			break;
+		case DEF_ALG_TYPE_PBKDF:
+			CKINT(acvp_req_set_prereq_pbkdf(&def_algo->algo.pbkdf,
+							entry));
+			break;
+		default:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			"Unknown algorithm definition type\n");
+			ret = -EINVAL;
+			goto out;
+			break;
+		}
+
+		if (json_object_object_length(entry) > 0) {
+			CKNULL(entry, -ENOMEM);
+			CKINT(json_object_array_add(prereq, entry));
+			entry = NULL;
+		} else {
+			ACVP_JSON_PUT_NULL(entry);
+		}
+	}
+
+	if (json_object_array_length(prereq) > 0) {
+		CKINT(json_object_object_add(pub, "algorithmPrerequisites",
+					     prereq));
+		logger(LOGGER_DEBUG, LOGGER_C_ANY, "New prerequisites array\n");
+	} else {
+		ACVP_JSON_PUT_NULL(prereq);
+	}
+
+out:
+	ACVP_JSON_PUT_NULL(entry);
+	return ret;
+}
+
 static int acvp_publish_build(const struct acvp_testid_ctx *testid_ctx,
 			      struct json_object **json_publish)
 {
@@ -213,6 +334,8 @@ static int acvp_publish_build(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(json_object_object_add(pub, "oeUrl",
 				     json_object_new_string(url)));
 
+	CKINT(acvp_publish_prereqs(testid_ctx, pub));
+
 	json_logger(LOGGER_DEBUG2, LOGGER_C_ANY, pub, "Vendor JSON object");
 
 	*json_publish = pub;
@@ -227,6 +350,7 @@ out:
 static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	struct acvp_auth_ctx *auth;
 	struct json_object *json_publish = NULL;
@@ -258,7 +382,10 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 	 * If we have an ID and reach here, it is a valid test session
 	 * certificate ID and we stop processing.
 	 */
-	if (!req_details->dump_register && auth->testsession_certificate_id) {
+	if (!req_details->dump_register &&
+	    !ctx_opts->delete_db_entry &&
+	    !ctx_opts->update_db_entry &&
+	    auth->testsession_certificate_id) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Test session certificate ID %u %s obtained\n",
 		       auth->testsession_certificate_id,

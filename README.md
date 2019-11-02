@@ -272,7 +272,8 @@ finds.
 The JSON files in the `oe` directory must contain the following JSON keywords:
 
 * `oeEnvName`: Name of the operation environment (such as operating system and
-  its version)
+  its version) - it is allowed to be a JSON "NULL" value if the operating
+  system information is not required (i.e. if the platform is HW)
 
 * `cpe`: CPE tag (may be non-existant if `swid` exists)
 

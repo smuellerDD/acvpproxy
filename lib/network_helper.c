@@ -28,6 +28,7 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 	struct acvp_na_ex netinfo;
 	int ret, ret2;
 
+	CKNULL_LOG(na, -EFAULT, "No network backend registered\n");
 	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
 
 	/* Refresh the ACVP JWT token by re-logging in. */
@@ -71,7 +72,7 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 		if (!response->buf || !response->len)
 			goto out;
 
-		logger(ret2 ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
+		logger(ret2 ? LOGGER_VERBOSE : LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Process following server response: %s\n",
 		       response->buf);
 	}
