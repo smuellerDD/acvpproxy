@@ -86,6 +86,7 @@ static void acvp_release_datastore(struct acvp_datastore_ctx *datastore)
 	ACVP_PTR_FREE_NULL(datastore->jwttokenfile);
 	ACVP_PTR_FREE_NULL(datastore->messagesizeconstraint);
 	ACVP_PTR_FREE_NULL(datastore->testsession_certificate_id);
+	ACVP_PTR_FREE_NULL(datastore->testsession_certificate_info);
 	ACVP_PTR_FREE_NULL(datastore->verdictfile);
 	ACVP_PTR_FREE_NULL(datastore->processedfile);
 	ACVP_PTR_FREE_NULL(datastore->srcserver);
@@ -550,6 +551,8 @@ int acvp_ctx_init(struct acvp_ctx **ctx,
 			     ACVP_DS_MESSAGESIZECONSTRAINT));
 	CKINT(acvp_duplicate(&datastore->testsession_certificate_id,
 			     ACVP_DS_TESTSESSIONCERTIFICATEID));
+	CKINT(acvp_duplicate(&datastore->testsession_certificate_info,
+			     ACVP_DS_TESTSESSIONCERTIFICATEINFO));
 	CKINT(acvp_duplicate(&datastore->verdictfile, ACVP_DS_VERDICT));
 	CKINT(acvp_duplicate(&datastore->processedfile, ACVP_DS_PROCESSED));
 	CKINT(acvp_duplicate(&datastore->srcserver, ACVP_DS_SRCSERVER));

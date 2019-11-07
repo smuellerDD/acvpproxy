@@ -901,8 +901,8 @@ int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx)
 	if (req_details->dump_register) {
 		char url[ACVP_NET_URL_MAXLEN];
 
-		CKINT(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url,
-				      sizeof(url)));
+		CKINT_ULCK(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url,
+					   sizeof(url)));
 		acvp_oe_register_dep(testid_ctx, def_oe, ACVP_OE_DEP_TYPE_PROC,
 				     acvp_http_post);
 		acvp_oe_register_dep(testid_ctx, def_oe, ACVP_OE_DEP_TYPE_SW,

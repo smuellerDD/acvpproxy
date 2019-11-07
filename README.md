@@ -81,6 +81,10 @@ The publication phase is triggered with the `--publish` option. During the
 publication phase, the ACVP proxy will ensure the ACVP server receives the
 meta data and then combines it with the test session.
 
+The ultimate result of the publication phase is the creation of the
+`testsession_certificate_info.json` file which contains all details about
+the certificatication, including the official certificate number.
+
 ### Vendor ID / Module ID / Operational Environment ID
 
 To support the publication phase, the ACVP Proxy will add and maintain

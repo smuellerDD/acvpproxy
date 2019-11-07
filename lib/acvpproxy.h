@@ -56,6 +56,7 @@ extern "C"
 #define NIST_VAL_OP_ALGORITHMS		"algorithms"
 #define NIST_VAL_OP_LARGE		"large"
 #define NIST_VAL_OP_REQUESTS		"requests"
+#define NIST_VAL_OP_VALIDATIONS		"validations"
 
 /* acvp_protocol.txt: section 11.1 */
 #define ACVP_JWT_TOKEN_MAX      	1024
@@ -165,6 +166,7 @@ struct acvp_datastore_ctx {
 	char *jwttokenfile;
 	char *messagesizeconstraint;
 	char *testsession_certificate_id;
+	char *testsession_certificate_info;
 	char *verdictfile;
 	char *processedfile;
 	char *srcserver;

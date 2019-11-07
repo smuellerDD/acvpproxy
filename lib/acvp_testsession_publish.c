@@ -84,6 +84,34 @@ out:
 	return ret;
 }
 
+/* GET /validations/<certificateId> */
+static int acvp_get_certificate_info(const struct acvp_testid_ctx *testid_ctx,
+				     uint32_t certificate_id)
+{
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
+	ACVP_BUFFER_INIT(response);
+	int ret;
+	char url[ACVP_NET_URL_MAXLEN];
+
+	if (!certificate_id)
+		return -EINVAL;
+
+	CKINT(acvp_create_url(NIST_VAL_OP_VALIDATIONS, url, sizeof(url)));
+	CKINT(acvp_extend_string(url, sizeof(url), "/%u", certificate_id));
+	CKINT(acvp_net_op(testid_ctx, url, NULL, &response, acvp_http_get));
+	CKINT(acvp_store_file(testid_ctx, &response, 1,
+			      datastore->testsession_certificate_info));
+
+	logger_status(LOGGER_C_ANY, "Certificate details obtained\n");
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Certificate details:\n%s\n",
+	       response.buf);
+
+out:
+	acvp_free_buf(&response);
+	return ret;
+}
+
 /* PUT /testSessions/<testSessionId> */
 static int acvp_publish_request(const struct acvp_testid_ctx *testid_ctx,
 				struct json_object *publish)
@@ -103,6 +131,11 @@ static int acvp_publish_request(const struct acvp_testid_ctx *testid_ctx,
 	 * (a request ID is returned), the ID is written to disk.
 	 */
 	ret |= acvp_publish_write_id(testid_ctx, certificate_id);
+
+	if (ret)
+		goto out;
+
+	CKINT(acvp_get_certificate_info(testid_ctx, certificate_id));
 
 out:
 	return ret;
@@ -396,6 +429,10 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 			      auth->testsession_certificate_id,
 			      acvp_valid_id(auth->testsession_certificate_id) ?
 			      "successfully" : "not yet");
+
+		if (acvp_valid_id(auth->testsession_certificate_id))
+			CKINT(acvp_get_certificate_info(testid_ctx,
+					auth->testsession_certificate_id));
 
 		ret = 0;
 		goto out;

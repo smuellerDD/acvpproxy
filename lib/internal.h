@@ -40,7 +40,7 @@ extern "C"
 			* zero, the API is not considered stable
 			* and can change without a bump of the
 			* major version). */
-#define MINVERSION 1   /* API compatible, ABI may change,
+#define MINVERSION 2   /* API compatible, ABI may change,
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
@@ -718,8 +718,8 @@ int acvp_store_module_debug(const struct acvp_testid_ctx *testid_ctx,
 int acvp_store_person_debug(const struct acvp_testid_ctx *testid_ctx,
 			    const struct acvp_buf *buf, int err);
 int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
-			    const struct acvp_buf *buf, int err,
-			    const char *file);
+		    const struct acvp_buf *buf, int err,
+		    const char *file);
 
 int acvp_req_check_string(char *string, size_t slen);
 int acvp_req_check_filename(char *string, size_t slen);
@@ -746,6 +746,8 @@ bool acvp_req_is_production(void);
 #define ACVP_DS_MESSAGESIZECONSTRAINT		"messagesizeconstraint.txt"
 /* Approval / Certificate ID */
 #define ACVP_DS_TESTSESSIONCERTIFICATEID	"testsession_certificate_id.txt"
+/* Certificate details */
+#define ACVP_DS_TESTSESSIONCERTIFICATEINFO	"testsession_certificate_info.json"
 /* File that will hold the test verdict from the ACVP server */
 #define ACVP_DS_VERDICT				"verdict.json"
 /* File that contains the time stamp when the vector was uploaded */

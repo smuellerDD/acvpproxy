@@ -27,7 +27,7 @@
 
 static int acvp_paging_get_url_parameters(const char **url)
 {
-	size_t urllen;;
+	size_t urllen;
 	int ret = -EINVAL;
 	const char *url_p = *url;
 

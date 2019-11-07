@@ -367,7 +367,8 @@ int acvp_vendor_handle(const struct acvp_testid_ctx *testid_ctx)
 	if (req_details->dump_register) {
 		char url[ACVP_NET_URL_MAXLEN];
 
-		CKINT(acvp_create_url(NIST_VAL_OP_VENDOR, url, sizeof(url)));
+		CKINT_ULCK(acvp_create_url(NIST_VAL_OP_VENDOR, url,
+					   sizeof(url)));
 		acvp_vendor_register(testid_ctx, def_vendor, url, sizeof(url),
 				     acvp_http_post);
 		goto unlock;

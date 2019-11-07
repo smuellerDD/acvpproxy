@@ -253,8 +253,8 @@ int acvp_store_person_debug(const struct acvp_testid_ctx *testid_ctx,
 }
 
 int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
-			    const struct acvp_buf *buf, int err,
-			    const char *file)
+		    const struct acvp_buf *buf, int err,
+		    const char *file)
 {
 	const struct definition *def = testid_ctx->def;
 	char tmp[FILENAME_MAX];

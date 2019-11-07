@@ -1,3 +1,7 @@
+v1.2.0
+- add GET /validations/<certificateId> when having certificateId available -
+  the result is stored in testsession_certificate_info.json
+
 v1.1.0
 - fix: update PBKDF to match published ACVP definition
 - fix: do not log mmap()ed buffer as vsnprintf performs a strlen() operation and
