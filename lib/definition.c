@@ -1,6 +1,6 @@
 /* ACVP definition handling
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -802,8 +802,7 @@ static int acvp_def_update_id(const char *pathname,
 		  "Cannot parse config file %s\n", pathname);
 
 	for (i = 0; i < list_entries; i++) {
-		/* Do not write a zero ID */
-		if (!list[i].name || !list[i].id)
+		if (!list[i].name)
 			continue;
 
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
@@ -1245,11 +1244,13 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	json_get_string(oe_config, "swid", (const char **)&oe.swid);
 	json_get_string(oe_config, "oe_description",
 			(const char **)&oe.oe_description);
+#if 0
 	if (!oe.cpe && !oe.swid) {
 		logger(LOGGER_ERR, LOGGER_C_ANY, "CPE or SWID missing\n");
 		ret = -EINVAL;
 		goto out;
 	}
+#endif
 
 	/* We do not read the OE / dependencies IDs here */
 

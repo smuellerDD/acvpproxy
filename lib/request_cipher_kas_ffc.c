@@ -1,6 +1,6 @@
 /* JSON request generator for KAS FFC
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -311,7 +311,8 @@ out:
  * Generate algorithm entry for SHA hashes
  */
 static int _acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
-				      struct json_object *entry, bool full)
+				      struct json_object *entry, bool full,
+				      bool publish)
 {
 	struct json_object *tmp, *tmp2;
 	int ret;
@@ -329,7 +330,7 @@ static int _acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 	}
 
 	CKINT(acvp_req_gen_prereq(kas_ffc->prereqvals, kas_ffc->prereqvals_num,
-				  entry));
+				  entry, publish));
 
 	if (!full)
 		goto out;
@@ -434,13 +435,13 @@ out:
 }
 
 int acvp_req_set_prereq_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
-			      struct json_object *entry)
+			      struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_algo_kas_ffc(kas_ffc, entry, false);
+	return _acvp_req_set_algo_kas_ffc(kas_ffc, entry, false, publish);
 }
 
 int acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 			      struct json_object *entry)
 {
-	return _acvp_req_set_algo_kas_ffc(kas_ffc, entry, true);
+	return _acvp_req_set_algo_kas_ffc(kas_ffc, entry, true, false);
 }

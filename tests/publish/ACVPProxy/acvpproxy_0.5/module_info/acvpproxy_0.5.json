@@ -5,7 +5,7 @@
   "moduleType":0,
   "acvpModuleIds":[
     {
-      "acvpModuleName":"ACVPProxy (Common)",
+      "acvpModuleName":"Crypto for ACVPProxy (Generic C)",
       "acvpModuleId":10586
     }
   ]

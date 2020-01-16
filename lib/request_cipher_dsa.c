@@ -1,6 +1,6 @@
 /* JSON generator for DSA ciphers
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -197,7 +197,8 @@ static int acvp_req_dsa_sigver(const struct def_algo_dsa *dsa,
  * Generate algorithm entry for symmetric ciphers
  */
 static int _acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
-				  struct json_object *entry, bool full)
+				  struct json_object *entry, bool full,
+				  bool publish)
 {
 	struct json_object *algspecs = NULL, *caparray = NULL;
 	int ret = 0;
@@ -259,7 +260,7 @@ static int _acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
 	}
 
 	CKINT(acvp_req_gen_prereq(dsa->prereqvals, dsa->prereqvals_num,
-				  entry));
+				  entry, publish));
 
 out:
 	if (caparray)
@@ -268,13 +269,13 @@ out:
 }
 
 int acvp_req_set_prereq_dsa(const struct def_algo_dsa *dsa,
-			    struct json_object *entry)
+			    struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_algo_dsa(dsa, entry, false);
+	return _acvp_req_set_algo_dsa(dsa, entry, false, publish);
 }
 
 int acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
 			  struct json_object *entry)
 {
-	return _acvp_req_set_algo_dsa(dsa, entry, true);
+	return _acvp_req_set_algo_dsa(dsa, entry, true, false);
 }

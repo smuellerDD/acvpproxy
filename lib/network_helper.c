@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -41,6 +41,10 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 
 	mutex_reader_lock(&auth->mutex);
 	switch (nettype) {
+	case acvp_http_none:
+		ret2 = 0;
+		ret = 0;
+		break;
 	case acvp_http_post:
 		CKNULL_LOG(submit, -EINVAL, "Submit buffer missing\n");
 		CKNULL_LOG(response, -EINVAL, "Response buffer missing\n");
@@ -63,8 +67,6 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 		       nettype);
 		ret2 = -EINVAL;
 		break;
-
-
 	}
 	mutex_reader_unlock(&auth->mutex);
 

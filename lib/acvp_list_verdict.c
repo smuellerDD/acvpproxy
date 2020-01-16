@@ -1,6 +1,6 @@
 /* List all pending request IDs
  *
- * Copyright (C) 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -69,6 +69,9 @@ static void acvp_list_verdict_print(struct acvp_test_verdict_status *verdict,
 		fprintf_red(stdout, "FAILED\n");
 		break;
 	case acvp_verdict_unknown:
+		fprintf_blue(stdout, "UNKNOWN\n");
+		break;
+	case acvp_verdict_unreceived:
 		fprintf_blue(stdout, "UNVERIFIED\n");
 		break;
 	default:
@@ -100,6 +103,7 @@ static int acvp_list_verdicts_cb(const struct acvp_ctx *ctx,
 {
 	const struct def_info *def_info = def->info;
 	struct acvp_testid_ctx *testid_ctx = NULL;
+	struct acvp_auth_ctx *auth;
 	int ret = 0;
 
 	CKNULL_LOG(def, -EINVAL, "Definition data not defined\n");
@@ -110,6 +114,11 @@ static int acvp_list_verdicts_cb(const struct acvp_ctx *ctx,
 	testid_ctx->def = def;
 	testid_ctx->ctx = ctx;
 	testid_ctx->testid = testid;
+	CKINT(acvp_init_auth(testid_ctx));
+
+	/* Get auth token for test session */
+	CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
+	auth = testid_ctx->server_auth;
 
 	mutex_w_lock(&acvp_list_verdicts_mutex);
 
@@ -120,6 +129,12 @@ static int acvp_list_verdicts_cb(const struct acvp_ctx *ctx,
 	testid_ctx->verdict.cipher_mode = NULL;
 	acvp_list_verdict_print(&testid_ctx->verdict, false);
 	testid_ctx->verdict.cipher_name = NULL;
+
+	if (auth->testsession_certificate_number) {
+		fprintf(stdout,
+			"\tCertificate number: %s\n",
+			auth->testsession_certificate_number);
+	}
 
 	CKINT(ds->acvp_datastore_find_responses(testid_ctx,
 						acvp_list_verdicts_vsid));
@@ -133,6 +148,7 @@ static int acvp_list_verdicts_cb(const struct acvp_ctx *ctx,
 
 out:
 	mutex_w_unlock(&acvp_list_verdicts_mutex);
+	acvp_release_auth(testid_ctx);
 	acvp_release_testid(testid_ctx);
 	return ret;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -59,7 +59,7 @@ extern "C"
 #define NIST_VAL_OP_VALIDATIONS		"validations"
 
 /* acvp_protocol.txt: section 11.1 */
-#define ACVP_JWT_TOKEN_MAX      	1024
+#define ACVP_JWT_TOKEN_MAX      	16384
 /* lifetime of token in seconds - we subtract some grace time */
 #define ACVP_JWT_TOKEN_LIFETIME		(1800 - 300)
 
@@ -75,10 +75,17 @@ struct acvp_auth_ctx {
 	uint32_t max_reg_msg_size;
 
 	/*
-	 * Certificate ID (or request for it) of test session. If 0, no
-	 * test session certificate ID was applied for yet.
+	 * Certificate request ID of test session. If 0, no test session
+	 * certificate request ID was applied for yet.
 	 */
 	uint32_t testsession_certificate_id;
+
+	/*
+	 * Certificate number of test session. If NULL, no test session
+	 * certificate number was awarded yet. Note, if this value is non-NULL
+	 * the publication of the test session is complete.
+	 */
+	char *testsession_certificate_number;
 
 	/*
 	 * As auth ctx is shared between multiple vsIds belonging to one testId,
@@ -257,7 +264,7 @@ struct acvp_opts_ctx {
 	/*
 	 * Generate array with prerequisites during publication phase.
 	 */
-	bool publish_prereqs;
+	bool no_publish_prereqs;
 
 	/*
 	 * Delete an entry in the ACVP database. The ID is taken from the
@@ -307,6 +314,26 @@ struct acvp_ctx {
  */
 int acvp_init(const uint8_t *seed, uint32_t seed_len, time_t last_gen,
 	      void (*last_gen_cb)(time_t now));
+
+/**
+ * @brief Load an ACVP Proxy extension
+ *
+ * The ACVP Proxy requires one or more module implementation definitions
+ * (commonly found in lib/module_implementations/). To allow out-of-tree
+ * module definition, this API allows providing a path name to a shared
+ * library that contains the module implementation definition.
+ *
+ * The out-of-tree module implementation definition must use the macro
+ * ACVP_EXTENSION to announce its data structure, i.e. provide the pointer
+ * to the struct def_algo_map as the root of the module definition.
+ *
+ * An example Makefile for an out-of-tree compilation is provided in
+ * helper/Makefile.out-of-tree.
+ *
+ * @param path [in] Path name of the shared library
+ * @return 0 on success, < 0 on error
+ */
+int acvp_load_extension(const char *path);
 
 /**
  * @brief Release ACVP Proxy library
@@ -461,6 +488,14 @@ int acvp_list_available_ids(const struct acvp_ctx *ctx);
 int acvp_list_verdicts(const struct acvp_ctx *ctx);
 
 /**
+ * @brief List all test session certificate numbers
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int acvp_list_certificates(const struct acvp_ctx *ctx);
+
+/**
  * @brief Refresh JWT authentication token for all already obtained test vectors
  *	 limited by the search criteria.
  *
@@ -480,6 +515,14 @@ int acvp_refresh_authtoken(struct acvp_ctx *ctx, unsigned int submit_vsid);
  * @return 0 on success, < 0 on error
  */
 int acvp_versionstring(char *buf, size_t buflen);
+
+/**
+ * @brief Return version string of the ACVP Proxy library in a numeric
+ * expression
+ *
+ * @return numeric version
+ */
+uint32_t acvp_versionstring_numeric(void);
 
 /**
  * @brief Dump all registered module definitions to STDERR

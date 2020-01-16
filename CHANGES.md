@@ -1,6 +1,28 @@
 v1.2.0
 - add GET /validations/<certificateId> when having certificateId available -
   the result is stored in testsession_certificate_info.json
+- fix: JWT can be larger than 1024 bytes - the proxy now has a maximum size of
+  16384 bytes
+- replace --publish-prereqs with --no-publish-prereqs: Per default, the
+  prerequisites are sent during publication. The submission can be prevented
+  with this option. This is currently disabled due to issue #749.
+- apply the currently applicable JSON format for prerequisites during
+  publication
+- if oeEnvName is set to the NULL JSON data type, the OE is not registered with the module (e.g. relevant for hardware modules)
+- do not enforce the presence of SWID or CPE
+- add SLES kernel definition
+- fix: complete new register operation now uses correct URL
+- add --list-certificates to provide a listing of all received certificate
+  numbers
+- add listing of received certificates to --list-verdicts
+- remove CFB-8 from kernel (not implemented)
+- isolate SHA-3 into separate test session for OpenSSL
+- add --version-numeric
+- add --proxy-extension
+- add helper/proxy.sh and helper/proxy-lib.sh to simplify ACVP Proxy execution for standard tasks
+- add binarchive Makefile target for creating a binary distribution of the ACVP Proxy
+- handle "unreceived" test responses by re-submitting them
+- disable large file upload support but leave the code pending conclusion of issue #755
 
 v1.1.0
 - fix: update PBKDF to match published ACVP definition

@@ -1,6 +1,6 @@
 /* JSON generator for EDDSA ciphers
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -143,7 +143,8 @@ out:
  * Generate algorithm entry for symmetric ciphers
  */
 static int _acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
-				    struct json_object *entry, bool full)
+				    struct json_object *entry, bool full,
+				    bool publish)
 {
 	int ret = -EINVAL;
 
@@ -184,7 +185,8 @@ static int _acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
 	}
 
 	CKINT_LOG(acvp_req_gen_prereq(eddsa->prereqvals, eddsa->prereqvals_num,
-				      entry), "Cannot add prerequisites\n");
+				      entry, publish),
+		  "Cannot add prerequisites\n");
 
 	ret = 0;
 
@@ -193,13 +195,13 @@ out:
 }
 
 int acvp_req_set_prereq_eddsa(const struct def_algo_eddsa *eddsa,
-			      struct json_object *entry)
+			      struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_algo_eddsa(eddsa, entry, false);
+	return _acvp_req_set_algo_eddsa(eddsa, entry, false, publish);
 }
 
 int acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
 			    struct json_object *entry)
 {
-	return _acvp_req_set_algo_eddsa(eddsa, entry, true);
+	return _acvp_req_set_algo_eddsa(eddsa, entry, true, false);
 }

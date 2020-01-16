@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+# Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
 #
 
 CC		?= gcc
@@ -8,6 +8,7 @@ CFLAGS		+= -Werror -Wextra -Wall -pedantic -fPIC -O2 -std=gnu99
 CFLAGS		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wno-missing-field-initializers -Wno-gnu-zero-variadic-macro-arguments
 
 UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
 ifeq ($(UNAME_S),Linux)
 LDFLAGS		+= -Wl,-z,relro,-z,now -pie
 endif
@@ -28,6 +29,7 @@ MAN8		:= $(MANDIR)/man8
 INCLUDEDIR	:= /usr/include
 LN		:= ln
 LNS		:= $(LN) -sf
+BUILDDIR	:= buildpackage
 
 # Files to be filtered out and not to be compiled
 EXCLUDED	?=
@@ -37,9 +39,9 @@ EXCLUDED	?=
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	:= lib apps
-LIBRARY_DIRS	:=
-LIBRARIES	:= curl pthread
+INCLUDE_DIRS	+= lib apps lib/module_implementations
+LIBRARY_DIRS	+=
+LIBRARIES	+= curl pthread dl
 
 ifeq ($(UNAME_S),Darwin)
 #TODO can we remove the special entry for LIBRARY_DIRS?
@@ -66,7 +68,7 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 # Define files to be compiled
 #
 ###############################################################################
-C_SRCS := $(wildcard apps/*.c)
+C_SRCS += $(wildcard apps/*.c)
 C_SRCS += $(wildcard lib/*.c)
 C_SRCS += $(wildcard lib/hash/*.c)
 C_SRCS += $(wildcard lib/module_implementations/*.c)
@@ -86,7 +88,7 @@ CFLAGS += -DCRYPTOVERSION=\"$(CRYPTOVERSION)\"
 analyze_srcs = $(filter %.c, $(sort $(C_SRCS)))
 analyze_plists = $(analyze_srcs:%.c=%.plist)
 
-.PHONY: all scan install clean cppcheck distclean debug asanaddress asanthread gcov
+.PHONY: all scan install clean cppcheck distclean debug asanaddress asanthread gcov binarchive
 
 all: $(NAME)
 
@@ -131,6 +133,25 @@ cppcheck:
 install:
 	install -m 0755 $(NAME) -D -t $(DESTDIR)$(BINDIR)/
 
+
+binarchive: $(NAME)
+	$(eval APPVERSION_NUMERIC := $(shell ./acvp-proxy --version-numeric 2>&1))
+ifeq ($(UNAME_S),Linux)
+	install -s -m 0755 $(NAME) -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	install -m 0755 helper/proxy-lib.sh -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	install -m 0755 helper/proxy.sh -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	install -m 0644 lib/*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
+	install -m 0644 lib/module_implementations/*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
+else
+	@- mkdir -p $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
+	@- cp -f $(NAME) $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f helper/proxy-lib.sh $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f helper/proxy.sh $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f lib/*.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
+	@- cp -f lib/module_implementations/*.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
+endif
+	@- tar -cJf $(NAME)-$(APPVERSION_NUMERIC).$(UNAME_S).$(UNAME_M).tar.xz -C $(BUILDDIR) $(NAME)-$(APPVERSION_NUMERIC)
+
 ###############################################################################
 #
 # Clean
@@ -145,6 +166,8 @@ clean:
 	@- $(RM) $(C_GCOV)
 	@- $(RM) *.gcov
 	@- $(RM) $(analyze_plists)
+	@- $(RM) -rf $(BUILDDIR)
+	@- $(RM) $(NAME)-*.tar.xz
 
 distclean: clean
 

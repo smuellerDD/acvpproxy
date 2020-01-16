@@ -1,6 +1,6 @@
 /* Network access backend using libcurl
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -393,8 +393,20 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 			break;
 
 		retries++;
-		if (retries < ACVP_CURL_MAX_RETRIES)
-			CKINT(sleep_interruptible(10, &acvp_curl_interrupted));
+		if (retries < ACVP_CURL_MAX_RETRIES) {
+			int ret2;
+
+			/*
+			 * Do not reuse the variable ret as it must be left
+			 * untouched in case it contains the error from the
+			 * HTTP operation.
+			 */
+			ret2 = sleep_interruptible(10, &acvp_curl_interrupted);
+			if (ret2 < 0) {
+				ret = ret2;
+				goto out;
+			}
+		}
 	}
 
 	if (ret)

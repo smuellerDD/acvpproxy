@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -109,7 +109,7 @@ struct def_algo_ecdsa {
 	/*
 	 * Is the cipher request a request for component testing only?
 	 *
-	 * required: optional for ECDSA siggen
+	 * required: optional for ECDSA siggen and sigver
 	 */
 	bool component_test;
 };

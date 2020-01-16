@@ -1,6 +1,6 @@
 /* List all pending request IDs
  *
- * Copyright (C) 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

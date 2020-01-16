@@ -1,6 +1,6 @@
 /* JSON generator for ECDSA ciphers
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -124,6 +124,10 @@ static int acvp_req_ecdsa_sigver(const struct def_algo_ecdsa *ecdsa,
 	int ret;
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
+
+	CKINT(json_object_object_add(entry, "componentTest",
+			json_object_new_boolean(ecdsa->component_test)));
+
 	CKINT(acvp_req_ecdsa_sig_helper(ecdsa, entry));
 
 out:
@@ -134,7 +138,8 @@ out:
  * Generate algorithm entry for symmetric ciphers
  */
 static int _acvp_req_set_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
-				    struct json_object *entry, bool full)
+				    struct json_object *entry, bool full,
+				    bool publish)
 {
 	int ret = -EINVAL;
 
@@ -175,7 +180,7 @@ static int _acvp_req_set_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
 	}
 
 	CKINT(acvp_req_gen_prereq(ecdsa->prereqvals, ecdsa->prereqvals_num,
-				  entry));
+				  entry, publish));
 
 	ret = 0;
 
@@ -184,13 +189,13 @@ out:
 }
 
 int acvp_req_set_prereq_ecdsa(const struct def_algo_ecdsa *ecdsa,
-			      struct json_object *entry)
+			      struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_algo_ecdsa(ecdsa, entry, false);
+	return _acvp_req_set_algo_ecdsa(ecdsa, entry, false, publish);
 }
 
 int acvp_req_set_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
 			    struct json_object *entry)
 {
-	return _acvp_req_set_algo_ecdsa(ecdsa, entry, true);
+	return _acvp_req_set_algo_ecdsa(ecdsa, entry, true, false);
 }

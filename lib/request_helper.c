@@ -1,6 +1,6 @@
 /* Helper code with common functions
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -195,7 +195,8 @@ int acvp_req_cipher_to_array(struct json_object *entry, cipher_t cipher,
 }
 
 int acvp_req_gen_prereq(const struct def_algo_prereqs *prereqs,
-			unsigned int num, struct json_object *entry)
+			unsigned int num, struct json_object *entry,
+			bool publish)
 {
 	struct json_object *tmp_array = NULL, *tmp = NULL;
 	unsigned int i;
@@ -215,13 +216,15 @@ int acvp_req_gen_prereq(const struct def_algo_prereqs *prereqs,
 		CKNULL(tmp, -ENOMEM);
 		CKINT(json_object_object_add(tmp, "algorithm",
 				json_object_new_string(prereqs->algorithm)));
-		CKINT(json_object_object_add(tmp, "valValue",
+		CKINT(json_object_object_add(tmp, publish ? "validationId" :
+							    "valValue",
 				json_object_new_string(prereqs->valvalue)));
 		CKINT(json_object_array_add(tmp_array, tmp));
 
 		prereqs++;
 	}
-	json_object_object_add(entry, "prereqVals", tmp_array);
+	json_object_object_add(entry, publish ? "prerequisites" : "prereqVals",
+			       tmp_array);
 
 out:
 	return ret;

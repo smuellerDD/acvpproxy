@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -37,33 +37,45 @@ int acvp_str_match(const char *exp, const char *found, uint32_t id)
 }
 
 int acvp_get_verdict_json(const struct acvp_buf *verdict_buf,
-			  bool *test_passed)
+			  enum acvp_test_verdict *verdict_stat)
 {
-	struct json_object *verdict_full = NULL, *verdict;
+	struct json_object *verdict_full = NULL, *verdict, *resobject;
 	int ret;
 	const char *result;
+	bool test_passed;
 
 	CKINT_LOG(acvp_req_strip_version(verdict_buf->buf, &verdict_full,
 					 &verdict),
 		  "JSON parser cannot parse verdict data\n");
 
-	ret = json_get_bool(verdict, "passed", test_passed);
-	if (!ret)
+	ret = json_get_bool(verdict, "passed", &test_passed);
+	if (!ret) {
+		*verdict_stat = acvp_verdict_pass;
 		goto out;
+	}
 
-	ret = json_get_string(verdict, "disposition", &result);
+	/*
+	 * Our verdict may contain a status information in case of an error
+	 * and thus a different JSON structure.
+	 */
+	if (json_find_key(verdict, "results", &resobject, json_type_object))
+		resobject = verdict;
+
+	ret = json_get_string(resobject, "disposition", &result);
 	if (ret < 0) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
 		       "JSON parser cannot find verdict data\n");
-		*test_passed = false;
+		*verdict_stat = acvp_verdict_unknown;
 		ret = 0;
 		goto out;
 	}
 
-	if (strncmp(result, "passed", 6)) {
-		*test_passed = false;
+	if (!strncmp(result, "passed", 6)) {
+		*verdict_stat = acvp_verdict_pass;
+	} else if (!strncmp(result, "unreceived", 10)) {
+		*verdict_stat = acvp_verdict_unreceived;
 	} else {
-		*test_passed = true;
+		*verdict_stat = acvp_verdict_fail;
 	}
 
 out:

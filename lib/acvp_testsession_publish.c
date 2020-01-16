@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for publishing test results
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -192,7 +192,7 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 	unsigned int i;
 	int ret = 0;
 
-	if (!ctx_opts->publish_prereqs)
+	if (ctx_opts->no_publish_prereqs)
 		return 0;
 
 	prereq = json_object_new_array();
@@ -201,11 +201,12 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 		const struct def_algo *def_algo = def->algos + i;
 
 		entry = json_object_new_object();
+		CKNULL(entry, -ENOMEM);
 
 		switch(def_algo->type) {
 		case DEF_ALG_TYPE_SYM:
 			CKINT(acvp_req_set_prereq_sym(&def_algo->algo.sym,
-						      entry));
+						      entry, true));
 			break;
 		case DEF_ALG_TYPE_SHA:
 			/* no prereq */
@@ -215,63 +216,63 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 			break;
 		case DEF_ALG_TYPE_HMAC:
 			CKINT(acvp_req_set_prereq_hmac(&def_algo->algo.hmac,
-						       entry));
+						       entry, true));
 			break;
 		case DEF_ALG_TYPE_CMAC:
 			CKINT(acvp_req_set_prereq_cmac(&def_algo->algo.cmac,
-						       entry));
+						       entry, true));
 			break;
 		case DEF_ALG_TYPE_DRBG:
 			CKINT(acvp_req_set_prereq_drbg(&def_algo->algo.drbg,
-						       entry));
+						       entry, true));
 			break;
 		case DEF_ALG_TYPE_RSA:
 			CKINT(acvp_req_set_prereq_rsa(&def_algo->algo.rsa,
-						      entry));
+						      entry, true));
 			break;
 		case DEF_ALG_TYPE_ECDSA:
 			CKINT(acvp_req_set_prereq_ecdsa(&def_algo->algo.ecdsa,
-							entry));
+							entry, true));
 			break;
 		case DEF_ALG_TYPE_EDDSA:
 			CKINT(acvp_req_set_prereq_eddsa(&def_algo->algo.eddsa,
-							entry));
+							entry, true));
 			break;
 		case DEF_ALG_TYPE_DSA:
 			CKINT(acvp_req_set_prereq_dsa(&def_algo->algo.dsa,
-						      entry));
+						      entry, true));
 			break;
 		case DEF_ALG_TYPE_KAS_ECC:
 			CKINT(acvp_req_set_prereq_kas_ecc(
-					&def_algo->algo.kas_ecc, entry));
+				&def_algo->algo.kas_ecc, entry, true));
 			break;
 		case DEF_ALG_TYPE_KAS_FFC:
 			CKINT(acvp_req_set_prereq_kas_ffc(
-					&def_algo->algo.kas_ffc, entry));
+				&def_algo->algo.kas_ffc, entry, true));
 			break;
 		case DEF_ALG_TYPE_KDF_SSH:
 			CKINT(acvp_req_set_prereq_kdf_ssh(
-					&def_algo->algo.kdf_ssh, entry));
+				&def_algo->algo.kdf_ssh, entry, true));
 			break;
 		case DEF_ALG_TYPE_KDF_IKEV1:
 			CKINT(acvp_req_set_prereq_kdf_ikev1(
-					&def_algo->algo.kdf_ikev1, entry));
+				&def_algo->algo.kdf_ikev1, entry, true));
 			break;
 		case DEF_ALG_TYPE_KDF_IKEV2:
 			CKINT(acvp_req_set_prereq_kdf_ikev2(
-					&def_algo->algo.kdf_ikev2, entry));
+				&def_algo->algo.kdf_ikev2, entry, true));
 			break;
 		case DEF_ALG_TYPE_KDF_TLS:
 			CKINT(acvp_req_set_prereq_kdf_tls(
-					&def_algo->algo.kdf_tls, entry));
+				&def_algo->algo.kdf_tls, entry, true));
 			break;
 		case DEF_ALG_TYPE_KDF_108:
 			CKINT(acvp_req_set_prereq_kdf_108(
-					&def_algo->algo.kdf_108, entry));
+				&def_algo->algo.kdf_108, entry, true));
 			break;
 		case DEF_ALG_TYPE_PBKDF:
 			CKINT(acvp_req_set_prereq_pbkdf(&def_algo->algo.pbkdf,
-							entry));
+							entry, true));
 			break;
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -282,7 +283,6 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 		}
 
 		if (json_object_object_length(entry) > 0) {
-			CKNULL(entry, -ENOMEM);
 			CKINT(json_object_array_add(prereq, entry));
 			entry = NULL;
 		} else {
@@ -367,7 +367,9 @@ static int acvp_publish_build(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(json_object_object_add(pub, "oeUrl",
 				     json_object_new_string(url)));
 
-	CKINT(acvp_publish_prereqs(testid_ctx, pub));
+	//TODO: reenable once issue 749 is fixed
+	if (0)
+		CKINT(acvp_publish_prereqs(testid_ctx, pub));
 
 	json_logger(LOGGER_DEBUG2, LOGGER_C_ANY, pub, "Vendor JSON object");
 

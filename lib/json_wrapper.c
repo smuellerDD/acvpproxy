@@ -1,6 +1,6 @@
 /* Wrapper for JSON-C functions
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -102,7 +102,7 @@ int json_get_uint(struct json_object *obj, const char *name, uint32_t *integer)
 	return 0;
 }
 
-int json_get_bool(struct json_object *obj, const char *name, bool *bool)
+int json_get_bool(struct json_object *obj, const char *name, bool *val)
 {
 	struct json_object *o = NULL;
 	json_bool tmp;
@@ -113,10 +113,10 @@ int json_get_bool(struct json_object *obj, const char *name, bool *bool)
 
 	tmp = json_object_get_boolean(o);
 
-	*bool = !!tmp;
+	*val = !!tmp;
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Found boolean %s with value %u\n", name, *bool);
+	       "Found boolean %s with value %u\n", name, *val);
 
 	return 0;
 }
@@ -139,12 +139,61 @@ out:
 	return ret;
 }
 
+int json_split_version(struct json_object *full_json,
+		       struct json_object **inobj,
+		       struct json_object **versionobj)
+{
+	int ret = 0;
+	uint32_t i;
+
+	*inobj = NULL;
+	*versionobj = NULL;
+
+	/* Parse response */
+	if (json_object_get_type(full_json) == json_type_array) {
+		for (i = 0; i < (uint32_t)json_object_array_length(full_json);
+		     i++) {
+			struct json_object *found =
+					json_object_array_get_idx(full_json, i);
+
+			/* discard version information */
+			if (json_object_object_get_ex(found, "acvVersion",
+						      NULL)) {
+				*versionobj = found;
+			} else {
+				*inobj = found;
+			}
+		}
+		if (!*inobj || !*versionobj) {
+			json_logger(LOGGER_WARN, LOGGER_C_ANY, full_json,
+				    "No data found in ACVP server response");
+			ret = -EINVAL;
+			goto out;
+		}
+	} else {
+		*inobj = full_json;
+	}
+
+	json_logger(LOGGER_DEBUG, LOGGER_C_ANY, *inobj, "ACVP vector");
+	json_logger(LOGGER_DEBUG, LOGGER_C_ANY, *versionobj, "ACVP version");
+
+	if (!json_object_is_type(*inobj, json_type_object) ||
+	    !json_object_is_type(*versionobj, json_type_object)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "JSON data is are not expected ACVP objects\n");
+		ret = EINVAL;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
 int acvp_req_strip_version(const uint8_t *buf,
 			   struct json_object **full_json,
 			   struct json_object **parsed)
 {
-	struct json_object *resp;
-	uint32_t i;
+	struct json_object *resp, *version;
 	int ret = 0;
 
 	if (!buf)
@@ -156,40 +205,38 @@ int acvp_req_strip_version(const uint8_t *buf,
 		    "Parsed ACVP response\n");
 
 	*full_json = resp;
-
 	*parsed = NULL;
 
-	/* Parse response */
-	if (json_object_get_type(resp) == json_type_array) {
-		for (i = 0; i < (uint32_t)json_object_array_length(resp); i++) {
-			struct json_object *found =
-					json_object_array_get_idx(resp, i);
-
-			CKNULL_LOG(found, -EINVAL,
-				   "Cannot get array member at location %u\n",
-				   i);
-
-			/* discard version information */
-			if (json_object_object_get_ex(found, "acvVersion",
-						      NULL))
-				continue;
-
-			*parsed = found;
-			break;
-		}
-		if (!*parsed) {
-			json_logger(LOGGER_ERR, LOGGER_C_ANY, resp,
-				    "No data found in ACVP server response");
-			ret = -EINVAL;
-			goto out;
-		}
-	} else {
-		*parsed = resp;
-	}
-
-	json_logger(LOGGER_DEBUG2, LOGGER_C_ANY, *parsed,
-		    "Stripped ACVP response");
+	return json_split_version(resp, parsed, &version);
 
 out:
+	return ret;
+}
+
+
+int json_read_data(const char *filename, struct json_object **inobj)
+{
+	struct json_object *o =  json_object_from_file(filename);
+	int ret;
+
+	if (!o) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Cannot parse input file %s\n", filename);
+		return -EFAULT;
+	}
+
+	if (!json_object_is_type(o, json_type_array)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "JSON input data is are not expected ACVP array\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	*inobj = o;
+
+	return 0;
+
+out:
+	json_object_put(o);
 	return ret;
 }

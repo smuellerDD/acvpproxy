@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+* Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
 *
 * License: see LICENSE file in root directory
 *
@@ -67,7 +67,8 @@ int acvp_req_algo_int_array_len(struct json_object *entry, const int vals[],
  * Generate the prerequisite entry
  */
 int acvp_req_gen_prereq(const struct def_algo_prereqs *in_prereqs,
-			unsigned int num, struct json_object *entry);
+			unsigned int num, struct json_object *entry,
+			bool publish);
 
 /*
  * Add keyLen array for symmetric ciphers

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -46,7 +46,7 @@ extern "C"
  * There is no other value that needs changing if the number of threads
  * shall be adjusted.
  */
-#define THREADING_MAX_THREADS 512
+#define THREADING_MAX_THREADS 64
 
 /*
  * Enable the TOTP message queue server

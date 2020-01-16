@@ -1,6 +1,6 @@
 /* JSON request generator for SP800-135 KDF IKE v1
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -30,7 +30,7 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
-				  struct json_object *entry)
+				  struct json_object *entry, bool publish)
 {
 	int ret;
 
@@ -40,7 +40,7 @@ int acvp_req_set_prereq_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
 				     json_object_new_string("ikev1")));
 
 	CKINT(acvp_req_gen_prereq(kdf_ikev1->prereqvals,
-				  kdf_ikev1->prereqvals_num, entry));
+				  kdf_ikev1->prereqvals_num, entry, publish));
 
 out:
 	return ret;
@@ -57,7 +57,7 @@ int acvp_req_set_algo_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_set_prereq_kdf_ikev1(kdf_ikev1, entry));
+	CKINT(acvp_req_set_prereq_kdf_ikev1(kdf_ikev1, entry, false));
 
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);

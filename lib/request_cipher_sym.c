@@ -1,6 +1,6 @@
 /* JSON generator for symmetric ciphers
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -66,7 +66,8 @@ out:
 }
 
 static int _acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
-				    struct json_object *entry, bool complete)
+				    struct json_object *entry, bool complete,
+				    bool publish)
 {
 	int ret = 0;
 
@@ -78,7 +79,7 @@ static int _acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
 						"algorithm"));
 
 		CKINT(acvp_req_gen_prereq(sym->prereqvals, sym->prereqvals_num,
-					  entry));
+					  entry, publish));
 	}
 
 out:
@@ -86,9 +87,9 @@ out:
 }
 
 int acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
-			    struct json_object *entry)
+			    struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_prereq_sym(sym, entry, false);
+	return _acvp_req_set_prereq_sym(sym, entry, false, publish);
 }
 
 /*
@@ -120,7 +121,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		}
 	}
 
-	CKINT(_acvp_req_set_prereq_sym(sym, entry, true));
+	CKINT(_acvp_req_set_prereq_sym(sym, entry, true, false));
 
 	tmp_array = json_object_new_array();
 	CKNULL(tmp_array, -ENOMEM);

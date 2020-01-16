@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -341,9 +341,23 @@ static const struct acvp_feature {
 	{ OE_PROC_ARM_AES,	"aes" },
 };
 
+/**
+ * @brief Data structure to for registering out-of-tree module implementation
+ *	  definitions. This structure should only be used with the
+ *	  ACVP_EXTENSION macro.
+ */
+struct acvp_extension {
+	struct def_algo_map *curr_map;
+	unsigned int nrmaps;
+};
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #define SET_IMPLEMENTATION(impl)					\
 	.algos = impl, .num_algos = ARRAY_SIZE(impl)
+
+#define ACVP_EXTENSION(map)						\
+	__attribute__ ((visibility ("default")))			\
+	struct acvp_extension acvp_extension = { map, ARRAY_SIZE(map) };
 
 /**
  * @brief This data structure is the root of a cipher definition. It is made

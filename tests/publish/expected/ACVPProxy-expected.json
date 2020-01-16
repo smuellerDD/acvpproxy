@@ -86,3 +86,12 @@
     "description":"The ACVPProxy access the NIST ACVP server to obtain test vectors and return test responses."
   }
 ]
+[
+  {
+    "acvVersion":"1.0"
+  },
+  {
+    "moduleUrl":"/acvp/v1/modules/10586",
+    "oeUrl":"/acvp/v1/oes/19621"
+  }
+]

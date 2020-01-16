@@ -1,6 +1,6 @@
 /* JSON request generator for SP800-135 KDF TLS
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -30,7 +30,7 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
-				struct json_object *entry)
+				struct json_object *entry, bool publish)
 {
 	int ret;
 
@@ -40,7 +40,7 @@ int acvp_req_set_prereq_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 				     json_object_new_string("tls")));
 
 	CKINT(acvp_req_gen_prereq(kdf_tls->prereqvals, kdf_tls->prereqvals_num,
-				  entry));
+				  entry, publish));
 
 out:
 	return ret;
@@ -58,7 +58,7 @@ int acvp_req_set_algo_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_set_prereq_kdf_tls(kdf_tls, entry));
+	CKINT(acvp_req_set_prereq_kdf_tls(kdf_tls, entry, false));
 
 	version = json_object_new_array();
 	CKNULL(version, -ENOMEM);

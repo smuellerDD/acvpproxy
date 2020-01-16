@@ -1,6 +1,6 @@
 /* JSON request generator for SP800-108 KDF
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -30,7 +30,7 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_kdf_108(const struct def_algo_kdf_108 *kdf_108,
-				struct json_object *entry)
+				struct json_object *entry, bool publish)
 {
 	int ret;
 
@@ -38,7 +38,7 @@ int acvp_req_set_prereq_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 				     json_object_new_string("KDF")));
 
 	CKINT(acvp_req_gen_prereq(kdf_108->prereqvals,
-				  kdf_108->prereqvals_num, entry));
+				  kdf_108->prereqvals_num, entry, publish));
 
 out:
 	return ret;
@@ -56,7 +56,7 @@ int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_set_prereq_kdf_108(kdf_108, entry));
+	CKINT(acvp_req_set_prereq_kdf_108(kdf_108, entry, false));
 
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);

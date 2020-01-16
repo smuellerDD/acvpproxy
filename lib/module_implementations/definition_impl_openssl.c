@@ -1,6 +1,6 @@
 /* OpenSSL module definition
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -847,9 +847,7 @@ static const struct def_algo openssl_sha [] = {
 	OPENSSL_KAS_FFC,
 
 	OPENSSL_PBKDF(ACVP_SHA1 |
-		      ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |ACVP_SHA512 |
-		      ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |
-		      ACVP_SHA3_512),
+		      ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512),
 };
 
 static const struct def_algo openssl_ssh [] = {
@@ -869,6 +867,9 @@ static const struct def_algo openssl_sha3 [] = {
 
 	OPENSSL_SHAKE(ACVP_SHAKE128),
 	OPENSSL_SHAKE(ACVP_SHAKE256),
+
+	OPENSSL_PBKDF(ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |
+		      ACVP_SHA3_512),
 };
 
 static const struct def_algo openssl_10x_sym_drbg [] = {

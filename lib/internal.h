@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -54,7 +54,7 @@ extern "C"
 int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 			  struct json_object *entry);
 int acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
-			    struct json_object *entry);
+			    struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_sha(const struct def_algo_sha *sha,
 			  struct json_object *entry);
@@ -64,77 +64,77 @@ int acvp_req_set_algo_shake(const struct def_algo_shake *shake,
 int acvp_req_set_algo_hmac(const struct def_algo_hmac *hmac,
 			   struct json_object *entry);
 int acvp_req_set_prereq_hmac(const struct def_algo_hmac *hmac,
-			     struct json_object *entry);
+			     struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_cmac(const struct def_algo_cmac *cmac,
 			   struct json_object *entry);
 int acvp_req_set_prereq_cmac(const struct def_algo_cmac *cmac,
-			     struct json_object *entry);
+			     struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_drbg(const struct def_algo_drbg *drbg,
 			   struct json_object *entry);
 int acvp_req_set_prereq_drbg(const struct def_algo_drbg *drbg,
-			     struct json_object *entry);
+			     struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 			  struct json_object *entry);
 int acvp_req_set_prereq_rsa(const struct def_algo_rsa *rsa,
-			    struct json_object *entry);
+			    struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
 			    struct json_object *entry);
 int acvp_req_set_prereq_ecdsa(const struct def_algo_ecdsa *ecdsa,
-			      struct json_object *entry);
+			      struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
 			    struct json_object *entry);
 int acvp_req_set_prereq_eddsa(const struct def_algo_eddsa *eddsa,
-			      struct json_object *entry);
+			      struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
 			  struct json_object *entry);
 int acvp_req_set_prereq_dsa(const struct def_algo_dsa *dsa,
-			    struct json_object *entry);
+			    struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 			      struct json_object *entry);
 int acvp_req_set_prereq_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
-				struct json_object *entry);
+				struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 			      struct json_object *entry);
 int acvp_req_set_prereq_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
-			      struct json_object *entry);
+			      struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
 			      struct json_object *entry);
 int acvp_req_set_prereq_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
-				struct json_object *entry);
+				struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
 			        struct json_object *entry);
 int acvp_req_set_prereq_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
-				  struct json_object *entry);
+				  struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
 			        struct json_object *entry);
 int acvp_req_set_prereq_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
-				  struct json_object *entry);
+				  struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 			      struct json_object *entry);
 int acvp_req_set_prereq_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
-				struct json_object *entry);
+				struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 			      struct json_object *entry);
 int acvp_req_set_prereq_kdf_108(const struct def_algo_kdf_108 *kdf_108,
-				struct json_object *entry);
+				struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_pbkdf(const struct def_algo_pbkdf *pbkdf,
 			    struct json_object *entry);
 int acvp_req_set_prereq_pbkdf(const struct def_algo_pbkdf *pbkdf,
-			      struct json_object *entry);
+			      struct json_object *entry, bool publish);
 
 /* Data structure used to exchange information with network backend. */
 struct acvp_na_ex {
@@ -193,6 +193,7 @@ enum acvp_test_verdict {
 	acvp_verdict_fail,
 	acvp_verdict_pass,
 	acvp_verdict_unverified,
+	acvp_verdict_unreceived,
 };
 
 struct acvp_test_verdict_status {
@@ -200,12 +201,6 @@ struct acvp_test_verdict_status {
 	char *cipher_name;
 	char *cipher_mode;
 };
-
-static inline void acvp_store_verdict(struct acvp_test_verdict_status *verdict,
-				      bool test_passed)
-{
-	verdict->verdict = test_passed ? acvp_verdict_pass : acvp_verdict_fail;
-}
 
 /**
  * @brief Data structure instantiated for either request or submission with
@@ -518,7 +513,8 @@ void acvp_op_enable(void);
  ************************************************************************/
 
 enum acvp_http_type {
-	acvp_http_post = 1,
+	acvp_http_none = 0,
+	acvp_http_post,
 	acvp_http_put,
 	acvp_http_delete,
 	acvp_http_get
@@ -555,6 +551,19 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 int acvp_get_id_from_url(const char *url, uint32_t *id);
 
 /**
+ * @brief Convert search return code to HTTP request type
+ *
+ * @param search_errno [in] Error number of the search operation
+ * @param type [in] request type
+ * @param ctx_opts [in] Options of invocation
+ * @param id [in] ID field of search operation
+ * @param http_type [out] Returned HTTP type.
+ */
+int acvp_search_to_http_type(int search_errno, unsigned int type,
+			     const struct acvp_opts_ctx *ctx_opts, uint32_t id,
+			     enum acvp_http_type *http_type);
+
+/**
  * @brief Match two strings
  */
 int acvp_str_match(const char *exp, const char *found, uint32_t id);
@@ -563,7 +572,7 @@ int acvp_str_match(const char *exp, const char *found, uint32_t id);
  * @brief Obtain the verdict from the JSON data.
  */
 int acvp_get_verdict_json(const struct acvp_buf *verdict_buf,
-			  bool *test_passed);
+			  enum acvp_test_verdict *verdict_stat);
 
 /*
  * @brief Obtain cipher information from JSON data.

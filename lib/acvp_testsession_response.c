@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for submitting test responses
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -144,12 +144,13 @@ int acvp_list_verdict_vsid(int *idx_ptr, uint32_t *vsid, bool passed)
 static int acvp_check_verdict(const struct acvp_vsid_ctx *vsid_ctx,
 			      const struct acvp_buf *verdict_buf)
 {
+	enum acvp_test_verdict verdict_stat;
 	int ret;
-	bool verdict;
 
-	CKINT(acvp_get_verdict_json(verdict_buf, &verdict));
+	CKINT(acvp_get_verdict_json(verdict_buf, &verdict_stat));
 
-	acvp_record_verdict_vsid(vsid_ctx->vsid, verdict);
+	acvp_record_verdict_vsid(vsid_ctx->vsid,
+				 (verdict_stat == acvp_verdict_pass));
 
 out:
 	return ret;
@@ -710,6 +711,13 @@ out:
 		acvp_record_testid_duration(testid_ctx, ACVP_DS_UPLOADDURATION);
 
 	acvp_release_testid(testid_ctx);
+
+	/*
+	 * Clear the reported information which is irrelevant beyond this
+	 * point.
+	 */
+	if (ret > 0)
+		ret = 0;
 
 	return ret;
 }

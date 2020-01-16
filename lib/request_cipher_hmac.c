@@ -1,6 +1,6 @@
 /* JSON request generator for HMAC
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -30,13 +30,13 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_hmac(const struct def_algo_hmac *hmac,
-			     struct json_object *entry)
+			     struct json_object *entry, bool publish)
 {
 	int ret;
 
 	CKINT(acvp_req_cipher_to_string(entry, hmac->algorithm,
 					ACVP_CIPHERTYPE_MAC, "algorithm"));
-	CKINT(acvp_req_gen_prereq(&hmac->prereqvals, 1, entry));
+	CKINT(acvp_req_gen_prereq(&hmac->prereqvals, 1, entry, publish));
 
 out:
 	return ret;
@@ -53,7 +53,7 @@ int acvp_req_set_algo_hmac(const struct def_algo_hmac *hmac,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_set_prereq_hmac(hmac, entry));
+	CKINT(acvp_req_set_prereq_hmac(hmac, entry, false));
 	CKINT(acvp_req_algo_int_array(entry, hmac->keylen, "keyLen"));
 
 	/*

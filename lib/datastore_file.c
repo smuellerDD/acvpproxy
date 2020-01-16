@@ -1,6 +1,6 @@
 /* Datastore backend storing files
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -34,8 +34,9 @@
 #include <unistd.h>
 
 #include "acvpproxy.h"
-#include "logger.h"
 #include "internal.h"
+#include "json_wrapper.h"
+#include "logger.h"
 #include "request_helper.h"
 #include "threading_support.h"
 
@@ -432,6 +433,33 @@ out:
 }
 
 static int
+acvp_datastore_process_certinfo(const char *pathname, const char *filename,
+				char **cert_no)
+{
+	struct stat statbuf;
+	struct json_object *certinfo = NULL;
+	int ret = 0;
+	char file[FILENAME_MAX];
+
+	snprintf(file, sizeof(file), "%s/%s", pathname, filename);
+	if (!stat(file, &statbuf) && statbuf.st_size) {
+		struct json_object *certdata, *certversion;
+		const char *valId;
+
+		CKINT(json_read_data(file, &certinfo));
+		CKINT(json_split_version(certinfo, &certdata,
+					 &certversion));
+		CKINT(json_get_string(certdata, "validationId", &valId));
+		CKINT(acvp_duplicate(cert_no, valId));
+	}
+
+out:
+	if (certinfo)
+		json_object_put(certinfo);
+	return ret;
+}
+
+static int
 acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
 {
 	struct acvp_auth_ctx *auth;
@@ -501,7 +529,7 @@ acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	       "Maximum file size constraint %u\n",
 	       auth->max_reg_msg_size);
 
-	/* Get testsession certificate ID */
+	/* Get testsession certificate request ID */
 	auth->testsession_certificate_id = 0;
 	CKINT(acvp_datastore_file_uint(pathname,
 				       datastore->testsession_certificate_id,
@@ -509,6 +537,12 @@ acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
 	       "Test session certificate ID: %u\n",
 	       auth->testsession_certificate_id);
+
+	/* Get testsession certificate number */
+	auth->testsession_certificate_number = NULL;
+	CKINT(acvp_datastore_process_certinfo(pathname,
+				datastore->testsession_certificate_info,
+				&auth->testsession_certificate_number));
 
 out:
 	return ret;
@@ -666,254 +700,6 @@ out:
 	return ret;
 }
 
-static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
-				       const char *datastore_base,
-				       const char *secure_base,
-		int (*cb)(const struct acvp_vsid_ctx *vsid_ctx,
-			  const struct acvp_buf *buf))
-{
-	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
-	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
-	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
-	FILE *file;
-	struct stat statbuf;
-	struct acvp_buf buf;
-	time_t now;
-	struct tm now_detail;
-	uint8_t *resp_buf;
-	int fd = -1, ret = 0;
-	char resppath[FILENAME_MAX], processedpath[FILENAME_MAX],
-	     vectorfile[FILENAME_MAX], expected[FILENAME_MAX], now_buf[30];
-
-	CKNULL_C_LOG(datastore_base, -EINVAL, LOGGER_C_DS_FILE,
-		     "Data store base missing\n");
-	CKNULL_C_LOG(secure_base, -EINVAL, LOGGER_C_DS_FILE,
-		     "Secure data store base missing\n");
-
-	/*
-	 * The vsID of 0 is special as it contains status information for the
-	 * test session authentication where no vsID exists yet.
-	 */
-	if (!vsid_ctx->vsid) {
-		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-		       "Skipping special vsID directory without any test data of %s/0\n",
-		       datastore_base);
-		return 0;
-	}
-
-	/* Create path names */
-	CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, resppath,
-						 sizeof(resppath), false,
-						 false));
-	CKINT(acvp_extend_string(resppath, sizeof(resppath), "/%s",
-				 datastore->resultsfile));
-
-	ret = acvp_datastore_file_vectordir_vsid(vsid_ctx, processedpath,
-						 sizeof(processedpath), false,
-						 true);
-	/*
-	 * It is permissible to have a non-existing path here, we check it
-	 * further down with stat anyway.
-	 */
-	if (ret && ret != -ENOENT)
-		goto out;
-	CKINT(acvp_extend_string(processedpath, sizeof(processedpath), "/%s",
-				 datastore->processedfile));
-
-	CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, vectorfile,
-						 sizeof(vectorfile), false,
-						 false));
-	CKINT(acvp_extend_string(vectorfile, sizeof(vectorfile), "/%s",
-				 datastore->vectorfile));
-
-	CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, expected,
-						 sizeof(expected), false,
-						 false));
-	CKINT(acvp_extend_string(expected, sizeof(expected), "/%s",
-				 datastore->expectedfile));
-
-	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-	       "Read response from %s and processed file from %s\n",
-	       resppath, processedpath);
-
-	/*
-	 * If we have an expected result on file, we cannot submit real results
-	 * any more - the ACVP server will reject it.
-	 */
-	if (!stat(expected, &statbuf)) {
-		logger_status(LOGGER_C_DS_FILE,
-			      "Skipping submission for vsID %u since expected results are present (%s exists)\n",
-			      vsid_ctx->vsid, expected);
-		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-		       "Skipping submission for vsID %u since expected results are present (%s exists)\n",
-		       vsid_ctx->vsid, expected);
-		vsid_ctx->sample_file_present = true;
-
-		return 0;
-	}
-
-	/* If there is already a processed file, do a resubmit */
-	if (!stat(processedpath, &statbuf)) {
-		if (!ctx_opts->resubmit_result) {
-			char verdict_file[FILENAME_MAX];
-
-			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-			       "Skipping submission for vsID %u since it was submitted already (%s exists)\n",
-			       vsid_ctx->vsid, processedpath);
-
-			CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx,
-				verdict_file, sizeof(verdict_file), false,
-				false));
-			CKINT(acvp_extend_string(verdict_file,
-						 sizeof(verdict_file),
-						"/%s", datastore->verdictfile));
-			if (stat(verdict_file, &statbuf)) {
-				/*
-				 * Tell the callback to only download the
-				 * verdict file but not process any results.
-				 *
-				 * This may happen if we uploaded a result, but
-				 * the verdict download got interrupted and
-				 * we want to retry to download the result.
-				 */
-				vsid_ctx->fetch_verdict = true;
-				return cb(vsid_ctx, NULL);
-			} else {
-				return 0;
-			}
-		}
-	}
-
-	/* Get response file */
-	if (stat(resppath, &statbuf)) {
-		int errsv = errno;
-
-		if (errsv != ENOENT) {
-			ret = -errsv;
-			goto out;
-		}
-
-		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-		       "No response file for vsID %u found (%s not found)\n",
-		       vsid_ctx->vsid, resppath);
-
-		/*
-		 * Download pending vsID requests (do not try to submit
-		 * responses).
-		 */
-		if (stat(vectorfile, &statbuf)) {
-			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-			       "No request file for vsID %u found\n",
-			       vsid_ctx->vsid);
-			vsid_ctx->vector_file_present = false;
-		} else {
-			vsid_ctx->vector_file_present = true;
-		}
-
-		vsid_ctx->sample_file_present = false;
-
-		CKINT(cb(vsid_ctx, NULL));
-
-		ret = 0;
-		goto out;
-	} else {
-		if (!statbuf.st_size) {
-			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-				"Skipping submission for vsID %u since response file not found (%s empty)\n",
-				vsid_ctx->vsid, resppath);
-			ret = 0;
-			goto out;
-		}
-		if ((statbuf.st_mode & S_IFMT) != S_IFREG) {
-			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-			       "Skipping directory entry %s which is no regular file\n",
-			       resppath);
-			ret = 0;
-			goto out;
-		}
-
-		fd = open(resppath, O_RDONLY | O_CLOEXEC);
-		if (fd < 0) {
-			ret = -errno;
-
-			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
-			       "Cannot open file %s (%d)\n", resppath, ret);
-			goto out;
-		}
-
-		resp_buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ,
-				MAP_SHARED, fd, 0);
-		if (resp_buf == MAP_FAILED) {
-			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
-			       "Cannot mmap file %s\n", resppath);
-			close(fd);
-			ret = -ENOMEM;
-			goto out;
-		}
-
-		buf.buf = resp_buf;
-		buf.len = (uint32_t)statbuf.st_size;
-
-		/* Process response file */
-		ret = cb(vsid_ctx, &buf);
-		munmap(resp_buf, (size_t)statbuf.st_size);
-		close(fd);
-
-		if (ret < 0)
-			goto out;
-
-		/* Create processed file */
-		now = time(NULL);
-		if (now == (time_t)-1) {
-			ret = -errno;
-			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
-				"Cannot obtain local time\n");
-			goto out;
-		}
-		localtime_r(&now, &now_detail);
-
-		snprintf(now_buf, sizeof(now_buf), "%d%.2d%.2d %.2d:%.2d:%.2d",
-			 now_detail.tm_year + 1900,
-			 now_detail.tm_mon + 1,
-			 now_detail.tm_mday,
-			 now_detail.tm_hour,
-			 now_detail.tm_min,
-			 now_detail.tm_sec);
-
-		file = fopen(processedpath, "w");
-		CKNULL(file, -errno);
-		fwrite(now_buf, 1, strlen(now_buf), file);
-		fclose(file);
-	}
-
-out:
-	return ret;
-}
-
-#ifdef ACVP_USE_PTHREAD
-static int acvp_datastore_file_find_responses_thread(void *arg)
-{
-	struct acvp_datastore_thread_ctx *tdata =
-				(struct acvp_datastore_thread_ctx *)arg;
-	struct acvp_vsid_ctx *vsid_ctx = tdata->vsid_ctx;
-	const char *datastore_base = tdata->datastore_base;
-	const char *secure_base = tdata->secure_base;
-	int (*cb)(const struct acvp_vsid_ctx *vsid_ctx,
-		  const struct acvp_buf *buf) = tdata->cb;
-	int ret;
-
-	free(tdata);
-
-	ret = acvp_datastore_process_vsid(vsid_ctx, datastore_base, secure_base,
-					  cb);
-
-	acvp_release_vsid_ctx(vsid_ctx);
-
-	return ret;
-}
-#endif
-
 static int
 acvp_datastore_find_verdict(const struct acvp_datastore_ctx *datastore,
 			    struct acvp_test_verdict_status *verdict,
@@ -929,7 +715,6 @@ acvp_datastore_find_verdict(const struct acvp_datastore_ctx *datastore,
 	if (!stat(verdict_dir, &statbuf)) {
 		ACVP_BUFFER_INIT(verdict_buf);
 		int fd;
-		bool test_passed;
 
 		/* Positive return code as this is no error */
 		if (!verdict)
@@ -954,7 +739,7 @@ acvp_datastore_find_verdict(const struct acvp_datastore_ctx *datastore,
 		}
 
 		verdict_buf.len = (uint32_t)statbuf.st_size;
-		ret = acvp_get_verdict_json(&verdict_buf, &test_passed);
+		ret = acvp_get_verdict_json(&verdict_buf, &verdict->verdict);
 
 		munmap(verdict_buf.buf, (size_t)statbuf.st_size);
 		close(fd);
@@ -968,8 +753,6 @@ acvp_datastore_find_verdict(const struct acvp_datastore_ctx *datastore,
 			 * since we will report that the ID is unverified.
 			 */
 		}
-
-		acvp_store_verdict(verdict, test_passed);
 
 		return 0;
 	}
@@ -1189,6 +972,269 @@ acvp_datastore_get_vsid_verdict(struct acvp_vsid_ctx *vsid_ctx)
 out:
 	return ret;
 }
+
+static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
+				       const char *datastore_base,
+				       const char *secure_base,
+		int (*cb)(const struct acvp_vsid_ctx *vsid_ctx,
+			  const struct acvp_buf *buf))
+{
+	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
+	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
+	FILE *file;
+	struct stat statbuf;
+	struct acvp_buf buf;
+	time_t now;
+	struct tm now_detail;
+	uint8_t *resp_buf;
+	int fd = -1, ret = 0;
+	char resppath[FILENAME_MAX], processedpath[FILENAME_MAX],
+	     vectorfile[FILENAME_MAX], expected[FILENAME_MAX], now_buf[30];
+
+	CKNULL_C_LOG(datastore_base, -EINVAL, LOGGER_C_DS_FILE,
+		     "Data store base missing\n");
+	CKNULL_C_LOG(secure_base, -EINVAL, LOGGER_C_DS_FILE,
+		     "Secure data store base missing\n");
+
+	/*
+	 * The vsID of 0 is special as it contains status information for the
+	 * test session authentication where no vsID exists yet.
+	 */
+	if (!vsid_ctx->vsid) {
+		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+		       "Skipping special vsID directory without any test data of %s/0\n",
+		       datastore_base);
+		return 0;
+	}
+
+	/* Create path names */
+	CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, resppath,
+						 sizeof(resppath), false,
+						 false));
+	CKINT(acvp_extend_string(resppath, sizeof(resppath), "/%s",
+				 datastore->resultsfile));
+
+	ret = acvp_datastore_file_vectordir_vsid(vsid_ctx, processedpath,
+						 sizeof(processedpath), false,
+						 true);
+	/*
+	 * It is permissible to have a non-existing path here, we check it
+	 * further down with stat anyway.
+	 */
+	if (ret && ret != -ENOENT)
+		goto out;
+	CKINT(acvp_extend_string(processedpath, sizeof(processedpath), "/%s",
+				 datastore->processedfile));
+
+	CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, vectorfile,
+						 sizeof(vectorfile), false,
+						 false));
+	CKINT(acvp_extend_string(vectorfile, sizeof(vectorfile), "/%s",
+				 datastore->vectorfile));
+
+	CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx, expected,
+						 sizeof(expected), false,
+						 false));
+	CKINT(acvp_extend_string(expected, sizeof(expected), "/%s",
+				 datastore->expectedfile));
+
+	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
+	       "Read response from %s and processed file from %s\n",
+	       resppath, processedpath);
+
+	/*
+	 * If we have an expected result on file, we cannot submit real results
+	 * any more - the ACVP server will reject it.
+	 */
+	if (!stat(expected, &statbuf)) {
+		logger_status(LOGGER_C_DS_FILE,
+			      "Skipping submission for vsID %u since expected results are present (%s exists)\n",
+			      vsid_ctx->vsid, expected);
+		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+		       "Skipping submission for vsID %u since expected results are present (%s exists)\n",
+		       vsid_ctx->vsid, expected);
+		vsid_ctx->sample_file_present = true;
+
+		return 0;
+	}
+
+	/* If there is already a processed file, do a resubmit */
+	if (!stat(processedpath, &statbuf)) {
+		if (!ctx_opts->resubmit_result) {
+			char verdict_file[FILENAME_MAX];
+
+			CKINT(acvp_datastore_file_vectordir_vsid(vsid_ctx,
+				verdict_file, sizeof(verdict_file), false,
+				false));
+			CKINT(acvp_extend_string(verdict_file,
+						 sizeof(verdict_file),
+						"/%s", datastore->verdictfile));
+			if (stat(verdict_file, &statbuf)) {
+				logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+				       "Skipping submission for vsID %u since it was submitted already, but fetching verdict\n",
+				       vsid_ctx->vsid);
+
+
+				/*
+				 * Tell the callback to only download the
+				 * verdict file but not process any results.
+				 *
+				 * This may happen if we uploaded a result, but
+				 * the verdict download got interrupted and
+				 * we want to retry to download the result.
+				 */
+				vsid_ctx->fetch_verdict = true;
+				return cb(vsid_ctx, NULL);
+			} else {
+				CKINT(acvp_datastore_get_vsid_verdict(vsid_ctx));
+
+				/*
+				 * If we have a verdict which shows
+				 * acvp_verdict_unreceived, then resubmit
+				 * as POST operation.
+				 */
+				if (vsid_ctx->verdict.verdict !=
+				    acvp_verdict_unreceived) {
+					logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+					       "Skipping submission for vsID %u since it was submitted already (%s exists)\n",
+					       vsid_ctx->vsid, processedpath);
+
+					return 0;
+				}
+			}
+		}
+	}
+
+	/* Get response file */
+	if (stat(resppath, &statbuf)) {
+		int errsv = errno;
+
+		if (errsv != ENOENT) {
+			ret = -errsv;
+			goto out;
+		}
+
+		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+		       "No response file for vsID %u found (%s not found)\n",
+		       vsid_ctx->vsid, resppath);
+
+		/*
+		 * Download pending vsID requests (do not try to submit
+		 * responses).
+		 */
+		if (stat(vectorfile, &statbuf)) {
+			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+			       "No request file for vsID %u found\n",
+			       vsid_ctx->vsid);
+			vsid_ctx->vector_file_present = false;
+		} else {
+			vsid_ctx->vector_file_present = true;
+		}
+
+		vsid_ctx->sample_file_present = false;
+
+		CKINT(cb(vsid_ctx, NULL));
+
+		ret = 0;
+		goto out;
+	} else {
+		if (!statbuf.st_size) {
+			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+				"Skipping submission for vsID %u since response file not found (%s empty)\n",
+				vsid_ctx->vsid, resppath);
+			ret = 0;
+			goto out;
+		}
+		if ((statbuf.st_mode & S_IFMT) != S_IFREG) {
+			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+			       "Skipping directory entry %s which is no regular file\n",
+			       resppath);
+			ret = 0;
+			goto out;
+		}
+
+		fd = open(resppath, O_RDONLY | O_CLOEXEC);
+		if (fd < 0) {
+			ret = -errno;
+
+			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+			       "Cannot open file %s (%d)\n", resppath, ret);
+			goto out;
+		}
+
+		resp_buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ,
+				MAP_SHARED, fd, 0);
+		if (resp_buf == MAP_FAILED) {
+			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+			       "Cannot mmap file %s\n", resppath);
+			close(fd);
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		buf.buf = resp_buf;
+		buf.len = (uint32_t)statbuf.st_size;
+
+		/* Process response file */
+		ret = cb(vsid_ctx, &buf);
+		munmap(resp_buf, (size_t)statbuf.st_size);
+		close(fd);
+
+		if (ret < 0)
+			goto out;
+
+		/* Create processed file */
+		now = time(NULL);
+		if (now == (time_t)-1) {
+			ret = -errno;
+			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+				"Cannot obtain local time\n");
+			goto out;
+		}
+		localtime_r(&now, &now_detail);
+
+		snprintf(now_buf, sizeof(now_buf), "%d%.2d%.2d %.2d:%.2d:%.2d",
+			 now_detail.tm_year + 1900,
+			 now_detail.tm_mon + 1,
+			 now_detail.tm_mday,
+			 now_detail.tm_hour,
+			 now_detail.tm_min,
+			 now_detail.tm_sec);
+
+		file = fopen(processedpath, "w");
+		CKNULL(file, -errno);
+		fwrite(now_buf, 1, strlen(now_buf), file);
+		fclose(file);
+	}
+
+out:
+	return ret;
+}
+
+#ifdef ACVP_USE_PTHREAD
+static int acvp_datastore_file_find_responses_thread(void *arg)
+{
+	struct acvp_datastore_thread_ctx *tdata =
+				(struct acvp_datastore_thread_ctx *)arg;
+	struct acvp_vsid_ctx *vsid_ctx = tdata->vsid_ctx;
+	const char *datastore_base = tdata->datastore_base;
+	const char *secure_base = tdata->secure_base;
+	int (*cb)(const struct acvp_vsid_ctx *vsid_ctx,
+		  const struct acvp_buf *buf) = tdata->cb;
+	int ret;
+
+	free(tdata);
+
+	ret = acvp_datastore_process_vsid(vsid_ctx, datastore_base, secure_base,
+					  cb);
+
+	acvp_release_vsid_ctx(vsid_ctx);
+
+	return ret;
+}
+#endif
 
 /*
  * The function is a safety measure to ensure there is no mismatch between

@@ -1,6 +1,6 @@
 /* JSON generator for RSA ciphers
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -519,7 +519,8 @@ out:
  * Generate algorithm entry for symmetric ciphers
  */
 static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
-				  struct json_object *entry, bool full)
+				  struct json_object *entry, bool full,
+				  bool publish)
 {
 	const struct def_algo_rsa_component_sig_gen *component_sig;
 	int ret = -EINVAL;
@@ -578,7 +579,7 @@ static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 	}
 
 	CKINT(acvp_req_gen_prereq(rsa->prereqvals, rsa->prereqvals_num,
-				  entry));
+				  entry, publish));
 
 
 	return 0;
@@ -588,14 +589,14 @@ out:
 }
 
 int acvp_req_set_prereq_rsa(const struct def_algo_rsa *rsa,
-			    struct json_object *entry)
+			    struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_algo_rsa(rsa, entry, false);
+	return _acvp_req_set_algo_rsa(rsa, entry, false, publish);
 }
 
 int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 			  struct json_object *entry)
 {
-	return _acvp_req_set_algo_rsa(rsa, entry, true);
+	return _acvp_req_set_algo_rsa(rsa, entry, true, false);
 }
 

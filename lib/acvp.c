@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -18,10 +18,13 @@
  * DAMAGE.
  */
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -235,6 +238,25 @@ bool acvp_req_is_production(void)
 	return acvp_production;
 }
 
+static int acvp_check_file_presence(const char *file, const char *loginfo)
+{
+	struct stat statbuf;
+	int ret;
+
+	if (!file)
+		return 0;
+
+	if (stat(file, &statbuf)) {
+		ret = -errno;
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Error accessing %s file %s (%s)\n", loginfo, file,
+		       strerror(errno));
+		return ret;
+	}
+
+	return 0;
+}
+
 /*****************************************************************************
  * API calls
  *****************************************************************************/
@@ -267,16 +289,21 @@ int acvp_set_net(const char *server_name, unsigned int port, const char *ca,
 
 	if (ca) {
 		CKINT(acvp_duplicate(&net->certs_ca_file, ca));
+		CKINT(acvp_check_file_presence(net->certs_ca_file, "CA"));
 	} else {
 		net->certs_ca_file = NULL;
 	}
 	CKINT(acvp_duplicate(&net->certs_clnt_file, client_cert));
+	CKINT(acvp_check_file_presence(net->certs_clnt_file,
+				       "client certificate"));
 	CKINT(acvp_cert_type(net->certs_clnt_file,
 			     net->certs_clnt_file_type,
 			     sizeof(net->certs_clnt_file_type)));
 
 	if (client_key) {
 		CKINT(acvp_duplicate(&net->certs_clnt_key_file, client_key));
+		CKINT(acvp_check_file_presence(net->certs_clnt_key_file,
+					       "client key"));
 		CKINT(acvp_cert_type(net->certs_clnt_key_file,
 				     net->certs_clnt_key_file_type,
 				     sizeof(net->certs_clnt_key_file_type)));
@@ -429,6 +456,18 @@ int acvp_versionstring_short(char *buf, size_t buflen)
 {
 	return snprintf(buf, buflen, "ACVPProxy/%d.%d.%d",
 			MAJVERSION, MINVERSION, PATCHLEVEL);
+}
+
+DSO_PUBLIC
+uint32_t acvp_versionstring_numeric(void)
+{
+	uint32_t version = 0;
+
+	version =  MAJVERSION * 1000000;
+	version += MINVERSION * 10000;
+	version += PATCHLEVEL * 100;
+
+	return version;
 }
 
 #ifdef CRYPTOVERSION
@@ -609,6 +648,28 @@ int acvp_init(const uint8_t *seed, uint32_t seed_len, time_t last_gen,
 	acvp_op_enable();
 
 	atomic_set(1, &acvp_lib_init);
+
+out:
+	return ret;
+}
+
+DSO_PUBLIC
+int acvp_load_extension(const char *path)
+{
+	struct acvp_extension *extension = NULL;
+	int ret = 0;
+	void *library_handle = NULL;
+
+	library_handle = dlopen(path, RTLD_NOW);
+	CKNULL_LOG(library_handle, -EFAULT, "Error loading library: %s\n",
+		   dlerror());
+
+	dlerror();
+	extension = (struct acvp_extension *)dlsym(library_handle,
+						   "acvp_extension");
+	CKNULL_LOG(extension, -EFAULT,
+		   "Error finding symbol acvp_extension: %s\n", dlerror());
+	acvp_register_algo_map(extension->curr_map, extension->nrmaps);
 
 out:
 	return ret;

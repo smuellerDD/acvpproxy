@@ -1,6 +1,6 @@
 /* ACVP operation for registering vendor, modules, persons, OE
  *
- * Copyright (C) 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -63,10 +63,15 @@ static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 		status_flag = ACVP_REQUEST_PROCESSING;
 	} else if (!strncmp(status, "rejected", 10)) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Request response indicates rejection of request: %s\n",
+		       "Request response indicates rejection of request: %s - Request information discarded locally to allow re-trying of publication.\n",
 		       status);
+		/*
+		 * Set the ID to zero to allow performing a complete new
+		 * publication operation. Yet, we throw an error to allow
+		 * the user to know about the issue.
+		 */
 		ret = -EPERM;
-		*id |= ACVP_REQUEST_REJECTED;
+		*id = 0;
 		goto out;
 	} else {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -250,4 +255,44 @@ int acvp_get_id_from_url(const char *url, uint32_t *id)
 
 out:
 	return ret;
+}
+
+int acvp_search_to_http_type(int search_errno, unsigned int type,
+			     const struct acvp_opts_ctx *ctx_opts, uint32_t id,
+			     enum acvp_http_type *http_type)
+{
+	/* Only the errno of ENOENT is converted to HTTP request type */
+	if (search_errno && search_errno != -ENOENT)
+		return search_errno;
+
+	/* If we did not find a match, update the module definition */
+	if (search_errno == -ENOENT) {
+		if (ctx_opts->update_db_entry & type) {
+			*http_type = acvp_http_put;
+		} else if (ctx_opts->delete_db_entry &
+			   (type | ACVP_OPTS_DELUP_FORCE)) {
+			*http_type = acvp_http_delete;
+		} else {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Definition for ID %u different than found on ACVP server - you need to perform a (re)register operation\n",
+			       id);
+			return -ENOENT;
+		}
+
+		return 0;
+
+	/*
+	 * We only attempt a delete if we have a match between the ACVP server
+	 * DB and our configurations. We do not want to delete unknown
+	 * definitions. Yet, if we are forced to perform the delete, we will
+	 * do that.
+	 */
+	} else if (ctx_opts->delete_db_entry & ACVP_OPTS_DELUP_MODULE) {
+		*http_type = acvp_http_delete;
+		return 0;
+	}
+
+	*http_type = acvp_http_none;
+
+	return 0;
 }

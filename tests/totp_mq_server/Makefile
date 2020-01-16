@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+# Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
 #
 
 CC		:= gcc
@@ -41,7 +41,7 @@ ACVP_DIR	:= ../..
 
 INCLUDE_DIRS	:= $(ACVP_DIR)/lib
 LIBRARY_DIRS	:=
-LIBRARIES	:= curl pthread
+LIBRARIES	:= curl pthread dl
 
 CFLAGS		+= $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 LDFLAGS		+= $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))

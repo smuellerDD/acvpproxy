@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the operational env information
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -108,7 +108,10 @@ static int acvp_oe_build_dep_sw(const struct def_oe *def_oe,
 	int ret = -EINVAL;
 
 	/* We are required to have an entry at this point. */
-	CKNULL_LOG(def_oe->oe_env_name, -EFAULT, "oeEnvName missing\n");
+	if (!def_oe->oe_env_name) {
+		*json_oe = NULL;
+		return 0;
+	}
 
 	/*
 	 * {
@@ -138,9 +141,7 @@ static int acvp_oe_build_dep_sw(const struct def_oe *def_oe,
 		CKINT(json_object_object_add(dep, "swid",
 				json_object_new_string(def_oe->swid)));
 	} else {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "CPE or SWID missing\n");
-		ret = -EINVAL;
-		goto out;
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY, "No CPE or SWID found\n");
 	}
 
 	if (def_oe->oe_description) {
@@ -148,7 +149,7 @@ static int acvp_oe_build_dep_sw(const struct def_oe *def_oe,
 			json_object_new_string(def_oe->oe_description)));
 	} else {
 		CKINT(json_object_object_add(dep, "description",
-				json_object_new_string("TOBEDEFINED")));
+				json_object_new_string(def_oe->oe_env_name)));
 	}
 
 	json_logger(LOGGER_DEBUG2, LOGGER_C_ANY, dep, "Vendor JSON object");
@@ -167,8 +168,7 @@ static int acvp_oe_add_dep_url(uint32_t id, struct json_object *dep)
 	int ret = -EINVAL;
 	char url[ACVP_NET_URL_MAXLEN];
 
-	CKINT(acvp_create_urlpath(NIST_VAL_OP_DEPENDENCY, url,
-				  sizeof(url)));
+	CKINT(acvp_create_urlpath(NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u", id));
 	CKINT(json_object_array_add(dep, json_object_new_string(url)));
 
@@ -199,6 +199,28 @@ static int acvp_oe_match_dep_sw(struct def_oe *def_oe,
 		CKINT(json_get_string(json_oe, "swid", &str));
 		CKINT(acvp_str_match(def_oe->swid, str,
 				     def_oe->acvp_oe_dep_sw_id));
+	}
+
+	/*
+	 * Check for the presence of a SWID/CPE on the server where locally
+	 * there is none defined.
+	 */
+	if (!def_oe->swid && !def_oe->cpe) {
+		ret = json_get_string(json_oe, "swid", &str);
+
+		/* Found one, we have a mismatch */
+		if (!ret) {
+			ret = -ENOENT;
+			goto out;
+		}
+
+		ret = json_get_string(json_oe, "cpe", &str);
+
+		/* Found one, we have a mismatch */
+		if (!ret) {
+			ret = -ENOENT;
+			goto out;
+		}
 	}
 
 	CKINT(json_get_string(json_oe, "description", &str));
@@ -329,6 +351,9 @@ static int acvp_oe_register_dep(const struct acvp_testid_ctx *testid_ctx,
 		break;
 	}
 
+	if (!json_oe)
+		goto out;
+
 	CKINT(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
 	CKINT(acvp_meta_register(testid_ctx, json_oe, url, sizeof(url), id,
 				 submit_type));
@@ -371,39 +396,20 @@ static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 	unsigned int http_type = 0;
 
 	ret = _acvp_oe_validate_one_dep(testid_ctx, def_oe, depid);
-	if (ret && ret != -ENOENT)
+
+	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_OE, ctx_opts, 0,
+				       &http_type);
+	if (ret < 0) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Conversion from search type to HTTP request type failed for OE dependencies %u/%u\n",
+		       def_oe->acvp_oe_dep_proc_id, def_oe->acvp_oe_dep_sw_id);
+		goto out;
+	}
+
+	if (http_type == acvp_http_none)
 		goto out;
 
-	/* If we did not find a match, update the module definition */
-	if (ret == -ENOENT) {
-		if (ctx_opts->update_db_entry & ACVP_OPTS_DELUP_OE) {
-			http_type = acvp_http_put;
-		} else if (ctx_opts->delete_db_entry &
-			   (ACVP_OPTS_DELUP_OE | ACVP_OPTS_DELUP_FORCE)) {
-			   http_type = acvp_http_delete;
-		} else if (ctx_opts->register_new_oe) {
-			http_type = acvp_http_post;
-		} else {
-			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "Definition for OE dependency IDs %u/%u different than found on ACVP server - you need to perform a (re)register operation\n",
-			       def_oe->acvp_oe_dep_proc_id,
-			       def_oe->acvp_oe_dep_sw_id);
-			goto out;
-		}
-	/*
-	 * We only attempt a delete if we have a match between the ACVP server
-	 * DB and our configurations. We do not want to delete unknown
-	 * definitions. Yet, if we are forced to perform the delete, we will
-	 * do that.
-	 */
-	} else if (ctx_opts->delete_db_entry & ACVP_OPTS_DELUP_OE) {
-		http_type = acvp_http_delete;
-	}
-
-	if (http_type) {
-		CKINT(acvp_oe_register_dep(testid_ctx, def_oe, type,
-					   http_type));
-	}
+	CKINT(acvp_oe_register_dep(testid_ctx, def_oe, type, http_type));
 
 out:
 	return ret;
@@ -541,8 +547,7 @@ static int _acvp_oe_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	match_def.def_oe = def_oe;
 	match_def.matcher = matcher;
 
-	CKINT(acvp_paging_get(testid_ctx, url, &match_def,
-			      &acvp_oe_match_cb));
+	CKINT(acvp_paging_get(testid_ctx, url, &match_def, &acvp_oe_match_cb));
 
 out:
 	return ret;
@@ -569,9 +574,8 @@ out:
 	return ret;
 }
 
-static int
-acvp_oe_validate_add_searchopts(const char *searchstr,
-				char *url, unsigned int urllen)
+static int acvp_oe_validate_add_searchopts(const char *searchstr,
+					   char *url, unsigned int urllen)
 {
 	int ret;
 	char queryoptions[384], str[128];
@@ -684,12 +688,16 @@ static int acvp_oe_build_oe(const struct acvp_testid_ctx *testid_ctx,
 				CKINT(json_object_array_add(deparray, dep));
 			}
 			if (!def_oe->acvp_oe_dep_sw_id) {
-				if (!deparray) {
-					deparray = json_object_new_array();
-					CKNULL(deparray, -ENOMEM);
-				}
 				CKINT(acvp_oe_build_dep_sw(def_oe, &dep));
-				CKINT(json_object_array_add(deparray, dep));
+				if (dep) {
+					if (!deparray) {
+						deparray =
+							json_object_new_array();
+						CKNULL(deparray, -ENOMEM);
+					}
+					CKINT(json_object_array_add(deparray,
+								    dep));
+				}
 			}
 		}
 	}
@@ -714,7 +722,7 @@ static int acvp_oe_build_oe(const struct acvp_testid_ctx *testid_ctx,
 	CKNULL(oe, -ENOMEM);
 	CKINT(acvp_oe_generate_oe_string(def_oe, oe_name, sizeof(oe_name)));
 	CKINT(json_object_object_add(oe, "name",
-					json_object_new_string(oe_name)));
+				     json_object_new_string(oe_name)));
 	if (depurl) {
 		CKINT(json_object_object_add(oe, "dependencyUrls", depurl));
 		depurl = NULL;
@@ -774,7 +782,7 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
-	unsigned int http_type = 0;
+	enum acvp_http_type http_type;
 
 	CKNULL_LOG(ctx, -EINVAL,
 		   "Vendor validation: authentication context missing\n");
@@ -789,41 +797,17 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 
 	ret = _acvp_oe_validate_one(testid_ctx, def_oe, url,
 				    acvp_oe_match_oe);
-	if (ret && ret != -ENOENT)
+
+	CKINT_LOG(acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_OE, ctx_opts,
+					   def_oe->acvp_oe_id, &http_type),
+		  "Conversion from search type to HTTP request type failed for OE\n");
+
+	if (http_type == acvp_http_none)
 		goto out;
 
-	/* If we did not find a match, update the module definition */
-	if (ret == -ENOENT) {
-		if (ctx_opts->update_db_entry & ACVP_OPTS_DELUP_OE) {
-			http_type = acvp_http_put;
-		} else if (ctx_opts->delete_db_entry &
-			   (ACVP_OPTS_DELUP_OE | ACVP_OPTS_DELUP_FORCE)) {
-			   http_type = acvp_http_delete;
-		} else if (ctx_opts->register_new_oe) {
-			http_type = acvp_http_post;
-		} else {
-			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "Definition for OE IDs %u different than found on ACVP server - you need to perform a (re)register operation\n",
-			       def_oe->acvp_oe_id);
-			goto out;
-		}
-	/*
-	 * We only attempt a delete if we have a match between the ACVP server
-	 * DB and our configurations. We do not want to delete unknown
-	 * definitions. Yet, if we are forced to perform the delete, we will
-	 * do that.
-	 */
-	} else if (ctx_opts->delete_db_entry & ACVP_OPTS_DELUP_OE) {
-		http_type = acvp_http_delete;
-	}
-
-	if (http_type) {
-		char url[ACVP_NET_URL_MAXLEN];
-
-		CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
-		CKINT(acvp_oe_register_oe(testid_ctx, def_oe, url, sizeof(url),
-					  http_type));
-	}
+	CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
+	CKINT(acvp_oe_register_oe(testid_ctx, def_oe, url, sizeof(url),
+				  http_type));
 
 out:
 	return ret;
@@ -857,6 +841,8 @@ static int acvp_oe_validate_all_oe(const struct acvp_testid_ctx *testid_ctx,
 	/* Our vendor data does not match any vendor on ACVP server */
 	if (!ret) {
 		if (ctx_opts->register_new_oe) {
+			CKINT(acvp_create_url(NIST_VAL_OP_OE, url,
+					      sizeof(url)));
 			CKINT(acvp_oe_register_oe(testid_ctx, def_oe, url,
 						  sizeof(url), acvp_http_post));
 		} else {

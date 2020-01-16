@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -27,10 +27,20 @@ extern "C"
 
 #if  __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 7)
 
-#define ACVP_DEFINE_CONSTRUCTOR(_func)	\
+# if defined(ACVPPROXY_EXTENSION)
+
+#  define ACVP_DEFINE_CONSTRUCTOR(_func)	\
+	static void __attribute__((unused)) _func (void);
+#  define ACVP_DEFINE_DESTRUCTOR(_func)		\
+	static void __attribute__((unused)) _func (void);
+# else
+
+#  define ACVP_DEFINE_CONSTRUCTOR(_func)	\
 	static void __attribute__((constructor)) _func (void);
-#define ACVP_DEFINE_DESTRUCTOR(_func)	\
+#  define ACVP_DEFINE_DESTRUCTOR(_func)		\
 	static void __attribute__((destructor)) _func (void);
+
+# endif
 
 #else
 

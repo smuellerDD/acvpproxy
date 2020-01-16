@@ -1,6 +1,6 @@
 /* ACVP authentication token processing
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -56,6 +56,7 @@ static void _acvp_release_auth(struct acvp_auth_ctx *auth)
 
 	ACVP_PTR_FREE_NULL(auth->jwt_token);
 	auth->jwt_token_len = 0;
+	ACVP_PTR_FREE_NULL(auth->testsession_certificate_number);
 }
 
 void acvp_release_auth(struct acvp_testid_ctx *testid_ctx)
@@ -124,8 +125,10 @@ int acvp_get_max_msg_size(const struct acvp_testid_ctx *testid_ctx,
 {
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 
+	//TODO large endpoint allegedly is disabled but ACVP server returns still the large message - disabling the support here
 	mutex_lock(&auth->mutex);
-	*size = auth->max_reg_msg_size;
+	//*size = auth->max_reg_msg_size;
+	*size = UINT_MAX;
 	mutex_unlock(&auth->mutex);
 
 	return 0;
@@ -299,35 +302,35 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	netinfo.server_auth = testid_ctx->server_auth;
 	ret2 = na->acvp_http_post(&netinfo, &login_buf, &response_buf);
 
-	if (!response_buf.buf || !response_buf.len)
-		goto out;
+	if (response_buf.buf && response_buf.len) {
+		logger(ret2 ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Process following server response: %s\n",
+		       response_buf.buf);
 
-	logger(ret2 ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Process following server response: %s\n", response_buf.buf);
-
-	/* Store the debug version of the result unconditionally. */
-	CKINT(acvp_store_login_debug(testid_ctx, &response_buf, ret2));
+		/* Store the debug version of the result unconditionally. */
+		CKINT(acvp_store_login_debug(testid_ctx, &response_buf, ret2));
 
 #if 0
-	/* Dump the password in case of an error for debugging */
-	if (ret2) {
-		/* No error handling as this is a debug message only */
-		time_t now = time(NULL);
-		struct tm now_detail;
+		/* Dump the password in case of an error for debugging */
+		if (ret2) {
+			/* No error handling as this is a debug message only */
+			time_t now = time(NULL);
+			struct tm now_detail;
 
-		localtime_r(&now, &now_detail);
+			localtime_r(&now, &now_detail);
 
-		logger(LOGGER_ERR,
-		       "Falure in authentication with passcode %s (time: %lu %d%.2d%.2d_%.2d-%.2d-%.2d)\n",
-		       totp_val_string, now,
-		       now_detail.tm_year + 1900,
-		       now_detail.tm_mon + 1,
-		       now_detail.tm_mday,
-		       now_detail.tm_hour,
-		       now_detail.tm_min,
-		       now_detail.tm_sec);
-	}
+			logger(LOGGER_ERR,
+			      "Falure in authentication with passcode %s (time: %lu %d%.2d%.2d_%.2d-%.2d-%.2d)\n",
+			totp_val_string, now,
+			now_detail.tm_year + 1900,
+			now_detail.tm_mon + 1,
+			now_detail.tm_mday,
+			now_detail.tm_hour,
+			now_detail.tm_min,
+			now_detail.tm_sec);
+		}
 #endif
+	}
 
 	if (ret2) {
 		ret = ret2;

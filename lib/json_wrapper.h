@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -59,7 +59,7 @@ int json_get_uint(struct json_object *obj, const char *name, uint32_t *integer);
 /*
  * Get the boolean representation of an integer referenced with the given key.
  */
-int json_get_bool(struct json_object *obj, const char *name, bool *bool);
+int json_get_bool(struct json_object *obj, const char *name, bool *val);
 
 /*
  * Get the uint32_t representation of an integer referenced with the given key.
@@ -95,6 +95,36 @@ int acvp_req_add_version(struct json_object *array);
 int acvp_req_strip_version(const uint8_t *buf,
 			   struct json_object **full_json,
 			   struct json_object **parsed);
+
+/**
+ * Read JSON file
+ *
+ * @param filename [in] JSON file to read and parse
+ * @param inobj [out] JSON object holding the parsed data.
+ */
+int json_read_data(const char *filename, struct json_object **inobj);
+
+/**
+ * Parse ACVP server response and retrieve array entry that contains the
+ * real data and version number
+ *
+ * Typical server response:
+ *
+ * [
+ *   { "acvVersion": "0.3" },
+ *   { "vsId": 1437,
+ *     ....
+ *   }
+ * ]
+ *
+ * @param full_json [in] JSON object containing fully parsed ACVP response
+ * @param inobj [out] JSON object that contains the real data
+ * @param versionobj [out] JSON object that contains the version part
+ */
+int json_split_version(struct json_object *full_json,
+		       struct json_object **inobj,
+		       struct json_object **versionobj);
+
 
 #ifdef __cplusplus
 }

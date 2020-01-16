@@ -8,5 +8,11 @@
       "acvpModuleNameProduction":"Crypto for ACVPProxy (Generic C)",
       "acvpModuleIdProduction":11251
     }
+  ],
+  "acvpModuleIds":[
+    {
+      "acvpModuleName":"Crypto for ACVPProxy (Generic C)",
+      "acvpModuleId":11495
+    }
   ]
 }

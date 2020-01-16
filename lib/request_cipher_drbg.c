@@ -1,6 +1,6 @@
 /* JSON request generator for SP800-90A DRBG
  *
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -30,7 +30,7 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_drbg(const struct def_algo_drbg *drbg,
-			     struct json_object *entry)
+			     struct json_object *entry, bool publish)
 {
 	int ret;
 
@@ -38,7 +38,7 @@ int acvp_req_set_prereq_drbg(const struct def_algo_drbg *drbg,
 				     json_object_new_string(drbg->algorithm)));
 
 	CKINT(acvp_req_gen_prereq(drbg->prereqvals, drbg->prereqvals_num,
-				  entry));
+				  entry, publish));
 
 out:
 	return ret;
@@ -57,7 +57,7 @@ int acvp_req_set_algo_drbg(const struct def_algo_drbg *drbg,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_set_prereq_drbg(drbg, entry));
+	CKINT(acvp_req_set_prereq_drbg(drbg, entry, false));
 
 	tmp_array = json_object_new_array();
 	CKNULL(tmp_array, -ENOMEM);

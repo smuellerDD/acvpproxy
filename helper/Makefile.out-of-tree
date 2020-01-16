@@ -3,12 +3,19 @@
 #
 
 CC		:= gcc
-CFLAGS		+= -Werror -Wextra -Wall -pedantic -fPIC -O2 -std=gnu99
+CFLAGS		+= -Wextra -Wall -pedantic -fPIC -O2 -std=gnu18
 #Hardening
-CFLAGS		+= -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIC
-LDFLAGS		+= -Wl,-z,relro,-z,now -fpic
+CFLAGS		+= -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIC -DACVPPROXY_EXTENSION
 
-NAME		:= acvpproxy
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+LDFLAGS		+= -Wl,-z,relro,-z,now,--as-needed -fpic
+endif
+
+# Basename of library
+NAME		:= acvpproxy_definition_extension
+# Include files to install
+INCLUDEINSTALL	:=
 
 DESTDIR		:=
 ETCDIR		:= /etc
@@ -30,9 +37,10 @@ LNS		:= $(LN) -sf
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	:= .
+#INCLUDE_DIRS	:= <ACVPPROXY_BASE>/lib <ACVPPROXY_BASE>/lib/module_implementations
+INCLUDE_DIRS	:= 
 LIBRARY_DIRS	:=
-LIBRARIES	:= curl pthread
+LIBRARIES	:=
 
 CFLAGS		+= $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 LDFLAGS		+= $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))
@@ -43,9 +51,12 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 # Get version name and cross check
 #
 ###############################################################################
-LIBMAJOR   := $(shell grep '^\#define.*MAJVERSION' internal.h | awk '{print $$3}')
-LIBMINOR   := $(shell grep '^\#define.*MINVERSION' internal.h | awk '{print $$3}')
-LIBPATCH   := $(shell grep '^\#define.*PATCHLEVEL' internal.h | awk '{print $$3}')
+#LIBMAJOR   := $(shell grep '^\#define.*MAJVERSION' request_internal.h | awk '{print $$3}')
+LIBMAJOR	:= 1
+#LIBMINOR   := $(shell grep '^\#define.*MINVERSION' request_internal.h | awk '{print $$3}')
+LIBMINOR	:= 0
+#LIBPATCH   := $(shell grep '^\#define.*PATCHLEVEL' request_internal.h | awk '{print $$3}')
+LIBPATCH	:= 0
 LIBVERSION := $(LIBMAJOR).$(LIBMINOR).$(LIBPATCH)
 
 ###############################################################################
@@ -53,6 +64,8 @@ LIBVERSION := $(LIBMAJOR).$(LIBMINOR).$(LIBPATCH)
 # Guess at the appropriate lib directory and word size
 #
 ###############################################################################
+ifeq ($(UNAME_S),Linux)
+
 ifeq ($(origin LIBDIR),undefined)
 LIBDIR		:= $(shell ldd /usr/bin/make | grep '\(/libc\.\)' | sed -e 's!.*\(/.*\)/libc[.].*!\1!')
 endif
@@ -75,13 +88,31 @@ endif
 endif
 endif
 
+else
+LIBDIR		:= /lib
+USRLIBDIR	:= /usr/lib
+endif
+
 ###############################################################################
 #
-# Names
+# Shared library compilation
 #
 ###############################################################################
-SONAME		:= lib$(NAME).so.$(LIBMAJOR)
-LIBNAME		:= lib$(NAME).so.$(LIBVERSION)
+#SONAME		:= lib$(NAME).$(LIBEXT).$(LIBMAJOR)
+#LIBNAME		:= lib$(NAME).$(LIBEXT).$(LIBVERSION)
+
+ifeq ($(UNAME_S),Linux)
+SONAME		:= lib$(NAME).so
+LIBNAME		:= lib$(NAME).so
+LDFLAGS		+= -Wl,-soname,$(SONAME)
+else ifeq ($(UNAME_S),Darwin)
+SONAME		:= lib$(NAME).dylib
+LIBNAME		:= lib$(NAME).dylib
+LDFLAGS		+= -dylib
+else
+SONAME		:= lib$(NAME).so
+LIBNAME		:= lib$(NAME).so
+endif
 
 ###############################################################################
 #
@@ -89,9 +120,6 @@ LIBNAME		:= lib$(NAME).so.$(LIBVERSION)
 #
 ###############################################################################
 C_SRCS := $(wildcard *.c)
-C_SRCS := $(wildcard json-c/*.c)
-C_SRCS += $(wildcard hash/*.c)
-C_SRCS += $(wildcard module_implementations/*.c)
 C_OBJS := ${C_SRCS:.c=.o}
 OBJS := $(C_OBJS)
 
@@ -109,9 +137,7 @@ all: $(NAME)
 ##############################################################################
 
 $(NAME): $(OBJS)
-	$(CC) -shared -Wl,-soname,$(SONAME) -o $(LIBNAME) $(OBJS) $(LDFLAGS)
-	$(LNS) $(LIBNAME) $(SONAME)
-	$(LNS) $(LIBNAME) lib$(NAME).so
+	$(CC) -shared -o $(LIBNAME) $(OBJS) $(LDFLAGS)
 
 $(analyze_plists): %.plist: %.c
 	@echo "  CCSA  " $@
@@ -122,10 +148,13 @@ scan: $(analyze_plists)
 cppcheck:
 	cppcheck --force -q --enable=performance --enable=warning --enable=portability *.h *.c
 
+asm:
+	$(foreach b, $(C_SRCS), $(CC) $(CFLAGS) -S -fverbose-asm -o ${b:.c=.s} $(b);)
+
 install:
 	install -m 0755 $(LIBNAME) -D -t $(DESTDIR)$(LIBDIR)/
 	$(LNS) $(LIBNAME) $(DESTDIR)$(LIBDIR)/$(SONAME)
-	install -m 0644 acvpproxy.h -D -t $(DESTDIR)$(INCLUDEDIR)
+	install -m 0644 $(INCLUDEINSTALL) -D -t $(DESTDIR)$(INCLUDEDIR)
 
 ###############################################################################
 #
@@ -136,8 +165,6 @@ install:
 clean:
 	@- $(RM) $(OBJS)
 	@- $(RM) $(LIBNAME)
-	@- $(RM) $(SONAME)
-	@- $(RM) lib$(NAME).so
 	@- $(RM) $(analyze_plists)
 
 distclean: clean

@@ -14,6 +14,23 @@ and generates the test response files, see the ACVP Parser.
 
 The ACVP Proxy is proudly supported by [atsec information security corp](https://www.atsec.com).
 
+## Ease of Use
+
+The ACVP Proxy has many options and allows a flexible deployment. However,
+the common use case is to (1) fetch test vectors, (2) upload responses,
+(3) fetch test verdicts and (4) obtain the certificate.
+
+This use case is encapsulated within the script `helper/proxy.sh`. This
+script is intended to be copied out of the source code tree to a directory
+where the test vectors and all auxiliary data for one or a groups of IUTs
+are maintained. After setting the proper variables in `helper/proxy.sh`
+the ACVP Proxy can be used immediately via this script. No manual invocation
+with the number of command line options is necessary.
+
+The make system allows to generate a binary distribution by calling
+`make binarchive`. If this archive is unpacked directly into `PROXYBINPATH`
+as defined by `proxy.sh`, it will be used with priority.
+
 ## Interaction of ACVP Proxy and ACVP Parser - First Steps
 
 The ACVP Proxy and the ACVP Parser collaborate in a full ACVP test cycle as
@@ -545,8 +562,27 @@ definition must be filled in corresponding to the implementation details.
 The header files defining the data structures contain the documentation how
 the data needs to be filled in.
 
+## Out-of-tree Management
+
+It is permissible that the cipher implementations are maintained out-of-tree
+to the ACVP Proxy. In this case the C file needs the following extensions
+at the very end with the example from above:
+
+	ACVP_EXTENSION(libgcrypt_algo_map)
+
+This C file needs to be compiled as a shared library. The example Makefile
+`helper/Makefile.out-of-tree` may be used for that. When compiling this
+file, it needs ACVP Proxy header files. This implies that the CFLAGS
+variable needs to contain
+`-I<PATH_TO_ACVPPROXY_SOURCE>/lib -I<PATH_TO_ACVPPROXY_SOURCE>/lib/module_implementations`.
+In addition, the compilation must enable the following definition using
+CFLAGS: `-DACVPPROXY_EXTENSION`.
+
+Once the shared library is compiled, it can to be referenced with the
+ACVP Proxy command line option `--proxy-extension`.
+
 # Author
 
 Stephan Mueller <smueller@chronox.de>
-Copyright (C) 2018 - 2019
+Copyright (C) 2018 - 2020
 

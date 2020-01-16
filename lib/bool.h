@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -25,9 +25,11 @@ extern "C"
 {
 #endif
 
+#ifndef false
 /* Boolean variable */
 enum { false, true };
 typedef _Bool bool;
+#endif
 
 #ifdef __cplusplus
 }

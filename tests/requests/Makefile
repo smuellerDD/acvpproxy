@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2018 - 2019, Stephan Mueller <smueller@chronox.de>
+# Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
 #
 
 CC		?= gcc
@@ -39,7 +39,7 @@ EXCLUDED	?=
 ###############################################################################
 INCLUDE_DIRS	:= ../../lib ../../lib/module_implementations ../../apps
 LIBRARY_DIRS	:=
-LIBRARIES	:= curl pthread
+LIBRARIES	:= curl pthread dl
 
 ifeq ($(UNAME_S),Darwin)
 #TODO can we remove the special entry for LIBRARY_DIRS?
