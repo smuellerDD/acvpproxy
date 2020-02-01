@@ -214,17 +214,12 @@ out:
 }
 
 static int
-acvp_datastore_file_testsessiondir(const struct acvp_testid_ctx *testid_ctx,
-				   char *pathname, size_t pathnamelen,
-				   bool createdir, bool secure_location)
+acvp_datastore_file_target_dir(const struct acvp_testid_ctx *testid_ctx,
+			       char *pathname, size_t pathnamelen,
+			       bool createdir, bool secure_location)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
-	const struct acvp_modinfo_ctx *modinfo = &ctx->modinfo;
-	const struct definition *def = testid_ctx->def;
-	const struct def_vendor *vendor = def->vendor;
-	const struct def_info *info = def->info;
-	const char *specificver = modinfo->specificver_filesafe;
 	int ret;
 	static atomic_t ds_ver_checked = ATOMIC_INIT(0);
 	static atomic_t ds_secure_ver_checked = ATOMIC_INIT(0);
@@ -253,6 +248,27 @@ acvp_datastore_file_testsessiondir(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	CKINT(acvp_datastore_file_dir(pathname, createdir));
+
+out:
+	return ret;
+}
+
+static int
+acvp_datastore_file_testsessiondir(const struct acvp_testid_ctx *testid_ctx,
+				   char *pathname, size_t pathnamelen,
+				   bool createdir, bool secure_location)
+{
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_modinfo_ctx *modinfo = &ctx->modinfo;
+	const struct definition *def = testid_ctx->def;
+	const struct def_vendor *vendor = def->vendor;
+	const struct def_info *info = def->info;
+	const char *specificver = modinfo->specificver_filesafe;
+	int ret;
+
+	CKINT(acvp_datastore_file_target_dir(testid_ctx, pathname,
+					     pathnamelen, createdir,
+					     secure_location));
 
 	if (vendor->vendor_name_filesafe) {
 		CKINT(acvp_extend_string(pathname, pathnamelen, "/%s",
@@ -293,6 +309,98 @@ acvp_datastore_file_vectordir(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_datastore_file_dir(pathname, createdir));
 
 out:
+	return ret;
+}
+
+static int
+acvp_datastore_file_rename_version(const struct acvp_testid_ctx *testid_ctx,
+				   char *newversion)
+{
+	const struct definition *def = testid_ctx->def;
+	struct def_info *info = def->info;
+	char *currver = info->module_version_filesafe;
+	char pathname[FILENAME_MAX];
+	char newpathname[FILENAME_MAX];
+	int ret;
+
+	if (!info->module_version_filesafe)
+		return -EINVAL;
+
+	/* rename secure location */
+	CKINT(acvp_datastore_file_vectordir(testid_ctx, pathname,
+					    sizeof(pathname), false, true));
+	info->module_version_filesafe = newversion;
+	CKINT(acvp_datastore_file_vectordir(testid_ctx, newpathname,
+					    sizeof(pathname), true, true));
+	info->module_version_filesafe = currver;
+	ret = rename(pathname, newpathname);
+	if (ret) {
+		ret = -errno;
+		goto out;
+	}
+
+	/* rename regular location */
+	CKINT(acvp_datastore_file_vectordir(testid_ctx, pathname,
+					    sizeof(pathname), false, false));
+	info->module_version_filesafe = newversion;
+	CKINT(acvp_datastore_file_vectordir(testid_ctx, newpathname,
+					    sizeof(pathname), true, false));
+	info->module_version_filesafe = currver;
+	ret = rename(pathname, newpathname);
+	if (ret) {
+		ret = -errno;
+		goto out;
+	}
+
+
+out:
+	info->module_version_filesafe = currver;
+	return ret;
+}
+
+static int
+acvp_datastore_file_rename_name(const struct acvp_testid_ctx *testid_ctx,
+				char *newname)
+{
+	const struct definition *def = testid_ctx->def;
+	struct def_info *info = def->info;
+	char *currname = info->module_name_filesafe;
+	char pathname[FILENAME_MAX];
+	char newpathname[FILENAME_MAX];
+	int ret;
+
+	if (!info->module_name_filesafe)
+		return -EINVAL;
+
+	/* rename secure location */
+	CKINT(acvp_datastore_file_vectordir(testid_ctx, pathname,
+					    sizeof(pathname), false, true));
+	info->module_name_filesafe = newname;
+	CKINT(acvp_datastore_file_vectordir(testid_ctx, newpathname,
+					    sizeof(pathname), true, true));
+	info->module_name_filesafe = currname;
+	ret = rename(pathname, newpathname);
+	if (ret) {
+		ret = -errno;
+		goto out;
+	}
+
+	/* rename regular location */
+	CKINT(acvp_datastore_file_vectordir(testid_ctx, pathname,
+					    sizeof(pathname), false, false));
+	info->module_name_filesafe = newname;
+	CKINT(acvp_datastore_file_vectordir(testid_ctx, newpathname,
+					    sizeof(pathname), true, false));
+	info->module_name_filesafe = currname;
+	ret = rename(pathname, newpathname);
+	if (ret) {
+		ret = -errno;
+		goto out;
+	}
+
+
+out:
+	info->module_name_filesafe = currname;
 	return ret;
 }
 
@@ -1076,7 +1184,6 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 				       "Skipping submission for vsID %u since it was submitted already, but fetching verdict\n",
 				       vsid_ctx->vsid);
 
-
 				/*
 				 * Tell the callback to only download the
 				 * verdict file but not process any results.
@@ -1644,6 +1751,8 @@ static struct acvp_datastore_be acvp_datastore_file = {
 	&acvp_datastore_file_read_authtoken,
 	&acvp_datastore_get_testid_verdict,
 	&acvp_datastore_get_vsid_verdict,
+	&acvp_datastore_file_rename_version,
+	&acvp_datastore_file_rename_name,
 };
 
 ACVP_DEFINE_CONSTRUCTOR(acvp_datastore_init)

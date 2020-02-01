@@ -255,7 +255,7 @@ out:
 	return tmp_def;
 }
 
-int acvp_export_def_search(struct acvp_testid_ctx *testid_ctx)
+int acvp_export_def_search(const struct acvp_testid_ctx *testid_ctx)
 {
 	const struct definition *def = testid_ctx->def;
 	const struct def_vendor *vendor;
@@ -471,6 +471,7 @@ static void acvp_def_del_info(struct definition *def)
 
 	ACVP_PTR_FREE_NULL(info->module_name);
 	ACVP_PTR_FREE_NULL(info->module_name_filesafe);
+	ACVP_PTR_FREE_NULL(info->module_name_internal);
 	ACVP_PTR_FREE_NULL(info->module_version);
 	ACVP_PTR_FREE_NULL(info->module_version_filesafe);
 	ACVP_PTR_FREE_NULL(info->module_description);
@@ -519,11 +520,38 @@ static void acvp_def_del_oe(struct definition *def)
 	ACVP_PTR_FREE_NULL(oe->oe_description);
 	ACVP_PTR_FREE_NULL(oe->manufacturer);
 	ACVP_PTR_FREE_NULL(oe->proc_family);
+	ACVP_PTR_FREE_NULL(oe->proc_family_internal);
 	ACVP_PTR_FREE_NULL(oe->proc_name);
 	ACVP_PTR_FREE_NULL(oe->proc_series);
 	ACVP_PTR_FREE_NULL(oe->def_oe_file);
 	acvp_def_put_lock(oe->def_lock);
 	ACVP_PTR_FREE_NULL(def->oe);
+}
+
+int acvp_def_module_name(char **newname, const char *module_name,
+			 const char *impl_name)
+{
+	char *tmp;
+	int ret = 0;
+
+	if (impl_name) {
+		size_t len = strlen(module_name) + strlen(impl_name) + 4;
+
+		tmp = malloc(len);
+		CKNULL(tmp, -ENOMEM);
+		snprintf(tmp, len, "%s (%s)", module_name, impl_name);
+	} else {
+		tmp = strdup(module_name);
+		CKNULL(tmp, -ENOMEM);
+	}
+
+	*newname = tmp;
+
+out:
+	if (ret)
+		free(tmp);
+
+	return ret;
 }
 
 static int acvp_def_add_info(struct definition *def, struct def_info *src,
@@ -538,18 +566,11 @@ static int acvp_def_add_info(struct definition *def, struct def_info *src,
 	CKNULL(info, -ENOMEM);
 	def->info = info;
 
-	if (impl_name) {
-		size_t len = strlen(src->module_name) + strlen(impl_name) + 4;
-
-		info->module_name = malloc(len);
-		CKNULL(info->module_name, -ENOMEM);
-		snprintf(info->module_name, len, "%s (%s)", src->module_name,
-			 impl_name);
-	} else {
-		info->module_name = strdup(src->module_name);
-		CKNULL(info->module_name, -ENOMEM);
-	}
+	CKINT(acvp_def_module_name(&info->module_name, src->module_name,
+				   impl_name));
 	CKINT(acvp_duplicate(&info->module_name_filesafe, info->module_name));
+	CKINT(acvp_duplicate(&info->module_name_internal,
+			     info->module_name_internal));
 
 	CKINT(acvp_duplicate(&info->module_version, src->module_version));
 	CKINT(acvp_duplicate(&info->module_version_filesafe,
@@ -628,6 +649,8 @@ static int acvp_def_add_oe(struct definition *def, struct def_oe *src)
 	CKINT(acvp_duplicate(&oe->oe_description, src->oe_description));
 	CKINT(acvp_duplicate(&oe->manufacturer, src->manufacturer));
 	CKINT(acvp_duplicate(&oe->proc_family, src->proc_family));
+	CKINT(acvp_duplicate(&oe->proc_family_internal,
+			     src->proc_family_internal));
 	CKINT(acvp_duplicate(&oe->proc_name, src->proc_name));
 	CKINT(acvp_duplicate(&oe->proc_series, src->proc_series));
 	oe->features = src->features;
@@ -1191,6 +1214,7 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	struct def_oe oe;
 	struct def_info info;
 	struct def_vendor vendor;
+	const char *local_module_name, *local_proc_family;
 	int ret;
 
 	memset(&oe, 0, sizeof(oe));
@@ -1228,6 +1252,9 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 			      (const char **)&oe.manufacturer));
 	CKINT(json_get_string(oe_config, "procFamily",
 			      (const char **)&oe.proc_family));
+	/* This is an option */
+	json_get_string(oe_config, "procFamilyInternal",
+			(const char **)&oe.proc_family_internal);
 	CKINT(json_get_string(oe_config, "procName",
 			      (const char **)&oe.proc_name));
 	CKINT(json_get_string(oe_config, "procSeries",
@@ -1236,6 +1263,10 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	CKINT(acvp_check_features(oe.features));
 	CKINT(json_get_uint(oe_config, "envType", (uint32_t *)&oe.env_type));
 	CKINT(acvp_module_oe_type(oe.env_type, NULL));
+
+	/* Shall we use the internal name for the mapping lookup? */
+	local_proc_family = oe.proc_family_internal ?
+			    oe.proc_family_internal : oe.proc_family;
 
 	/*
 	 * No error handling - one or more may not exist.
@@ -1263,6 +1294,9 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 		  info_file);
 	CKINT(json_get_string(info_config, "moduleName",
 			      (const char **)&info.module_name));
+	/* This is an option */
+	json_get_string(info_config, "moduleNameInternal",
+			(const char **)&info.module_name_internal);
 	CKINT(json_get_string(info_config, "moduleVersion",
 			      (const char **)&info.module_version));
 	CKINT(json_get_string(info_config, "moduleDescription",
@@ -1270,6 +1304,10 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	CKINT(json_get_uint(info_config, "moduleType",
 			    (uint32_t *)&info.module_type));
 	CKINT(acvp_module_oe_type(info.module_type, NULL));
+
+	/* Shall we use the internal name for the mapping lookup? */
+	local_module_name = info.module_name_internal ?
+			    info.module_name_internal : info.module_name;
 
 	/* We do not read the module ID here */
 
@@ -1318,10 +1356,10 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 		unsigned int i, found = 0;
 
 		/* Ensure that configuration applies to map. */
-		if (strncmp(map->algo_name, info.module_name,
-			     strlen(map->algo_name)) ||
-		    strncmp(map->processor, oe.proc_family,
-			     strlen(map->processor)))
+		if (strncmp(map->algo_name, local_module_name,
+			    strlen(map->algo_name)) ||
+		    strncmp(map->processor, local_proc_family,
+			    strlen(map->processor)))
 			continue;
 
 		/*
@@ -1369,6 +1407,8 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 		ret = acvp_def_add_info(def, &info, map->impl_name);
 		if (ret)
 			goto unlock;
+
+		def->uninstantiated_def = map;
 
 		acvp_register_def(def);
 	}

@@ -55,7 +55,7 @@ PROXYCODEPATH=""
 # Example:
 #	PROXYVERSION="1020000"
 #
-PROXYVERSION="1020000"
+PROXYVERSION="1020100"
 
 #
 # Specify the ACVP search parameters if needed. As documented with the ACVP

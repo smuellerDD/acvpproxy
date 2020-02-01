@@ -47,7 +47,7 @@ then
 	PROXYBINPATH="${PROXYBINPATH}/${PROXYBIN}-${PROXYVERSION}"
 fi
 
-PATH=$PATH:$PROXYBINPATH
+PATH=$PROXYBINPATH:$PATH
 if [ -z "$TARGETDIR" ]
 then
 	TARGETDIR=$(pwd)
@@ -55,13 +55,14 @@ fi
 
 usage() {
 	echo "Usage:"
-	echo "$0 [--official] [--show-cmd] [get|post|publish]"
+	echo "$0 [--official] [--show-cmd] [get|post|publish|list|status]"
 	echo
 	echo "$0 must be used with one of the following commands"
 	echo -e "\tlist\t\tList the module definitions in scope for operations"
 	echo -e "\tget\t\tGet test vectors from ACVP server"
 	echo -e "\tpost\t\tPost the test responses to ACVP server and get verdicts"
 	echo -e "\tpublish\t\tPublish the tests to obtain certificate"
+	echo -e "\tstatus\t\tList of verdicts, request IDs and certificates"
 	echo
 	echo "The following additional options are allowed"
 	echo -e "\t--official\tUse the production ACVP server (default: demo server)"
@@ -73,6 +74,7 @@ invoke() {
 	if [ -n "$SHOW_CMD" ]
 	then
 		echo $@ ${PROXYSEARCH}
+		return
 	fi
 	eval $@ ${PROXYSEARCH}
 	if [ $? -ne 0 ]
@@ -154,12 +156,12 @@ setParams() {
 					echo "ACVP Proxy production server configuration file $PROXYBINPATH/$PRODUCTION_CONF not found"
 					exit 1
 				fi
-				PARAMS="$PARAMS -c $PROXYBINPATH/$PRODUCTION_CONF"
+				PARAMS="--official $PARAMS -c $PROXYBINPATH/$PRODUCTION_CONF"
 				;;
 			"--show-cmd")
 				SHOW_CMD="y"
 				;;
-			"get"|"post"|"publish"|"list")
+			"get"|"post"|"publish"|"list"|"status")
 				INVOCATION_TYPE=$arg
 				;;
 			*)
@@ -231,13 +233,13 @@ getvectors() {
 
 	echo
 	echo "Archive $TARGETDIR/${TESTVECTORS_DIR}${PRODUCTION} and send this archive to vendor to process it with the ACVP Parser."
-	echo -e "\ttar -C $TARGETDIR/${TESTVECTORS_DIR}${PRODUCTION} -czf testvectors.tar.gz testvector*/"
+	echo -e "\ttar -C $TARGETDIR/ -czf testvectors${PRODUCTION}.tar.gz ${TESTVECTORS_DIR}${PRODUCTION}/"
 	echo
 	echo "After processing the archive, the vendor shall return the archive from the following command:"
-	echo -e "\ttar -czf results.tar.gz \$(find testvectors*/ -name testvector-response.json)"
+	echo -e "\ttar -czf results${PRODUCTION}.tar.gz \$(find ${TESTVECTORS_DIR}${PRODUCTION}/ -name testvector-response.json)"
 	echo
 	echo "Unpack the received responses with the following command:"
-	echo -e "\ttar -C $TARGETDIR/${TESTVECTORS_DIR}${PRODUCTION} xzf results.tar.gz"
+	echo -e "\ttar -C $TARGETDIR/ -xzf results${PRODUCTION}.tar.gz"
 }
 
 postvectors() {
@@ -252,7 +254,7 @@ postvectors() {
 publish() {
 	invoke $PROXYBIN $PARAMS --publish
 
-	invoke $PROXYBINPATH/$PROXYBIN $PARAMS --list-request-ids
+	invoke $PROXYBIN $PARAMS --list-request-ids
 
 	echo
 	echo "Check the above listing - if request IDs are present, inform NIST to approve them and re-invoke this command."
@@ -261,7 +263,21 @@ publish() {
 	echo
 	echo "The following certificates were obtained:"
 	echo
-	invoke $PROXYBINPATH/$PROXYBIN $PARAMS --list-certificates
+	invoke $PROXYBIN $PARAMS --list-certificates
+}
+
+statuslist() {
+	echo "Listing of verdicts"
+	echo "==================="
+	invoke $PROXYBIN $PARAMS --list-verdicts
+
+	echo "Listing of outstanding request IDs"
+	echo "=================================="
+	invoke $PROXYBIN $PARAMS --list-request-ids
+	
+	echo "Listing of obtained certificates"
+	echo "================================"
+	invoke $PROXYBIN $PARAMS --list-certificates
 }
 
 listscope() {
@@ -286,6 +302,9 @@ case "$INVOCATION_TYPE" in
 		;;
 	"list")
 		listscope
+		;;
+	"status")
+		statuslist
 		;;
 	*)
 		echo "Unknown invocation type $INVOCATION_TYPE"

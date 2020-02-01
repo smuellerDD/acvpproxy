@@ -180,6 +180,7 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 		goto out;
 	}
 
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Person found\n");
 	def_vendor->acvp_person_id = person_id;
 
 out:

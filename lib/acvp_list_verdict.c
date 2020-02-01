@@ -74,6 +74,9 @@ static void acvp_list_verdict_print(struct acvp_test_verdict_status *verdict,
 	case acvp_verdict_unreceived:
 		fprintf_blue(stdout, "UNVERIFIED\n");
 		break;
+	case acvp_verdict_downloadpending:
+		fprintf_cyan(stdout, "PENDING\n");
+		break;
 	default:
 		fprintf_red(stdout, "ERROR in obtaining verdict\n");
 	}
@@ -123,6 +126,10 @@ static int acvp_list_verdicts_cb(const struct acvp_ctx *ctx,
 	mutex_w_lock(&acvp_list_verdicts_mutex);
 
 	CKINT(ds->acvp_datastore_get_testid_verdict(testid_ctx));
+
+	/* If there was no testresponse, we mark it accordingly. */
+	if (!testid_ctx->verdict.verdict)
+		testid_ctx->verdict.verdict = acvp_verdict_downloadpending;
 
 	fprintf(stdout, "Test session ID %-6u ", testid_ctx->testid);
 	testid_ctx->verdict.cipher_name = def_info->module_name;

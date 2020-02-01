@@ -1,0 +1,6 @@
+{
+  "moduleName":"Nettle",
+  "moduleVersion":"3.4",
+  "moduleDescription":"Nettle library implementation providing cryptographic services to Linux user space software components in general.",
+  "moduleType":0
+}

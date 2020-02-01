@@ -290,6 +290,9 @@ int acvp_set_net(const char *server_name, unsigned int port, const char *ca,
 	if (ca) {
 		CKINT(acvp_duplicate(&net->certs_ca_file, ca));
 		CKINT(acvp_check_file_presence(net->certs_ca_file, "CA"));
+		CKINT(acvp_cert_type(net->certs_ca_file,
+				     net->certs_ca_file_type,
+				     sizeof(net->certs_ca_file_type)));
 	} else {
 		net->certs_ca_file = NULL;
 	}

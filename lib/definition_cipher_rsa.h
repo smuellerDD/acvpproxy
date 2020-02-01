@@ -29,18 +29,12 @@
 #define DEFINITION_CIPHER_RSA_H
 
 #include "definition_common.h"
+#include "definition_cipher_rsa_common.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
-enum rsa_modulo {
-	DEF_ALG_RSA_MODULO_1024,
-	DEF_ALG_RSA_MODULO_2048,
-	DEF_ALG_RSA_MODULO_3072,
-	DEF_ALG_RSA_MODULO_4096,
-};
 
 enum rsa_randpq {
 	DEF_ALG_RSA_PQ_B32_PRIMES,
@@ -405,7 +399,7 @@ struct def_algo_rsa {
 	/*
 	 * Number of algspecs, if 0, no entry is added to JSON
 	 * Note, the algspecs pointer above must point to the first
-	 * entry of an array of prerequisites!
+	 * entry of an array of schemes!
 	 */
 	unsigned int algspecs_num;
 };

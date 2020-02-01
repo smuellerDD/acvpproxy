@@ -164,7 +164,7 @@ static int process_checkfile(const char *checkfile, const char *targetfile)
 {
 	FILE *file = NULL;
 	int ret = 0, checked_any = 0;
-	uint32_t size;
+	uint32_t size = 0;
 	uint8_t *memblock = NULL;
 	int create_checkfile = 0;
 
@@ -310,7 +310,6 @@ out:
 		munmap(memblock, size);
 
 	return ret;
-
 }
 
 int fips_post_integrity(void)

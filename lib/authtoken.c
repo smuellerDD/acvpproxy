@@ -125,10 +125,8 @@ int acvp_get_max_msg_size(const struct acvp_testid_ctx *testid_ctx,
 {
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 
-	//TODO large endpoint allegedly is disabled but ACVP server returns still the large message - disabling the support here
 	mutex_lock(&auth->mutex);
-	//*size = auth->max_reg_msg_size;
-	*size = UINT_MAX;
+	*size = auth->max_reg_msg_size;
 	mutex_unlock(&auth->mutex);
 
 	return 0;

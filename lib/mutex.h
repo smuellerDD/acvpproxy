@@ -90,7 +90,7 @@ static inline void mutex_reader_lock(mutex_t *mutex)
 
 /**
  * Unlock the reader lock
- * @param lock [in] lock variable to lock
+ * @param mutex [in] lock variable to lock
  */
 static inline void mutex_reader_unlock(mutex_t *mutex)
 {

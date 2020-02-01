@@ -33,16 +33,30 @@ extern "C"
  * @brief Sleep the given amount of seconds and periodically check whether
  *	  the sleep should be interrupted.
  *
- * @param sleep_time [in] Time in seconds to sleeep
- * @param @interrupted [in] Pointer to boolean that shall cause an interrupt
+ * @param sleep_time [in] Time in seconds to sleep
+ * @param @interrupted [in] Pointer to boolean that shall cause an interrupt, may be NULL
  *
  * @return 0 on full sleep, -EINTR on interrupt, < 0 on other errors
  */
 int sleep_interruptible(unsigned int sleep_time, atomic_bool_t *interrupted);
 
 /**
+ * @brief Sleep the given amount of seconds and periodically check whether
+ *	  the sleep should be interrupted. Two conditions are checked to interrupt the sleep. If one
+ *	  condition is true, the sleep is interrupted.
+ *
+ * @param sleep_time [in] Time in seconds to sleeep
+ * @param @interrupted1 [in] Pointer to boolean that shall cause an interrupt, may be NULL
+ * @param @interrupted2 [in] Pointer to boolean that shall cause an interrupt, may be NULL
+ *
+ * @return 0 on full sleep, -EINTR on interrupt, < 0 on other errors
+ */
+int sleep_interruptible2(unsigned int sleep_time, atomic_bool_t *interrupted1,
+			 atomic_bool_t *interrupted2);
+
+/**
  * @brief Printing the time duration in a nice user-visible string. The caller
- *	  must provide the start time with @param start. The function will
+ *	  must provide the start time with start. The function will
  *	  gather the end time stamp and then produces the string.
  *
  * @param start [in] Start time of the measurement

@@ -1050,7 +1050,7 @@ int acvp_register(const struct acvp_ctx *ctx)
 	const struct acvp_search_ctx *search;
 	const struct acvp_opts_ctx *opts;
 	struct definition *def;
-	int ret;
+	int ret = 0;
 
 	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
 

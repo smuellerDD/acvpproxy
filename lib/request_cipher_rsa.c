@@ -57,6 +57,22 @@ static int acvp_req_rsa_modulo(enum rsa_mode rsa_mode, enum rsa_modulo modulo,
 		CKINT(json_object_object_add(entry, "modulo",
 					     json_object_new_int(4096)));
 		break;
+	case DEF_ALG_RSA_MODULO_5120:
+		CKINT(json_object_object_add(entry, "modulo",
+					     json_object_new_int(5120)));
+		break;
+	case DEF_ALG_RSA_MODULO_6144:
+		CKINT(json_object_object_add(entry, "modulo",
+					     json_object_new_int(6144)));
+		break;
+	case DEF_ALG_RSA_MODULO_7168:
+		CKINT(json_object_object_add(entry, "modulo",
+					     json_object_new_int(7168)));
+		break;
+	case DEF_ALG_RSA_MODULO_8192:
+		CKINT(json_object_object_add(entry, "modulo",
+					     json_object_new_int(8192)));
+		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
 		       "Unknown RSA modulo definition\n");

@@ -381,6 +381,10 @@ static int sig_handler_thread(void *arg)
 
 	logger(LOGGER_VERBOSE, LOGGER_C_SIGNALHANDLER,
 	       "Shutting down cleanly but forcefully\n");
+
+	acvp_op_interrupt();
+	na->acvp_http_interrupt();
+
 	/* Process signal: Clean up all user threads */
 	thread_release(true, false);
 	/* Process signal: Cleanup all non-threading work */

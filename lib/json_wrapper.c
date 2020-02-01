@@ -146,11 +146,24 @@ int json_split_version(struct json_object *full_json,
 	int ret = 0;
 	uint32_t i;
 
+	if (!full_json)
+		return -EINVAL;
+
 	*inobj = NULL;
 	*versionobj = NULL;
 
 	/* Parse response */
-	if (json_object_get_type(full_json) == json_type_array) {
+	if (json_object_is_type(full_json, json_type_array)) {
+		/*
+		 * Split the response array into version object and
+		 * data object.
+		 *
+		 * [{
+		 *	"version", "1.0"
+		 * }, {
+		 * 	... some data ...
+		 * }]
+		 */
 		for (i = 0; i < (uint32_t)json_object_array_length(full_json);
 		     i++) {
 			struct json_object *found =
@@ -170,17 +183,32 @@ int json_split_version(struct json_object *full_json,
 			ret = -EINVAL;
 			goto out;
 		}
-	} else {
+
+		json_logger(LOGGER_DEBUG, LOGGER_C_ANY, *inobj, "ACVP vector");
+		json_logger(LOGGER_DEBUG, LOGGER_C_ANY, *versionobj,
+			    "ACVP version");
+
+		if (!json_object_is_type(*inobj, json_type_object) ||
+		    !json_object_is_type(*versionobj, json_type_object)) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "JSON data are not expected ACVP objects\n");
+			ret = EINVAL;
+			goto out;
+		}
+	} else if (json_object_is_type(full_json, json_type_object)) {
+		/*
+		 * If we receive an object, we return it directly.
+		 * This may happen with error messages.
+		 *
+		 * {
+		 *	"version": "1.0",
+		 *	"error": "some error message"
+		 * }
+		 */
 		*inobj = full_json;
-	}
-
-	json_logger(LOGGER_DEBUG, LOGGER_C_ANY, *inobj, "ACVP vector");
-	json_logger(LOGGER_DEBUG, LOGGER_C_ANY, *versionobj, "ACVP version");
-
-	if (!json_object_is_type(*inobj, json_type_object) ||
-	    !json_object_is_type(*versionobj, json_type_object)) {
+	} else {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "JSON data is are not expected ACVP objects\n");
+		       "JSON data is not an expected ACVP object\n");
 		ret = EINVAL;
 		goto out;
 	}

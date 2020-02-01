@@ -115,33 +115,33 @@ struct acvp_modinfo_ctx {
 /**
  * @brief Search parameters that can be set by the caller. If an entry is NULL
  *	  it is not used as a search criteria.
- * @param modulename Module name as reported by the list operation
- * @param moduleversion Version string as reported by the list operation
- * @param vendorname Vendor name as reported by the list operation
- * @param execenv Execution environment as reported by the list operation
- * @param processor Processor name as reported by the list operation
- * @param modulename_fuzzy_search Use the given search strings in a fuzzy search
- *			    	  (i.e. use strstr to search the name and not
- *			    	  strncmp) for modulename
- * @param moduleversion_fuzzy_search Use the given search strings in a fuzzy
- *				     search (i.e. use strstr to search the name
- *				     and not strncmp) for moduleversion
- * @param vendorname_fuzzy_search Use the given search strings in a fuzzy search
- *			    	  (i.e. use strstr to search the name and not
- *			    	  strncmp) for vendorname
- * @param execenv_fuzzy_search Use the given search strings in a fuzzy search
+ * @var modulename Module name as reported by the list operation
+ * @var moduleversion Version string as reported by the list operation
+ * @var vendorname Vendor name as reported by the list operation
+ * @var execenv Execution environment as reported by the list operation
+ * @var processor Processor name as reported by the list operation
+ * @var modulename_fuzzy_search Use the given search strings in a fuzzy search
+ *			    	(i.e. use strstr to search the name and not
+ *			    	strncmp) for modulename
+ * @var moduleversion_fuzzy_search Use the given search strings in a fuzzy
+ *				   search (i.e. use strstr to search the name
+ *				   and not strncmp) for moduleversion
+ * @var vendorname_fuzzy_search Use the given search strings in a fuzzy search
+ *			    	(i.e. use strstr to search the name and not
+ *			    	strncmp) for vendorname
+ * @var execenv_fuzzy_search Use the given search strings in a fuzzy search
+ *			     (i.e. use strstr to search the name and not
+ *			     strncmp) for execenv
+ * @var processor_fuzzy_search Use the given search strings in a fuzzy search
  *			       (i.e. use strstr to search the name and not
- *			       strncmp) for execenv
- * @param processor_fuzzy_search Use the given search strings in a fuzzy search
- *			         (i.e. use strstr to search the name and not
- *			         strncmp) for processor
+ *			       strncmp) for processor
  *
- * @param submit_vsids Array of vsIds to be processed (if empty, all vsIDs are
- *		       in scope).
- * @param nr_submit_vsids Number of vsIDs that are to be searched.
- * @param submit_testids Array of testIds to be processed (if empty, all
- *			 testIDs are in scope).
- * @param nr_submit_testids Number of testIDs that are to be searched.
+ * @var submit_vsids Array of vsIds to be processed (if empty, all vsIDs are
+ *		     in scope).
+ * @var nr_submit_vsids Number of vsIDs that are to be searched.
+ * @var submit_testids Array of testIds to be processed (if empty, all
+ *		       testIDs are in scope).
+ * @var nr_submit_testids Number of testIDs that are to be searched.
  */
 struct acvp_search_ctx {
 	char *modulename;
@@ -267,6 +267,11 @@ struct acvp_opts_ctx {
 	bool no_publish_prereqs;
 
 	/*
+	 * Delete the VSID the operation applies to
+	 */
+	bool delete_vsid;
+
+	/*
 	 * Delete an entry in the ACVP database. The ID is taken from the
 	 * module's JSON configuration file.
 	 */
@@ -286,11 +291,25 @@ struct acvp_opts_ctx {
 	unsigned int update_db_entry;
 };
 
+/**
+ * @brief Specification of information to be renamed
+ *
+ * @var moduleversion_new new module version string
+ * @var modulename_new new module name
+ * @var oe_env_name_new new OE name
+ */
+struct acvp_rename_ctx {
+	const char *moduleversion_new;
+	const char *modulename_new;
+	const char *oe_env_name_new;
+};
+
 struct acvp_ctx {
 	struct acvp_modinfo_ctx modinfo;
 	struct acvp_req_ctx req_details;
 	struct acvp_datastore_ctx datastore;
 	struct acvp_opts_ctx options;
+	struct acvp_rename_ctx *rename;
 };
 
 /**
@@ -402,9 +421,9 @@ int acvp_set_net(const char *server_name, unsigned int port, const char *ca,
  *
  * @param ctx [in] ACVP Proxy library context
  * @param caller_search [in] Set the search criteria to find the cipher
- *			    implementation definition.
+ *			     implementation definition.
  * @param specific_ver [in] Provide a version number that shall be registered
- *		      with CAVP instead of @param moduleversion.
+ *			    with CAVP instead of moduleversion.
  * @return 0 on success, < 0 on error
  */
 int acvp_set_module(struct acvp_ctx *ctx,
@@ -591,22 +610,22 @@ int acvp_set_options(struct acvp_ctx *ctx, const struct acvp_opts_ctx *options);
  * retry information can be disregarded.
  *
  * One function invocation returns one testid for a given index pointer. The
- * caller shall invoke this function repeatedly starting with @param idx_ptr
- * containing a zero. Every subsequent invocation shall use the @param idx_ptr
+ * caller shall invoke this function repeatedly starting with idx_ptr
+ * containing a zero. Every subsequent invocation shall use the idx_ptr
  * value that was returned from the previous round. If the return code -ENOENT
  * is returned, the caller shall stop the iteration. Every recorded testid
- * is returned with @param testid.
+ * is returned with testid.
  *
  * @param idx_ptr [in/out] Index pointer to obtain the testID
  * @param testid [out] TestID at the given index pointer
  *
  * @return 0 on success, -ENOENT identifies that there is no testid for given
- *	   @param idx_ptr, < 0 on other error
+ *	   idx_ptr, < 0 on other error
  */
 int acvp_list_failed_testid(int *idx_ptr, uint32_t *testid);
 
 /**
- * @brief List all vsIDs with a verdict provided in @param passed
+ * @brief List all vsIDs with a verdict provided in passed
  *
  * During the download of the vsIDs, the verdict returned from the ACVP server
  * is processed and the global verdict for the vsID is obtained. The failing
@@ -616,12 +635,12 @@ int acvp_list_failed_testid(int *idx_ptr, uint32_t *testid);
  * verdicts. Naturally, the data is only present after a
  *
  * @param idx_ptr [in/out] Index pointer to obtain the testID
- * @param testid [out] TestID at the given index pointer
+ * @param vsid [out] VsID at the given index pointer
  * @param passed [in] Boolean whether to look for passing verdicts (true) or
  *		      failing verdicts (false).
  *
  * @return 0 on success, -ENOENT identifies that there is no testid for given
- *	   @param idx_ptr, < 0 on other error
+ *	   idx_ptr, < 0 on other error
  */
 int acvp_list_verdict_vsid(int *idx_ptr, uint32_t *vsid, bool passed);
 
@@ -642,6 +661,17 @@ int acvp_list_verdict_vsid(int *idx_ptr, uint32_t *vsid, bool passed);
 int acvp_cipher_get(const struct acvp_ctx *ctx,
 		    char *ciphername[], size_t ciphername_arraylen,
 		    const char *pathname);
+
+/**
+ * @brief Rename the module information
+ *
+ * This call assumes that ctx->rename_ctx is filled in with the information
+ * to be changed.
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int acvp_rename_module(const struct acvp_ctx *ctx);
 
 #ifdef __cplusplus
 }

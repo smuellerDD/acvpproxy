@@ -232,8 +232,10 @@ static int acvp_response_error_handler(const struct acvp_buf *response_buf,
 	 * entry containing the answer.
 	 */
 	if (acvp_req_strip_version(response_buf->buf, &response, &entry)) {
-		ret = http_ret;
-		goto out;
+		// TODO return may not match definition - clear after issue #771 is fixed
+		entry = response;
+//		ret = http_ret;
+//		goto out;
 	}
 
 	if (json_get_string(entry, "error", &error_str)) {
@@ -246,7 +248,7 @@ static int acvp_response_error_handler(const struct acvp_buf *response_buf,
 	 * Vectors were uploaded, we clear the error to allow downloading of
 	 * verdict.
 	 */
-	if (strstr(error_str, "KAT_RECEIVED")) {
+	if (strstr(error_str, "KAT_RECEIVED") || strstr(error_str, "PASSED")) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "ACVP server already received responses, continuing to obtain verdict\n");
 		ret = 0;
@@ -259,7 +261,7 @@ static int acvp_response_error_handler(const struct acvp_buf *response_buf,
 out:
 	if (ret) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Recevied following ACVP server error response: %s\n",
+		       "Received following ACVP server error response: %s\n",
 		       response_buf->buf);
 	}
 	ACVP_JSON_PUT_NULL(response);
@@ -277,13 +279,14 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	ACVP_BUFFER_INIT(tmp);
 	ACVP_BUFFER_INIT(result);
+	enum acvp_http_type nettype = acvp_http_post;
 	int ret, ret2;
 
 	CKNULL_LOG(url, -EFAULT, "URL missing\n");
 
-	ret2 = acvp_net_op(testid_ctx, url, buf, &result,
-			   opts->resubmit_result ?
-			   acvp_http_put : acvp_http_post);
+	if (opts->resubmit_result)
+		nettype = acvp_http_put;
+	ret2 = acvp_net_op(testid_ctx, url, buf, &result, nettype);
 
 	CKINT(acvp_store_submit_debug(vsid_ctx, &result, ret2));
 
@@ -306,6 +309,20 @@ out:
 		       "Failure to submit testID %u with vsID %u\n",
 		       testid_ctx->testid, vsid_ctx->vsid);
 	acvp_free_buf(&result);
+	return ret;
+}
+
+/* DELETE /testSessions/<testSessionId>/vectorSets/<vectorSetId> */
+static int acvp_response_delete(const struct acvp_vsid_ctx *vsid_ctx)
+{
+	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
+	char url[ACVP_NET_URL_MAXLEN];
+	int ret;
+
+	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url), false));
+	CKINT(acvp_net_op(testid_ctx, url, NULL, NULL, acvp_http_delete));
+
+out:
 	return ret;
 }
 
@@ -438,7 +455,7 @@ static int acvp_check_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
 	CKINT(acvp_get_max_msg_size(testid_ctx, &max_msg_size));
 
 	/* Check whether we need to request a /large endpoint communication */
-	if (max_msg_size >= submit_buf->len) {
+	if (!submit_buf || max_msg_size >= submit_buf->len) {
 		/*
 		 * Construct the URL to submit the results for the given
 		 * vsID to.
@@ -518,6 +535,7 @@ static int acvp_process_one_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 	const struct acvp_testid_ctx *testid_ctx;
 	const struct acvp_ctx *ctx;
 	const struct acvp_req_ctx *req;
+	const struct acvp_opts_ctx *opts;
 	int ret;
 
 	CKNULL_LOG(vsid_ctx, -EINVAL, "ACVP vsID request context missing\n");
@@ -536,8 +554,19 @@ static int acvp_process_one_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 
 	ctx = testid_ctx->ctx;
 	req = &ctx->req_details;
+	opts = &ctx->options;
+
+	/*
+	 * There is a request to delete a vsID. Let us honor it.
+	 */
+	if (opts->delete_vsid) {
+		atomic_inc((atomic_t *)&testid_ctx->vsids_to_process);
+		atomic_inc(&glob_vsids_to_process);
+		return acvp_response_delete(vsid_ctx);
+	}
 
 	if (!buf) {
+
 		/*
 		 * We are requested to download pending vsIDs.
 		 */
@@ -748,7 +777,7 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 	const struct acvp_opts_ctx *opts;
 	struct definition *def;
 	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
-	int ret;
+	int ret = 0;
 
 	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
 

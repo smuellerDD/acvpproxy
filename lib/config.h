@@ -46,7 +46,7 @@ extern "C"
  * There is no other value that needs changing if the number of threads
  * shall be adjusted.
  */
-#define THREADING_MAX_THREADS 64
+#define THREADING_MAX_THREADS 512
 
 /*
  * Enable the TOTP message queue server

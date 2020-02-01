@@ -310,6 +310,11 @@ The JSON files in the `oe` directory must contain the following JSON keywords:
   empty string for the processor, the JSON are not restricted in the processor
   information.
 
+* `procFamilyInternal`: This is an optional keyword that if present is used to
+  resolve the uninstantiated definitions. It is not used for anything else.
+  Its purpose is to support private ACVP Proxy extensions with slight
+  derivations from ACVP Proxy built-in definitions.
+
 * `procName`: Specific processor name executing the module.
 
 * `procSeries`: Processor series executing the module.
@@ -340,6 +345,11 @@ keywords:
   crypto definition detailed reference specified with the variable `impl_name`
   found in the C code defining the cryptographic implementation. That
   implementation name can be shown with `acvp-proxy -u`.
+
+* `moduleNameInternal`: This is an optional keyword that if present is used to
+  resolve the uninstantiated definitions. It is not used for anything else.
+  Its purpose is to support private ACVP Proxy extensions with slight
+  derivations from ACVP Proxy built-in definitions.
 
 * `moduleVersion`: Version number of the module.
 

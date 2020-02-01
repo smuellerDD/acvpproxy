@@ -50,6 +50,7 @@
 struct opt_data {
 	struct acvp_search_ctx search;
 	struct acvp_opts_ctx acvp_ctx_options;
+	struct acvp_rename_ctx rename_ctx;
 	char *specific_modversion;
 
 	char *seed_base64;
@@ -69,6 +70,7 @@ struct opt_data {
 	size_t cipher_options_algo_idx;
 	bool cipher_list;
 
+	bool rename;
 	bool request;
 	bool publish;
 	bool list_available_ids;
@@ -349,8 +351,14 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\tcurrent results on file to update the\n");
 	fprintf(stderr, "\t\t\t\t\tresults on the ACVP server\n\n");
 
+	fprintf(stderr, "\t   --delete-test\t\tDelete all vsIds in scope which\n");
+	fprintf(stderr, "\t\t\t\t\tare part of the registration - this\n");
+	fprintf(stderr, "\t\t\t\t\toption is only applicable during\n");
+	fprintf(stderr, "\t\t\t\t\tsubmitting responses to the ACVP server\n\n");
+
 	fprintf(stderr, "\tUpdate ACVP database with content from JSON configuration files:\n");
-	fprintf(stderr, "\t   --nopublish-prereqs\t\tRemove prerequisites from publication request\n");
+	fprintf(stderr, "\t   --nopublish-prereqs\t\tRemove prerequisites from publication\n");
+	fprintf(stderr, "\t\t\t\t\trequest\n");
 	fprintf(stderr, "\t   --register-definition\tRegister pending definitions with ACVP\n");
 	fprintf(stderr, "\t   --delete-definition <TYPE>\tDelete definition at ACVP server\n");
 	fprintf(stderr, "\t   --update-definition <TYPE>\tUpdate definition at ACVP server\n");
@@ -378,6 +386,9 @@ static void usage(void)
 	fprintf(stderr, "\tAuxiliary options:\n");
 	fprintf(stderr, "\t   --proxy-extension <SO-FILE>\tShared library of ACVP Proxy extension\n");
 	fprintf(stderr, "\t\t\t\t\tZero or more extensions can be provided.\n");
+	fprintf(stderr, "\t   --rename-version <NEW>\tRename version of definition\n");
+	fprintf(stderr, "\t   --rename-name <NEW_NAME>\tRename name of definition\n");
+	fprintf(stderr, "\t   --rename-oename <NEW_NAME>\tRename OE name of definition\n");
 	fprintf(stderr, "\t-v --verbose\t\t\tVerbose logging, multiple options\n");
 	fprintf(stderr, "\t\t\t\t\tincrease verbosity\n");
 	fprintf(stderr, "\t\t\t\t\tNote: In debug mode (3 or more -v),\n");
@@ -528,6 +539,7 @@ out:
 static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 {
 	struct acvp_search_ctx *search = &opts->search;
+	struct acvp_rename_ctx *rename = &opts->rename_ctx;
 	int c = 0, ret;
 	char version[200] = { 0 };
 	unsigned long val = 0;
@@ -571,6 +583,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"definition-basedir",	required_argument,	0, 0},
 
 			{"resubmit-result",	no_argument,		0, 0},
+			{"delete-test",		no_argument,		0, 0},
 			{"register-definition",	no_argument,		0, 0},
 			{"delete-definition",	required_argument,	0, 0},
 			{"update-definition",	required_argument,	0, 0},
@@ -586,6 +599,9 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"cipher-list",		no_argument,		0, 0},
 
 			{"proxy-extension",	required_argument,	0, 0},
+			{"rename-version",	required_argument,	0, 0},
+			{"rename-name",		required_argument,	0, 0},
+			{"rename-oename",	required_argument,	0, 0},
 
 			{0, 0, 0, 0}
 		};
@@ -763,44 +779,47 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				opts->acvp_ctx_options.resubmit_result = true;
 				break;
 			case 28:
+				opts->acvp_ctx_options.delete_vsid = true;
+				break;
+			case 29:
 				opts->acvp_ctx_options.register_new_module = true;
 				opts->acvp_ctx_options.register_new_vendor = true;
 				opts->acvp_ctx_options.register_new_oe = true;
 				break;
-			case 29:
+			case 30:
 				CKINT(convert_update_delete_type(optarg,
 				  &opts->acvp_ctx_options.delete_db_entry));
 				break;
-			case 30:
+			case 31:
 				CKINT(convert_update_delete_type(optarg,
 				  &opts->acvp_ctx_options.update_db_entry));
 				break;
-			case 31:
+			case 32:
 				opts->acvp_ctx_options.no_publish_prereqs = true;
 				break;
 
-			case 32:
+			case 33:
 				opts->list_pending_request_ids = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 33:
+			case 34:
 				opts->list_available_ids = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 34:
+			case 35:
 				opts->list_verdicts = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 35:
+			case 36:
 				opts->list_certificates = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
 
-			case 36:
+			case 37:
 				CKINT(duplicate_string(&opts->cipher_options_file,
 						       optarg));
 				break;
-			case 37:
+			case 38:
 				CKINT(duplicate_string(&opts->cipher_options_algo[opts->cipher_options_algo_idx],
 						       optarg));
 				opts->cipher_options_algo_idx++;
@@ -810,12 +829,27 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					goto out;
 				}
 				break;
-			case 38:
+			case 39:
 				opts->cipher_list = true;
 				break;
 
-			case 39:
+			case 40:
 				CKINT(acvp_load_extension(optarg));
+				break;
+			case 41:
+				rename->moduleversion_new = optarg;
+				opts->acvp_ctx_options.threading_disabled = true;
+				opts->rename = true;
+				break;
+			case 42:
+				rename->modulename_new = optarg;
+				opts->acvp_ctx_options.threading_disabled = true;
+				opts->rename = true;
+				break;
+			case 43:
+				rename->oe_env_name_new = optarg;
+				opts->acvp_ctx_options.threading_disabled = true;
+				opts->rename = true;
 				break;
 
 			default:
@@ -1251,6 +1285,22 @@ out:
 	return ret;
 }
 
+static int do_rename(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts));
+
+	ctx->rename = &opts->rename_ctx;
+
+	CKINT(acvp_rename_module(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	struct opt_data opts;
@@ -1270,6 +1320,8 @@ int main(int argc, char *argv[])
 	if (opts.cipher_list || opts.cipher_options_algo_idx ||
 	    opts.cipher_options_file) {
 		CKINT(do_fetch_cipher_options(&opts));
+	} else if (opts.rename) {
+		CKINT(do_rename(&opts));
 	} else if (opts.request) {
 		CKINT(do_register(&opts));
 	} else if (opts.publish) {

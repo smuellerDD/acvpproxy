@@ -1,3 +1,20 @@
+v1.2.2
+- enhancement: TOTP MQ facility is now is implemented with full scalability to support arbitrary numbers of threads
+- enhancement: add native Apple networking support
+- enhancement: add procFamilyInternal support
+- enhancement: add RSA PSS, X9.31 and PQGGen (SHA384/SHA512) for OpenSSL
+- add helper/acvpkeys
+
+v1.2.1
+- fix documentation as complained by clang
+- add "status" to proxy-lib.sh showing the verdicts, request IDs and certificates
+- add --rename-version
+- add --rename-name
+- add --rename-oename
+- add moduleNameInternal support
+- fix: reenable large file support as it is required for files > 4MB (e.g. GCM responses) - issue 755 still discusses the issue of SHAKE uploads
+- add --delete-test allowing the deletion of the vsId in the search scope from the test session
+
 v1.2.0
 - add GET /validations/<certificateId> when having certificateId available -
   the result is stored in testsession_certificate_info.json

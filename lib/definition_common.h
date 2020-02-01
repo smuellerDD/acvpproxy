@@ -69,8 +69,8 @@ static inline int acvp_range_min_val(const int variable[])
 /**
  * @brief Define a prerequisite for a cipher.
  *
- * @param algorithm Specify the algorithm name covered by this prerequisite.
- * @param valvalue Specify the validation reference.
+ * @var algorithm Specify the algorithm name covered by this prerequisite.
+ * @var valvalue Specify the validation reference.
  */
 struct def_algo_prereqs {
 	/*

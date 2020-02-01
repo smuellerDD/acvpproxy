@@ -44,6 +44,7 @@
 #include "definition_cipher_kdf_tls.h"
 #include "definition_cipher_kdf_108.h"
 #include "definition_cipher_pbkdf.h"
+#include "definition_cipher_kas_ifc.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -61,8 +62,8 @@ enum def_mod_type {
  * @brief This data structure defines a particular cipher algorithm
  *	  definition.
  *
- * @param type Specify the cipher type.
- * @param algo Fill in the data structure corresponding to the @param type
+ * @var type Specify the cipher type.
+ * @var algo Fill in the data structure corresponding to the @param type
  *	       selection.
  */
 struct def_algo {
@@ -189,31 +190,34 @@ struct def_lock {
  * @brief This data structure defines identifiers of the cipher implementation.
  *	  Note, this information will be posted at the CAVS web site.
  *
- * @param module_name Specify the name of the cryptographic module (i.e. cipher
- *		      implementation) under test.
- * @param module_name_filesafe Same information as @param module_name except
- *			       that the string is cleared of characters
- *			       inappropriate for file names.
- * @param module_type Specify the type of the module.
- * @param module_version Specify a string representing the version of the
- *			 module.
- * @param module_version_filesafe Same information as @param module_version
- *				  except that the string is cleared of
- *				  characters inappropriate for file names.
- * @param module_description Provide a brief description of the module.
- * @param def_module_file Configuration file holding the information
- * @param acvp_vendor_id Identifier assigned by the ACVP server to vendor
- *			 information.
- * @param acvp_person_id Identifier assigned by the ACVP server to person /
- *			 contact information.
- * @param acvp_addr_id Identifier assigned by the ACVP server to address
+ * @var module_name Specify the name of the cryptographic module (i.e. cipher
+ *		    implementation) under test.
+ * @var module_name_filesafe Same information as @var module_name except
+ *			     that the string is cleared of characters
+ *			     inappropriate for file names.
+ * @var module_name_internal If this is set, this name is used to map to
+ *			     uninstantiated definitions. This name is not
+ *			     used for external reference.
+ * @var module_type Specify the type of the module.
+ * @var module_version Specify a string representing the version of the module.
+ * @var module_version_filesafe Same information as @var module_version
+ *				except that the string is cleared of
+ *				characters inappropriate for file names.
+ * @var module_description Provide a brief description of the module.
+ * @var def_module_file Configuration file holding the information
+ * @var acvp_vendor_id Identifier assigned by the ACVP server to vendor
  *		       information.
- * @param acvp_module_id Identifier assigned by the ACVP server to module
- *			 information.
+ * @var acvp_person_id Identifier assigned by the ACVP server to person /
+ *		       contact information.
+ * @var acvp_addr_id Identifier assigned by the ACVP server to address
+ *		     information.
+ * @var acvp_module_id Identifier assigned by the ACVP server to module
+ *		       information.
  */
 struct def_info {
 	char *module_name;
 	char *module_name_filesafe;
+	char *module_name_internal;
 	enum def_mod_type module_type;
 	char *module_version;
 	char *module_version_filesafe;
@@ -233,31 +237,31 @@ struct def_info {
  *	  of the cipher implementation. Note, this information will be posted
  *	  at the CAVS web site.
  *
- * @param vendor_name Specify the name of the vendor.
- * @param vendor_name_filesafe Same information as @param vendor_name except
- *			       that the string is cleared of characters
- *			       inappropriate for file names.
- * @param vendor_url Specify the homepage of the vendor.
- * @param acvp_vendor_id Identifier assigned by the ACVP server to vendor
- *			 information.
- *
- * @param contact_name Specify the contact person responsible for the CAVS
- *		       test request.
- * @param contact_email Specify the contact email of the person responsible for
- *			the CAVS test request.
- * @param contact_phone Specify the contact telephone number
- * @param acvp_person_id Identifier assigned by the ACVP server to person /
- *			 contact information.
- *
- * @param addr_street Address: Street
- * @param addr_locality Address: City
- * @param addr_region Address: State
- * @param addr_country: Address Country
- * @param addr_zipcode: Address: Zip code
- * @param acvp_addr_id Identifier assigned by the ACVP server to address
+ * @var vendor_name Specify the name of the vendor.
+ * @var vendor_name_filesafe Same information as @var vendor_name except
+ *			     that the string is cleared of characters
+ *			     inappropriate for file names.
+ * @var vendor_url Specify the homepage of the vendor.
+ * @var acvp_vendor_id Identifier assigned by the ACVP server to vendor
  *		       information.
  *
- * @param def_vendor_file Configuration file holding the information
+ * @var contact_name Specify the contact person responsible for the CAVS
+ *		     test request.
+ * @var contact_email Specify the contact email of the person responsible for
+ *		      the CAVS test request.
+ * @var contact_phone Specify the contact telephone number
+ * @var acvp_person_id Identifier assigned by the ACVP server to person /
+ *		       contact information.
+ *
+ * @var addr_street Address: Street
+ * @var addr_locality Address: City
+ * @var addr_region Address: State
+ * @var addr_country: Address Country
+ * @var addr_zipcode: Address: Zip code
+ * @var acvp_addr_id Identifier assigned by the ACVP server to address
+ *		     information.
+ *
+ * @var def_vendor_file Configuration file holding the information
  */
 struct def_vendor {
 	char *vendor_name;
@@ -286,22 +290,24 @@ struct def_vendor {
  * @brief Specify operational environment information of the hosting execution
  *	 environment where the module is tested
  *
- * @param env_type Environment type
- * @param oe_env_name Name of the execution environment (e.g. operating
- *		     system or SoC)
- * @param cpe UNKNOWN
+ * @var env_type Environment type
+ * @var oe_env_name Name of the execution environment (e.g. operating
+ *		    system or SoC)
+ * @var cpe UNKNOWN
  *
- * @param manufacturer Processor manufacturer (e.g. "Intel")
- * @param proc_family Processor family (e.g. "X86")
- * @param proc_name Processor name (e.g. "Intel(R) Core(TM) i7-5557U")
- * @param proc_series Processor series (e.g. "Broadwell")
- * @param features Specify features of the CPU that are used by the module
- * @param def_oe_file Configuration file holding the information
- * @param acvp_oe_id Identifier assigned by the ACVP server to OE information.
- * @param acvp_oe_dep_sw_id Identifier assigned by the ACVP server to software
- *			    dependency information, if there is any.
- * @param acvp_oe_dep_proc_id Identifier assigned by the ACVP server to
- *			      processor dependency information, if there is any.
+ * @var manufacturer Processor manufacturer (e.g. "Intel")
+ * @var proc_family Processor family (e.g. "X86")
+ * @var proc_family_internal Processor family used for internal definition
+ *	resolving
+ * @var proc_name Processor name (e.g. "Intel(R) Core(TM) i7-5557U")
+ * @var proc_series Processor series (e.g. "Broadwell")
+ * @var features Specify features of the CPU that are used by the module
+ * @var def_oe_file Configuration file holding the information
+ * @var acvp_oe_id Identifier assigned by the ACVP server to OE information.
+ * @var acvp_oe_dep_sw_id Identifier assigned by the ACVP server to software
+ *			  dependency information, if there is any.
+ * @var acvp_oe_dep_proc_id Identifier assigned by the ACVP server to
+ *			    processor dependency information, if there is any.
  */
 /* Operational environment processor features */
 #define OE_PROC_X86_RDRAND	(1<<0)
@@ -318,6 +324,7 @@ struct def_oe {
 
 	char *manufacturer;
 	char *proc_family;
+	char *proc_family_internal;
 	char *proc_name;
 	char *proc_series;
 	uint64_t features;
@@ -365,15 +372,16 @@ struct acvp_extension {
  *	 which should be invoked during the initialization time of the
  *	 library.
  *
- * @param info This pointer provides generic information about the module.
- * @param algos This pointer refers to the cipher specific information. It is
- *	       	permissible to register multiple algorithm specifications with
- *	       	multiple instances of the data structure. However, all instances
- *	       	of the data structure must be adjacent in memory to allow
- *	       	iterating over it.
- * @param num_algos The number of algorithm definitions is specified here.
- *		    Commonly ARRAY_SIZE(algos) would be used here.
- * @param next This pointer is internal to the library and MUST NOT be used.
+ * @var info This pointer provides generic information about the module.
+ * @var algos This pointer refers to the cipher specific information. It is
+ *	      permissible to register multiple algorithm specifications with
+ *	      multiple instances of the data structure. However, all instances
+ *	      of the data structure must be adjacent in memory to allow
+ *	      iterating over it.
+ * @var num_algos The number of algorithm definitions is specified here.
+ *		  Commonly ARRAY_SIZE(algos) would be used here.
+ * @var uninstantiated_def Reference to uninstantiated algorithm definition
+ * @var next This pointer is internal to the library and MUST NOT be used.
  */
 struct definition {
 	struct def_info *info;
@@ -381,6 +389,7 @@ struct definition {
 	unsigned int num_algos;
 	struct def_vendor *vendor;
 	struct def_oe *oe;
+	struct def_algo_map *uninstantiated_def;
 	struct definition *next;
 };
 
@@ -390,7 +399,7 @@ struct definition {
  *	  and vendor information).
  *
  * @param curr_map Pointer to the uninstantiated algorithm definition.
- * @param nrmaps Number of map definitions pointed to by @param curr_map
+ * @param nrmaps Number of map definitions pointed to by curr_map
  */
 void acvp_register_algo_map(struct def_algo_map *curr_map, unsigned int nrmaps);
 
@@ -410,10 +419,11 @@ void acvp_register_algo_map(struct def_algo_map *curr_map, unsigned int nrmaps);
 struct definition *acvp_find_def(const struct acvp_search_ctx *search,
 				 struct definition *processed_ptr);
 
+struct acvp_testid_ctx;
 /**
  * @brief Apply the definition database search criteria found in the provided
  *	  JSON object to find the corresponding cipher definition. Match the
- *	  found cipher definition with the one registered in @param testid_ctx.
+ *	  found cipher definition with the one registered in testid_ctx.
  *
  *	  NOTE: Only the first matching definition is checked, since this
  *	  function expects the search criteria to be specific enough to refer
@@ -425,7 +435,6 @@ struct definition *acvp_find_def(const struct acvp_search_ctx *search,
  *
  * @return: 0 on success, < 0 on errors
  */
-struct acvp_testid_ctx;
 int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
 		   struct json_object *def_config);
 
@@ -436,7 +445,19 @@ int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
  * @param testid_ctx [in] TestID context holding the definition that shall
  *			  be unambiguously found again.
  */
-int acvp_export_def_search(struct acvp_testid_ctx *testid_ctx);
+int acvp_export_def_search(const struct acvp_testid_ctx *testid_ctx);
+
+/**
+ * @brief Convert module name and implementation name into new string
+ *	  to uniquely identify module.
+ *
+ * @newname [out] Newly allocated buffer with new name (caller must free)
+ *		  buffer.
+ * @module_name [in] Existing module name
+ * @impl_name [in] Implementation name of module
+ */
+int acvp_def_module_name(char **newname, const char *module_name,
+			 const char *impl_name);
 
 /**
  * @brief Update the vendor / OE / module ID in the configuration files

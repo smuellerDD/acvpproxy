@@ -1,0 +1,19 @@
+[ req ]
+default_bits           = 2048
+default_keyfile        = privkey.pem
+distinguished_name     = req_distinguished_name
+prompt                 = no
+extendedKeyUsage       = serverAuth
+
+dirstring_type = nobmp
+
+[ req_distinguished_name ]
+C                      = US
+ST                     = Texas
+L                      = Austin
+O                      = atsec information security corp
+OU                     = ACVP Development
+CN                     = Stephan Mueller
+emailAddress           = smueller@atsec.com
+
+

@@ -30,6 +30,7 @@ INCLUDEDIR	:= /usr/include
 LN		:= ln
 LNS		:= $(LN) -sf
 BUILDDIR	:= buildpackage
+SRCDIR		:=
 
 # Files to be filtered out and not to be compiled
 EXCLUDED	?=
@@ -39,23 +40,18 @@ EXCLUDED	?=
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	+= lib apps lib/module_implementations
+INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations
 LIBRARY_DIRS	+=
-LIBRARIES	+= curl pthread dl
+LIBRARIES	+= pthread dl
 
 ifeq ($(UNAME_S),Darwin)
-#TODO can we remove the special entry for LIBRARY_DIRS?
-# The commented out lines would enable the brew curl with Apple Secure Transport
-# If you enable that, remove the LIBRARIES line below
-LIBRARY_DIRS	+= /usr/local/opt/openssl/lib
-#LIBRARY_DIRS	+= /usr/local/opt/curl/lib
-INCLUDE_DIRS	+= /usr/local/opt/openssl/include
-#INCLUDE_DIRS	+= /usr/local/opt/openssl@1.1/include /usr/local/opt/curl/include
-LIBRARIES	+= crypto
-LDFLAGS		+= -framework Foundation
-M_SRCS		:= $(wildcard apps/*.m)
+LDFLAGS		+= -framework Foundation -framework Security
+EXCLUDED	+= $(SRCDIR)lib/network_backend_curl.c $(SRCDIR)lib/openssl_thread_support.c
+M_SRCS		:= $(wildcard $(SRCDIR)apps/*.m)
+M_SRCS		+= $(wildcard $(SRCDIR)lib/*.m)
 M_OBJS		:= ${M_SRCS:.m=.o}
 else
+LIBRARIES	+= curl
 M_OBJS		:=
 endif
 
@@ -68,11 +64,11 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 # Define files to be compiled
 #
 ###############################################################################
-C_SRCS += $(wildcard apps/*.c)
-C_SRCS += $(wildcard lib/*.c)
-C_SRCS += $(wildcard lib/hash/*.c)
-C_SRCS += $(wildcard lib/module_implementations/*.c)
-C_SRCS += $(wildcard lib/json-c/*.c)
+C_SRCS += $(wildcard $(SRCDIR)apps/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/hash/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/module_implementations/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/json-c/*.c)
 
 C_SRCS := $(filter-out $(wildcard $(EXCLUDED)), $(C_SRCS))
 
@@ -82,7 +78,7 @@ C_GCOV += ${C_SRCS:.c=.gcno}
 C_GCOV += ${C_SRCS:.c=.gcov}
 OBJS := $(M_OBJS) $(C_OBJS)
 
-CRYPTOVERSION := $(shell cat lib/hash/hash.c lib/hash/hash.h lib/hash/hmac.c lib/hash/hmac.h lib/hash/sha1.c lib/hash/sha1.h lib/hash/sha224.c lib/hash/sha224.h lib/hash/sha256.c lib/hash/sha256.h lib/hash/sha384.c lib/hash/sha384.h lib/hash/sha512.c lib/hash/sha512.h | openssl sha1 | cut -f 2 -d " ")
+CRYPTOVERSION := $(shell cat $(SRCDIR)lib/hash/hash.c $(SRCDIR)lib/hash/hash.h $(SRCDIR)lib/hash/hmac.c $(SRCDIR)lib/hash/hmac.h $(SRCDIR)lib/hash/sha1.c $(SRCDIR)lib/hash/sha1.h $(SRCDIR)lib/hash/sha224.c $(SRCDIR)lib/hash/sha224.h $(SRCDIR)lib/hash/sha256.c $(SRCDIR)lib/hash/sha256.h $(SRCDIR)lib/hash/sha384.c $(SRCDIR)lib/hash/sha384.h $(SRCDIR)lib/hash/sha512.c $(SRCDIR)lib/hash/sha512.h | openssl sha1 | cut -f 2 -d " ")
 CFLAGS += -DCRYPTOVERSION=\"$(CRYPTOVERSION)\"
 
 analyze_srcs = $(filter %.c, $(sort $(C_SRCS)))
@@ -128,7 +124,7 @@ $(analyze_plists): %.plist: %.c
 scan: $(analyze_plists)
 
 cppcheck:
-	cppcheck --force -q --enable=performance --enable=warning --enable=portability apps/*.h apps/*.c lib/*.c lib/*.h lib/module_implementations/*.c lib/module_implementations/*.h lib/json-c/*.c lib/json-c/*.h
+	cppcheck --force -q --enable=performance --enable=warning --enable=portability $(SRCDIR)apps/*.h $(SRCDIR)apps/*.c $(SRCDIR)lib/*.c $(SRCDIR)lib/*.h $(SRCDIR)lib/module_implementations/*.c $(SRCDIR)lib/module_implementations/*.h $(SRCDIR)lib/json-c/*.c $(SRCDIR)lib/json-c/*.h
 
 install:
 	install -m 0755 $(NAME) -D -t $(DESTDIR)$(BINDIR)/
@@ -138,17 +134,19 @@ binarchive: $(NAME)
 	$(eval APPVERSION_NUMERIC := $(shell ./acvp-proxy --version-numeric 2>&1))
 ifeq ($(UNAME_S),Linux)
 	install -s -m 0755 $(NAME) -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	install -m 0755 helper/proxy-lib.sh -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	install -m 0755 helper/proxy.sh -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	install -m 0644 lib/*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
-	install -m 0644 lib/module_implementations/*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
+	install -m 0755 $(SRCDIR)helper/proxy-lib.sh -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	install -m 0755 $(SRCDIR)helper/proxy.sh -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	install -m 0755 $(SRCDIR)helper/Makefile.out-of-tree -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	install -m 0644 $(SRCDIR)lib/*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
+	install -m 0644 $(SRCDIR)lib/module_implementations/*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
 else
 	@- mkdir -p $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
 	@- cp -f $(NAME) $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	@- cp -f helper/proxy-lib.sh $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	@- cp -f helper/proxy.sh $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	@- cp -f lib/*.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
-	@- cp -f lib/module_implementations/*.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
+	@- cp -f $(SRCDIR)helper/proxy-lib.sh $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f $(SRCDIR)helper/proxy.sh $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f $(SRCDIR)helper/Makefile.out-of-tree $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f $(SRCDIR)lib/*.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
+	@- cp -f $(SRCDIR)lib/module_implementations/*.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
 endif
 	@- tar -cJf $(NAME)-$(APPVERSION_NUMERIC).$(UNAME_S).$(UNAME_M).tar.xz -C $(BUILDDIR) $(NAME)-$(APPVERSION_NUMERIC)
 
@@ -186,3 +184,4 @@ show_vars:
 	@echo SOURCES=$(C_SRCS)
 	@echo OBJECTS=$(OBJS)
 	@echo CRYPTOVERSION=$(CRYPTOVERSION)
+	@echo SRCDIR=$(SRCDIR)

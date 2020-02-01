@@ -66,7 +66,8 @@ static inline void sleep_adjust_time(uint64_t *sleep_time_ns, uint64_t nsec)
 	*sleep_time_ns -= min(*sleep_time_ns, nsec);
 }
 
-int sleep_interruptible(unsigned int sleep_time, atomic_bool_t *interrupted)
+int sleep_interruptible2(unsigned int sleep_time, atomic_bool_t *interrupted1,
+			 atomic_bool_t *interrupted2)
 {
 	const struct timespec hibernate = { .tv_sec = SLEEP_SLEEPTIME_SECONDS,
 					    .tv_nsec = 0 };
@@ -84,7 +85,8 @@ int sleep_interruptible(unsigned int sleep_time, atomic_bool_t *interrupted)
 	/* Busy-wait to constantly monitor the interrupted parameter */
 	while (sleep_time_ns) {
 		/* Are we shutting down? */
-		if (interrupted && atomic_bool_read(interrupted)) {
+		if ((interrupted1 && atomic_bool_read(interrupted1)) ||
+		    (interrupted2 && atomic_bool_read(interrupted2))) {
 			logger(LOGGER_VERBOSE, LOGGER_C_SLEEP,
 			       "Sleep interrupted (time slept: %lu nsec)\n",
 			       sleep_sec2nsec(sleep_time) - sleep_time_ns);
@@ -103,6 +105,11 @@ int sleep_interruptible(unsigned int sleep_time, atomic_bool_t *interrupted)
 	}
 
 	return 0;
+}
+
+int sleep_interruptible(unsigned int sleep_time, atomic_bool_t *interrupted)
+{
+	return sleep_interruptible2(sleep_time, interrupted, NULL);
 }
 
 /*****************************************************************************

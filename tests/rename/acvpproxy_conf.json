@@ -1,0 +1,7 @@
+{
+  "tlsCaBundle":"bundle.pem",
+  "tlsKeyFile":"privkey-rsa.pem",
+  "tlsCertFile":"cert.cer",
+  "totpSeedFile":"seed.txt",
+  "totpLastGen":1579763407
+}

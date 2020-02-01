@@ -1,0 +1,9 @@
+[ {
+  "acvVersion" : "1.0"
+}, {
+  "passed" : true,
+  "results" : [ {
+    "vectorSetUrl" : "/acvp/v1/testSessions/69412/vectorSets/129844",
+    "status" : "passed"
+  } ]
+} ]

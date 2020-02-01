@@ -44,7 +44,7 @@ extern "C"
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 0   /* API / ABI compatible, no functional
+#define PATCHLEVEL 2   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -194,6 +194,7 @@ enum acvp_test_verdict {
 	acvp_verdict_pass,
 	acvp_verdict_unverified,
 	acvp_verdict_unreceived,
+	acvp_verdict_downloadpending
 };
 
 struct acvp_test_verdict_status {
@@ -229,10 +230,10 @@ struct acvp_testid_ctx {
  *	  submission or request. The lifetime of an instance of this data
  *	  structure is limited to one vsID operation only.
  *
- * Note: albeit @param testid_ctx is constified, the parameter server_auth
+ * Note: albeit testid_ctx is constified, the parameter server_auth
  * is allowed to be updated. This is appropriate as the server_auth includes
  * proper locking to serialize write-like changes. This is achieved by
- * explicitly un-constify the @param server_auth.
+ * explicitly un-constify the server_auth.
  */
 struct acvp_vsid_ctx {
 	uint32_t vsid;
@@ -300,8 +301,10 @@ struct acvp_vsid_ctx {
  * @acvp_datastore_write_authoken: Store the authtoken found in datastore->auth.
  * @acvp_datastore_read_authtoken: Read the authtoken from the storage location
  *				   and place it into datastore->auth.
- * @acvp_datastore_get_testid_verdict: Get verdict information for testID
- * @acvp_datastore_get_vsid_verdict: Get verdict information for vsID
+ * @acvp_datastore_get_testid_verdict Get verdict information for testID
+ * @acvp_datastore_get_vsid_verdict Get verdict information for vsID
+ * @acvp_datastore_file_rename_version Rename module: change version number
+ * @acvp_datastore_file_rename_name Rename module: change module name
  */
 struct acvp_datastore_be {
 	int (*acvp_datastore_find_testsession)(
@@ -331,6 +334,10 @@ struct acvp_datastore_be {
 	int (*acvp_datastore_get_testid_verdict)(
 		struct acvp_testid_ctx *testid_ctx);
 	int (*acvp_datastore_get_vsid_verdict)(struct acvp_vsid_ctx *vsid_ctx);
+	int (*acvp_datastore_rename_version)
+		(const struct acvp_testid_ctx *testid_ctx, char *newversion);
+	int (*acvp_datastore_rename_name)
+		(const struct acvp_testid_ctx *testid_ctx, char *newname);
 };
 
 /**
@@ -457,9 +464,9 @@ int acvp_process_retry_testid(const struct acvp_testid_ctx *testid_ctx,
  * Some resources require paging in order to avoid returning large
  * amounts of data.
  *
- * This function performs the HTTP GET operation and invokes @param cb
+ * This function performs the HTTP GET operation and invokes cb
  * for each found data entry. Note, the function returns < 0 on error if
- * the @param cb returns < 0. If @param cb returns EINTR (positive value),
+ * the cb returns < 0. If cb returns EINTR (positive value),
  * the loop terminates. If the callback return 0, the loop iteration continues.
  *
  * @param testid_ctx TestID context with set credentials
