@@ -67,6 +67,8 @@ static void acvp_release_net(struct acvp_net_ctx *net)
 			      strlen(net->certs_clnt_passcode));
 	}
 	ACVP_PTR_FREE_NULL(net->certs_clnt_passcode);
+	ACVP_PTR_FREE_NULL(net->certs_ca_macos_keychain_ref);
+	ACVP_PTR_FREE_NULL(net->certs_clnt_macos_keychain_ref);
 	memset(net, 0, sizeof(*net));
 }
 
@@ -261,15 +263,21 @@ static int acvp_check_file_presence(const char *file, const char *loginfo)
  * API calls
  *****************************************************************************/
 DSO_PUBLIC
-int acvp_set_net(const char *server_name, unsigned int port, const char *ca,
-		 const char *client_cert, const char *client_key,
-		 const char *passcode)
+int acvp_set_net(const char *server_name, unsigned int port,
+		 const char *ca, const char *ca_keychain_ref,
+		 const char *client_cert, const char *client_cert_keychain_ref,
+		 const char *client_key, const char *passcode)
 {
 	struct acvp_net_ctx *net = &net_global;
 	int ret = 0;
 
 	CKNULL_LOG(server_name, -EINVAL, "Server name missing\n");
-	CKNULL_LOG(client_cert, -EINVAL, "TLS client certificate missing\n");
+
+	if (!client_cert && !client_cert_keychain_ref) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "TLS client certificate missing\n");
+		return -EINVAL;
+	}
 
 	if (!acvp_library_initialized()) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -296,12 +304,24 @@ int acvp_set_net(const char *server_name, unsigned int port, const char *ca,
 	} else {
 		net->certs_ca_file = NULL;
 	}
-	CKINT(acvp_duplicate(&net->certs_clnt_file, client_cert));
-	CKINT(acvp_check_file_presence(net->certs_clnt_file,
-				       "client certificate"));
-	CKINT(acvp_cert_type(net->certs_clnt_file,
-			     net->certs_clnt_file_type,
-			     sizeof(net->certs_clnt_file_type)));
+
+	if (ca_keychain_ref) {
+		CKINT(acvp_duplicate(&net->certs_ca_macos_keychain_ref,
+				     ca_keychain_ref));
+	} else {
+		net->certs_ca_macos_keychain_ref = NULL;
+	}
+
+	if (client_cert) {
+		CKINT(acvp_duplicate(&net->certs_clnt_file, client_cert));
+		CKINT(acvp_check_file_presence(net->certs_clnt_file,
+					       "client certificate"));
+		CKINT(acvp_cert_type(net->certs_clnt_file,
+				     net->certs_clnt_file_type,
+				     sizeof(net->certs_clnt_file_type)));
+	} else {
+		net->certs_clnt_file = NULL;
+	}
 
 	if (client_key) {
 		CKINT(acvp_duplicate(&net->certs_clnt_key_file, client_key));
@@ -312,6 +332,13 @@ int acvp_set_net(const char *server_name, unsigned int port, const char *ca,
 				     sizeof(net->certs_clnt_key_file_type)));
 	} else {
 		net->certs_clnt_key_file = NULL;
+	}
+
+	if (client_cert_keychain_ref) {
+		CKINT(acvp_duplicate(&net->certs_clnt_macos_keychain_ref,
+				     client_cert_keychain_ref));
+	} else {
+		net->certs_clnt_macos_keychain_ref = NULL;
 	}
 
 	if (passcode) {

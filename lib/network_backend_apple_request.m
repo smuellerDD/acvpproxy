@@ -94,6 +94,9 @@ taskIsWaitingForConnectivity:(NSURLSessionTask *)task
 /* Perform the trust validation of the server certificate */
 - (BOOL)validateServerCert:(NSURLProtectionSpace *)protectionSpace
 {
+	if (!acvp_certs.serverCertificate)
+		return false;
+
 	SecTrustRef serverTrust = protectionSpace.serverTrust;
 	SecTrustSetAnchorCertificates(serverTrust,
 				      acvp_certs.serverCertificate);

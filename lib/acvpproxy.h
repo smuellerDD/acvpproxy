@@ -105,6 +105,8 @@ struct acvp_net_ctx {
 	char *certs_clnt_key_file; /* Client key for TLS client auth */
 	char certs_clnt_key_file_type[4]; /* File type of certificate */
 	char *certs_clnt_passcode; /* Passcode */
+	char *certs_ca_macos_keychain_ref;
+	char *certs_clnt_macos_keychain_ref;
 };
 
 struct acvp_modinfo_ctx {
@@ -397,7 +399,10 @@ void acvp_ctx_release(struct acvp_ctx *ctx);
  * @param port [in] CAVP server port
  * @param ca [in] CA file to support server authentication. If NULL, server
  *	     certificate is not validated.
+ * @param ca_keychain_ref [in] macOS keychain reference identifier to resolve the CA certifiate
  * @param client_cert [in] TLS client cert used for client authentication
+ * @param client_cert_keychain_ref [in] macOS keychain reference identifier
+ *	  to resolve client certifiate and key
  * @param client_key [in] TLS client key applicable to the client certificate.
  *			  This value may be NULL (e.g. when a P12 certificate
  *			  is used which contains the private key).
@@ -406,9 +411,10 @@ void acvp_ctx_release(struct acvp_ctx *ctx);
  *
  * @return 0 on success, < 0 on error
  */
-int acvp_set_net(const char *server_name, unsigned int port, const char *ca,
-		 const char *client_cert, const char *client_key,
-		 const char *passcode);
+int acvp_set_net(const char *server_name, unsigned int port,
+		 const char *ca, const char *ca_keychain_ref,
+		 const char *client_cert, const char *client_cert_keychain_ref,
+		 const char *client_key, const char *passcode);
 
 /**
  * @brief Define the module specification for which test vectors are to be

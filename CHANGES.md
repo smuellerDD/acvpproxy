@@ -1,3 +1,6 @@
+v1.2.3
+- enhancement: add Apple keychain support - server CA and client cert/key can be stored in keychain (see apps/README.md for details on the configuration)
+
 v1.2.2
 - enhancement: TOTP MQ facility is now is implemented with full scalability to support arbitrary numbers of threads
 - enhancement: add native Apple networking support

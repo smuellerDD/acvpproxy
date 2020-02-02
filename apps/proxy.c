@@ -41,8 +41,10 @@
 #define OPT_STR_TOTPLASTGEN		"totpLastGen"
 #define OPT_STR_TLSKEYFILE		"tlsKeyFile"
 #define OPT_STR_TLSCERTFILE		"tlsCertFile"
+#define OPT_STR_TLSCERTKEYCHAIN		"tlsCertMacOSKeyChainRef"
 #define OPT_STR_TLSKEYPASSCODE		"tlsKeyPasscode"
 #define OPT_STR_TLSCABUNDLE		"tlsCaBundle"
+#define OPT_STR_TLSCAKEYCHAIN		"tlsCaMacOSKeyChainRef"
 #define OPT_STR_TOTPSEEDFILE		"totpSeedFile"
 
 #define OPT_CIPHER_OPTIONS_MAX		512
@@ -61,7 +63,9 @@ struct opt_data {
 	const char *tlskey;
 	const char *tlspasscode;
 	const char *tlscert;
+	const char *tlscertkeychainref;
 	const char *tlscabundle;
+	const char *tlscakeychainref;
 	char *basedir;
 	char *secure_basedir;
 	char *definition_basedir;
@@ -222,10 +226,28 @@ static int load_config(struct opt_data *opts)
 	if (ret)
 		opts->tlspasscode = NULL;
 
-	CKINT(json_get_string(opts->config, OPT_STR_TLSCERTFILE,
-			      &opts->tlscert));
+	ret = json_get_string(opts->config, OPT_STR_TLSCERTFILE,
+			      &opts->tlscert);
+	if (ret)
+		opts->tlscert = NULL;
+
+	ret = json_get_string(opts->config, OPT_STR_TLSCERTKEYCHAIN,
+			      &opts->tlscertkeychainref);
+	if (ret)
+		opts->tlscertkeychainref = NULL;
+	if (!opts->tlscert && !opts->tlscertkeychainref) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Neither client certificate key file nor macOS keychain reference provided - no authentication credential available\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	ret = json_get_string(opts->config, OPT_STR_TLSCABUNDLE,
 			      &opts->tlscabundle);
+	if (ret)
+		opts->tlscabundle = NULL;
+	ret = json_get_string(opts->config, OPT_STR_TLSCAKEYCHAIN,
+			      &opts->tlscakeychainref);
 	if (ret)
 		opts->tlscabundle = NULL;
 
@@ -1091,15 +1113,15 @@ static int initialize_ctx(struct acvp_ctx **ctx, struct opt_data *opts)
 		CKINT(acvp_req_production(*ctx));
 		CKINT(acvp_set_net(NIST_DEFAULT_SERVER,
 				   NIST_DEFAULT_SERVER_PORT,
-				   opts->tlscabundle,
-				   opts->tlscert, opts->tlskey,
-				   opts->tlspasscode));
+				   opts->tlscabundle, opts->tlscakeychainref,
+				   opts->tlscert, opts->tlscertkeychainref,
+				   opts->tlskey, opts->tlspasscode));
 	} else {
 		CKINT(acvp_set_net(NIST_TEST_SERVER,
 				   NIST_DEFAULT_SERVER_PORT,
-				   opts->tlscabundle,
-				   opts->tlscert, opts->tlskey,
-				   opts->tlspasscode));
+				   opts->tlscabundle, opts->tlscakeychainref,
+				   opts->tlscert, opts->tlscertkeychainref,
+				   opts->tlskey, opts->tlspasscode));
 	}
 
 	/* Submit requests and retrieve test vectors */

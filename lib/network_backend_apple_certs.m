@@ -25,29 +25,50 @@
 @synthesize clientCredential;
 @synthesize serverCertificate;
 
-/* Load server certificate */
-- (CFArrayRef)loadServerCert:(const struct acvp_na_ex *)netinfo_ctx
+/* Load server certificate from keychain */
+- (SecCertificateRef)loadServerCertKeyChain:(const char *)cert_reference
 {
-	const struct acvp_net_ctx *net;
+	if (!cert_reference)
+		return nil;
 	
-	if (!netinfo_ctx)
-		return false;
-		
-	net = netinfo_ctx->net;
+	logger(LOGGER_DEBUG, LOGGER_C_CURL,
+	       "Searching keychain for server certificate: %s\n",
+	       cert_reference);
 	
-	//TODO: instead of getting cert from file, use keychain
+	NSDictionary* clientCertificateQuery =
+		@{(id)kSecMatchLimit: (id)kSecMatchLimitAll,
+		  (id)kSecClass: (id)kSecClassCertificate,
+		  (id)kSecMatchSubjectWholeString:
+			  [NSString stringWithFormat:@"%s", cert_reference],
+		  (id)kSecReturnRef: (id)kCFBooleanTrue};
+	SecCertificateRef cert = NULL;
+	OSStatus err = SecItemCopyMatching(
+			(__bridge CFDictionaryRef) clientCertificateQuery,
+			(CFTypeRef *)&cert);
+	if (err != errSecSuccess) {
+		logger(LOGGER_ERR, LOGGER_C_CURL,
+		       "Could not locate private key %s in keychain: %u\n",
+		       cert_reference, err);
+		return nil;
+	}
 	
+	return cert;
+}
+
+/* Load server certificate from file */
+- (SecCertificateRef)loadServerCertFromFile:(const struct acvp_net_ctx *)net
+{
 	if (!net->certs_ca_file) {
 		logger(LOGGER_ERR, LOGGER_C_CURL,
 		       "No client certificate file available\n");
-		return false;
+		return nil;
 	}
 	
 	if (strncasecmp(net->certs_ca_file_type, "DER", 3)) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "The key file must be provided as a P12 file: key is provided of type %s\n",
 		       net->certs_ca_file_type);
-		return false;
+		return nil;
 	}
 	
 	logger(LOGGER_DEBUG, LOGGER_C_CURL, "Using CA file %s\n",
@@ -60,32 +81,70 @@
 	SecCertificateRef caCert = SecCertificateCreateWithData(NULL,
 								caDataRef);
 
+	return caCert;
+}
+
+- (CFArrayRef)loadServerCert:(const struct acvp_na_ex *)netinfo_ctx
+{
+	const struct acvp_net_ctx *net;
+	SecCertificateRef caCert = nil;
+
+	if (!netinfo_ctx)
+		return nil;
+
+	net = netinfo_ctx->net;
+
+	if (net->certs_ca_macos_keychain_ref)
+		caCert = [self loadServerCertKeyChain:net->certs_ca_macos_keychain_ref];
+	else
+		caCert = [self loadServerCertFromFile:net];
+
+	if (caCert == nil)
+		return nil;
+
 	/* Create chain of trust anchored in cert */
 	CFArrayRef caArrayRef = CFArrayCreate(NULL, (void *)&caCert, 1, NULL);
 	
 	logger(LOGGER_DEBUG, LOGGER_C_CURL, "Server certificate loaded\n");
 	
 	return caArrayRef;
-	
-	/* TODO: Cleanup ? */
-	//CFRelease(caArrayRef);
-	//CFRelease(caCert);
-	//CFRelease(caDataRef);
 }
 
-/* Load the client certificate from P12 file */
-- (SecIdentityRef)loadClientCert:(const struct acvp_na_ex *)netinfo_ctx
+/* Load the client certificate / private key from keychain */
+- (SecIdentityRef)loadClientCertKeyChain:(const char *)cert_reference
 {
-	const struct acvp_net_ctx *net;
+	if (!cert_reference)
+		return nil;
+
+	logger(LOGGER_DEBUG, LOGGER_C_CURL,
+	       "Searching keychain for client key / certificate: %s\n",
+	       cert_reference);
+
+	NSDictionary* clientCertificateQuery =
+		@{(id)kSecMatchLimit: (id)kSecMatchLimitOne,
+		  (id)kSecClass: (id)kSecClassIdentity,
+		  (id)kSecMatchSubjectWholeString:
+			  [NSString stringWithFormat:@"%s", cert_reference],
+		  (id)kSecReturnRef: (id)kCFBooleanTrue};
+	SecIdentityRef identity = NULL;
+	OSStatus err = SecItemCopyMatching(
+			(__bridge CFDictionaryRef) clientCertificateQuery,
+			(CFTypeRef *)&identity);
+
+	if (err != errSecSuccess) {
+		logger(LOGGER_ERR, LOGGER_C_CURL,
+		       "Could not locate private key %s in keychain: %ld\n",
+		       cert_reference, err);
+	}
+	
+	return identity;
+}
+
+/* Load the client certificate / private key from P12 file */
+- (SecIdentityRef)loadClientCertFromFile:(const struct acvp_net_ctx *)net
+{
 	SecIdentityRef clientCertificate = NULL;
 	CFStringRef password = NULL;
-	
-	if (!netinfo_ctx)
-		return NULL;
-		
-	net = netinfo_ctx->net;
-	
-	// TODO: Instead of loading client key from file, use keychain
 	
 	if (!net->certs_clnt_file) {
 		logger(LOGGER_ERR, LOGGER_C_CURL,
@@ -153,6 +212,21 @@
 	}
 
 	return clientCertificate;
+}
+
+- (SecIdentityRef)loadClientCert:(const struct acvp_na_ex *)netinfo_ctx
+{
+	const struct acvp_net_ctx *net;
+
+	if (!netinfo_ctx)
+		return NULL;
+
+	net = netinfo_ctx->net;
+
+	if (net->certs_clnt_macos_keychain_ref)
+		return [self loadClientCertKeyChain:net->certs_clnt_macos_keychain_ref];
+
+	return [self loadClientCertFromFile:net];
 }
 
 /* Return the client credential for the authentication callback */

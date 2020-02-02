@@ -2,14 +2,21 @@
   "_COMMENT_tlsCaBundle": "CA key bundle in PEM or DER format - on macOS DER is mandatory",
   "tlsCaBundle":"CAcert_bundle.pem",
 
+  "_COMMENT_tlsCaMacOSKeyChainRef":"MacOS keychain subject of CA cert - this must be an exact match string",
+  "_COMMENT_tlsCaMacOSKeyChainRef":"ACVP Demo Server CA",
+  "_tlsCaMacOSKeyChainRef":"DigiCert SHA2 Secure Server CA",
+  "_COMMENT_tlsCaMacOSKeyChainRef":"ACVP Production Server CA",
+  "_tlsCaMacOSKeyChainRef":"acvp.nist.gov",
+
   "_COMMENT_tlsKeyFile": "Private key in PEM, DER or P12 format (optional when certificate is provided in P12 format with private key)",
   "tlsKeyFile":"priv-key.pem",
-
   "_COMMENT_tlsCertFile": "Certificate for key in PEM, DER, or P12 format",
   "tlsCertFile":"certificate.cer",
-
   "_COMMENT_tlsKeyPasscode": "Passcode for private key - optional",
   "tlsKeyPasscode":"somesecurepasscode",
+
+  "_COMMENT_tlsCertMacOSKeyChainRef":"MacOS keychain subject of NIST-signed certificate with private key - this must be an exact match string where the first match is used",
+  "_tlsCertMacOSKeyChainRef":"Stephan Mueller",
 
   "_COMMENT":"Base64 Encoded TOTP seed data received from NIST",
   "totpSeedFile":"NIST-provided-seed-file.txt",

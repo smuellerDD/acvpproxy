@@ -33,9 +33,9 @@ in the first hierarchy, for example:
 
 ### Configuration File Keywords
 
-* `tlsCaBundle: The CA or the CA bundle in PEM format. This is optional. If
-		this configuration is not provided, no server validation is
-		performed.
+* `tlsCaBundle`: The CA or the CA bundle in PEM format. This is optional. If
+		 this configuration is not provided, no server validation is
+		 performed.
 
 * `tlsKeyFile`: TLS private client key in one of the allowed formats (see
 		below). This entry is optional, e.g. when a P12 certificate
@@ -113,11 +113,45 @@ follow these steps:
   whether the ACVP Proxy is granted access to the key chain. Please approve
   as the PKCS12 bundle will be processed with the Apple Key Chain services.
 
-Note, libcurl up to and including 7.65 contains a bug [1] that prevents it from
-working with Apple Secure Transport. The patches provided at [1] must be
-applied.
 
-[1] https://github.com/curl/pull/3933
+### Apple Keychain Support
+
+The ACVP Proxy compiled on macOS implements keychain support. The certificates
+required by the ACVP Proxy to connect to the ACVP server can be completely
+stored in the Apple keychain instead as a flat file on the disk. It is
+recommended to use the Apple keychain instead of local key files.
+
+If the Apple keychain shall be used, the ACVP server CA certificate as well
+as the aforementioned PKCS#12 bundle with the client key/certificate must
+be loaded into the keychain. The loading operation is not provided by the
+ACVP Proxy (deliberately).
+
+After the CA certificate and the PKCS#12 bundle are loaded into the keychain,
+the ACVP Proxy configuration file must refer to those two entities with the
+following configuration options:
+
+* `tlsCaMacOSKeyChainRef`: This entry must contain the full string of the
+			   ACVP server's CA certificate subject. When setting
+			   this configuration option, it takes precedence over
+			   `tlsCaBundle`. In this case, `tlsCaBundle` may be
+			   removed from the configuration file. For example,
+			   the following references are applicable:
+
+	- ACVP demo server: `DigiCert SHA2 Secure Server CA`
+
+	- ACVP production server: `acvp.nist.gov`
+
+* `tlsCertMacOSKeyChainRef`: This configuration value refers to the full string
+			     of the subject of the client certificate with
+			     private key used for the TLS client authentication.
+			     This configuration option takes precedence over
+			     `tlsCertFile` and `tlsKeyFile` which may be
+			     removed from the configuration file.
+
+Note: The ACVP Proxy will perform an exact string match on the keychain
+items noted above. If multiple keychain entries are resolved by this exact
+string match (i.e. they have the exact same subject), the first matching
+entry is used.
 
 ### NOTE
 
