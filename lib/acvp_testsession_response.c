@@ -248,7 +248,9 @@ static int acvp_response_error_handler(const struct acvp_buf *response_buf,
 	 * Vectors were uploaded, we clear the error to allow downloading of
 	 * verdict.
 	 */
-	if (strstr(error_str, "KAT_RECEIVED") || strstr(error_str, "PASSED")) {
+	if (strstr(error_str, "KAT_RECEIVED") ||
+	    strstr(error_str, "PASSED") ||
+	    strstr(error_str, "FAILED")) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "ACVP server already received responses, continuing to obtain verdict\n");
 		ret = 0;
@@ -256,7 +258,6 @@ static int acvp_response_error_handler(const struct acvp_buf *response_buf,
 	}
 
 	ret = http_ret;
-
 
 out:
 	if (ret) {
@@ -276,8 +277,6 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *opts = &ctx->options;
-	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
-	ACVP_BUFFER_INIT(tmp);
 	ACVP_BUFFER_INIT(result);
 	enum acvp_http_type nettype = acvp_http_post;
 	int ret, ret2;
@@ -291,17 +290,6 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 	CKINT(acvp_store_submit_debug(vsid_ctx, &result, ret2));
 
 	CKINT(acvp_response_error_handler(&result, ret2));
-
-	/*
-	 * Store status in verdict file to indicate that test responses
-	 * were uploaded to ACVP server.
-	 *
-	 * TODO: Maybe turn that into a real JSON-C operation?
-	 */
-	tmp.buf = (uint8_t *)"{ \"status\" : \"Test responses uploaded, verdict download pending\" }\n";
-	tmp.len = (uint32_t)strlen((char *)tmp.buf);
-	CKINT(ds->acvp_datastore_write_vsid(vsid_ctx, datastore->verdictfile,
-					    false, &tmp));
 
 out:
 	if (ret)

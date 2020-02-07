@@ -233,28 +233,20 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
  *	* IV generation following section 8.2.1 and 8.2.2. of SP800-38D
  *	* AES cipher prerequisites are covered in the same ACVP request
  */
-#define GENERIC_AES_GMAC_821						\
+#define GENERIC_AES_GMAC(x)						\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_GMAC),				\
 	.algo.sym.ivlen = { 96, },					\
 	.algo.sym.ivgen = DEF_ALG_SYM_IVGEN_EXTERNAL,			\
-	.algo.sym.ivgenmode = DEF_ALG_SYM_IVGENMODE_821,		\
+	.algo.sym.ivgenmode = x,					\
 	.algo.sym.aadlen = { 128, 256, 120, DEF_ALG_ZERO_VALUE },	\
 	.algo.sym.taglen = { 32, 64, 96, 104, 112, 120, 128 },		\
 	.algo.sym.prereqvals = generic_gcm_prereqs,			\
 	.algo.sym.prereqvals_num = ARRAY_SIZE(generic_gcm_prereqs)	\
 	}
-#define GENERIC_AES_GMAC_822						\
-	{								\
-	GENERIC_AES_ALGO_GEN(ACVP_GMAC),				\
-	.algo.sym.ivlen = { 96, },					\
-	.algo.sym.ivgen = DEF_ALG_SYM_IVGEN_EXTERNAL,			\
-	.algo.sym.ivgenmode = DEF_ALG_SYM_IVGENMODE_822,		\
-	.algo.sym.aadlen = { 128, 256, 120, DEF_ALG_ZERO_VALUE },	\
-	.algo.sym.taglen = { 32, 64, 96, 104, 112, 120, 128 },		\
-	.algo.sym.prereqvals = generic_gcm_prereqs,			\
-	.algo.sym.prereqvals_num = ARRAY_SIZE(generic_gcm_prereqs)	\
-	}
+
+#define GENERIC_AES_GMAC_821	GENERIC_AES_GMAC(DEF_ALG_SYM_IVGENMODE_821)
+#define GENERIC_AES_GMAC_822	GENERIC_AES_GMAC(DEF_ALG_SYM_IVGENMODE_822)
 
 /**
  * @brief AES GCM definition.

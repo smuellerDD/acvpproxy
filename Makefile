@@ -138,7 +138,9 @@ ifeq ($(UNAME_S),Linux)
 	install -m 0755 $(SRCDIR)helper/proxy-lib.sh -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
 	install -m 0755 $(SRCDIR)helper/proxy.sh -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
 	install -m 0755 $(SRCDIR)helper/Makefile.out-of-tree -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	install -m 0644 $(SRCDIR)lib/*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
+	install -m 0644 $(SRCDIR)lib/definition_cipher*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
+	install -m 0644 $(SRCDIR)lib/definition*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
+	install -m 0644 $(SRCDIR)lib/constructor*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
 	install -m 0644 $(SRCDIR)lib/module_implementations/*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
 else
 	@- mkdir -p $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
@@ -146,7 +148,9 @@ else
 	@- cp -f $(SRCDIR)helper/proxy-lib.sh $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(SRCDIR)helper/proxy.sh $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(SRCDIR)helper/Makefile.out-of-tree $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	@- cp -f $(SRCDIR)lib/*.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
+	@- cp -f $(SRCDIR)lib/definition_cipher*.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
+	@- cp -f $(SRCDIR)lib/definition.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
+	@- cp -f $(SRCDIR)lib/constructor.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
 	@- cp -f $(SRCDIR)lib/module_implementations/*.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
 endif
 	@- tar -cJf $(NAME)-$(APPVERSION_NUMERIC).$(UNAME_S).$(UNAME_M).tar.xz -C $(BUILDDIR) $(NAME)-$(APPVERSION_NUMERIC)

@@ -31,7 +31,7 @@
 # Example:
 #	TARGETDIR="/my/specific/IUT/path/acvpproxy"
 #
-TARGETDIR="$(pwd)/acvpproxy"
+TARGETDIR="$(pwd)"
 
 #
 # Development environment of ACVP Proxy: point to the directory where either

@@ -22,7 +22,7 @@
 #include <signal.h>
 #include <stdlib.h>
 
-#include "definition.h"
+#include "definition_internal.h"
 #include "internal.h"
 #include "logger.h"
 #include "mutex_w.h"
@@ -61,13 +61,6 @@
  * not unblock when the MQ server message queue is removed as the MQ server
  * thread is not scheduled by the operating system. Thus, there is no way to
  * unblock the msgrcv other than a SIGKILL to the entire ACVP Proxy process.
- *
- * NOTE: If you kill the process, the server message queue may not be
- * cleaned up properly which could prevent the MQ server from being spawned
- * next time. To fix that, either (i) start the ACVP Proxy once without much
- * work (e.g. acvp-proxy --request --dump-register) but where it attempts to
- * start the MQ server, (ii) use the operating system means to clean up
- * the message queue, or (iii) reboot the OS.
  */
 
 /*
@@ -217,19 +210,26 @@ void sig_dequeue_ctx(struct acvp_testid_ctx *testid_ctx)
 	testid_ctx->next = NULL;
 }
 
-static void sig_term_unthreaded(int sig)
+static void sig_interrupt_threads(void)
 {
 	/* Wait sleep time plus some grace time after sending cancel. */
 	const struct timespec wait = { .tv_sec = SLEEP_SLEEPTIME_SECONDS,
 				       .tv_nsec = 1<<20 };
-	struct acvp_testid_ctx *ctx;
-	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
-	unsigned int testid_idx = 0;
 
 	acvp_op_interrupt();
 	na->acvp_http_interrupt();
 	/* Wait until all threads had time to process interrupt. */
 	nanosleep(&wait, NULL);
+
+}
+
+static void sig_term_unthreaded(int sig)
+{
+	struct acvp_testid_ctx *ctx;
+	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
+	unsigned int testid_idx = 0;
+
+	sig_interrupt_threads();
 
 	logger_status(LOGGER_C_SIGNALHANDLER,
 		      "Canceling the outstanding download operations\n");
@@ -382,8 +382,7 @@ static int sig_handler_thread(void *arg)
 	logger(LOGGER_VERBOSE, LOGGER_C_SIGNALHANDLER,
 	       "Shutting down cleanly but forcefully\n");
 
-	acvp_op_interrupt();
-	na->acvp_http_interrupt();
+	sig_interrupt_threads();
 
 	/* Process signal: Clean up all user threads */
 	thread_release(true, false);

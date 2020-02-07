@@ -93,7 +93,7 @@ struct json_tokener
 /**
  * @deprecated Unused in json-c code
  */
-typedef struct json_tokener json_tokener;
+typedef struct json_tokener json_tokener __attribute__((deprecated));
 
 /**
  * Be strict when parsing JSON input.  Use caution with

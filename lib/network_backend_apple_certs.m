@@ -47,8 +47,10 @@
 			(CFTypeRef *)&cert);
 	if (err != errSecSuccess) {
 		logger(LOGGER_ERR, LOGGER_C_CURL,
-		       "Could not locate private key %s in keychain: %u\n",
-		       cert_reference, err);
+		       "Could not locate private key %s in keychain: %s\n",
+		       cert_reference,
+		       CFStringGetCStringPtr(SecCopyErrorMessageString(err, NULL),
+					     kCFStringEncodingUTF8));
 		return nil;
 	}
 	
@@ -60,13 +62,13 @@
 {
 	if (!net->certs_ca_file) {
 		logger(LOGGER_ERR, LOGGER_C_CURL,
-		       "No client certificate file available\n");
+		       "No server certificate file available for verification\n");
 		return nil;
 	}
 	
 	if (strncasecmp(net->certs_ca_file_type, "DER", 3)) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "The key file must be provided as a P12 file: key is provided of type %s\n",
+		       "The key file must be provided as a DER file: key is provided of type %s\n",
 		       net->certs_ca_file_type);
 		return nil;
 	}
@@ -125,6 +127,8 @@
 		  (id)kSecClass: (id)kSecClassIdentity,
 		  (id)kSecMatchSubjectWholeString:
 			  [NSString stringWithFormat:@"%s", cert_reference],
+		  (id)kSecUseOperationPrompt:
+			  [NSString stringWithFormat:@"Allow ACVP Proxy to use key for TLS client authentication"],
 		  (id)kSecReturnRef: (id)kCFBooleanTrue};
 	SecIdentityRef identity = NULL;
 	OSStatus err = SecItemCopyMatching(
@@ -133,8 +137,10 @@
 
 	if (err != errSecSuccess) {
 		logger(LOGGER_ERR, LOGGER_C_CURL,
-		       "Could not locate private key %s in keychain: %ld\n",
-		       cert_reference, err);
+		       "Could not locate private key %s in keychain: %s\n",
+		       cert_reference,
+		       CFStringGetCStringPtr(SecCopyErrorMessageString(err, NULL),
+					     kCFStringEncodingUTF8));
 	}
 	
 	return identity;
@@ -202,9 +208,12 @@
 			CFRetain(clientCertificate);
 		}
 		
-		logger(LOGGER_DEBUG, LOGGER_C_CURL, "Client key/certificate loaded\n");
+		logger(LOGGER_DEBUG, LOGGER_C_CURL,
+		       "Client key/certificate loaded\n");
 	} else {
-		logger(LOGGER_ERR, LOGGER_C_CURL, "Cannot load P12 file\n");
+		logger(LOGGER_ERR, LOGGER_C_CURL, "Cannot load P12 file: %s\n",
+		       CFStringGetCStringPtr(SecCopyErrorMessageString(err, NULL),
+					     kCFStringEncodingUTF8));
 	}
 
 	if (items) {

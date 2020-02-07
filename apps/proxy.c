@@ -137,7 +137,7 @@ static int json_get_uint64(struct json_object *obj, const char *name,
 }
 
 static int json_get_string(struct json_object *obj, const char *name,
-			   const char **outbuf)
+			   const char **outbuf, bool nodebug)
 {
 	struct json_object *o = NULL;
 	const char *string;
@@ -150,7 +150,7 @@ static int json_get_string(struct json_object *obj, const char *name,
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
 	       "Found string data %s with value %s\n", name,
-	       string);
+	       nodebug ? "HIDDEN" : string);
 
 	*outbuf = string;
 
@@ -216,23 +216,24 @@ static int load_config(struct opt_data *opts)
 	}
 
 	/* Allow an empty key file */
-	ret = json_get_string(opts->config, OPT_STR_TLSKEYFILE, &opts->tlskey);
+	ret = json_get_string(opts->config, OPT_STR_TLSKEYFILE, &opts->tlskey,
+			      false);
 	if (ret)
 		opts->tlskey = NULL;
 
 	/* Allow an empty passcode entry */
 	ret = json_get_string(opts->config, OPT_STR_TLSKEYPASSCODE,
-			      &opts->tlspasscode);
+			      &opts->tlspasscode, true);
 	if (ret)
 		opts->tlspasscode = NULL;
 
 	ret = json_get_string(opts->config, OPT_STR_TLSCERTFILE,
-			      &opts->tlscert);
+			      &opts->tlscert, false);
 	if (ret)
 		opts->tlscert = NULL;
 
 	ret = json_get_string(opts->config, OPT_STR_TLSCERTKEYCHAIN,
-			      &opts->tlscertkeychainref);
+			      &opts->tlscertkeychainref, false);
 	if (ret)
 		opts->tlscertkeychainref = NULL;
 	if (!opts->tlscert && !opts->tlscertkeychainref) {
@@ -243,15 +244,16 @@ static int load_config(struct opt_data *opts)
 	}
 
 	ret = json_get_string(opts->config, OPT_STR_TLSCABUNDLE,
-			      &opts->tlscabundle);
+			      &opts->tlscabundle, false);
 	if (ret)
 		opts->tlscabundle = NULL;
 	ret = json_get_string(opts->config, OPT_STR_TLSCAKEYCHAIN,
-			      &opts->tlscakeychainref);
+			      &opts->tlscakeychainref, false);
 	if (ret)
-		opts->tlscabundle = NULL;
+		opts->tlscakeychainref = NULL;
 
-	CKINT(json_get_string(opts->config, OPT_STR_TOTPSEEDFILE, &seedfile));
+	CKINT(json_get_string(opts->config, OPT_STR_TOTPSEEDFILE, &seedfile,
+			      false));
 
 	if (stat(seedfile, &statbuf)) {
 		ret = -errno;

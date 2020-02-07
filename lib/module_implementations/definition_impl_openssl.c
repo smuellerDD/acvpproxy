@@ -45,6 +45,7 @@ static const struct def_algo_prereqs openssl_gcm_prereqs[] = {
 #define OPENSSL_AES_CFB1	GENERIC_AES_CFB1
 #define OPENSSL_AES_CFB8	GENERIC_AES_CFB8
 #define OPENSSL_AES_CFB128	GENERIC_AES_CFB128
+#define OPENSSL_AES_GMAC	GENERIC_AES_GMAC_821
 
 #define OPENSSL_AES_GCM							\
 	{								\
@@ -518,8 +519,6 @@ static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
  * ECDSA Definitions
  **************************************************************************/
 
-//TODO add ECDSA components
-
 #define OPENSSL_ECDSA_KEYGEN						\
 	{								\
 	.type = DEF_ALG_TYPE_ECDSA,					\
@@ -552,7 +551,8 @@ static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
 		.ecdsa = {						\
 			.ecdsa_mode = DEF_ALG_ECDSA_MODE_SIGGEN,	\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
-			.curve = ACVP_NISTP256 | ACVP_NISTP384 | ACVP_NISTP521,\
+			.curve = ACVP_NISTP224 | ACVP_NISTP256 | 	\
+				 ACVP_NISTP384 | ACVP_NISTP521,		\
 			.hashalg = ACVP_SHA224 | ACVP_SHA256 |		\
 				   ACVP_SHA384 | ACVP_SHA512,		\
 			}						\
@@ -566,7 +566,8 @@ static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
 		.ecdsa = {						\
 			.ecdsa_mode = DEF_ALG_ECDSA_MODE_SIGVER,	\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
-			.curve = ACVP_NISTP256 | ACVP_NISTP384 | ACVP_NISTP521,\
+			.curve = ACVP_NISTP224 | ACVP_NISTP256 |	\
+				 ACVP_NISTP384 | ACVP_NISTP521,		\
 			.hashalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 | \
 				   ACVP_SHA384 | ACVP_SHA512,		\
 			}						\
@@ -656,7 +657,12 @@ static const struct def_algo_prereqs openssl_ecdh_prereqs[] = {
 	},
 };
 
-//TODO add DEF_ALG_KAS_ECC_EB
+static const struct def_algo_kas_ecc_nokdfnokc openssl_kas_ecc_nokdfnokc_eb = {
+	.kas_ecc_paramset = DEF_ALG_KAS_ECC_EB,
+	.curve = ACVP_NISTP224,
+	.hashalg = ACVP_SHA224
+};
+
 static const struct def_algo_kas_ecc_nokdfnokc openssl_kas_ecc_nokdfnokc_ec = {
 	.kas_ecc_paramset = DEF_ALG_KAS_ECC_EC,
 	.curve = ACVP_NISTP256,
@@ -675,6 +681,10 @@ static const struct def_algo_kas_ecc_nokdfnokc openssl_kas_ecc_nokdfnokc_ee = {
 	.hashalg = ACVP_SHA512
 };
 
+static const struct def_algo_kas_ecc_cdh_component openssl_kas_ecc_cdh = {
+	.curves = ACVP_NISTP256 | ACVP_NISTP384 | ACVP_NISTP521
+};
+
 #define __OPENSSL_KAS_ECC(paramset)					\
 	{								\
 	.type = DEF_ALG_TYPE_KAS_ECC,					\
@@ -690,9 +700,22 @@ static const struct def_algo_kas_ecc_nokdfnokc openssl_kas_ecc_nokdfnokc_ee = {
 	}
 
 #define OPENSSL_KAS_ECC							\
+	__OPENSSL_KAS_ECC(&openssl_kas_ecc_nokdfnokc_eb),		\
 	__OPENSSL_KAS_ECC(&openssl_kas_ecc_nokdfnokc_ec),		\
 	__OPENSSL_KAS_ECC(&openssl_kas_ecc_nokdfnokc_ed),		\
 	__OPENSSL_KAS_ECC(&openssl_kas_ecc_nokdfnokc_ee)
+
+#define OPENSSL_KAS_ECC_CDH						\
+	{								\
+	.type = DEF_ALG_TYPE_KAS_ECC,					\
+	.algo.kas_ecc = {						\
+		DEF_PREREQS(openssl_ecdh_prereqs),			\
+		.kas_ecc_schema = DEF_ALG_KAS_ECC_CDH_COMPONENT,	\
+		.kas_ecc_function = DEF_ALG_KAS_ECC_KEYPAIRGEN,		\
+		.kas_ecc_dh_type = DEF_ALG_KAS_ECC_CDH,			\
+		.type_info.cdh_component = &openssl_kas_ecc_cdh		\
+		}							\
+	}
 
 /**************************************************************************
  * FFC DH Definitions
@@ -841,6 +864,7 @@ static const struct def_algo openssl_gcm [] = {
 	OPENSSL_AES_ECB,
 
 	OPENSSL_AES_GCM,
+	OPENSSL_AES_GMAC,
 	OPENSSL_AES_GCM_IIV,
 
 	OPENSSL_DRBG_CTR
@@ -914,6 +938,7 @@ static const struct def_algo openssl_sha [] = {
 	OPENSSL_KDF,
 	OPENSSL_KAS_ECC,
 	OPENSSL_KAS_FFC,
+	OPENSSL_KAS_ECC_CDH,
 
 	OPENSSL_PBKDF(ACVP_SHA1 |
 		      ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512),

@@ -19,7 +19,7 @@
 
 #include <string.h>
 
-#include "definition.h"
+#include "definition_internal.h"
 #include "internal.h"
 
 static int acvp_list_certificates_cb(const struct acvp_ctx *ctx,

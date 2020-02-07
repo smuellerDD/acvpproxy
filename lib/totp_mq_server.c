@@ -70,7 +70,7 @@
 
 #define TOTP_MQ_NAME		"/"
 #define TOTP_MQ_PROJ_ID_SC	1122334455	/* Server to client */
-#define TOTP_MQ_PROJ_ID_CS	1122334455	/* Client to server */
+#define TOTP_MQ_PROJ_ID_CS	1122334466	/* Client to server */
 #define TOTP_MSG_TYPE_PING	1 /* Ping from client to server, no data */
 #define TOTP_MSG_TYPE_TOTP	2 /* Message from server to client with TOTP */
 
@@ -366,19 +366,26 @@ static int totp_mq_start_client(void)
 		 */
 		if (errsv == -ENOENT)
 			return EAGAIN;
-		
-		/* Set up the TOTP server to client queue */
-		key = ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_SC);
-		if (key == -1)
-			return EAGAIN;
-		atomic_set(msgget(key, 0), &mq_cln_rx);
-		if (atomic_read(&mq_cln_rx) == -1)
-			return EAGAIN;
 
 		logger(LOGGER_WARN, LOGGER_C_MQSERVER,
-			"Client: Message queue client could not be initialized (%d)\n",
-			errsv);
+		       "Client: Message queue client could not be initialized (%d)\n",
+		       errsv);
 		return errsv;
+	}
+
+	/* Set up the TOTP server to client queue */
+	key = ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_SC);
+	if (key == -1)
+		return EAGAIN;
+	atomic_set(msgget(key, 0), &mq_cln_rx);
+	if (atomic_read(&mq_cln_rx) == -1) {
+		logger(LOGGER_WARN, LOGGER_C_MQSERVER,
+		       "Client: Message queue client could not be initialized (%d)\n",
+		       -errno);
+
+		totp_mq_terminate_ipc(&mq_cln_tx);
+
+		return EAGAIN;
 	}
 
 	return ret;

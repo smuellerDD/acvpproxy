@@ -26,7 +26,7 @@
 #include "atomic.h"
 #include "buffer.h"
 #include "config.h"
-#include "definition.h"
+#include "definition_internal.h"
 #include "ret_checkers.h"
 
 #ifdef __cplusplus
@@ -44,7 +44,7 @@ extern "C"
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 3   /* API / ABI compatible, no functional
+#define PATCHLEVEL 4   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 

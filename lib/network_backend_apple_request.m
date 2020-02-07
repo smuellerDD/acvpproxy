@@ -165,14 +165,6 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
 /*
 * NSURLSessionDelegate callback
 */
-- (void)URLSession:(NSURLSession *)session
-didBecomeInvalidWithError:(NSError *)error
-{
-	(void)session;
-	logger(LOGGER_DEBUG, LOGGER_C_CURL, "didBecomeInvalidWithError %ld\n",
-	       error.code);
-}
-
 - (long) sendRequestFromURL: (NSMutableURLRequest *)urlRequest
 		interrupted: (atomic_bool_t *)interrupted
 	       response_buf: (struct acvp_buf *)response_buf

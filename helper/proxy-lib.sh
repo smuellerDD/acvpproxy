@@ -271,10 +271,12 @@ statuslist() {
 	echo "==================="
 	invoke $PROXYBIN $PARAMS --list-verdicts
 
+	echo
 	echo "Listing of outstanding request IDs"
 	echo "=================================="
 	invoke $PROXYBIN $PARAMS --list-request-ids
 	
+	echo
 	echo "Listing of obtained certificates"
 	echo "================================"
 	invoke $PROXYBIN $PARAMS --list-certificates
