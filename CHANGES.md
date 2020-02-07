@@ -1,3 +1,10 @@
+v1.2.4
+- OpenSSL: Add ECC CDH, ECDH with P224, add P224 to ECDSA siggen/sigver
+- bug fix for macOS: allow CA certificate file (a bug did not allow a file, but only a keychain entry)
+- bug fix: prevent displaying of user passcode in debug log
+- bug fix: reenable TOTP server which was accidentally disabled with the last patch
+- fix: do not store an artificial status verdict any more
+
 v1.2.3
 - enhancement: add Apple keychain support - server CA and client cert/key can be stored in keychain (see apps/README.md for details on the configuration)
 
