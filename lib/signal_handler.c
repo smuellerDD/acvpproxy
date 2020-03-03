@@ -24,6 +24,7 @@
 
 #include "definition_internal.h"
 #include "internal.h"
+#include "json_wrapper.h"
 #include "logger.h"
 #include "mutex_w.h"
 #include "totp.h"
@@ -80,63 +81,51 @@ static DEFINE_MUTEX_W_UNLOCKED(ctxs_lock);
 static pthread_t sig_thread;
 static atomic_bool_t sig_thread_init = ATOMIC_BOOL_INIT(false);
 
-/*
- * Is signal processing performed?
- */
-static atomic_bool_t sig_raised = ATOMIC_BOOL_INIT(false);
-
-bool sig_handler_active(void)
-{
-	return atomic_bool_read(&sig_raised);
-}
+static uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
+static unsigned int testid_idx = 0;
 
 /* DELETE /testSessions/<testSessionId> */
-static int acvp_cancel(struct acvp_testid_ctx *testid_ctx, int sig)
+static int acvp_cancel(struct acvp_testid_ctx *testid_ctx)
 {
-	const struct acvp_ctx *ctx;
-	const struct acvp_net_ctx *net;
-	struct acvp_auth_ctx *auth = NULL;
-	struct acvp_na_ex netinfo;
+	struct json_object *req = NULL, *entry = NULL;
+	ACVP_BUFFER_INIT(response);
 	char url[ACVP_NET_URL_MAXLEN];
 	int ret = 0;
 
-	if (!testid_ctx)
+	if (!testid_ctx || !testid_ctx->testid)
 		return 0;
 
-	if (!testid_ctx->testid)
-		return 0;
+	mutex_w_lock(&testid_ctx->shutdown);
 
-	/* In case of SIGSTOP, do not cancel the request */
-	if (sig == SIGQUIT || !testid_ctx->sig_cancel_send_delete)
+	if (!testid_ctx->sig_cancel_send_delete)
 		goto out;
 
-	auth = testid_ctx->server_auth;
-	ctx = testid_ctx->ctx;
-	if (!ctx)
-		return 0;
-
-	if (!auth || !auth->jwt_token || !auth->jwt_token_len) {
-		logger(LOGGER_VERBOSE, LOGGER_C_SIGNALHANDLER,
-		       "No authentication context found for cancel operation\n");
-		return 0;
-	}
-
-	CKINT(acvp_get_net(&net));
+	logger_status(LOGGER_C_SIGNALHANDLER,
+		      "Cancel outstanding test session %u with ACVP server\n",
+		      testid_ctx->testid);
 
 	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url), false));
+	CKINT(acvp_net_op(testid_ctx, url, NULL, &response, acvp_http_delete));
 
-	logger_status(LOGGER_C_SIGNALHANDLER,
-		      "Cancel outstanding request context with ACVP server\n");
+	if (response.len) {
+		if (acvp_req_strip_version(response.buf, &req, &entry)) {
+			logger(LOGGER_ERR, LOGGER_C_SIGNALHANDLER,
+			       "Server response does not indicate cancellation: %s\n",
+			       response.buf);
+		} else {
+			const char *status;
 
-	/* Do not use auth context lock as we terminate anyway. */
-	netinfo.net = net;
-	netinfo.url = url;
-	netinfo.server_auth = auth;
-	ret = na->acvp_http_delete(&netinfo, NULL);
+			CKINT(json_get_string(entry, "status", &status));
+			logger_status(LOGGER_C_SIGNALHANDLER,
+				      "Test session %u is marked as %s\n",
+				      testid_ctx->testid, status);
+		}
+	}
 
 out:
-	acvp_release_auth(testid_ctx);
-	acvp_release_testid(testid_ctx);
+	mutex_w_unlock(&testid_ctx->shutdown);
+	ACVP_JSON_PUT_NULL(req);
+	acvp_free_buf(&response);
 	return ret;
 }
 
@@ -152,6 +141,7 @@ void sig_enqueue_ctx(struct acvp_testid_ctx *testid_ctx)
 		return;
 
 	testid_ctx->next = NULL;
+	mutex_w_init(&testid_ctx->shutdown, false);
 
 	mutex_w_lock(&ctxs_lock);
 
@@ -184,7 +174,14 @@ void sig_dequeue_ctx(struct acvp_testid_ctx *testid_ctx)
 	if (!testid_ctx)
 		return;
 
+	mutex_w_lock(&testid_ctx->shutdown);
 	mutex_w_lock(&ctxs_lock);
+
+	/*
+	 * Prevent the acvp_cancel operation to proceed - the testid_ctx is
+	 * terminated anyway.
+	 */
+	testid_ctx->sig_cancel_send_delete = false;
 
 	/* Check that ctx was enqueued in the first place */
 	for (tmp = ctxs; tmp != NULL; tmp = tmp->next) {
@@ -197,6 +194,7 @@ void sig_dequeue_ctx(struct acvp_testid_ctx *testid_ctx)
 	/* ctx was not enqueued */
 	if (!tmp) {
 		mutex_w_unlock(&ctxs_lock);
+		mutex_w_unlock(&testid_ctx->shutdown);
 		return;
 	}
 
@@ -208,6 +206,7 @@ void sig_dequeue_ctx(struct acvp_testid_ctx *testid_ctx)
 	mutex_w_unlock(&ctxs_lock);
 
 	testid_ctx->next = NULL;
+	mutex_w_unlock(&testid_ctx->shutdown);
 }
 
 static void sig_interrupt_threads(void)
@@ -220,42 +219,16 @@ static void sig_interrupt_threads(void)
 	na->acvp_http_interrupt();
 	/* Wait until all threads had time to process interrupt. */
 	nanosleep(&wait, NULL);
-
 }
 
-static void sig_term_unthreaded(int sig)
+static void sig_term_report(void)
 {
-	struct acvp_testid_ctx *ctx;
-	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
-	unsigned int testid_idx = 0;
+	static bool shown = false;
 
-	sig_interrupt_threads();
+	if (shown)
+		return;
 
-	logger_status(LOGGER_C_SIGNALHANDLER,
-		      "Canceling the outstanding download operations\n");
-
-	mutex_w_lock(&ctxs_lock);
-	ctx = ctxs;
-	while (ctx) {
-		struct acvp_testid_ctx *tmp;
-
-		if (ctx->testid && (sig == SIGQUIT)) {
-			if (testid_idx >= ACVP_REQ_MAX_FAILED_TESTID) {
-				logger(LOGGER_ERR, LOGGER_C_SIGNALHANDLER,
-				       "Programming error: size of threads array too small!\n");
-			} else {
-				testids[testid_idx] = ctx->testid;
-				testid_idx++;
-			}
-		}
-
-		tmp = ctx;
-		ctx = ctx->next;
-
-		// TODO: we may leak one or more struct acvp_vsid_ctx here in case the acvp_testid_ctx is wrapped by one or more acvp_vsid_ctx. But this is harmless as we are going to terminate anyway.
-		acvp_cancel(tmp, sig);
-	}
-	mutex_w_unlock(&ctxs_lock);
+	shown = true;
 
 	if (testid_idx) {
 		unsigned int i;
@@ -268,6 +241,37 @@ static void sig_term_unthreaded(int sig)
 
 		printf("\n");
 	}
+}
+
+static void sig_term_unthreaded(int sig)
+{
+	struct acvp_testid_ctx *testid_ctx;
+
+	logger_status(LOGGER_C_SIGNALHANDLER,
+		      "Canceling the outstanding download operations\n");
+
+	mutex_w_lock(&ctxs_lock);
+	for (testid_ctx = ctxs; testid_ctx; testid_ctx = testid_ctx->next) {
+		if (testid_ctx->testid) {
+			if (sig == SIGQUIT) {
+				/* Enumerate pending requests */
+				if (testid_idx >= ACVP_REQ_MAX_FAILED_TESTID) {
+					logger(LOGGER_ERR,
+					       LOGGER_C_SIGNALHANDLER,
+					       "Programming error: size of threads array too small!\n");
+				} else {
+					testids[testid_idx] = testid_ctx->testid;
+					testid_idx++;
+				}
+			} else {
+				/* Cancel pending requests */
+				acvp_cancel(testid_ctx);
+			}
+		}
+	}
+	mutex_w_unlock(&ctxs_lock);
+
+	sig_interrupt_threads();
 
 	acvp_def_release_all();
 	totp_release_seed();
@@ -276,14 +280,13 @@ static void sig_term_unthreaded(int sig)
 /* Signal handler for a grave fault: clean up message queue */
 static void sig_fault(int sig)
 {
+	sig_term_report();
 	totp_release_seed();
 	exit(sig);
 }
 
 static void sig_cleanup(int sig)
 {
-	atomic_bool_set_true(&sig_raised);
-
 #ifdef ACVP_USE_PTHREAD
 	/*
 	 * Clean up the system threads - all other cleanups are done by signal
@@ -359,8 +362,6 @@ static int sig_handler_thread(void *arg)
 		exit(sig);
 	}
 
-	atomic_bool_set_true(&sig_raised);
-
 	/*
 	 * Re-enable following signals globally to allow subsequent signals
 	 * to forcefully terminate the application. This is useful if the
@@ -371,6 +372,7 @@ static int sig_handler_thread(void *arg)
 	sigaddset(&unblock, SIGINT);
 	sigaddset(&unblock, SIGQUIT);
 	sigaddset(&unblock, SIGTERM);
+	sigaddset(&unblock, SIGSEGV);
 	ret = -pthread_sigmask(SIG_UNBLOCK, &unblock, &old);
 	if (ret)
 		goto out;
@@ -378,16 +380,20 @@ static int sig_handler_thread(void *arg)
 	signal(SIGINT, sig_fault);
 	signal(SIGQUIT, sig_fault);
 	signal(SIGTERM, sig_fault);
+	signal(SIGSEGV, sig_fault);
 
 	logger(LOGGER_VERBOSE, LOGGER_C_SIGNALHANDLER,
 	       "Shutting down cleanly but forcefully\n");
 
-	sig_interrupt_threads();
+	thread_stop_spawning();
+
+	/* Process signal: Cleanup all non-threading work */
+	sig_term_unthreaded(sig);
 
 	/* Process signal: Clean up all user threads */
 	thread_release(true, false);
-	/* Process signal: Cleanup all non-threading work */
-	sig_term_unthreaded(sig);
+
+	sig_term_report();
 
 out:
 	logger(LOGGER_VERBOSE, LOGGER_C_SIGNALHANDLER, "thread terminated\n");

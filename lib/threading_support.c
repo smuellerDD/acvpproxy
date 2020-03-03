@@ -212,6 +212,14 @@ static void *thread_worker(void *arg)
 		if (atomic_bool_read(&tctx->shutdown)) {
 			/* Request for termination */
 			mutex_w_unlock(&tctx->inuse);
+			/*
+			 * As the while loop terminates, the thread will
+			 * terminate as well - clean up our structure in case
+			 * the signal handler wants to cancel all threads.
+			 * In this case, it has to identify that this thread
+			 * does not exist any more.
+			 */
+			thread_cleanup_full(tctx);
 			break;
 		} else if (tctx->start_routine) {
 			/* Work to do, execute */
@@ -242,6 +250,10 @@ static int thread_create(struct thread_ctx *tctx, unsigned int slot)
 
 	ret = -pthread_create(&tctx->thread_id, &pthread_attr, &thread_worker,
 			      tctx);
+	if (ret)
+		goto err;
+
+	ret = -pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 	if (ret)
 		goto err;
 
@@ -277,6 +289,9 @@ static int thread_schedule(int(*start_routine)(void *), void *tdata,
 	}
 
 	for (; i < upper; i++) {
+		if (atomic_bool_read(&threads_in_cancel))
+			return -ESHUTDOWN;
+
 		if (mutex_w_trylock(&threads[i].inuse)) {
 			/* The thread is currently executing a body of code */
 			if (threads[i].start_routine ||
@@ -348,12 +363,11 @@ int thread_wait(void)
 
 		/* Only wait for our children */
 		for (i = 0; i < THREADING_MAX_THREADS; i++) {
+			if (atomic_bool_read(&threads[i].shutdown))
+				return -ESHUTDOWN;
 
 			/* Thread is not initialized, skip */
 			if (!thread_dirty(i))
-				continue;
-
-			if (atomic_bool_read(&threads[i].shutdown))
 				continue;
 
 			/* Thread is not one of our children, skip */
@@ -403,6 +417,8 @@ static int thread_wait_all(bool system_threads)
 
 	/* Wait for all worker threads. */
 	for (i = 0; i < upper; i++) {
+		if (atomic_bool_read(&threads_in_cancel))
+			return -ESHUTDOWN;
 		if (thread_dirty(i)) {
 			pthread_join(threads[i].thread_id, NULL);
 			ret |= threads[i].ret_ancestor;
@@ -438,8 +454,14 @@ static void thread_cancel(bool system_threads)
 	/* Kill all worker threads. */
 	for (i = 0; i < upper; i++) {
 		if (thread_dirty(i)) {
+			pthread_kill(threads[i].thread_id, SIGTERM);
+
+			/*
+			 * Cancel/join does not work as some threads wait in
+			 * non-cancelable operations
 			pthread_cancel(threads[i].thread_id);
 			pthread_join(threads[i].thread_id, NULL);
+			 */
 			thread_cleanup_full(&threads[i]);
 			logger(LOGGER_VERBOSE, LOGGER_C_THREADING,
 			       "Thread %u killed\n", i);
@@ -462,9 +484,7 @@ int thread_start(int(*start_routine)(void *), void *tdata,
 	while (1) {
 		ret = thread_schedule(start_routine, tdata, thread_group,
 				      ret_ancestor);
-		if (atomic_bool_read(&threads_in_cancel))
-			return -ESHUTDOWN;
-		else if (ret == -EAGAIN)
+		if (ret == -EAGAIN)
 			thread_block();
 		else
 			return ret;
@@ -473,9 +493,21 @@ int thread_start(int(*start_routine)(void *), void *tdata,
 	return 0;
 }
 
+void thread_stop_spawning(void)
+{
+	atomic_bool_set_true(&threads_in_cancel);
+}
+
 int thread_release(bool force, bool system_threads)
 {
 	int ret = 0;
+
+	/*
+	 * In case someone intends to wait and we are in cancel mode, force
+	 * cancellation.
+	 */
+	if (atomic_bool_read(&threads_in_cancel))
+		force = true;
 
 	if (force)
 		thread_cancel(system_threads);

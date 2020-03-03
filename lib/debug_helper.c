@@ -60,6 +60,9 @@ int acvp_store_vector_status(const struct acvp_vsid_ctx *vsid_ctx,
 	ACVP_BUFFER_INIT(tmp);
 	char filename[FILENAME_MAX], msg[4096];
 
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	if (!def)
 		return 0;
 
@@ -85,6 +88,9 @@ int acvp_store_vector_debug(const struct acvp_vsid_ctx *vsid_ctx,
 	const struct definition *def = testid_ctx->def;
 	char filename[FILENAME_MAX];
 
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	if (!err && logger_get_verbosity(LOGGER_C_ANY) < LOGGER_DEBUG)
 		return 0;
 
@@ -105,6 +111,9 @@ int acvp_store_verdict_debug(const struct acvp_vsid_ctx *vsid_ctx,
 	const struct definition *def = testid_ctx->def;
 	char filename[FILENAME_MAX];
 
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	if (!err && logger_get_verbosity(LOGGER_C_ANY) < LOGGER_DEBUG)
 		return 0;
 
@@ -122,6 +131,9 @@ int acvp_store_submit_debug(const struct acvp_vsid_ctx *vsid_ctx,
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct definition *def;
+
+	if (acvp_op_get_interrupted())
+		return 0;
 
 	if (!testid_ctx)
 		return 0;
@@ -194,6 +206,9 @@ out:
 int acvp_store_login_debug(const struct acvp_testid_ctx *testid_ctx,
 			   const struct acvp_buf *buf, int err)
 {
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	return _acvp_store_timed_debug(testid_ctx, buf, "login_response",
 				       err);
 }
@@ -202,6 +217,9 @@ int acvp_store_register_debug(const struct acvp_testid_ctx *testid_ctx,
 			      const struct acvp_buf *buf,
 			      int err)
 {
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	return _acvp_store_timed_debug(testid_ctx, buf, "register_response",
 				       err);
 }
@@ -209,6 +227,9 @@ int acvp_store_register_debug(const struct acvp_testid_ctx *testid_ctx,
 int acvp_store_vector_request_debug(const struct acvp_testid_ctx *testid_ctx,
 				    const struct acvp_buf *buf, int err)
 {
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	return _acvp_store_timed_debug(testid_ctx, buf,
 				       "vector_request_response", err);
 }
@@ -218,6 +239,9 @@ static int acvp_store_debug(const struct acvp_testid_ctx *testid_ctx,
 			    const char *file)
 {
 	const struct definition *def = testid_ctx->def;
+
+	if (acvp_op_get_interrupted())
+		return 0;
 
 	if (!err && logger_get_verbosity(LOGGER_C_ANY) < LOGGER_DEBUG)
 		return 0;
@@ -231,24 +255,36 @@ static int acvp_store_debug(const struct acvp_testid_ctx *testid_ctx,
 int acvp_store_vendor_debug(const struct acvp_testid_ctx *testid_ctx,
 			    const struct acvp_buf *buf, int err)
 {
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	return acvp_store_debug(testid_ctx, buf, err, "vendor.debug");
 }
 
 int acvp_store_oe_debug(const struct acvp_testid_ctx *testid_ctx,
 			const struct acvp_buf *buf, int err)
 {
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	return acvp_store_debug(testid_ctx, buf, err, "oe.debug");
 }
 
 int acvp_store_module_debug(const struct acvp_testid_ctx *testid_ctx,
 			    const struct acvp_buf *buf, int err)
 {
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	return acvp_store_debug(testid_ctx, buf, err, "module.debug");
 }
 
 int acvp_store_person_debug(const struct acvp_testid_ctx *testid_ctx,
 			    const struct acvp_buf *buf, int err)
 {
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	return acvp_store_debug(testid_ctx, buf, err, "person.debug");
 }
 
@@ -259,6 +295,9 @@ int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
 	const struct definition *def = testid_ctx->def;
 	char tmp[FILENAME_MAX];
 	int ret;
+
+	if (acvp_op_get_interrupted())
+		return 0;
 
 	if (!err && logger_get_verbosity(LOGGER_C_ANY) < LOGGER_DEBUG)
 		return 0;

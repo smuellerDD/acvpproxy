@@ -26,7 +26,7 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_net_ctx *net;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_na_ex netinfo;
-	int ret, ret2;
+	int ret;
 
 	CKNULL_LOG(na, -EFAULT, "No network backend registered\n");
 	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
@@ -42,30 +42,29 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 	mutex_reader_lock(&auth->mutex);
 	switch (nettype) {
 	case acvp_http_none:
-		ret2 = 0;
 		ret = 0;
 		break;
 	case acvp_http_post:
 		CKNULL_LOG(submit, -EINVAL, "Submit buffer missing\n");
 		CKNULL_LOG(response, -EINVAL, "Response buffer missing\n");
-		ret2 = na->acvp_http_post(&netinfo, submit, response);
+		ret = na->acvp_http_post(&netinfo, submit, response);
 		break;
 	case acvp_http_put:
 		CKNULL_LOG(submit, -EINVAL, "Submit buffer missing\n");
 		CKNULL_LOG(response, -EINVAL, "Response buffer missing\n");
-		ret2 = na->acvp_http_put(&netinfo, submit, response);
+		ret = na->acvp_http_put(&netinfo, submit, response);
 		break;
 	case acvp_http_get:
 		CKNULL_LOG(response, -EINVAL, "Response buffer missing\n");
-		ret2 = na->acvp_http_get(&netinfo, response);
+		ret = na->acvp_http_get(&netinfo, response);
 		break;
 	case acvp_http_delete:
-		ret2 = na->acvp_http_delete(&netinfo, response);
+		ret = na->acvp_http_delete(&netinfo, response);
 		break;
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY, "Wrong HTTP submit type %u\n",
 		       nettype);
-		ret2 = -EINVAL;
+		ret = -EINVAL;
 		break;
 	}
 	mutex_reader_unlock(&auth->mutex);
@@ -74,14 +73,9 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 		if (!response->buf || !response->len)
 			goto out;
 
-		logger(ret2 ? LOGGER_VERBOSE : LOGGER_DEBUG, LOGGER_C_ANY,
+		logger(ret ? LOGGER_VERBOSE : LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Process following server response: %s\n",
 		       response->buf);
-	}
-
-	if (ret2) {
-		ret = ret2;
-		goto out;
 	}
 
 out:

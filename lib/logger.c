@@ -175,13 +175,15 @@ void logger_status(enum logger_class class, const char *fmt, ...)
 	char msg[256];
 	char c[30];
 
-	if (logger_verbosity_level != LOGGER_WARN &&
-	    logger_verbosity_level != LOGGER_ERR)
-		return;
-
 	va_start(args, fmt);
 	vsnprintf(msg, sizeof(msg), fmt, args);
 	va_end(args);
+
+	if (logger_verbosity_level != LOGGER_WARN &&
+	    logger_verbosity_level != LOGGER_ERR) {
+		logger(LOGGER_VERBOSE, class, msg);
+		return;
+	}
 
 	now = time(NULL);
 	localtime_r(&now, &now_detail);

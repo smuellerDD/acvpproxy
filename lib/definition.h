@@ -156,9 +156,13 @@ struct acvp_extension {
 #define SET_IMPLEMENTATION(impl)					\
 	.algos = impl, .num_algos = ARRAY_SIZE(impl)
 
-#define ACVP_EXTENSION(map)						\
+#if defined(ACVPPROXY_EXTENSION)
+# define ACVP_EXTENSION(map)						\
 	__attribute__ ((visibility ("default")))			\
 	struct acvp_extension acvp_extension = { map, ARRAY_SIZE(map) };
+#else
+# define ACVP_EXTENSION(map)
+#endif
 
 /**
  * @brief Register uninstantiated algorithm definitions (i.e. definitions

@@ -638,10 +638,14 @@ void acvp_release(void)
 	if (!acvp_library_initialized())
 		return;
 
-	if (!sig_handler_active())
-		totp_release_seed();
 	sig_uninstall_handler();
-	thread_release(false, true);
+	totp_release_seed();
+
+	/* We are not waiting for the server threads */
+	thread_release(false, false);
+
+	/* Server threads should be shut down by now, kill them if needed */
+	thread_release(true, true);
 }
 
 DSO_PUBLIC

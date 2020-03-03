@@ -67,7 +67,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_AES_CBC							\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_CBC),					\
-	.algo.sym.ptlen = { 128, 256, 512, 1024, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
 	.algo.sym.ivlen = { 128, },					\
 	}
 
@@ -82,7 +82,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_AES_OFB							\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_OFB),					\
-	.algo.sym.ptlen = { 128, 256, 512, 1024, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
 	.algo.sym.ivlen = { 128, },					\
 	}
 
@@ -97,7 +97,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_AES_CFB128						\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_CFB128),				\
-	.algo.sym.ptlen = { 128, 256, 512, 1024, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
 	.algo.sym.ivlen = { 128, },					\
 	}
 
@@ -112,7 +112,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_AES_CFB8						\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_CFB8),				\
-	.algo.sym.ptlen = { 128, 256, 512, 1024, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 8, 65536, 8),			\
 	.algo.sym.ivlen = { 128, },					\
 	}
 
@@ -127,7 +127,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_AES_CFB1						\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_CFB1),				\
-	.algo.sym.ptlen = { 128, 256, 512, 1024, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 1, 65536, 1),			\
 	.algo.sym.ivlen = { 128, },					\
 	}
 
@@ -142,7 +142,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_AES_ECB							\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_ECB),					\
-	.algo.sym.ptlen = { 128, 256, 512, 1024, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
 	}
 
 /**
@@ -159,7 +159,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_AES_CTR							\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_CTR),					\
-	.algo.sym.ptlen = { 128, },					\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 8, 128, 8),			\
 	.algo.sym.ivlen = { 128, },					\
 	.algo.sym.ctrsource = DEF_ALG_SYM_CTR_EXTERNAL,			\
 	.algo.sym.ctroverflow = DEF_ALG_SYM_CTROVERFLOW_UNHANDLED,	\
@@ -177,7 +177,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_AES_KW							\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_KW),					\
-	.algo.sym.ptlen = { 128, 256, 512, 1024, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 4096, 128),		\
 	.algo.sym.ivlen = { 64, },					\
 	.algo.sym.kwcipher = DEF_ALG_SYM_KW_CIPHER,			\
 	}
@@ -193,7 +193,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_AES_KWP							\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_KWP),					\
-	.algo.sym.ptlen = { 8, 72, 32, 96, 888, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 8, 4096, 8),			\
 	.algo.sym.ivlen = { 64, },					\
 	.algo.sym.kwcipher = DEF_ALG_SYM_KW_CIPHER,			\
 	}
@@ -215,7 +215,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 			      DEF_ALG_SYM_DIRECTION_DECRYPTION,		\
 	.algo.sym.keylen = DEF_ALG_SYM_KEYLEN_128 |			\
 			   DEF_ALG_SYM_KEYLEN_256,			\
-	.algo.sym.ptlen = { 128, 256 },					\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
 	.algo.sym.tweakformat = DEF_ALG_SYM_XTS_TWEAK_128HEX,		\
 	.algo.sym.tweakmode = DEF_ALG_SYM_XTS_TWEAK_HEX,		\
 	}
@@ -264,7 +264,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_AES_GCM_822_NONNULL					\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_GCM),					\
-	.algo.sym.ptlen = { 128, 256, 120, 248 },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
 	.algo.sym.ivlen = { 96, },					\
 	.algo.sym.ivgen = DEF_ALG_SYM_IVGEN_EXTERNAL,			\
 	.algo.sym.ivgenmode = DEF_ALG_SYM_IVGENMODE_822,		\
@@ -291,7 +291,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_AES_CCM							\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_CCM),					\
-	.algo.sym.ptlen = { DEF_ALG_ZERO_VALUE, 256 },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, DEF_ALG_ZERO_VALUE, 256, 8),	\
 	.algo.sym.ivlen = { 56, 64, 72, 80, 88, 96, 104, },		\
 	.algo.sym.aadlen = { DEF_ALG_ZERO_VALUE, 256, 65536 },		\
 	.algo.sym.taglen = { 32, 48, 64, 80, 96, 112, 128 },		\
@@ -318,7 +318,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 	.algo.sym.direction = DEF_ALG_SYM_DIRECTION_ENCRYPTION |	\
 			      DEF_ALG_SYM_DIRECTION_DECRYPTION,		\
 	.algo.sym.keylen = DEF_ALG_SYM_KEYLEN_256,			\
-	.algo.sym.ptlen = { 128, 256, 384, 512 },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
 	.algo.sym.ivlen = { 104, },					\
 	.algo.sym.aadlen = { 176, 224, 240 },				\
 	.algo.sym.taglen = { 128 },					\
@@ -347,7 +347,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_TDES_CBC						\
 	{								\
 	GENERIC_TDES_GEN(ACVP_TDESCBC),					\
-	.algo.sym.ptlen = { 64, 128, 256, 512, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
 	.algo.sym.ivlen = { 64, },					\
 	}
 
@@ -362,7 +362,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_TDES_CFB1						\
 	{								\
 	GENERIC_TDES_GEN(ACVP_TDESCFB1),				\
-	.algo.sym.ptlen = { 64, 128, 256, 512, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
 	.algo.sym.ivlen = { 64, },					\
 	}
 
@@ -377,7 +377,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_TDES_CFB8						\
 	{								\
 	GENERIC_TDES_GEN(ACVP_TDESCFB8),				\
-	.algo.sym.ptlen = { 64, 128, 256, 512, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
 	.algo.sym.ivlen = { 64, },					\
 	}
 
@@ -392,7 +392,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_TDES_CFB64						\
 	{								\
 	GENERIC_TDES_GEN(ACVP_TDESCFB64),				\
-	.algo.sym.ptlen = { 64, 128, 256, 512, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
 	.algo.sym.ivlen = { 64, },					\
 	}
 
@@ -407,7 +407,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_TDES_ECB						\
 	{								\
 	GENERIC_TDES_GEN(ACVP_TDESECB),					\
-	.algo.sym.ptlen = { 64, 128, 256, 512, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
 	}
 
 /**
@@ -421,7 +421,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_TDES_OFB						\
 	{								\
 	GENERIC_TDES_GEN(ACVP_TDESOFB),					\
-	.algo.sym.ptlen = { 64, 128, 256, 512, },			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
 	.algo.sym.ivlen = { 64, },					\
 	}
 
@@ -439,7 +439,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_TDES_CTR						\
 	{								\
 	GENERIC_TDES_GEN(ACVP_TDESCTR),					\
-	.algo.sym.ptlen = { 64, },					\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 8, 64, 8),			\
 	.algo.sym.ivlen = { 64, },					\
 	.algo.sym.ctrsource = DEF_ALG_SYM_CTR_EXTERNAL,			\
 	.algo.sym.ctroverflow = DEF_ALG_SYM_CTROVERFLOW_UNHANDLED,	\
@@ -467,7 +467,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 			.algorithm = sha_def,				\
 			.inbit = false,					\
 			.inempty = true,				\
-			DEF_ALG_DOMAIN(.messagelength, DEF_ALG_ZERO_VALUE, 65536, 8),						\
+			DEF_ALG_DOMAIN(.messagelength, DEF_ALG_ZERO_VALUE, 65536, 8),\
 			}						\
 		},							\
 	}
@@ -542,7 +542,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 			.direction = DEF_ALG_CMAC_GENERATION |		\
 				     DEF_ALG_CMAC_VERIFICATION,		\
 			.keylen = key_length,				\
-			.msglen = { 128, 256, 136, 264, 524288 }	\
+			DEF_ALG_DOMAIN(.msglen, 8, 524288, 8),		\
 			}						\
 		},							\
 	}
@@ -566,7 +566,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 			.direction = DEF_ALG_CMAC_GENERATION |		\
 				     DEF_ALG_CMAC_VERIFICATION,		\
 			.keylen = DEF_ALG_SYM_KEYLEN_168, 		\
-			.msglen = { 64, 128, 72, 136, 524288 }		\
+			DEF_ALG_DOMAIN(.msglen, 8, 524288, 8),		\
 			}						\
 		},							\
 	}

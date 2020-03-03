@@ -413,6 +413,8 @@ static void usage(void)
 	fprintf(stderr, "\t   --rename-version <NEW>\tRename version of definition\n");
 	fprintf(stderr, "\t   --rename-name <NEW_NAME>\tRename name of definition\n");
 	fprintf(stderr, "\t   --rename-oename <NEW_NAME>\tRename OE name of definition\n");
+	fprintf(stderr, "\t   --register-only\t\tOnly register tests without downloading\n");
+	fprintf(stderr, "\t\t\t\t\ttest vectors\n");
 	fprintf(stderr, "\t-v --verbose\t\t\tVerbose logging, multiple options\n");
 	fprintf(stderr, "\t\t\t\t\tincrease verbosity\n");
 	fprintf(stderr, "\t\t\t\t\tNote: In debug mode (3 or more -v),\n");
@@ -626,6 +628,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"rename-version",	required_argument,	0, 0},
 			{"rename-name",		required_argument,	0, 0},
 			{"rename-oename",	required_argument,	0, 0},
+
+			{"register-only",	no_argument,		0, 0},
 
 			{0, 0, 0, 0}
 		};
@@ -874,6 +878,10 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				rename->oe_env_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
+				break;
+
+			case 44:
+				opts->acvp_ctx_options.register_only = true;
 				break;
 
 			default:
@@ -1161,6 +1169,7 @@ static int do_register(struct opt_data *opts)
 	}
 
 	/* Fetch testID whose download failed */
+	// TODO: Maybe store that data for automated resumption of download?
 	while (!(ret = acvp_list_failed_testid(&idx, &testid))) {
 		if (!printed) {
 			fprintf(stderr, "Not all testIDs were downloaded cleanly. Invoke ACVP Proxy with the following options to download the remaining test vectors:\n");
@@ -1171,6 +1180,9 @@ static int do_register(struct opt_data *opts)
 		}
 		printf("--testid %u ", testid);
 	}
+
+	if (printed)
+		printf("\n");
 
 	if (ret == -ENOENT)
 		ret = 0;

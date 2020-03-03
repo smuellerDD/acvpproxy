@@ -490,13 +490,13 @@ static int acvp_req_rsa_sigver(const struct def_algo_rsa *rsa,
 	CKINT(json_object_object_add(entry, "capabilities", algspec_array));
 
 	for (i = 0; i < rsa->algspecs_num; i++) {
-		const struct def_algo_rsa_sigver *sigver =
+		const struct def_algo_rsa_sigver *s =
 						rsa->algspecs.sigver + i;
 
 		algspec = json_object_new_object();
 		CKNULL(algspec, -ENOMEM);
 		CKINT(json_object_array_add(algspec_array, algspec));
-		CKINT(_acvp_req_rsa_sigver(rsa->rsa_mode, sigver, algspec));
+		CKINT(_acvp_req_rsa_sigver(rsa->rsa_mode, s, algspec));
 	}
 
 out:

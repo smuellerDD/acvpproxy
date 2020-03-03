@@ -1,3 +1,11 @@
+v1.2.5
+- reenable SIGQUIT signal handling
+- prevent crash in signal handler
+- common cipher definition: converted all cipher definition to Domain definitions
+- add libica
+- add S390/ARM64 support for: OpenSSL
+- add --register-only option to only register a new cipher definition without downloading the test vectors
+
 v1.2.4
 - OpenSSL: Add ECC CDH, ECDH with P224, add P224 to ECDSA siggen/sigver
 - bug fix for macOS: allow CA certificate file (a bug did not allow a file, but only a keychain entry)

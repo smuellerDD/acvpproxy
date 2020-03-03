@@ -274,6 +274,14 @@ struct acvp_opts_ctx {
 	bool delete_vsid;
 
 	/*
+	 * Only register a new request without downloading the test vectors.
+	 * This is intended to spend only a brief amount of time to request
+	 * the generation of test vectors and obtain the test vectors at a
+	 * later point in time.
+	 */
+	bool register_only;
+
+	/*
 	 * Delete an entry in the ACVP database. The ID is taken from the
 	 * module's JSON configuration file.
 	 */

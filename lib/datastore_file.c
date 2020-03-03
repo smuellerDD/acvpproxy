@@ -323,6 +323,9 @@ acvp_datastore_file_rename_version(const struct acvp_testid_ctx *testid_ctx,
 	char newpathname[FILENAME_MAX];
 	int ret;
 
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	if (!info->module_version_filesafe)
 		return -EINVAL;
 
@@ -368,6 +371,9 @@ acvp_datastore_file_rename_name(const struct acvp_testid_ctx *testid_ctx,
 	char pathname[FILENAME_MAX];
 	char newpathname[FILENAME_MAX];
 	int ret;
+
+	if (acvp_op_get_interrupted())
+		return 0;
 
 	if (!info->module_name_filesafe)
 		return -EINVAL;
@@ -437,6 +443,9 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 
 	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
+
+	if (acvp_op_get_interrupted())
+		return 0;
 
 	auth = testid_ctx->server_auth;
 	ctx = testid_ctx->ctx;
@@ -582,6 +591,9 @@ acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
 
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	auth = testid_ctx->server_auth;
 	ctx = testid_ctx->ctx;
 	datastore = &ctx->datastore;
@@ -671,6 +683,9 @@ acvp_datastore_file_write_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 	CKNULL_C_LOG(vsid_ctx, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
 
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	testid_ctx = vsid_ctx->testid_ctx;
 	ctx = testid_ctx->ctx;
 	datastore = &ctx->datastore;
@@ -714,6 +729,9 @@ acvp_datastore_file_write_testid(const struct acvp_testid_ctx *testid_ctx,
 
 	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
+
+	if (acvp_op_get_interrupted())
+		return 0;
 
 	ctx = testid_ctx->ctx;
 	datastore = &ctx->datastore;
@@ -760,6 +778,9 @@ acvp_datastore_file_compare(const struct acvp_vsid_ctx *vsid_ctx,
 
 	CKNULL_C_LOG(vsid_ctx, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
+
+	if (acvp_op_get_interrupted())
+		return 0;
 
 	testid_ctx = vsid_ctx->testid_ctx;
 	ctx = testid_ctx->ctx;
@@ -976,6 +997,9 @@ acvp_datastore_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
 
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	ctx = testid_ctx->ctx;
 	datastore = &ctx->datastore;
 
@@ -1061,6 +1085,9 @@ acvp_datastore_get_vsid_verdict(struct acvp_vsid_ctx *vsid_ctx)
 
 	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
+
+	if (acvp_op_get_interrupted())
+		return 0;
 
 	ctx = testid_ctx->ctx;
 	datastore = &ctx->datastore;
@@ -1395,6 +1422,9 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
 
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	ctx = testid_ctx->ctx;
 	datastore = &ctx->datastore;
 	opts = &ctx->options;
@@ -1482,9 +1512,9 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 		 * If there is no vsID search criteria, all vsIDs will be used.
 		 */
 		if (search->nr_submit_vsid) {
-			unsigned int i, found = 0;
+			unsigned int j, found = 0;
 
-			for (i = 0; i < search->nr_submit_vsid; i++) {
+			for (j = 0; j < search->nr_submit_vsid; j++) {
 				if (search->submit_vsid[i] == vsid_val) {
 					found = 1;
 					break;
@@ -1610,6 +1640,9 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 	CKNULL_C_LOG(def, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data store backend exchange info missing\n");
 
+	if (acvp_op_get_interrupted())
+		return 0;
+
 	memset(&testid_ctx, 0, sizeof(testid_ctx));
 	testid_ctx.def = def;
 	testid_ctx.ctx = ctx;
@@ -1683,7 +1716,7 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 		if (search->nr_submit_vsid) {
 			struct acvp_vsid_ctx vsid_ctx;
 			unsigned int i, found = 0;
-			char pathname[FILENAME_MAX];
+			char pathname2[FILENAME_MAX];
 
 			/* Fudge the vsid_ctx */
 			memset(&vsid_ctx, 0, sizeof(vsid_ctx));
@@ -1694,7 +1727,7 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 
 				/* If vsID dir exists, function returns 0 */
 				if (!acvp_datastore_file_vectordir_vsid(
-					&vsid_ctx, pathname, sizeof(pathname),
+					&vsid_ctx, pathname2, sizeof(pathname2),
 					false, false)) {
 					found = 1;
 					break;

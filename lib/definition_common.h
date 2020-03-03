@@ -22,7 +22,7 @@
 
 #include <limits.h>
 
-#include "acvpproxy.h"
+#include "bool.h"
 #include "cipher_definitions.h"
 
 #ifdef __cplusplus

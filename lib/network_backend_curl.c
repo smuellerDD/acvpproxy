@@ -52,11 +52,6 @@ static void acvp_curl_interrupt(void)
 	atomic_bool_set_true(&acvp_curl_interrupted);
 }
 
-static void acvp_curl_clear_interrupt(void)
-{
-	atomic_bool_set_false(&acvp_curl_interrupted);
-}
-
 static int acvp_curl_progress_callback(void *clientp, curl_off_t dltotal,
 				       curl_off_t dlnow, curl_off_t ultotal,
 				       curl_off_t ulnow)
@@ -251,7 +246,7 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_PROGRESSDATA, NULL));
 #else
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION,
-			       acvp_curl_progress_callback));
+				    acvp_curl_progress_callback));
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_XFERINFODATA, NULL));
 #endif
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L));
@@ -369,12 +364,6 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
 				    acvp_curl_write_cb));
 
-	/*
-	 * Clear any interrupt triggered by signal handler to allow
-	 * signal handler to perform network requests.
-	 */
-	acvp_curl_clear_interrupt();
-
 	/* Perform the HTTP request */
 	while (retries < ACVP_CURL_MAX_RETRIES) {
 		cret = curl_easy_perform(curl);
@@ -430,7 +419,7 @@ out:
 		curl_easy_cleanup(curl);
 	if (slist)
 		curl_slist_free_all(slist);
-	return ret;
+	return atomic_bool_read(&acvp_curl_interrupted) ? -EINTR : ret;
 }
 
 static int acvp_curl_http_post(const struct acvp_na_ex *netinfo,

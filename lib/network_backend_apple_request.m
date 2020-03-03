@@ -189,14 +189,14 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
 			  delegateQueue:nil];
 	
 	defaultConfigObject.waitsForConnectivity = true;
-				      
+	atomic_bool_set_false(&task_complete);
+
 	NSURLSessionDataTask *task = [defaultSession
 				      dataTaskWithRequest:urlRequest
 				      completionHandler:^(NSData *data,
 							  NSURLResponse *response,
 							  NSError *error)
 	{
-		atomic_bool_set_false(&task_complete);
 		completion(response_buf, &task_complete, data, response, error);
 	}];
 	
@@ -206,6 +206,12 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
 	 * TODO instead of using the hack below, wait for the completion
 	 * task to finish. Yet, this completion is triggered before the task
 	 * should complete. I am not sure about how to solve it.
+	 *
+	 * The following code works to identify that the download
+	 * task completes. But there seems to be a race where the task is
+	 * not yet completed (and thus the HTTP code is not obtained) when
+	 * the callback triggers task_complete. So, the better way would
+	 * be to still poll whether the task completed.
 	 */
 #if 0
 	/*

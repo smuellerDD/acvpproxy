@@ -46,11 +46,18 @@
 			(__bridge CFDictionaryRef) clientCertificateQuery,
 			(CFTypeRef *)&cert);
 	if (err != errSecSuccess) {
+		CFStringRef errstr = SecCopyErrorMessageString(err, NULL);
+
+		if (!errstr)
+			return nil;
+
 		logger(LOGGER_ERR, LOGGER_C_CURL,
 		       "Could not locate private key %s in keychain: %s\n",
 		       cert_reference,
-		       CFStringGetCStringPtr(SecCopyErrorMessageString(err, NULL),
-					     kCFStringEncodingUTF8));
+		       CFStringGetCStringPtr(errstr, kCFStringEncodingUTF8));
+		CFRelease(errstr);
+		if (cert)
+			CFRelease(cert);
 		return nil;
 	}
 	

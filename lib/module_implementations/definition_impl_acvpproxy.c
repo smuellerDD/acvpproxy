@@ -63,3 +63,5 @@ static void acvpproxy_register(void)
 	acvp_register_algo_map(acvpproxy_algo_map,
 			       ARRAY_SIZE(acvpproxy_algo_map));
 }
+
+ACVP_EXTENSION(acvpproxy_algo_map)

@@ -200,7 +200,6 @@ out:
 int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	const struct acvp_net_ctx *net;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_na_ex netinfo;
@@ -212,6 +211,7 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	uint32_t totp_val = 0;
 	int ret = 0, ret2;
 	char totp_val_string[11];
+	bool dump_register = (ctx) ? ctx->req_details.dump_register : false;
 
 	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
 
@@ -235,7 +235,7 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_req_add_version(login));
 
 	/* Generate the OTP value based on the TOTP algorithm */
-	if (!req_details->dump_register)
+	if (!dump_register)
 		CKINT(totp(&totp_val));
 
 	/* Ensure that the snprintf format string equals TOTP size. */
@@ -268,7 +268,7 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	 * Dump the constructed message if requested and return (i.e. no
 	 * submission).
 	 */
-	if (req_details->dump_register) {
+	if (dump_register) {
 		fprintf(stdout, "%s\n",
 			json_object_to_json_string_ext(login,
 					JSON_C_TO_STRING_PRETTY |

@@ -309,6 +309,8 @@ static int acvp_response_delete(const struct acvp_vsid_ctx *vsid_ctx)
 
 	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url), false));
 	CKINT(acvp_net_op(testid_ctx, url, NULL, NULL, acvp_http_delete));
+	logger_status(LOGGER_C_ANY, "VsID %u (test session %u) invalidated\n",
+		      vsid_ctx->vsid, testid_ctx->testid);
 
 out:
 	return ret;
@@ -567,7 +569,7 @@ static int acvp_process_one_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 			atomic_inc((atomic_t *)&testid_ctx->vsids_to_process);
 			atomic_inc(&glob_vsids_to_process);
 
-			ret = acvp_get_testvectors(vsid_ctx);
+			CKINT(acvp_get_testvectors(vsid_ctx));
 
 			/* Store the time the download took */
 			acvp_record_vsid_duration(vsid_ctx,
@@ -577,10 +579,7 @@ static int acvp_process_one_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 			 * Indicate to the caller that the connection was
 			 * restarted. Use positive integer as this is no error.
 			 */
-			if (!ret)
-				ret = EINTR;
-
-			return ret;
+			return EINTR;
 		} else {
 			CKINT(acvp_get_testvectors_expected(vsid_ctx));
 
@@ -654,7 +653,7 @@ static int acvp_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 	    (atomic_read(&testid_ctx->vsids_processed) <
 	     atomic_read(&testid_ctx->vsids_to_process))) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Not all test verdicts downloaded, skipping retrival of test session verdict\n");
+		       "Not all test verdicts downloaded, skipping retrieval of test session verdict\n");
 		return 0;
 	}
 
@@ -674,7 +673,7 @@ static int acvp_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_process_retry_testid(testid_ctx, &result, url));
 
 	/* Store the entire received response. */
-	if (result.buf && result.len) {
+	if (!acvp_op_get_interrupted() && result.buf && result.len) {
 		ret = ds->acvp_datastore_write_testid(testid_ctx,
 						      datastore->verdictfile,
 						      false, &result);
@@ -697,6 +696,7 @@ static int _acvp_respond(const struct acvp_ctx *ctx,
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	int ret;
 
+	/* Put the context on heap for signal handler */
 	testid_ctx = calloc(1, sizeof(*testid_ctx));
 	CKNULL(testid_ctx, -ENOMEM);
 
@@ -724,7 +724,8 @@ out:
 	}
 
 	/* Store the time the upload took */
-	if (!ret || atomic_read(&testid_ctx->vsids_to_process))
+	if (!acvp_op_get_interrupted() && !ret &&
+	    atomic_read(&testid_ctx->vsids_to_process))
 		acvp_record_testid_duration(testid_ctx, ACVP_DS_UPLOADDURATION);
 
 	acvp_release_testid(testid_ctx);

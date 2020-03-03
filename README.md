@@ -209,6 +209,7 @@ In addition, perform the following steps with your normal (developer) account:
 	sudo apt install gcc
 	sudo apt install make
 	sudo apt install libcurl4-gnutls-dev
+	sudo apt install libssl-dev
 	sudo apt-get update
 
 	mkdir src
@@ -409,6 +410,23 @@ The ACVP Proxy supports the following signals:
 The stopping and restarting of downloads applies to the download of
 testvectors (i.e. when --request is used) as well as to the download of
 verdicts after the upload of the test responses.
+
+## Register Test Sessions Only
+
+Downloading test vectors may take some time. As outlined above, SIGSTOP can
+be used to interrupt an ongoing download. In addition, the ACVP Proxy allows
+registering cipher definitions only, i.e. without starting the download
+of the test vectors. This is akin to the regular operation but sending a
+SIGSTOP signal right after all register operations complete.
+
+At a later time, the ACVP Proxy can be used to fetch the test vectors. Note,
+the ACVP Server will produce the test vectors during that time which implies
+that once the test vector download is triggered, the wait time is likely to
+be reduced significantly.
+
+At the conclusion of the register-only operation, the ACVP Proxy will
+list the command line options to be used again for triggering the download
+of the registered test sessions.
 
 ## Directory Structure To Maintain Test Vectors and Test Results
 

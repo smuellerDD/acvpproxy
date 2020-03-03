@@ -945,6 +945,8 @@ static const struct def_algo openssl_sha [] = {
 };
 
 static const struct def_algo openssl_ssh [] = {
+	OPENSSL_TDES_ECB,
+	OPENSSL_AES_ECB,
 	OPENSSL_KDF_SSH
 };
 
@@ -998,25 +1000,25 @@ static struct def_algo_map openssl_algo_map [] = {
 		.processor = "",
 		.impl_name = "TDES_C"
 	}, {
-	/* OpenSSL ACVP_NI implementation **************************************/
+	/* OpenSSL AESNI implementation ***************************************/
 		SET_IMPLEMENTATION(openssl_aes),
 		.algo_name = "OpenSSL",
 		.processor = "X86",
 		.impl_name = "AESNI"
 	}, {
-	/* OpenSSL ACVP_NI with AVX GHASH multiplication implementation ********/
+	/* OpenSSL AESNI with AVX GHASH multiplication implementation *********/
 		SET_IMPLEMENTATION(openssl_gcm),
 		.algo_name = "OpenSSL",
 		.processor = "X86",
 		.impl_name = "AESNI_AVX"
 	}, {
-	/* OpenSSL ACVP_NI with CLMULNI GHASH multiplication implementation ****/
+	/* OpenSSL AESNI with CLMULNI GHASH multiplication implementation *****/
 		SET_IMPLEMENTATION(openssl_gcm),
 		.algo_name = "OpenSSL",
 		.processor = "X86",
 		.impl_name = "AESNI_CLMULNI"
 	}, {
-	/* OpenSSL ACVP_NI with assembler GHASH multiplication implementation **/
+	/* OpenSSL AESNI with assembler GHASH multiplication implementation ***/
 		SET_IMPLEMENTATION(openssl_gcm),
 		.algo_name = "OpenSSL",
 		.processor = "X86",
@@ -1159,38 +1161,101 @@ static struct def_algo_map openssl_algo_map [] = {
 	 **********************************************************************/
 		SET_IMPLEMENTATION(openssl_10x_sym_drbg),
 		.algo_name = "OpenSSL",
-		.processor = "",
+		.processor = "X86",
 		.impl_name = "DRBG_10X_AESNI"
 	}, {
 		SET_IMPLEMENTATION(openssl_10x_sym_drbg),
 		.algo_name = "OpenSSL",
-		.processor = "",
+		.processor = "X86",
 		.impl_name = "DRBG_10X_AESASM"
 	}, {
 		SET_IMPLEMENTATION(openssl_10x_sym_drbg),
 		.algo_name = "OpenSSL",
-		.processor = "",
+		.processor = "X86",
 		.impl_name = "DRBG_10X_BAES_CTASM"
 	}, {
 		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
 		.algo_name = "OpenSSL",
-		.processor = "",
+		.processor = "X86",
 		.impl_name = "DRBG_10X_SHA_AVX2"
 	}, {
 		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
 		.algo_name = "OpenSSL",
-		.processor = "",
+		.processor = "X86",
 		.impl_name = "DRBG_10X_SHA_AVX"
 	}, {
 		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
 		.algo_name = "OpenSSL",
-		.processor = "",
+		.processor = "X86",
 		.impl_name = "DRBG_10X_SHA_SSSE3"
 	}, {
 		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
 		.algo_name = "OpenSSL",
-		.processor = "",
+		.processor = "X86",
 		.impl_name = "DRBG_10X_SHA_ASM"
+	}, {
+
+	/* OpenSSL ARM64v8 Assembler implementation ***************************/
+		SET_IMPLEMENTATION(openssl_sha),
+		.algo_name = "OpenSSL",
+		.processor = "ARM64",
+		.impl_name = "SHA_ASM"
+	}, {
+		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
+		.algo_name = "OpenSSL",
+		.processor = "ARM64",
+		.impl_name = "DRBG_10X_SHA_ASM"
+	}, {
+	/* OpenSSL ARM64v8 SHA3 assembler implementation **********************/
+		SET_IMPLEMENTATION(openssl_sha3),
+		.algo_name = "OpenSSL",
+		.processor = "ARM64",
+		.impl_name = "SHA3_ASM"
+	}, {
+	/* OpenSSL ARM64v8 AES crypto extension *******************************
+	 * Note: we may execute more ciphers than strictly provided by the CE
+	 * implementation, but we do not care
+	 */
+		SET_IMPLEMENTATION(openssl_aes),
+		.algo_name = "OpenSSL",
+		.processor = "ARM64",
+		.impl_name = "CE"
+	}, {
+	/* OpenSSL ARM64v8 NEON bit slicing implementation ********************
+	 * Note: we may execute more ciphers than strictly provided by the NEON
+	 * implementation, but we do not care
+	 */
+		SET_IMPLEMENTATION(openssl_aes),
+		.algo_name = "OpenSSL",
+		.processor = "ARM64",
+		.impl_name = "VPAES"
+	}, {
+	/* OpenSSL S390x Assembler implementation *****************************
+	 * Note: we may execute more ciphers than strictly provided by the ASM
+	 * implementation, but we do not care
+	 */
+		SET_IMPLEMENTATION(openssl_sha),
+		.algo_name = "OpenSSL",
+		.processor = "S390",
+		.impl_name = "SHA_ASM"
+	}, {
+		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
+		.algo_name = "OpenSSL",
+		.processor = "S390",
+		.impl_name = "DRBG_10X_SHA_ASM"
+	}, {
+	/* OpenSSL S390x SHA3 assembler implementation ************************/
+		SET_IMPLEMENTATION(openssl_sha3),
+		.algo_name = "OpenSSL",
+		.processor = "S390",
+		.impl_name = "SHA3_ASM"
+	}, {
+	/* OpenSSL S390x assembler implementation *****************************/
+		SET_IMPLEMENTATION(openssl_aes),
+		.algo_name = "OpenSSL",
+		.processor = "S390",
+		.impl_name = "AESASM"
+
 	},
 };
 
@@ -1199,3 +1264,5 @@ static void openssl_register(void)
 {
 	acvp_register_algo_map(openssl_algo_map, ARRAY_SIZE(openssl_algo_map));
 }
+
+ACVP_EXTENSION(openssl_algo_map)

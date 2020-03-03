@@ -48,11 +48,6 @@ static void acvp_nsurl_interrupt(void)
 	atomic_bool_set_true(&acvp_nsurl_interrupted);
 }
 
-static void acvp_nsurl_clear_interrupt(void)
-{
-	atomic_bool_set_false(&acvp_nsurl_interrupted);
-}
-
 static void acvp_nsurl_write_cb(struct acvp_buf *response_buf,
 				atomic_bool_t *task_complete,
 				NSData *data,
@@ -128,7 +123,7 @@ out:
 
 static int acvp_nsurl_http_common(const struct acvp_na_ex *netinfo,
 				  const struct acvp_buf *submit_buf,
-				  struct acvp_buf *response_buf,
+				  struct acvp_buf *resp_buf,
 				  enum acvp_http_type http_type)
 {
 	const struct acvp_net_ctx *net = netinfo->net;
@@ -242,18 +237,12 @@ static int acvp_nsurl_http_common(const struct acvp_na_ex *netinfo,
 		ret = -EINVAL;
 		goto out;
 	}
-	
-	/*
-	 * Clear any interrupt triggered by signal handler to allow
-	 * signal handler to perform network requests.
-	 */
-	acvp_nsurl_clear_interrupt();
 
 	/* Perform the HTTP request */
 	while (retries < ACVP_CURL_MAX_RETRIES) {
 		rc = [http sendRequestFromURL: urlRequest
 				  interrupted: &acvp_nsurl_interrupted
-				 response_buf: response_buf
+				 response_buf: resp_buf
 				   completion: ^(struct acvp_buf *response_buf,
 						 atomic_bool_t *completed,
 						 NSData *data,
@@ -314,14 +303,14 @@ static int acvp_nsurl_http_post(const struct acvp_na_ex *netinfo,
 			       struct acvp_buf *response_buf)
 {
 	return acvp_nsurl_http_common(netinfo, submit_buf, response_buf,
-				     acvp_http_post);
+				      acvp_http_post);
 }
 
 static int acvp_nsurl_http_get(const struct acvp_na_ex *netinfo,
 			      struct acvp_buf *response_buf)
 {
 	return acvp_nsurl_http_common(netinfo, NULL, response_buf,
-				     acvp_http_get);
+				      acvp_http_get);
 }
 
 static int acvp_nsurl_http_put(const struct acvp_na_ex *netinfo,
@@ -329,14 +318,14 @@ static int acvp_nsurl_http_put(const struct acvp_na_ex *netinfo,
 			      struct acvp_buf *response_buf)
 {
 	return acvp_nsurl_http_common(netinfo, submit_buf, response_buf,
-				     acvp_http_put);
+				      acvp_http_put);
 }
 
 static int acvp_nsurl_http_delete(const struct acvp_na_ex *netinfo,
 				 struct acvp_buf *response_buf)
 {
 	return acvp_nsurl_http_common(netinfo, NULL, response_buf,
-				     acvp_http_delete);
+				      acvp_http_delete);
 }
 
 static struct acvp_netaccess_be acvp_netaccess_nsurl = {

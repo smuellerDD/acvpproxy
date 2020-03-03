@@ -53,6 +53,11 @@ void acvp_op_interrupt(void)
 	atomic_bool_set_true(&acvp_op_interrupted);
 }
 
+bool acvp_op_get_interrupted(void)
+{
+	return atomic_bool_read(&acvp_op_interrupted);
+}
+
 void acvp_op_enable(void)
 {
 	atomic_bool_set_false(&acvp_op_interrupted);
@@ -183,7 +188,7 @@ int acvp_list_failed_testid(int *idx_ptr, uint32_t *testid)
 {
 	int idx = atomic_read(&acvp_req_failed_testid_ptr);
 
-	if (*idx_ptr > idx)
+	if (*idx_ptr > idx || idx < 0)
 		return -ENOENT;
 
 	idx = *idx_ptr;
@@ -416,7 +421,6 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 			       "ACVP server requested retry - sleeping for %u seconds for testID %u again\n",
 			       sleep_time, testid_ctx->testid);
 		}
-
 		CKINT(sleep_interruptible(sleep_time, &acvp_op_interrupted));
 
 		return acvp_process_retry(vsid_ctx, result_data, url,
@@ -424,10 +428,16 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 	}
 
 out:
-	if (ret)
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Failure in processing testID %u with vsID %u (%d)\n",
-		       testid_ctx->testid, vsid_ctx->vsid, ret);
+	if (ret) {
+		if (ret == -EINTR || ret == -ESHUTDOWN)
+			logger_status(LOGGER_C_ANY,
+				      "Interrupted processing testID %u with vsID %u (%d)\n",
+				      testid_ctx->testid, vsid_ctx->vsid, ret);
+		else
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Failure in processing testID %u with vsID %u (%d)\n",
+			       testid_ctx->testid, vsid_ctx->vsid, ret);
+	}
 
 	ACVP_JSON_PUT_NULL(resp);
 	return ret;
@@ -479,6 +489,9 @@ void acvp_record_vsid_duration(const struct acvp_vsid_ctx *vsid_ctx,
 {
 	ACVP_BUFFER_INIT(buf);
 	char string[16];
+
+	if (acvp_op_get_interrupted())
+		return;
 
 	if (!vsid_ctx->start.tv_sec && !vsid_ctx->start.tv_nsec)
 		return;
@@ -660,6 +673,16 @@ static int acvp_process_vectors(struct acvp_testid_ctx *testid_ctx,
 
 		atomic_inc(&testid_ctx->vsids_to_process);
 		atomic_inc(&glob_vsids_to_process);
+	}
+
+	/*
+	 * Caller requested the registering of the tests vector definition
+	 * only without obtaining the test vectors themselves.
+	 */
+	if (opts->register_only) {
+		logger_status(LOGGER_C_ANY, "Test session %u registered\n",
+			      testid_ctx->testid);
+		goto out;
 	}
 
 	/* Iterate over all vsID and download each */
@@ -927,7 +950,8 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 			   acvp_http_post);
 
 	/* Store the debug version of the result unconditionally. */
-	CKINT(acvp_store_register_debug(testid_ctx, &response_buf, ret2));
+	CKINT(acvp_store_register_debug(testid_ctx, &response_buf,
+					ret2));
 
 	if (ret2) {
 		ret = ret2;
@@ -960,6 +984,9 @@ void acvp_record_testid_duration(const struct acvp_testid_ctx *testid_ctx,
 	ACVP_BUFFER_INIT(buf);
 	char string[16];
 
+	if (acvp_op_get_interrupted())
+		return;
+
 	if (!testid_ctx->start.tv_sec && !testid_ctx->start.tv_nsec)
 		return;
 
@@ -982,6 +1009,7 @@ static int _acvp_register(const struct acvp_ctx *ctx,
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	int ret;
 
+	/* Put the context on heap for signal handler */
 	testid_ctx = calloc(1, sizeof(*testid_ctx));
 	if (!testid_ctx)
 		return -ENOMEM;

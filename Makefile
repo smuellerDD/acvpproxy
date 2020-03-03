@@ -13,13 +13,13 @@ ifeq ($(UNAME_S),Linux)
 LDFLAGS		+= -Wl,-z,relro,-z,now -pie
 endif
 
-NAME		?= acvp-proxy
+APPNAME		?= acvp-proxy
 
 DESTDIR		:=
 ETCDIR		:= /etc
 BINDIR		:= /bin
 SBINDIR		:= /sbin
-SHAREDIR	:= /usr/share/$(NAME)
+SHAREDIR	:= /usr/share/$(APPNAME)
 MANDIR		:= /usr/share/man
 MAN1		:= $(MANDIR)/man1
 MAN3		:= $(MANDIR)/man3
@@ -87,24 +87,24 @@ analyze_plists = $(analyze_srcs:%.c=%.plist)
 
 .PHONY: all scan install clean cppcheck distclean debug asanaddress asanthread gcov binarchive
 
-all: $(NAME)
+all: $(APPNAME)
 
 debug: CFLAGS += -g -DDEBUG
-debug: DBG-$(NAME)
+debug: DBG-$(APPNAME)
 
 asanaddress: CFLAGS += -g -DDEBUG -fsanitize=address -fno-omit-frame-pointer
 asanaddress: LDFLAGS += -fsanitize=address
-asanaddress: DBG-$(NAME)
+asanaddress: DBG-$(APPNAME)
 
 asanthread: CFLAGS += -g -DDEBUG -fsanitize=thread -fno-omit-frame-pointer
 asanthread: LDFLAGS += -fsanitize=thread
-asanthread: DBG-$(NAME)
+asanthread: DBG-$(APPNAME)
 
 # Compile for the use of GCOV
 # Usage after compilation: gcov <file>.c
 gcov: CFLAGS += -g -DDEBUG -fprofile-arcs -ftest-coverage
 gcov: LDFLAGS += -fprofile-arcs
-gcov: DBG-$(NAME)
+gcov: DBG-$(APPNAME)
 
 ###############################################################################
 #
@@ -112,11 +112,11 @@ gcov: DBG-$(NAME)
 #
 ###############################################################################
 
-$(NAME): $(OBJS)
-	$(CC) -o $(NAME) $(OBJS) $(LDFLAGS)
+$(APPNAME): $(OBJS)
+	$(CC) -o $(APPNAME) $(OBJS) $(LDFLAGS)
 
-DBG-$(NAME): $(OBJS)
-	$(CC) -g -DDEBUG -o $(NAME) $(OBJS) $(LDFLAGS)
+DBG-$(APPNAME): $(OBJS)
+	$(CC) -g -DDEBUG -o $(APPNAME) $(OBJS) $(LDFLAGS)
 
 $(analyze_plists): %.plist: %.c
 	@echo "  CCSA  " $@
@@ -128,32 +128,38 @@ cppcheck:
 	cppcheck --force -q --enable=performance --enable=warning --enable=portability $(SRCDIR)apps/*.h $(SRCDIR)apps/*.c $(SRCDIR)lib/*.c $(SRCDIR)lib/*.h $(SRCDIR)lib/module_implementations/*.c $(SRCDIR)lib/module_implementations/*.h $(SRCDIR)lib/json-c/*.c $(SRCDIR)lib/json-c/*.h
 
 install:
-	install -m 0755 $(NAME) -D -t $(DESTDIR)$(BINDIR)/
+	install -m 0755 $(APPNAME) -D -t $(DESTDIR)$(BINDIR)/
 
 
-binarchive: $(NAME)
+binarchive: $(APPNAME)
 	$(eval APPVERSION_NUMERIC := $(shell ./acvp-proxy --version-numeric 2>&1))
+	strip $(APPNAME)
+
 ifeq ($(UNAME_S),Linux)
-	install -s -m 0755 $(NAME) -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	install -m 0755 $(SRCDIR)helper/proxy-lib.sh -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	install -m 0755 $(SRCDIR)helper/proxy.sh -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	install -m 0755 $(SRCDIR)helper/Makefile.out-of-tree -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	install -m 0644 $(SRCDIR)lib/definition_cipher*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
-	install -m 0644 $(SRCDIR)lib/definition*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
-	install -m 0644 $(SRCDIR)lib/constructor*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
-	install -m 0644 $(SRCDIR)lib/module_implementations/*.h -D -t $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
+	install -s -m 0755 $(APPNAME) -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	install -m 0755 $(SRCDIR)helper/proxy-lib.sh -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	install -m 0755 $(SRCDIR)helper/proxy.sh -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	install -m 0755 $(SRCDIR)helper/Makefile.out-of-tree -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	install -m 0644 $(SRCDIR)lib/definition_cipher*.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
+	install -m 0644 $(SRCDIR)lib/definition*.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
+	install -m 0644 $(SRCDIR)lib/constructor*.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
+	install -m 0644 $(SRCDIR)lib/bool.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
+	install -m 0644 $(SRCDIR)lib/cipher_definitions.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
+	install -m 0644 $(SRCDIR)lib/module_implementations/*.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
 else
-	@- mkdir -p $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
-	@- cp -f $(NAME) $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	@- cp -f $(SRCDIR)helper/proxy-lib.sh $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	@- cp -f $(SRCDIR)helper/proxy.sh $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	@- cp -f $(SRCDIR)helper/Makefile.out-of-tree $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/
-	@- cp -f $(SRCDIR)lib/definition_cipher*.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
-	@- cp -f $(SRCDIR)lib/definition.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
-	@- cp -f $(SRCDIR)lib/constructor.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/
-	@- cp -f $(SRCDIR)lib/module_implementations/*.h $(BUILDDIR)/$(NAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
+	@- mkdir -p $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
+	@- cp -f $(APPNAME) $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f $(SRCDIR)helper/proxy-lib.sh $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f $(SRCDIR)helper/proxy.sh $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f $(SRCDIR)helper/Makefile.out-of-tree $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f $(SRCDIR)lib/definition_cipher*.h $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
+	@- cp -f $(SRCDIR)lib/definition.h $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
+	@- cp -f $(SRCDIR)lib/constructor.h $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
+	@- cp -f $(SRCDIR)lib/bool.h $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
+	@- cp -f $(SRCDIR)lib/cipher_definitions.h $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
+	@- cp -f $(SRCDIR)lib/module_implementations/*.h $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
 endif
-	@- tar -cJf $(NAME)-$(APPVERSION_NUMERIC).$(UNAME_S).$(UNAME_M).tar.xz -C $(BUILDDIR) $(NAME)-$(APPVERSION_NUMERIC)
+	@- tar -cJf $(APPNAME)-$(APPVERSION_NUMERIC).$(UNAME_S).$(UNAME_M).tar.xz -C $(BUILDDIR) $(APPNAME)-$(APPVERSION_NUMERIC)
 
 ###############################################################################
 #
@@ -163,14 +169,14 @@ endif
 
 clean:
 	@- $(RM) $(OBJS)
-	@- $(RM) $(NAME)
-	@- $(RM) $(NAME)-*
-	@- $(RM) .$(NAME).hmac
+	@- $(RM) $(APPNAME)
+	@- $(RM) $(APPNAME)-*
+	@- $(RM) .$(APPNAME).hmac
 	@- $(RM) $(C_GCOV)
 	@- $(RM) *.gcov
 	@- $(RM) $(analyze_plists)
 	@- $(RM) -rf $(BUILDDIR)
-	@- $(RM) $(NAME)-*.tar.xz
+	@- $(RM) $(APPNAME)-*.tar.xz
 
 distclean: clean
 

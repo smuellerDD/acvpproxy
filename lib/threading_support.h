@@ -111,6 +111,11 @@ int thread_wait(void);
 int thread_start(int(*start_routine)(void *), void *tdata,
 		 uint32_t thread_group, int *ret_ancestor);
 
+/**
+ * @brief - Stop spawning new threads
+ */
+void thread_stop_spawning(void);
+
 #ifdef __cplusplus
 }
 #endif

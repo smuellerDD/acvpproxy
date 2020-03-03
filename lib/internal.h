@@ -27,6 +27,7 @@
 #include "buffer.h"
 #include "config.h"
 #include "definition_internal.h"
+#include "mutex_w.h"
 #include "ret_checkers.h"
 
 #ifdef __cplusplus
@@ -44,7 +45,7 @@ extern "C"
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 4   /* API / ABI compatible, no functional
+#define PATCHLEVEL 5   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -222,6 +223,7 @@ struct acvp_testid_ctx {
 
 	struct timespec start;
 
+	mutex_w_t shutdown;
 	bool sig_cancel_send_delete;	/* Send a DELETE HTTP request */
 };
 
@@ -511,6 +513,11 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx);
 void acvp_op_interrupt(void);
 
 /**
+ * @brief return whether the operation was interrupted
+ */
+bool acvp_op_get_interrupted(void);
+
+/**
  * @brief enable ACVP operations
  */
 void acvp_op_enable(void);
@@ -672,6 +679,10 @@ int acvp_get_max_msg_size(const struct acvp_testid_ctx *testid_ctx,
  * code to ensure that each request represented with a context can be canceled
  * when a signal arrives. The caller should only enqueue the context shortly
  * before communication with the ACVP server commences.
+ *
+ * Note, the testid_ctx must be fully initialzed to perform network operations
+ * since the enqueue implies that a signal can arrive and the ACVP Cancel
+ * operation commences.
  */
 void sig_enqueue_ctx(struct acvp_testid_ctx *testid_ctx);
 
@@ -699,11 +710,6 @@ int sig_sleep_interruptible(unsigned int sleep_time,
  */
 int sig_install_handler(void);
 void sig_uninstall_handler(void);
-
-/*
- * Are we handling a signal?
- */
-bool sig_handler_active(void);
 
 /************************************************************************
  * Common helper support
