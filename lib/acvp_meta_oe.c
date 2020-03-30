@@ -313,7 +313,7 @@ static int _acvp_oe_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	/* Strip the version array entry and get the verdict data. */
-	CKINT(acvp_req_strip_version(buf.buf, &resp, &data));
+	CKINT(acvp_req_strip_version(&buf, &resp, &data));
 	CKINT(matcher(testid_ctx, def_oe, data));
 
 out:

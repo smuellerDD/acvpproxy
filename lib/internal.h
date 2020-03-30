@@ -41,13 +41,19 @@ extern "C"
 			* zero, the API is not considered stable
 			* and can change without a bump of the
 			* major version). */
-#define MINVERSION 2   /* API compatible, ABI may change,
+#define MINVERSION 3   /* API compatible, ABI may change,
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 5   /* API / ABI compatible, no functional
+#define PATCHLEVEL 0   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
+
+struct acvp_test_deps {
+	char *dep_cipher;
+	char *dep_cert;
+	struct acvp_test_deps *next;
+};
 
 /*
  * Requester implementations
@@ -55,6 +61,7 @@ extern "C"
 int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 			  struct json_object *entry);
 int acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
+			    const struct acvp_test_deps *deps,
 			    struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_sha(const struct def_algo_sha *sha,
@@ -65,77 +72,118 @@ int acvp_req_set_algo_shake(const struct def_algo_shake *shake,
 int acvp_req_set_algo_hmac(const struct def_algo_hmac *hmac,
 			   struct json_object *entry);
 int acvp_req_set_prereq_hmac(const struct def_algo_hmac *hmac,
+			     const struct acvp_test_deps *deps,
 			     struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_cmac(const struct def_algo_cmac *cmac,
 			   struct json_object *entry);
 int acvp_req_set_prereq_cmac(const struct def_algo_cmac *cmac,
+			     const struct acvp_test_deps *deps,
 			     struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_drbg(const struct def_algo_drbg *drbg,
 			   struct json_object *entry);
 int acvp_req_set_prereq_drbg(const struct def_algo_drbg *drbg,
+			     const struct acvp_test_deps *deps,
 			     struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 			  struct json_object *entry);
 int acvp_req_set_prereq_rsa(const struct def_algo_rsa *rsa,
+			    const struct acvp_test_deps *deps,
 			    struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
 			    struct json_object *entry);
 int acvp_req_set_prereq_ecdsa(const struct def_algo_ecdsa *ecdsa,
+			      const struct acvp_test_deps *deps,
 			      struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
 			    struct json_object *entry);
 int acvp_req_set_prereq_eddsa(const struct def_algo_eddsa *eddsa,
+			      const struct acvp_test_deps *deps,
 			      struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
 			  struct json_object *entry);
 int acvp_req_set_prereq_dsa(const struct def_algo_dsa *dsa,
+			    const struct acvp_test_deps *deps,
 			    struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 			      struct json_object *entry);
 int acvp_req_set_prereq_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
+				const struct acvp_test_deps *deps,
 				struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 			      struct json_object *entry);
 int acvp_req_set_prereq_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
-			      struct json_object *entry, bool publish);
+				const struct acvp_test_deps *deps,
+				struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
 			      struct json_object *entry);
 int acvp_req_set_prereq_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
+				const struct acvp_test_deps *deps,
 				struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
 			        struct json_object *entry);
 int acvp_req_set_prereq_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
+				  const struct acvp_test_deps *deps,
 				  struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
 			        struct json_object *entry);
 int acvp_req_set_prereq_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
+				  const struct acvp_test_deps *deps,
 				  struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 			      struct json_object *entry);
 int acvp_req_set_prereq_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
+				const struct acvp_test_deps *deps,
 				struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 			      struct json_object *entry);
+int acvp_req_set_algo_kdf_108_details(const struct def_algo_kdf_108 *kdf_108,
+				      struct json_object *entry);
 int acvp_req_set_prereq_kdf_108(const struct def_algo_kdf_108 *kdf_108,
+				const struct acvp_test_deps *deps,
 				struct json_object *entry, bool publish);
 
 int acvp_req_set_algo_pbkdf(const struct def_algo_pbkdf *pbkdf,
 			    struct json_object *entry);
 int acvp_req_set_prereq_pbkdf(const struct def_algo_pbkdf *pbkdf,
+			      const struct acvp_test_deps *deps,
 			      struct json_object *entry, bool publish);
+
+int acvp_req_set_algo_kas_ffc_r3(const struct def_algo_kas_ffc_r3 *kas_ffc_r3,
+				 struct json_object *entry);
+int acvp_req_set_prereq_kas_ffc_r3(const struct def_algo_kas_ffc_r3 *kas_ffc_r3,
+				   const struct acvp_test_deps *deps,
+				   struct json_object *entry, bool publish);
+
+int acvp_req_set_algo_kas_ecc_r3(const struct def_algo_kas_ecc_r3 *kas_ecc_r3,
+				 struct json_object *entry);
+int acvp_req_set_prereq_kas_ecc_r3(const struct def_algo_kas_ecc_r3 *kas_ecc_r3,
+				   const struct acvp_test_deps *deps,
+				   struct json_object *entry, bool publish);
+
+int acvp_req_set_algo_safeprimes(const struct def_algo_safeprimes *safeprimes,
+				 struct json_object *entry);
+int acvp_req_set_prereq_safeprimes(const struct def_algo_safeprimes *safeprimes,
+				   const struct acvp_test_deps *deps,
+				   struct json_object *entry, bool publish);
+
+int acvp_req_set_algo_kas_ifc(const struct def_algo_kas_ifc *kas_ifc,
+			      struct json_object *entry);
+int acvp_req_set_prereq_kas_ifc(const struct def_algo_kas_ifc *kas_ifc,
+				const struct acvp_test_deps *deps,
+				struct json_object *entry, bool publish);
 
 /* Data structure used to exchange information with network backend. */
 struct acvp_na_ex {
@@ -217,6 +265,8 @@ struct acvp_testid_ctx {
 	const struct acvp_ctx *ctx;
 
 	struct acvp_test_verdict_status verdict;
+	/* Hold dependencies with certificate references */
+	struct acvp_test_deps *deps;
 
 	atomic_t vsids_to_process;
 	atomic_t vsids_processed;
@@ -747,6 +797,30 @@ int acvp_req_check_string(char *string, size_t slen);
 int acvp_req_check_filename(char *string, size_t slen);
 
 bool acvp_req_is_production(void);
+
+/************************************************************************
+ * ACVP structure helper
+ ************************************************************************/
+int
+acvp_req_kas_kdf_fi(const enum kas_kdf_fixedinfo_pattern
+		    fixed_info_pattern_type[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN],
+		    const char *literal,
+		    enum kas_kdf_fixedinfo_encoding fixed_info_encoding,
+		    struct json_object *entry);
+int
+acvp_req_kas_kdf_twostep_impl(const struct def_algo_kas_kdf_twostepkdf *twostep,
+			      unsigned int twostekdf_num,
+			      unsigned int supported_length,
+			      struct json_object *entry);
+int
+acvp_req_kas_kdf_onestep_impl(const struct def_algo_kas_kdf_onestepkdf *onestep,
+			      struct json_object *entry);
+int
+acvp_req_kas_mac_method(const struct def_algo_kas_mac_method *mac,
+			unsigned int mac_entries, struct json_object *entry);
+int
+acvp_req_kas_r3_kc_method(const struct def_algo_kas_r3_kc *kcm,
+			  struct json_object *entry);
 
 /************************************************************************
  * Data storage location

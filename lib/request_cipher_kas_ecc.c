@@ -38,8 +38,8 @@ static int acvp_req_kas_ecc_paramset(enum kas_ecc_paramset kas_ecc_paramset,
 	struct json_object *tmp, *tmp2;
 	int ret = 0;
 
-	CKNULL_LOG(curve, -EINVAL, "curve value empty\n");
-	CKNULL_LOG(hashalg, -EINVAL, "hashalg value empty\n");
+	CKNULL_LOG(curve, -EINVAL, "KAS ECC: curve value empty\n");
+	CKNULL_LOG(hashalg, -EINVAL, "KAS ECC: hashalg value empty\n");
 
 	tmp = json_object_new_object();
 	CKNULL(tmp, -ENOMEM);
@@ -63,14 +63,14 @@ static int acvp_req_kas_ecc_paramset(enum kas_ecc_paramset kas_ecc_paramset,
 	default:
 		json_object_put(tmp);
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown kas_ecc_paramset entry\n");
+		       "KAS ECC: Unknown kas_ecc_paramset entry\n");
 		ret = -EINVAL;
 		goto out;
 	}
 
 	CKINT_LOG(acvp_req_cipher_to_string(tmp2, curve, ACVP_CIPHERTYPE_ECC,
 					    "curve"),
-		  "ECDH Cipher definition not found\n");
+		  "KAS ECC: ECDH Cipher definition not found\n");
 
 	CKINT(acvp_req_cipher_to_array(tmp2, hashalg, ACVP_CIPHERTYPE_HASH,
 				       "hashAlg"));
@@ -92,7 +92,7 @@ static int acvp_req_kas_ecc_mac(cipher_t mac,
 	const char *mac_str;
 	int ret;
 
-	CKNULL_LOG(mac, -EINVAL, "mac value empty\n");
+	CKNULL_LOG(mac, -EINVAL, "KAS ECC: mac value empty\n");
 
 	tmp = json_object_new_object();
 	CKNULL(tmp, -ENOMEM);
@@ -101,7 +101,7 @@ static int acvp_req_kas_ecc_mac(cipher_t mac,
 	CKINT_LOG(acvp_req_cipher_to_name(mac, ACVP_CIPHERTYPE_MAC |
 					       ACVP_CIPHERTYPE_AEAD,
 					  &mac_str),
-		  "Cannot convert mac cipher definition\n");
+		  "KAS ECC: Cannot convert mac cipher definition\n");
 	tmp2 = json_object_new_object();
 	CKNULL(tmp2, -ENOMEM);
 	CKINT(json_object_object_add(tmp, mac_str, tmp2));
@@ -109,8 +109,9 @@ static int acvp_req_kas_ecc_mac(cipher_t mac,
 	CKINT(acvp_req_algo_int_array(tmp2, keylen, "keyLen"));
 
 	if ((mac & ACVP_CCM)) {
-		CKNULL_LOG(noncelen, -EINVAL, "noncelen not provided\n");
-		CKNULL_LOG(maclen, -EINVAL, "maclen not provided\n");
+		CKNULL_LOG(noncelen, -EINVAL,
+			   "KAS ECC: noncelen not provided\n");
+		CKNULL_LOG(maclen, -EINVAL, "KAS ECC: maclen not provided\n");
 		CKINT(json_object_object_add(tmp2, "nonceLen",
 					     json_object_new_int(noncelen)));
 		CKINT(json_object_object_add(tmp2, "macLen",
@@ -144,7 +145,7 @@ static int acvp_req_kas_ecc_kdfoption(unsigned int kas_ecc_kdfoption,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for kas_ecc_kdfoption found\n");
+		   "KAS ECC: No applicable entry for kas_ecc_kdfoption found\n");
 
 out:
 	return ret;
@@ -217,7 +218,7 @@ static int acvp_req_kas_ecc_kdfkc(const struct def_algo_kas_ecc_kdfkc *kdfkc,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for kcrole found\n");
+		   "KAS ECC: No applicable entry for kcrole found\n");
 
 	tmp = json_object_new_array();
 	CKNULL(tmp, -ENOMEM);
@@ -233,7 +234,7 @@ static int acvp_req_kas_ecc_kdfkc(const struct def_algo_kas_ecc_kdfkc *kdfkc,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for kctype found\n");
+		   "KAS ECC: No applicable entry for kctype found\n");
 
 	tmp = json_object_new_array();
 	CKNULL(tmp, -ENOMEM);
@@ -259,7 +260,7 @@ static int acvp_req_kas_ecc_kdfkc(const struct def_algo_kas_ecc_kdfkc *kdfkc,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for noncetype found\n");
+		   "KAS ECC: No applicable entry for noncetype found\n");
 
 
 out:
@@ -287,7 +288,7 @@ static int acvp_req_kas_ecc_schema(const struct def_algo_kas_ecc *kas_ecc,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for kas_ecc_role found\n");
+		   "KAS ECC: No applicable entry for kas_ecc_role found\n");
 
 	switch(kas_ecc->kas_ecc_dh_type) {
 	case DEF_ALG_KAS_ECC_NO_KDF_NO_KC:
@@ -310,10 +311,11 @@ static int acvp_req_kas_ecc_schema(const struct def_algo_kas_ecc *kas_ecc,
 		CKINT(json_object_object_add(entry, "kdfKc", tmp));
 		CKINT(acvp_req_kas_ecc_kdfkc(kas_ecc->type_info.kdfkc, tmp));
 		break;
+	case DEF_ALG_KAS_ECC_CDH:
 	default:
 		json_object_put(tmp);
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown entry for kas_ecc_dh_type\n");
+		       "KAS ECC: Unknown entry for kas_ecc_dh_type\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -326,6 +328,7 @@ out:
  * Generate algorithm entry for SHA hashes
  */
 static int _acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
+				      const struct acvp_test_deps *deps,
 				      struct json_object *entry, bool full,
 				      bool publish)
 {
@@ -349,7 +352,7 @@ static int _acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 	}
 
 	CKINT(acvp_req_gen_prereq(kas_ecc->prereqvals, kas_ecc->prereqvals_num,
-				  entry, publish));
+				  deps, entry, publish));
 
 	if (!full)
 		goto out;
@@ -383,7 +386,7 @@ static int _acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for kas_ecc_function found\n");
+		   "KAS ECC: No applicable entry for kas_ecc_function found\n");
 
 	if (kas_ecc->kas_ecc_dh_type == DEF_ALG_KAS_ECC_CDH) {
 		const struct def_algo_kas_ecc_cdh_component *cdh_component =
@@ -391,7 +394,7 @@ static int _acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 
 		if (kas_ecc->kas_ecc_schema != DEF_ALG_KAS_ECC_CDH_COMPONENT) {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "kas_ecc_dh_type points to CDH component but kas_ecc_schema does not\n");
+			       "KAS ECC: kas_ecc_dh_type points to CDH component but kas_ecc_schema does not\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -410,7 +413,7 @@ static int _acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 	if (kas_ecc->kas_ecc_schema & DEF_ALG_KAS_ECC_EPHEMERAL_UNIFIED) {
 		if (kas_ecc->kas_ecc_dh_type == DEF_ALG_KAS_ECC_KDF_KC) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "ephemeralUnified does not support key confirmation\n");
+			       "KAS ECC: ephemeralUnified does not support key confirmation\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -464,20 +467,21 @@ static int _acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for kas_ecc_schema found\n");
+		   "KAS ECC: No applicable entry for kas_ecc_schema found\n");
 
 out:
 	return ret;
 }
 
 int acvp_req_set_prereq_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
+				const struct acvp_test_deps *deps,
 				struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_algo_kas_ecc(kas_ecc, entry, false, publish);
+	return _acvp_req_set_algo_kas_ecc(kas_ecc, deps, entry, false, publish);
 }
 
 int acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 			      struct json_object *entry)
 {
-	return _acvp_req_set_algo_kas_ecc(kas_ecc, entry, true, false);
+	return _acvp_req_set_algo_kas_ecc(kas_ecc, NULL, entry, true, false);
 }

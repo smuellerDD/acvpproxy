@@ -34,12 +34,12 @@ static int acvp_req_rsa_modulo(enum rsa_mode rsa_mode, enum rsa_modulo modulo,
 {
 	int ret = 0;
 
-	switch(modulo) {
+	switch (modulo) {
 	case DEF_ALG_RSA_MODULO_1024:
 		if (rsa_mode != DEF_ALG_RSA_MODE_SIGVER &&
 		    rsa_mode != DEF_ALG_RSA_MODE_LEGACY_SIGVER) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "RSA modulo 1024 only allowed for (legacy and regulars) signature verification\n");
+			       "RSA: modulo 1024 only allowed for (legacy and regulars) signature verification\n");
 			return -EINVAL;
 		}
 		CKINT(json_object_object_add(entry, "modulo",
@@ -73,9 +73,10 @@ static int acvp_req_rsa_modulo(enum rsa_mode rsa_mode, enum rsa_modulo modulo,
 		CKINT(json_object_object_add(entry, "modulo",
 					     json_object_new_int(8192)));
 		break;
+	case DEF_ALG_RSA_MODULO_UNDEF:
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown RSA modulo definition\n");
+		       "RSA: Unknown RSA modulo definition\n");
 		return -EINVAL;
 	}
 
@@ -95,7 +96,7 @@ static int acvp_req_rsa_pubexpmode(enum pubexpmode pubexpmode,
 					     json_object_new_string("fixed")));
 		if (!fixedpubexp) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "fixedPubExp not defined\n");
+			       "RSA: fixedPubExp not defined\n");
 			return -EINVAL;
 		}
 		CKINT(json_object_object_add(entry, "fixedPubExp",
@@ -107,7 +108,7 @@ static int acvp_req_rsa_pubexpmode(enum pubexpmode pubexpmode,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown RSA pubExpMode definition\n");
+		       "RSA: Unknown RSA pubExpMode definition\n");
 		return -EINVAL;
 	}
 
@@ -135,7 +136,7 @@ static int acvp_req_rsa_add_sigtype(enum sigtype sigtype,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown RSA sigType definition\n");
+		       "RSA: Unknown RSA sigType definition\n");
 		return -EINVAL;
 	}
 
@@ -195,7 +196,7 @@ static int acvp_req_rsa_hashalg(cipher_t hashalg, enum rsa_modulo modulo,
 						hashlen = 64;
 				} else {
 					logger(LOGGER_WARN, LOGGER_C_ANY,
-					       "Unknown hash value %s\n", algo);
+					       "RSA: Unknown hash value %s\n", algo);
 					ret = -EINVAL;
 					goto out;
 				}
@@ -275,7 +276,7 @@ static int _acvp_req_rsa_keygen(enum rsa_mode rsa_mode,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown RSA randPQ definition\n");
+		       "RSA: Unknown RSA randPQ definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;
@@ -316,7 +317,7 @@ static int acvp_req_rsa_keyformat(enum keyformat keyformat,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown RSA keyFormat definition\n");
+		       "RSA: Unknown RSA keyFormat definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;
@@ -396,8 +397,21 @@ static int _acvp_req_rsa_siggen(enum rsa_mode rsa_mode,
 		caps_entry = json_object_new_object();
 		CKNULL(caps_entry, -ENOMEM);
 		CKINT(json_object_array_add(caps_array, caps_entry));
-		CKINT(acvp_req_rsa_siggen_caps(rsa_mode, caps, caps_entry,
-					       caps->saltlen));
+
+		if (siggen->sigtype == DEF_ALG_RSA_SIGTYPE_PSS &&
+		    caps->saltlen == DEF_ALG_RSA_PSS_SALT_IGNORE) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "RSA: PSS siggen requires a salt value\n");
+			return -EINVAL;
+		}
+
+		if (siggen->sigtype == DEF_ALG_RSA_SIGTYPE_PSS) {
+			CKINT(acvp_req_rsa_siggen_caps(rsa_mode, caps,
+				caps_entry, caps->saltlen));
+		} else {
+			CKINT(acvp_req_rsa_siggen_caps(rsa_mode, caps,
+				caps_entry, DEF_ALG_RSA_PSS_SALT_IGNORE));
+		}
 	}
 
 out:
@@ -535,6 +549,7 @@ out:
  * Generate algorithm entry for symmetric ciphers
  */
 static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
+				  const struct acvp_test_deps *deps,
 				  struct json_object *entry, bool full,
 				  bool publish)
 {
@@ -588,13 +603,13 @@ static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown RSA keygen definition\n");
+		       "RSA: Unknown RSA keygen definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;
 	}
 
-	CKINT(acvp_req_gen_prereq(rsa->prereqvals, rsa->prereqvals_num,
+	CKINT(acvp_req_gen_prereq(rsa->prereqvals, rsa->prereqvals_num, deps,
 				  entry, publish));
 
 
@@ -605,14 +620,15 @@ out:
 }
 
 int acvp_req_set_prereq_rsa(const struct def_algo_rsa *rsa,
+			    const struct acvp_test_deps *deps,
 			    struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_algo_rsa(rsa, entry, false, publish);
+	return _acvp_req_set_algo_rsa(rsa, deps, entry, false, publish);
 }
 
 int acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 			  struct json_object *entry)
 {
-	return _acvp_req_set_algo_rsa(rsa, entry, true, false);
+	return _acvp_req_set_algo_rsa(rsa, NULL, entry, true, false);
 }
 

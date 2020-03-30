@@ -40,7 +40,7 @@ static int acvp_req_eddsa_keygen(const struct def_algo_eddsa *eddsa,
 
 	CKINT_LOG(acvp_req_cipher_to_array(entry, eddsa->curve,
 					   ACVP_CIPHERTYPE_ECC, "curve"),
-		  "Addition of curve specification failed\n");
+		  "EDDSA: Addition of curve specification failed\n");
 
 	tmp = json_object_new_array();
 	CKNULL(tmp, -ENOMEM);
@@ -80,7 +80,6 @@ out:
 	return ret;
 }
 
-
 static int acvp_req_eddsa_siggen(const struct def_algo_eddsa *eddsa,
 				 struct json_object *entry)
 {
@@ -91,7 +90,7 @@ static int acvp_req_eddsa_siggen(const struct def_algo_eddsa *eddsa,
 
 	CKINT_LOG(acvp_req_cipher_to_array(entry, eddsa->curve,
 					   ACVP_CIPHERTYPE_ECC, "curve"),
-		  "Addition of curve specification failed\n");
+		  "EDDSA: Addition of curve specification failed\n");
 
 	switch(eddsa->eddsa_pure) {
 	case DEF_ALG_EDDSA_PURE_SUPPORTED:
@@ -102,7 +101,7 @@ static int acvp_req_eddsa_siggen(const struct def_algo_eddsa *eddsa,
 		break;
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Wrong value for eddsa_pure\n");
+		       "EDDSA: Wrong value for eddsa_pure\n");
 		return -EINVAL;
 	}
 	CKINT(json_object_object_add(entry, "pure",
@@ -117,7 +116,7 @@ static int acvp_req_eddsa_siggen(const struct def_algo_eddsa *eddsa,
 		break;
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Wrong value for eddsa_prehash\n");
+		       "EDDSA: Wrong value for eddsa_prehash\n");
 		return -EINVAL;
 	}
 	CKINT(json_object_object_add(entry, "preHash",
@@ -143,6 +142,7 @@ out:
  * Generate algorithm entry for symmetric ciphers
  */
 static int _acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
+				    const struct acvp_test_deps *deps,
 				    struct json_object *entry, bool full,
 				    bool publish)
 {
@@ -178,15 +178,15 @@ static int _acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown EDDSA keygen definition\n");
+		       "EDDSA: Unknown EDDSA keygen definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;
 	}
 
 	CKINT_LOG(acvp_req_gen_prereq(eddsa->prereqvals, eddsa->prereqvals_num,
-				      entry, publish),
-		  "Cannot add prerequisites\n");
+				      deps, entry, publish),
+		  "EDDSA: Cannot add prerequisites\n");
 
 	ret = 0;
 
@@ -195,13 +195,14 @@ out:
 }
 
 int acvp_req_set_prereq_eddsa(const struct def_algo_eddsa *eddsa,
+			      const struct acvp_test_deps *deps,
 			      struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_algo_eddsa(eddsa, entry, false, publish);
+	return _acvp_req_set_algo_eddsa(eddsa, deps, entry, false, publish);
 }
 
 int acvp_req_set_algo_eddsa(const struct def_algo_eddsa *eddsa,
 			    struct json_object *entry)
 {
-	return _acvp_req_set_algo_eddsa(eddsa, entry, true, false);
+	return _acvp_req_set_algo_eddsa(eddsa, NULL, entry, true, false);
 }

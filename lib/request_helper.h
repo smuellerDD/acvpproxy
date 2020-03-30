@@ -40,6 +40,30 @@ static inline bool acvp_match_cipher(cipher_t combination, cipher_t single)
 }
 
 /*
+ * Check that one given length definition is larger than the minimum
+ * and smaller than a given maximum
+ */
+int acvp_req_valid_range_one(unsigned int min, unsigned int max,
+			     unsigned int step, int supported_length);
+
+/*
+ * Check that a supported length definition is larger than the minimum
+ * and smaller than a given maximum
+ */
+int acvp_req_valid_range(unsigned int min, unsigned int max, unsigned int step,
+			 const int supported_lengths[]);
+/*
+ * Check whether a value is in a supported length definition.
+ *
+ * @param val [in] Value to be checked
+ * @param supported_lengths [in] Range domain or list of integers defining the
+ *				 range of allowed parameters.
+ *
+ * return 0 if value is within the range. < 0 on error
+ */
+int acvp_req_in_range(unsigned int val, const int supported_lengths[]);
+
+/*
  * Add a domain specification with min/max/increment to entry at keyword
  * key.
  */
@@ -67,7 +91,9 @@ int acvp_req_algo_int_array_len(struct json_object *entry, const int vals[],
  * Generate the prerequisite entry
  */
 int acvp_req_gen_prereq(const struct def_algo_prereqs *in_prereqs,
-			unsigned int num, struct json_object *entry,
+			unsigned int num,
+			const struct acvp_test_deps *deps,
+			struct json_object *entry,
 			bool publish);
 
 /*
@@ -163,6 +189,18 @@ int acvp_extend_string(char *string, size_t stringmaxlen,
  *	  ID as the last pathname component which is obtained by this helper.
  */
 int acvp_get_trailing_number(const char *string, uint32_t *number);
+
+/**
+ * Perform an exact or fuzzy match between two search strings.
+ * @param searchstr needle
+ * @param defstr haystack
+ * @param fuzzy_search If true, perform a substring search, otherwise an
+ *		       exact search is performed.
+ *
+ * @return true for match, false for no match
+ */
+bool acvp_find_match(const char *searchstr, const char *defstr,
+		     bool fuzzy_search);
 
 
 #ifdef __cplusplus

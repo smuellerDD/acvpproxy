@@ -30,6 +30,7 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_pbkdf(const struct def_algo_pbkdf *pbkdf,
+			      const struct acvp_test_deps *deps,
 			      struct json_object *entry, bool publish)
 {
 	int ret;
@@ -40,7 +41,7 @@ int acvp_req_set_prereq_pbkdf(const struct def_algo_pbkdf *pbkdf,
 				     json_object_new_string("pbkdf")));
 
 	CKINT(acvp_req_gen_prereq(pbkdf->prereqvals,
-				  pbkdf->prereqvals_num, entry, publish));
+				  pbkdf->prereqvals_num, deps, entry, publish));
 
 out:
 	return ret;
@@ -57,7 +58,7 @@ int acvp_req_set_algo_pbkdf(const struct def_algo_pbkdf *pbkdf,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_set_prereq_pbkdf(pbkdf, entry, false));
+	CKINT(acvp_req_set_prereq_pbkdf(pbkdf, NULL, entry, false));
 
 	caps_array = json_object_new_array();
 	CKNULL(caps_array, -ENOMEM);

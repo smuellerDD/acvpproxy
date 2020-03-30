@@ -1,3 +1,17 @@
+v1.3.0
+- add --rename-procname, --rename-procseries, --rename-procfamily
+- add SP800-56A rev3 registration capabilities
+- add SP800-56A rev3 safe primes registration capabilities
+- addition of sanity checks of cipher definitions
+- add --list-cert-details
+- add --testid -1 support to download all pending testIDs
+- add --logfile
+- add vsID and test session ID to logging information
+- add SP800-56B rev2 registration capabilities
+- add automated dependency handling - see README.md section "Automated Dependency Handling"
+- add manual dependency handling - see README.md section "Manual Dependency Handling"
+- add --list-request-ids-sparse to make life for NIST easier
+
 v1.2.5
 - reenable SIGQUIT signal handling
 - prevent crash in signal handler

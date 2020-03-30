@@ -17,6 +17,8 @@ SECUREDATA_DIR="secure-datastore"
 MODULEDEF_DIR="module_definitions"
 # ACVP Proxy extension directory
 EXTENSION_DIR="module_implementations"
+# ACVP Proxy log file
+LOGFILE="acvp-proxy"
 
 # name of the executable
 PROXYBIN="acvp-proxy"
@@ -25,10 +27,12 @@ PROXYBIN="acvp-proxy"
 # DO NOT CHANGE THE CODE AFTER THIS LINE #
 ##########################################
 
+DATE=$(date "+%Y%m%d-%H-%M-%S")
 # Global variables
 INVOCATION_TYPE=""
 SHOW_CMD=""
 PRODUCTION=""
+DOLOG=0
 
 PRODUCTION_CONF="acvpproxy_conf_production.json"
 DEMO_CONF="acvpproxy_conf.json"
@@ -55,7 +59,7 @@ fi
 
 usage() {
 	echo "Usage:"
-	echo "$0 [--official] [--show-cmd] [get|post|publish|list|status]"
+	echo "$0 [--official] [--show-cmd] [--log] [get|post|publish|list|status|approval]"
 	echo
 	echo "$0 must be used with one of the following commands"
 	echo -e "\tlist\t\tList the module definitions in scope for operations"
@@ -63,10 +67,12 @@ usage() {
 	echo -e "\tpost\t\tPost the test responses to ACVP server and get verdicts"
 	echo -e "\tpublish\t\tPublish the tests to obtain certificate"
 	echo -e "\tstatus\t\tList of verdicts, request IDs and certificates"
+	echo -e "\tapproval\t\tGet files that vendor must approve"
 	echo
 	echo "The following additional options are allowed"
 	echo -e "\t--official\tUse the production ACVP server (default: demo server)"
 	echo -e "\t--show-cmp\tShow the used ACVP Proxy command without execution"
+	echo -e "\t--log\t\tCreate log file with detailed logging"
 }
 
 # Invoke command
@@ -116,7 +122,8 @@ compileExtension() {
 	then
 		local dir=${PROXYCODEPATH}
 
-		trap "make -s -C $TARGETDIR/$EXTENSION_DIR clean; exit" 0 1 2 3 15
+		trap "make -s -C $TARGETDIR/$EXTENSION_DIR clean; exit" 0 1 2 15
+		trap "killall -3 ${PROXYBIN}; make -s -C $TARGETDIR/$EXTENSION_DIR clean; exit" 3
 
 		if [ ! -d "$dir" ]
 		then
@@ -161,8 +168,11 @@ setParams() {
 			"--show-cmd")
 				SHOW_CMD="y"
 				;;
-			"get"|"post"|"publish"|"list"|"status")
+			"get"|"post"|"publish"|"list"|"status"|"approval")
 				INVOCATION_TYPE=$arg
+				;;
+			"--log")
+				DOLOG=1
 				;;
 			*)
 				PARAMS="$PARAMS $arg"
@@ -214,6 +224,21 @@ setParams() {
 	fi
 }
 
+addlogging()
+{
+	local file=$1
+
+	if [ -z "$file" ]
+	then
+		return
+	fi
+
+	if [ $DOLOG -eq 1 ]
+	then
+		echo "-vvv --logfile $file"
+	fi
+}
+
 checkPrereqs()
 {
 	if [ ! -d "$TARGETDIR" ]
@@ -228,8 +253,35 @@ checkPrereqs()
 	fi
 }
 
+getVendorApprovalPackage()
+{
+	local moddef=""
+	local dirs=""
+	if [ -d "$TARGETDIR/${MODULEDEF_DIR}" ]
+	then
+		moddef="$TARGETDIR/${MODULEDEF_DIR}"
+	elif [ -n "$PROXYCODEPATH" ]
+	then
+		moddef="$PROXYCODEPATH/${MODULEDEF_DIR}"
+	elif [ -d "${MODULEDEF_DIR}" ]
+	then
+		moddef="${MODULEDEF_DIR}"
+	else
+		echo "Module definition not found - either create directory $TARGETDIR/${MODULEDEF_DIR} and store the module definitions there or point PROXYCODEPATH to the ACVP Proxy source code repository that may have the module definitions."
+		exit 1
+	fi
+
+	dirs="${dirs} $(find ${moddef} -name oe)"
+	dirs="${dirs} $(find ${moddef} -name vendor)"
+	dirs="${dirs} $(find ${moddef} -name module_info)"
+	dirs="${dirs} $(find $TARGETDIR/${SECUREDATA_DIR}${PRODUCTION} -name request-*.json)"
+
+	tar -cJf vendor-approval-package-${DATE}.tar.xz $dirs
+}
+
 getvectors() {
-	invoke $PROXYBIN $PARAMS --request
+	local log="${LOGFILE}-post-${DATE}.log"
+	invoke $PROXYBIN $PARAMS --request $(addlogging "$log")
 
 	echo
 	echo "Archive $TARGETDIR/${TESTVECTORS_DIR}${PRODUCTION} and send this archive to vendor to process it with the ACVP Parser."
@@ -243,7 +295,8 @@ getvectors() {
 }
 
 postvectors() {
-	invoke $PROXYBIN $PARAMS
+	local log="${LOGFILE}-post-${DATE}.log"
+	invoke $PROXYBIN $PARAMS $(addlogging "$log")
 
 	invoke $PROXYBIN $PARAMS --list-verdicts
 
@@ -252,9 +305,10 @@ postvectors() {
 }
 
 publish() {
-	invoke $PROXYBIN $PARAMS --publish
+	local log="${LOGFILE}-publish-${DATE}.log"
+	invoke $PROXYBIN $PARAMS --publish $(addlogging $log)
 
-	invoke $PROXYBIN $PARAMS --list-request-ids
+	invoke $PROXYBIN $PARAMS --list-request-ids-sparse
 
 	echo
 	echo "Check the above listing - if request IDs are present, inform NIST to approve them and re-invoke this command."
@@ -274,12 +328,17 @@ statuslist() {
 	echo
 	echo "Listing of outstanding request IDs"
 	echo "=================================="
-	invoke $PROXYBIN $PARAMS --list-request-ids
+	invoke $PROXYBIN $PARAMS --list-request-ids-sparse
 	
 	echo
 	echo "Listing of obtained certificates"
 	echo "================================"
 	invoke $PROXYBIN $PARAMS --list-certificates
+
+	echo
+	echo "Listing for TE.01.12.01"
+	echo "======================="
+	invoke $PROXYBIN $PARAMS --list-cert-details
 }
 
 listscope() {
@@ -307,6 +366,9 @@ case "$INVOCATION_TYPE" in
 		;;
 	"status")
 		statuslist
+		;;
+	"approval")
+		getVendorApprovalPackage
 		;;
 	*)
 		echo "Unknown invocation type $INVOCATION_TYPE"

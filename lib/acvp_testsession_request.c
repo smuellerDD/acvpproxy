@@ -278,6 +278,23 @@ static int acvp_req_set_algo(struct json_object *algorithms,
 	case DEF_ALG_TYPE_PBKDF:
 		CKINT(acvp_req_set_algo_pbkdf(&def_algo->algo.pbkdf, entry));
 		break;
+	case DEF_ALG_TYPE_KAS_FFC_R3:
+		CKINT(acvp_req_set_algo_kas_ffc_r3(&def_algo->algo.kas_ffc_r3,
+						   entry));
+		break;
+	case DEF_ALG_TYPE_KAS_ECC_R3:
+		CKINT(acvp_req_set_algo_kas_ecc_r3(&def_algo->algo.kas_ecc_r3,
+						   entry));
+		break;
+	case DEF_ALG_TYPE_SAFEPRIMES:
+		CKINT(acvp_req_set_algo_safeprimes(&def_algo->algo.safeprimes,
+						   entry));
+		break;
+	case DEF_ALG_TYPE_KAS_IFC:
+		CKINT(acvp_req_set_algo_kas_ifc(&def_algo->algo.kas_ifc,
+						entry));
+		break;
+
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "Unknown algorithm definition type\n");
@@ -405,7 +422,7 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 	}
 
 	/* Strip the version array entry and get the data. */
-	CKINT(acvp_req_strip_version(result_data->buf, &resp, &data));
+	CKINT(acvp_req_strip_version(result_data, &resp, &data));
 
 	/* Server asked us to retry in given number of seconds */
 	if (!json_get_uint(data, "retry", &sleep_time)) {
@@ -575,6 +592,8 @@ static int acvp_process_req_thread(void *arg)
 	int ret;
 
 	free(tdata);
+
+	thread_set_name(acvp_vsid, vsid_ctx->vsid);
 
 	ret = acvp_get_testvectors(vsid_ctx);
 
@@ -846,6 +865,8 @@ static int acvp_get_testid(struct acvp_testid_ctx *testid_ctx,
 	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Received testID: %u\n",
 	       testid_ctx->testid);
 
+	thread_set_name(acvp_testid, testid_ctx->testid);
+
 	/* Write test request */
 	CKINT(acvp_register_dump_request(testid_ctx, request));
 
@@ -870,7 +891,7 @@ static int acvp_process_req(struct acvp_testid_ctx *testid_ctx,
 	 * Strip the version from the received array and return the array
 	 * entry containing the answer.
 	 */
-	CKINT(acvp_req_strip_version(response->buf, &req, &entry));
+	CKINT(acvp_req_strip_version(response, &req, &entry));
 
 	/* Extract testID URL and ID number */
 	CKINT(acvp_get_testid(testid_ctx, request, entry));
@@ -1063,9 +1084,11 @@ static int acvp_register_thread(void *arg)
 {
 	struct acvp_thread_reqresp_ctx *tdata = arg;
 	const struct acvp_ctx *ctx = tdata->ctx;
-	const struct definition *def = tdata->def;
+	const struct definition *def = tdata->def;\
 
 	free(tdata);
+
+	thread_set_name(acvp_testid, 0);
 
 	return _acvp_register(ctx, def);
 }

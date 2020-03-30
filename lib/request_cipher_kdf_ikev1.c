@@ -30,6 +30,7 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
+				  const struct acvp_test_deps *deps,
 				  struct json_object *entry, bool publish)
 {
 	int ret;
@@ -40,7 +41,8 @@ int acvp_req_set_prereq_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
 				     json_object_new_string("ikev1")));
 
 	CKINT(acvp_req_gen_prereq(kdf_ikev1->prereqvals,
-				  kdf_ikev1->prereqvals_num, entry, publish));
+				  kdf_ikev1->prereqvals_num, deps, entry,
+				  publish));
 
 out:
 	return ret;
@@ -57,7 +59,7 @@ int acvp_req_set_algo_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_set_prereq_kdf_ikev1(kdf_ikev1, entry, false));
+	CKINT(acvp_req_set_prereq_kdf_ikev1(kdf_ikev1, NULL, entry, false));
 
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);
@@ -83,7 +85,7 @@ int acvp_req_set_algo_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
 	default:
 		json_object_put(tmp);
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Wrong value in authentication_method\n");
+		       "IKEv1: Wrong value in authentication_method\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -101,7 +103,7 @@ int acvp_req_set_algo_kdf_ikev1(const struct def_algo_kdf_ikev1 *kdf_ikev1,
 	if (kdf_ikev1->authentication_method == DEF_ALG_KDF_IKEV1_PSK) {
 		if (!kdf_ikev1->pre_shared_key_length[0]) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "PSK pre_shared_key_length not filled in\n");
+			       "IKEv1: PSK pre_shared_key_length not filled in\n");
 			ret = -EINVAL;
 			goto out;
 		}

@@ -30,13 +30,14 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_cmac(const struct def_algo_cmac *cmac,
+			     const struct acvp_test_deps *deps,
 			     struct json_object *entry, bool publish)
 {
 	int ret;
 
 	CKINT(acvp_req_cipher_to_string(entry, cmac->algorithm,
 					ACVP_CIPHERTYPE_MAC, "algorithm"));
-	CKINT(acvp_req_gen_prereq(&cmac->prereqvals, 1, entry, publish));
+	CKINT(acvp_req_gen_prereq(&cmac->prereqvals, 1, deps, entry, publish));
 
 out:
 	return ret;
@@ -54,7 +55,7 @@ int acvp_req_set_algo_cmac(const struct def_algo_cmac *cmac,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_set_prereq_cmac(cmac, entry, false));
+	CKINT(acvp_req_set_prereq_cmac(cmac, NULL, entry, false));
 
 	caps_array = json_object_new_array();
 	CKNULL(caps_array, -ENOMEM);
@@ -79,6 +80,8 @@ int acvp_req_set_algo_cmac(const struct def_algo_cmac *cmac,
 
 	CKINT(acvp_req_tdes_keyopt(caps, cmac->algorithm));
 
+	CKINT_LOG(acvp_req_valid_range(0, 524288, 8, cmac->msglen),
+		  "CMAC: message length is outside of allowed range (0 - 524288)\n");
 	CKINT(acvp_req_algo_int_array(caps, cmac->msglen, "msgLen"));
 
 	/*
@@ -90,12 +93,14 @@ int acvp_req_set_algo_cmac(const struct def_algo_cmac *cmac,
 		maclen = 128;
 	else {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Cannot determine mac length for keyed message digest %s\n",
+		       "CMAC: Cannot determine mac length for keyed message digest %s\n",
 		       cmac->algorithm);
 		ret = -EINVAL;
 		goto out;
 	}
 	/* This is a domain definition */
+	CKINT_LOG(acvp_req_valid_range_one(32, 128, 8, maclen),
+		  "CMAC: MAC length is outside of allowed range (32 - 128)\n");
 	CKINT(acvp_req_algo_int_array_len(caps, &maclen, 1, "macLen"));
 
 out:

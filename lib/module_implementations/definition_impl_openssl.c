@@ -156,7 +156,7 @@ static const struct def_algo_prereqs aes_prereqs[] = {
 	{								\
 	OPENSSL_DRBG_CAPS_AES128,					\
 	.entropyinputlen = { 256, },					\
-	.noncelen = { DEF_ALG_ZERO_VALUE },				\
+	.noncelen = { 64 },						\
 	.df = false							\
 	}
 
@@ -178,7 +178,7 @@ static const struct def_algo_prereqs aes_prereqs[] = {
 	{								\
 	OPENSSL_DRBG_CAPS_AES192,					\
 	.entropyinputlen = { 320, },					\
-	.noncelen = { DEF_ALG_ZERO_VALUE, },				\
+	.noncelen = { 96, },						\
 	.df = false							\
 	}
 
@@ -200,7 +200,7 @@ static const struct def_algo_prereqs aes_prereqs[] = {
 	{								\
 	OPENSSL_DRBG_CAPS_AES256,					\
 	.entropyinputlen = { 384, },					\
-	.noncelen = { DEF_ALG_ZERO_VALUE, },				\
+	.noncelen = { 128, },						\
 	.df = false							\
 	}
 
@@ -405,6 +405,20 @@ static const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps[] = { {
 	OPENSSL_RSA_SIGGEN_CAPS_COMMON
 } };
 
+static const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps_pss[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
+	OPENSSL_RSA_SIGGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
+	OPENSSL_RSA_SIGGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
+	OPENSSL_RSA_SIGGEN_CAPS_COMMON
+} };
+
 #define OPENSSL_RSA_SIGGEN_CAPS_X931					\
 	.hashalg = ACVP_SHA1 | ACVP_SHA256 | ACVP_SHA384 |		\
 		   ACVP_SHA512
@@ -426,8 +440,8 @@ static const struct def_algo_rsa_siggen openssl_rsa_siggen[] = { {
 	.capabilities_num = ARRAY_SIZE(openssl_rsa_siggen_caps),
 }, {
 	.sigtype = DEF_ALG_RSA_SIGTYPE_PSS,
-	.capabilities = openssl_rsa_siggen_caps,
-	.capabilities_num = ARRAY_SIZE(openssl_rsa_siggen_caps),
+	.capabilities = openssl_rsa_siggen_caps_pss,
+	.capabilities_num = ARRAY_SIZE(openssl_rsa_siggen_caps_pss),
 }, {
 	.sigtype = DEF_ALG_RSA_SIGTYPE_ANSIX931,
 	.capabilities = openssl_rsa_siggen_caps_x931,
@@ -861,16 +875,42 @@ static const struct def_algo openssl_aes [] = {
 };
 
 static const struct def_algo openssl_gcm [] = {
+	//TODO remove after automated dependency handling is in place
 	OPENSSL_AES_ECB,
 
 	OPENSSL_AES_GCM,
-	OPENSSL_AES_GMAC,
+	//zero length data not supported by OpenSSL
+	//OPENSSL_AES_GMAC,
 	OPENSSL_AES_GCM_IIV,
 
+	//TODO remove after automated dependency handling is in place
 	OPENSSL_DRBG_CTR
 };
 
+static const struct def_algo openssl_ffcdh [] = {
+	//TODO remove after automated dependency handling is in place
+	OPENSSL_AES_ECB,
+
+	//TODO remove after automated dependency handling is in place
+	OPENSSL_SHA(ACVP_SHA224),
+	OPENSSL_SHA(ACVP_SHA256),
+
+	//TODO remove after automated dependency handling is in place
+	OPENSSL_DRBG_CTR,
+
+	/* DH_generate_key */
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA256),
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA384),
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA512),
+
+	OPENSSL_KAS_FFC,
+};
+
 static const struct def_algo openssl_sha [] = {
+	/* Dependencies */
+	OPENSSL_AES_ECB,
+	OPENSSL_DRBG_CTR,
+
 	OPENSSL_SHA(ACVP_SHA1),
 	OPENSSL_SHA(ACVP_SHA224),
 	OPENSSL_SHA(ACVP_SHA256),
@@ -901,11 +941,13 @@ static const struct def_algo openssl_sha [] = {
 	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256, ACVP_SHA384),
 	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256, ACVP_SHA512),
 
+	/* DSA_generate_key */
 	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA256),
 	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA384),
 	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA512),
 
-	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_1024, DEF_ALG_DSA_N_160, ACVP_SHA1),
+	//TODO OpenSSL SLES does not have 1024 bits, RHEL has it
+	//OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_1024, DEF_ALG_DSA_N_160, ACVP_SHA1),
 	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224, ACVP_SHA224),
 	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256, ACVP_SHA256),
 	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA256),
@@ -937,7 +979,6 @@ static const struct def_algo openssl_sha [] = {
 
 	OPENSSL_KDF,
 	OPENSSL_KAS_ECC,
-	OPENSSL_KAS_FFC,
 	OPENSSL_KAS_ECC_CDH,
 
 	OPENSSL_PBKDF(ACVP_SHA1 |
@@ -1152,6 +1193,12 @@ static struct def_algo_map openssl_algo_map [] = {
 		.processor = "X86",
 		.impl_name = "SHA3_ASM"
 	}, {
+	/* OpenSSL FFC DH implementation **************************************/
+		SET_IMPLEMENTATION(openssl_ffcdh),
+		.algo_name = "OpenSSL",
+		.processor = "",
+		.impl_name = "FFC_DH"
+	}, {
 
 	/*
 	 * OpenSSL 1.0.x upstream DRBG implementation that may have been
@@ -1221,6 +1268,11 @@ static struct def_algo_map openssl_algo_map [] = {
 		.processor = "ARM64",
 		.impl_name = "CE"
 	}, {
+		SET_IMPLEMENTATION(openssl_gcm),
+		.algo_name = "OpenSSL",
+		.processor = "ARM64",
+		.impl_name = "CE_GCM"
+	}, {
 	/* OpenSSL ARM64v8 NEON bit slicing implementation ********************
 	 * Note: we may execute more ciphers than strictly provided by the NEON
 	 * implementation, but we do not care
@@ -1229,6 +1281,11 @@ static struct def_algo_map openssl_algo_map [] = {
 		.algo_name = "OpenSSL",
 		.processor = "ARM64",
 		.impl_name = "VPAES"
+	}, {
+		SET_IMPLEMENTATION(openssl_gcm),
+		.algo_name = "OpenSSL",
+		.processor = "ARM64",
+		.impl_name = "VPAES_GCM"
 	}, {
 	/* OpenSSL S390x Assembler implementation *****************************
 	 * Note: we may execute more ciphers than strictly provided by the ASM
@@ -1255,6 +1312,11 @@ static struct def_algo_map openssl_algo_map [] = {
 		.algo_name = "OpenSSL",
 		.processor = "S390",
 		.impl_name = "AESASM"
+	}, {
+		SET_IMPLEMENTATION(openssl_gcm),
+		.algo_name = "OpenSSL",
+		.processor = "S390",
+		.impl_name = "AESASM_ASM"
 
 	},
 };

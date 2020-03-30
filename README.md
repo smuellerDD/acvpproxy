@@ -161,7 +161,7 @@ Compile-time options can be specified in the `lib/config.h` file.
 The ACVP Proxy requires the presence of the following libraries and the
 associated header files:
 
-- libcurl
+- libcurl (not on macOS)
 
 With these limited prerequisites, the code can be compiled and executed at
 least on the following operating systems:
@@ -325,6 +325,12 @@ The JSON files in the `oe` directory must contain the following JSON keywords:
 * `envType`: Type of the execution environment which is a selection from
   `enum def_mod_type`.
 
+* `dependencies-internal`: This keyword is optional. For details, see section
+  about automated dependency handling.
+
+* `dependencies-external`: This keyword is optional. For details, see section
+  about manual dependency handling.
+
 The JSON files in the `vendor` directory must contain the following JSON
 keywords:
 
@@ -335,6 +341,12 @@ keywords:
 * `contactName`: Name of the contact person at the vendor.
 
 * `contactEmail`: Email address of the vendor's contact person.
+
+* `dependencies-internal`: This keyword is optional. For details, see section
+  about automated dependency handling.
+
+* `dependencies-external`: This keyword is optional. For details, see section
+  about manual dependency handling.
 
 The JSON files in the `module_info` directory must contain the following JSON
 keywords:
@@ -359,12 +371,156 @@ keywords:
 * `moduleType`: Type of the module which is a selection from
   `enum def_mod_type`.
 
+* `dependencies-internal`: This keyword is optional. For details, see section
+  about automated dependency handling.
+
+* `dependencies-external`: This keyword is optional. For details, see section
+  about manual dependency handling.
+
 The JSON files in the `implementations` directory must contain the following
 JSON keywords:
 
 * `implementations`: This keyword must point to an array or one or more
   supported names which match the `impl_name` variable in the algorithm
   definitions of the C code.
+
+* `dependencies-internal`: This keyword is optional. For details, see section
+  about automated dependency handling.
+
+* `dependencies-external`: This keyword is optional. For details, see section
+  about manual dependency handling.
+
+## Dependency Handling
+
+Some cipher algorithm testing requires that subordinate ciphers are tested
+as well. These subordinated ciphers must be announced to the ACVP server.
+
+For example, when testing a Hash DRBG, the SHA cipher must be tested as well.
+
+Usually it is common that such dependencies are provided with the same test
+session. For example, you define the Hash DRBG and the supporting SHA cipher
+for the same test session. In some cases that is either not desired or not
+possible.
+
+The ACVP Proxy supports the dependency handling. The following two cases are
+possible:
+
+* Internal dependencies: The IUT implements the depending cipher, but it is
+  tested with a different test session. Both test sessions are executed
+  for the same IUT module, version and operational environment. In this case,
+  the ACVP Proxy is able to automatically resolve the dependencies and announce
+  the correct dependencies to the server. For details see the following section
+  about automated dependency handling.
+
+* External dependencies: If a depending cipher is not provided by the IUT,
+  the ACVP Proxy allows the user to specify the certificate number. The
+  ACVP Proxy will announce the certificate reference to the ACVP server. For
+  details, see the following section about manual dependency handling.
+
+### Automated Dependency Handling
+
+The ACVP Proxy supports automated dependency handling by inserting the newly
+obtained ACVP certificate ID as a dependency for another cipher. This alleviates
+the user from manually juggling dependencies of cipher definitions as mandated
+by the ACVP protocol.
+
+For example, you define an FFC DH cipher for one test session which requires
+a DRBG and a SHA dependency. The DRBG and SHA tests are provided with another
+test session. Instead of manually track these dependencies and fill in newly
+obtained certificates into the FFC DH definition, the ACVP Proxy can do that
+for you.
+
+The ACVP Proxy requires that the automated dependency resolution is confined
+to one IUT only. I.e. if you, say, have OpenSSL with multiple different
+test sessions defined, you can define inter-dependencies between these
+test sessions. Though, the ACVP Proxy does not allow you to define one
+dependency from OpenSSL to another IUT such as the Linux kernel. If you have
+such dependencies, you still must manually track those.
+
+To inform the ACVP Proxy about dependencies, the configuration file in the
+`implementations`, `oe`, `vendors` and/or `module_info` directories may contain
+the keyword `dependencies-internal`. This keyword points to an object listing
+all implementation references and their dependencies. For example, the following
+`implementations` file illustrates the use:
+
+```
+{
+	"implementations": [
+		"SP800-38A AES Implementation with DRBG",
+		"SP800-38D GCM Implementation",
+	],
+
+	"dependencies-internal": {
+		"SP800-38D GCM Implementation": {
+			"AES": "SP800-38A AES Impl",
+			"DRBG": "SP800-38A AES Implementation with DRBG"
+		},
+	}
+}
+```
+
+This example defines two different cipher implementations.
+"SP800-38A AES Implementation with DRBG" provides AES-ECB, AES-CBC and a
+CTR-DRBG. "SP800-38D GCM Implementation" defines AES-GCM with random IV
+generation which based on the ACVP protocol has a dependency to the underlying
+AES and to the DRBG. With the `dependencies`, an dependency entry for these
+two dependencies from "SP800-38D GCM Implementation" to
+"SP800-38A AES Implementation with DRBG" is defined.
+
+It is permissible to specify a substring when referencing to a depending
+definition as it is visible in the example above for the `AES` dependency.
+In case the substring will resolve to more than one definition the ACVP Proxy
+will match the first one.
+
+During the resolution of dependencies, the ACVP Proxy will make sure that
+dependencies apply to the same vendor, execution environment, processor,
+module name and module version. For example, if you have a module definition
+with two operational environments in the `oe` module instantiation, the ACVP
+Proxy will automatically ensure that a module definition for the same
+operational environment is used to fulfill the dependency.
+
+During publication phase, both implementations are published in unison.
+However, when the final certificate request is made, the GCM implementation
+will not be registered for a certificate unless the certificate for the
+AES implementation is awarded. Once the AES implementation certificate is
+available, the certificate number is used to announce the dependency during
+the GCM implementation certificate request.
+
+Besides the initial definition of the dependencies, you do not need to
+manually track these dependencies any more.
+
+### Manual Dependency handling
+
+In case the ACVP Proxy is unable to resolve a dependency within an IUT,
+the user is allowed to specify dependencies to existing certificates.
+
+The configuration is almost identical to the automated dependency handling
+except that instead of the pointer to the internal implementation,
+a pointer to the existing certificate is provided.
+
+For example, the following configuration for `oe` illustrates the approach:
+
+```
+{
+        "oeEnvName": "My Module",
+        "cpe": "some_cpe",
+        "manufacturer": "Intel",
+        "procFamily": "X86",
+        "procName": "i7",
+        "procSeries": "Broadwell",
+        "features": 7,
+        "envType": 2,
+        "dependencies-external": {
+                "SP800-38D GCM Implementation": {
+                        "DRBG": "DRBG 1234"
+                },
+        }
+}
+```
+
+This configuration adds the dependency for GCM for DRBG to the DRBG
+certificate `DRBG 1234` for all test sessions covering the execution environment
+specified with the `oe` configuration file.
 
 ## Usage
 
@@ -480,7 +636,9 @@ internal or sensitive data as follows:
 The ACVP Proxy uses the following cryptographic support:
 
 - TLS: This is provided by the TLS implementation used by CURL. Commonly this
-  is provided by either OpenSSL or NSS. Those libraries are FIPS 140-2 validated
+  is provided by either OpenSSL or NSS. On macOS, the native TLS provider is
+  used which in turn uses the FIPS 140-2 validated Corecrypto library for
+  the cryptographic support. Those libraries are FIPS 140-2 validated
   and thus should be used according to the security policy.
 
 - TOTP: HMAC SHA-256 is used as the cipher for the TOTP operation.

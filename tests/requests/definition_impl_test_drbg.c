@@ -49,7 +49,7 @@ static const struct def_algo_prereqs aes_prereqs[] = {
 	{								\
 	TESTS_DRBG_CAPS_AES128,						\
 	.entropyinputlen = { 256, },					\
-	.noncelen = { DEF_ALG_ZERO_VALUE },				\
+	.noncelen = { 64 },						\
 	.df = false							\
 	}
 
@@ -71,7 +71,7 @@ static const struct def_algo_prereqs aes_prereqs[] = {
 	{								\
 	TESTS_DRBG_CAPS_AES192,						\
 	.entropyinputlen = { 320, },					\
-	.noncelen = { DEF_ALG_ZERO_VALUE, },				\
+	.noncelen = { 96, },						\
 	.df = false							\
 	}
 
@@ -93,7 +93,7 @@ static const struct def_algo_prereqs aes_prereqs[] = {
 	{								\
 	TESTS_DRBG_CAPS_AES256,						\
 	.entropyinputlen = { 384, },					\
-	.noncelen = { DEF_ALG_ZERO_VALUE, },				\
+	.noncelen = { 128, },						\
 	.df = false							\
 	}
 

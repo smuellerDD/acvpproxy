@@ -30,6 +30,7 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_kdf_108(const struct def_algo_kdf_108 *kdf_108,
+				const struct acvp_test_deps *deps,
 				struct json_object *entry, bool publish)
 {
 	int ret;
@@ -38,66 +39,53 @@ int acvp_req_set_prereq_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 				     json_object_new_string("KDF")));
 
 	CKINT(acvp_req_gen_prereq(kdf_108->prereqvals,
-				  kdf_108->prereqvals_num, entry, publish));
+				  kdf_108->prereqvals_num, deps, entry,
+				  publish));
 
 out:
 	return ret;
 }
 
-/*
- * Generate algorithm entry for SP800-108 KDF
- */
-int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
-			      struct json_object *entry)
+int acvp_req_set_algo_kdf_108_details(const struct def_algo_kdf_108 *kdf_108,
+				      struct json_object *entry)
 {
-	struct json_object *array, *tmp;
+	struct json_object *array;
 	int ret;
 	bool found = false;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
-
-	CKINT(acvp_req_set_prereq_kdf_108(kdf_108, entry, false));
-
-	array = json_object_new_array();
-	CKNULL(array, -ENOMEM);
-	CKINT(json_object_object_add(entry, "capabilities", array));
-
-	tmp = json_object_new_object();
-	CKNULL(tmp, -ENOMEM);
-	CKINT(json_object_array_add(array, tmp));
-
 	switch (kdf_108->kdf_108_type) {
 	case DEF_ALG_KDF_108_COUNTER:
-		CKINT(json_object_object_add(tmp, "kdfMode",
+		CKINT(json_object_object_add(entry, "kdfMode",
 					     json_object_new_string("counter")));
 		break;
 	case DEF_ALG_KDF_108_FEEDBACK:
-		CKINT(json_object_object_add(tmp, "kdfMode",
+		CKINT(json_object_object_add(entry, "kdfMode",
 			json_object_new_string("feedback")));
 		break;
 	case DEF_ALG_KDF_108_DOUBLE_PIPELINE_ITERATION:
-		CKINT(json_object_object_add(tmp, "kdfMode",
+		CKINT(json_object_object_add(entry, "kdfMode",
 			json_object_new_string("double pipeline iteration")));
 		break;
 	default:
-		logger(LOGGER_WARN, LOGGER_C_ANY, "Unknown kdf_108_type\n");
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "SP800-108 KDF: Unknown kdf_108_type\n");
 		ret = -EINVAL;
 		goto out;
 	}
 
-	CKINT(acvp_req_cipher_to_array(tmp, kdf_108->macalg,
+	CKINT(acvp_req_cipher_to_array(entry, kdf_108->macalg,
 				       ACVP_CIPHERTYPE_MAC, "macMode"));
 
-	CKINT(acvp_req_algo_int_array(tmp, kdf_108->supported_lengths,
+	CKINT(acvp_req_algo_int_array(entry, kdf_108->supported_lengths,
 				      "supportedLengths"));
 
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);
-	CKINT(json_object_object_add(tmp, "fixedDataOrder", array));
+	CKINT(json_object_object_add(entry, "fixedDataOrder", array));
 	if (kdf_108->fixed_data_order & DEF_ALG_KDF_108_COUNTER_ORDER_NONE) {
 		if (kdf_108->kdf_108_type == DEF_ALG_KDF_108_COUNTER) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "DEF_ALG_KDF_108_COUNTER_ORDER_NONE not allowed for counter KDF mode\n");
+			       "SP800-108 KDF: DEF_ALG_KDF_108_COUNTER_ORDER_NONE not allowed for counter KDF mode\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -123,7 +111,7 @@ int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 		    kdf_108->kdf_108_type ==
 		     DEF_ALG_KDF_108_DOUBLE_PIPELINE_ITERATION) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "DEF_ALG_KDF_108_COUNTER_ORDER_MIDDLE_FIXED_DATA not allowed for feedback and double pipeline iteration KDF mode\n");
+			       "SP800-108 KDF: DEF_ALG_KDF_108_COUNTER_ORDER_MIDDLE_FIXED_DATA not allowed for feedback and double pipeline iteration KDF mode\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -136,7 +124,7 @@ int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 	    DEF_ALG_KDF_108_COUNTER_ORDER_BEFORE_ITERATOR) {
 		if (kdf_108->kdf_108_type == DEF_ALG_KDF_108_COUNTER) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "DEF_ALG_KDF_108_COUNTER_ORDER_BEFORE_ITERATOR not allowed for counter KDF mode\n");
+			       "SP800-108 KDF: DEF_ALG_KDF_108_COUNTER_ORDER_BEFORE_ITERATOR not allowed for counter KDF mode\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -149,11 +137,11 @@ int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 	found = false;
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);
-	CKINT(json_object_object_add(tmp, "counterLength", array));
+	CKINT(json_object_object_add(entry, "counterLength", array));
 	if (kdf_108->counter_lengths & DEF_ALG_KDF_108_COUNTER_LENGTH_0) {
 		if (kdf_108->kdf_108_type == DEF_ALG_KDF_108_COUNTER) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "DEF_ALG_KDF_108_COUNTER_LENGTH_0 not allowed for counter KDF mode\n");
+			       "SP800-108 KDF: DEF_ALG_KDF_108_COUNTER_LENGTH_0 not allowed for counter KDF mode\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -176,10 +164,40 @@ int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 		CKINT(json_object_array_add(array, json_object_new_int(32)));
 		found = true;
 	}
-	CKNULL_LOG(found, -EINVAL, "counter_lengths contains wrong data\n");
+	CKNULL_LOG(found, -EINVAL,
+		   "SP800-108 KDF: counter_lengths contains wrong data\n");
 
-	CKINT(json_object_object_add(tmp, "supportsEmptyIv",
+	CKINT(json_object_object_add(entry, "supportsEmptyIv",
 			json_object_new_boolean(kdf_108->supports_empty_iv)));
+	CKINT(json_object_object_add(entry, "requiresEmptyIv",
+			json_object_new_boolean(kdf_108->requires_empty_iv)));
+
+out:
+	return ret;
+}
+
+/*
+ * Generate algorithm entry for SP800-108 KDF
+ */
+int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
+			      struct json_object *entry)
+{
+	struct json_object *array, *tmp;
+	int ret;
+
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+
+	CKINT(acvp_req_set_prereq_kdf_108(kdf_108, NULL, entry, false));
+
+	array = json_object_new_array();
+	CKNULL(array, -ENOMEM);
+	CKINT(json_object_object_add(entry, "capabilities", array));
+
+	tmp = json_object_new_object();
+	CKNULL(tmp, -ENOMEM);
+	CKINT(json_object_array_add(array, tmp));
+
+	CKINT(acvp_req_set_algo_kdf_108_details(kdf_108, tmp));
 
 out:
 	return ret;

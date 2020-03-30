@@ -186,7 +186,7 @@ static int acvp_vendor_get_match(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-	CKINT(acvp_req_strip_version(buf.buf, &resp, &data));
+	CKINT(acvp_req_strip_version(&buf, &resp, &data));
 	CKINT(acvp_vendor_match(def_vendor, data));
 
 out:

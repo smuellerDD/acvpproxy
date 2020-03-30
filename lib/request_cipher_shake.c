@@ -38,7 +38,7 @@ int acvp_req_set_algo_shake(const struct def_algo_shake *shake,
 	    shake->outlength[1] > 65536 ||
 	    acvp_range_min_val(shake->outlength) < 16) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "SHAKE output min/max definition does not match requirements (16 <= n <= 65536)\n");
+		       "SHAKE: output min/max definition does not match requirements (16 <= n <= 65536)\n");
 		return -EINVAL;
 	}
 

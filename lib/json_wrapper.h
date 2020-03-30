@@ -24,6 +24,7 @@
 #include <json-c/json.h>
 
 #include "bool.h"
+#include "buffer.h"
 #include "logger.h"
 
 #ifdef __cplusplus
@@ -92,7 +93,7 @@ int acvp_req_add_version(struct json_object *array);
  * Note: Caller must release full_json. The parsed value is only a pointer into
  * full_json.
  */
-int acvp_req_strip_version(const uint8_t *buf,
+int acvp_req_strip_version(const struct acvp_buf *buf,
 			   struct json_object **full_json,
 			   struct json_object **parsed);
 

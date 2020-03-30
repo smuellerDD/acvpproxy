@@ -1361,6 +1361,8 @@ static int acvp_datastore_file_find_responses_thread(void *arg)
 
 	free(tdata);
 
+	thread_set_name(acvp_vsid, vsid_ctx->vsid);
+
 	ret = acvp_datastore_process_vsid(vsid_ctx, datastore_base, secure_base,
 					  cb);
 
@@ -1698,7 +1700,8 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 			unsigned int i, found = 0;
 
 			for (i = 0; i < search->nr_submit_testid; i++) {
-				if (search->submit_testid[i] == testid) {
+				if (search->submit_testid[i] == testid ||
+				    search->submit_testid[i] == UINT_MAX) {
 					found = 1;
 					break;
 				}

@@ -22,12 +22,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <time.h>
 
 #include "binhexbin.h"
 #include "build_bug_on.h"
 #include "logger.h"
 #include "term_colors.h"
+#include "threading_support.h"
 
 #include "internal.h"
 
@@ -38,6 +40,8 @@ struct logger_class_map {
 	const enum logger_class class;
 	const char *logdata;
 };
+
+static FILE *logger_stream = NULL;
 
 static const struct logger_class_map logger_class_mapping[] =
 {
@@ -70,6 +74,8 @@ static void logger_severity(enum logger_verbosity severity, char *sev,
 	case LOGGER_ERR:
 		snprintf(sev, sevlen, "Error");
 		break;
+	case LOGGER_NONE:
+	case LOGGER_MAX_LEVEL:
 	default:
 		snprintf(sev, sevlen, "Unknown");
 	}
@@ -123,6 +129,7 @@ void logger(enum logger_verbosity severity, enum logger_class class,
 	char msg[4096];
 	char sev[10];
 	char c[30];
+	char thread_name[ACVP_THREAD_MAX_NAMELEN];
 
 	if (severity > logger_verbosity_level)
 		return;
@@ -155,14 +162,17 @@ void logger(enum logger_verbosity severity, enum logger_class class,
 	case LOGGER_ERR:
 		fprintf_color = &fprintf_red;
 		break;
+	case LOGGER_NONE:
+	case LOGGER_MAX_LEVEL:
 	default:
 		fprintf_color = &fprintf;
 	}
 
-	fprintf_color(stderr, "ACVPProxy (%.2d:%.2d:%.2d) %s%s: ",
+	thread_get_name(thread_name, sizeof(thread_name));
+	fprintf_color(logger_stream, "ACVPProxy (%.2d:%.2d:%.2d) (%s) %s%s: ",
 		      now_detail.tm_hour, now_detail.tm_min, now_detail.tm_sec,
-		      sev, c);
-	fprintf(stderr, "%s", msg);
+		      thread_name, sev, c);
+	fprintf(logger_stream, "%s", msg);
 }
 
 DSO_PUBLIC
@@ -174,12 +184,14 @@ void logger_status(enum logger_class class, const char *fmt, ...)
 	int ret;
 	char msg[256];
 	char c[30];
+	char thread_name[ACVP_THREAD_MAX_NAMELEN];
 
 	va_start(args, fmt);
 	vsnprintf(msg, sizeof(msg), fmt, args);
 	va_end(args);
 
-	if (logger_verbosity_level != LOGGER_WARN &&
+	if (logger_stream == stderr &&
+	    logger_verbosity_level != LOGGER_WARN &&
 	    logger_verbosity_level != LOGGER_ERR) {
 		logger(LOGGER_VERBOSE, class, msg);
 		return;
@@ -192,9 +204,10 @@ void logger_status(enum logger_class class, const char *fmt, ...)
 	if (ret)
 		return;
 
-	fprintf_magenta(stderr, "ACVPProxy (%.2d:%.2d:%.2d) Status%s: ",
+	thread_get_name(thread_name, sizeof(thread_name));
+	fprintf_magenta(stderr, "ACVPProxy (%.2d:%.2d:%.2d) (%s) Status%s: ",
 			now_detail.tm_hour, now_detail.tm_min,
-			now_detail.tm_sec, c);
+			now_detail.tm_sec, thread_name, c);
 	fprintf(stderr, "%s", msg);
 }
 
@@ -224,7 +237,44 @@ void logger_binary(enum logger_verbosity severity, enum logger_class class,
 	snprintf(msg, sizeof(msg), "ACVPProxy (%.2d:%.2d:%.2d) %s%s: %s",
 		 now_detail.tm_hour, now_detail.tm_min, now_detail.tm_sec,
 		 sev, c, str);
-	bin2print(bin, binlen, stderr, msg);
+	bin2print(bin, binlen, logger_stream, msg);
+}
+
+static void logger_destructor(void)
+{
+	if (logger_stream && logger_stream != stderr)
+		fclose(logger_stream);
+}
+
+ACVP_DEFINE_CONSTRUCTOR(logger_constructor)
+static void logger_constructor(void)
+{
+	logger_stream = stderr;
+}
+
+FILE *logger_log_stream(void)
+{
+	return logger_stream;
+}
+
+DSO_PUBLIC
+int logger_set_file(const char *pathname)
+{
+	FILE *out;
+	int ret = 0;
+
+	out = fopen(pathname, "a");
+	CKNULL(out, -errno);
+	if (!logger_stream || logger_stream == stderr)
+		logger_stream = out;
+	else {
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Reject to set new log file\n");
+		return -EFAULT;
+	}
+	atexit(logger_destructor);
+
+out:
+	return ret;
 }
 
 DSO_PUBLIC

@@ -44,7 +44,7 @@ int acvp_get_verdict_json(const struct acvp_buf *verdict_buf,
 	const char *result;
 	bool test_passed;
 
-	CKINT_LOG(acvp_req_strip_version(verdict_buf->buf, &verdict_full,
+	CKINT_LOG(acvp_req_strip_version(verdict_buf, &verdict_full,
 					 &verdict),
 		  "JSON parser cannot parse verdict data\n");
 
@@ -90,7 +90,7 @@ int acvp_get_algoinfo_json(const struct acvp_buf *buf,
 	int ret;
 	const char *tmp;
 
-	CKINT_LOG(acvp_req_strip_version(buf->buf, &algo_full,
+	CKINT_LOG(acvp_req_strip_version(buf, &algo_full,
 					 &algo),
 		  "JSON parser cannot parse verdict data\n");
 

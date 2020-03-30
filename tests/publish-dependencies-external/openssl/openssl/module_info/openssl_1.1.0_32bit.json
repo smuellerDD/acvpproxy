@@ -1,0 +1,16 @@
+{
+  "moduleName":"OpenSSL (32 bit)",
+  "moduleVersion":"4.0",
+  "moduleDescription":"OpenSSL library implementation providing cryptographic services to Linux user space software components. The module was tested with 32 bit word size.",
+  "moduleType":0,
+  "acvpModuleIds":[
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESNI)",
+      "acvpModuleId":12130
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESNI_AVX)",
+      "acvpModuleId":12113
+    }
+  ]
+}

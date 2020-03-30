@@ -382,7 +382,7 @@ struct def_algo_rsa {
 	} gen_info;
 
 	/*
-	 * Specific cipher requiest information. One or more instances of the
+	 * Specific cipher request information. One or more instances of the
 	 * following structure are allowed. If multiple instances are used,
 	 * they must all be allocated adjacent in memory and the @param
 	 * algspecs_num variable must indicate the number of instances.

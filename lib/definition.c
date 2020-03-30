@@ -31,6 +31,7 @@
 #include "json_wrapper.h"
 #include "logger.h"
 #include "mutex.h"
+#include "request_helper.h"
 
 /* List of instantiated module definitions */
 static DEFINE_MUTEX_UNLOCKED(def_mutex);
@@ -147,43 +148,6 @@ static void acvp_register_def(struct definition *curr_def)
 out:
 	mutex_unlock(&def_mutex);
 	return;
-}
-
-/* Return true when a match is found, otherwise false */
-static bool acvp_find_match(const char *searchstr, const char *defstr,
-			    bool fuzzy_search)
-{
-	/* If no searchstring is provided, we match */
-	if (!searchstr)
-		return true;
-	if (!defstr)
-		return true;
-
-	if (fuzzy_search) {
-		/* We perform a substring search */
-		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Fuzzy search for %s in string %s\n", searchstr, defstr);
-
-		if (strstr(defstr, searchstr))
-			return true;
-		else
-			return false;
-	} else {
-		size_t defstr_len = strlen(defstr);
-		size_t searchstr_len = strlen(searchstr);
-
-		/* Exact search */
-		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Exact search for %s in string %s\n", searchstr, defstr);
-
-		if (defstr_len != searchstr_len)
-			return false;
-
-		if (strncmp(searchstr, defstr, defstr_len))
-			return false;
-		else
-			return true;
-	}
 }
 
 struct definition *acvp_find_def(const struct acvp_search_ctx *search,
@@ -307,13 +271,30 @@ out:
 	return ret;
 }
 
+static int acvp_match_def_search(struct acvp_search_ctx *search,
+				 const struct definition *def)
+{
+	const struct def_vendor *vendor = def->vendor;
+	const struct def_info *mod_info = def->info;
+	const struct def_oe *oe = def->oe;
+
+	if (!acvp_find_match(search->modulename, mod_info->module_name, false) ||
+	    !acvp_find_match(search->moduleversion, mod_info->module_version,
+			     false) ||
+	    !acvp_find_match(search->orig_modulename,
+			     mod_info->orig_module_name, false) ||
+	    !acvp_find_match(search->vendorname, vendor->vendor_name, false) ||
+	    !acvp_find_match(search->execenv, oe->oe_env_name, false) ||
+	    !acvp_find_match(search->processor, oe->proc_name, false)) {
+		return -ENOENT;
+	}
+	return 0;
+}
+
 int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
 		   struct json_object *def_config)
 {
 	const struct definition *def = testid_ctx->def;
-	const struct def_vendor *vendor = def->vendor;
-	const struct def_info *mod_info = def->info;
-	const struct def_oe *oe = def->oe;
 	struct acvp_search_ctx search;
 	int ret;
 
@@ -331,21 +312,15 @@ int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(json_get_string(def_config, "processor",
 			      (const char **)&search.processor));
 
-	if (!acvp_find_match(search.modulename, mod_info->module_name, false) ||
-	    !acvp_find_match(search.moduleversion, mod_info->module_version,
-			     false) ||
-	    !acvp_find_match(search.vendorname, vendor->vendor_name, false) ||
-	    !acvp_find_match(search.execenv, oe->oe_env_name, false) ||
-	    !acvp_find_match(search.processor, oe->proc_name, false)) {
+	ret = acvp_match_def_search(&search, def);
+	if (ret) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Crypto definition for testID %u for current search does not match with old search\n",
 		       testid_ctx->testid);
-		ret = -ENOENT;
 	} else {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Crypto definition for testID %u for current search matches with old search\n",
 		       testid_ctx->testid);
-		ret = 0;
 	}
 
 out:
@@ -470,6 +445,8 @@ static void acvp_def_del_info(struct definition *def)
 	info = def->info;
 
 	ACVP_PTR_FREE_NULL(info->module_name);
+	ACVP_PTR_FREE_NULL(info->impl_name);
+	ACVP_PTR_FREE_NULL(info->orig_module_name);
 	ACVP_PTR_FREE_NULL(info->module_name_filesafe);
 	ACVP_PTR_FREE_NULL(info->module_name_internal);
 	ACVP_PTR_FREE_NULL(info->module_version);
@@ -528,6 +505,31 @@ static void acvp_def_del_oe(struct definition *def)
 	ACVP_PTR_FREE_NULL(def->oe);
 }
 
+static void acvp_def_del_deps(struct definition *def)
+{
+	struct def_deps *deps;
+
+	if (!def || !def->deps)
+		return;
+
+	deps = def->deps;
+
+	while (deps) {
+		struct def_deps *tmp = deps->next;
+
+		ACVP_PTR_FREE_NULL(deps->dep_cipher);
+		ACVP_PTR_FREE_NULL(deps->dep_name);
+		ACVP_PTR_FREE_NULL(deps);
+
+		/*
+		 * deps->dependency is freed by the deallocation of the
+		 * definition.
+		 */
+
+		deps = tmp;
+	}
+}
+
 int acvp_def_module_name(char **newname, const char *module_name,
 			 const char *impl_name)
 {
@@ -568,6 +570,8 @@ static int acvp_def_add_info(struct definition *def, struct def_info *src,
 
 	CKINT(acvp_def_module_name(&info->module_name, src->module_name,
 				   impl_name));
+	CKINT(acvp_duplicate(&info->impl_name, impl_name));
+	CKINT(acvp_duplicate(&info->orig_module_name, src->module_name));
 	CKINT(acvp_duplicate(&info->module_name_filesafe, info->module_name));
 	CKINT(acvp_duplicate(&info->module_name_internal,
 			     info->module_name_internal));
@@ -671,6 +675,199 @@ out:
 	return ret;
 }
 
+static int acvp_def_add_deps(struct definition *def,
+			     struct json_object *json_deps,
+			     enum acvp_deps_type dep_type)
+{
+	const struct def_info *info;
+	struct def_deps *deps;
+	struct json_object *my_dep;
+	struct json_object_iter one_dep;
+	int ret;
+
+	CKNULL_LOG(def, -EINVAL, "Definition context missing\n");
+	if (!json_deps) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "No dependency definition found\n");
+		ret = 0;
+		goto out;
+	}
+
+	deps = def->deps;
+	info = def->info;
+	CKNULL_LOG(def, -EINVAL, "Module information context missing\n");
+
+	/* Try finding the dependency for our definition */
+	ret = json_find_key(json_deps, info->impl_name, &my_dep,
+			    json_type_object);
+	if (ret) {
+		/* Not found, skipping further processing */
+		ret = 0;
+		goto out;
+	}
+
+	/* Iterate over the one or more entries found in the configuration */
+	json_object_object_foreachC(my_dep, one_dep) {
+		/* Allocate a linked-list entry for the definition */
+		if (deps) {
+			/* fast-forward to the end */
+			while (deps->next)
+				deps = deps->next;
+
+			deps->next = calloc(1, sizeof(*deps));
+			CKNULL(deps->next, -ENOMEM);
+			deps = deps->next;
+		} else {
+			/* First entry */
+			deps = calloc(1, sizeof(*deps));
+			CKNULL(deps, -ENOMEM);
+			def->deps = deps;
+		}
+
+		/*
+		 * The key is the cipher name for which the dependency is
+		 * used.
+		 */
+		CKINT(acvp_duplicate(&deps->dep_cipher, one_dep.key));
+		/*
+		 * The value is the pointer to the impl_name fulfilling the
+		 * dependency.
+		 */
+		CKINT(acvp_duplicate(&deps->dep_name,
+				     json_object_get_string(one_dep.val)));
+
+		/* Store the type of the defintion */
+		deps->deps_type = dep_type;
+
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Initiate dependency for %s: type %s -> %s\n",
+		       info->impl_name, deps->dep_cipher, deps->dep_name);
+	}
+
+out:
+	return ret;
+}
+
+/*
+ * Fill in the def_deps->dependency pointers
+ *
+ * The code iterates through the dependency linked list and tries to find
+ * the definition matching the impl_name defined by the dependency. If a
+ * match is found, the pointer to the definition is added to the dependency
+ * for later immediate resolution.
+ */
+static int acvp_def_wire_deps(void)
+{
+	struct definition *curr_def;
+	int ret = 0;
+
+	mutex_lock(&def_mutex);
+	if (!def_head)
+		goto out;
+
+	/* Iterate through the linked list of the registered definitions. */
+	for (curr_def = def_head; curr_def != NULL; curr_def = curr_def->next) {
+		const struct def_vendor *vendor;
+		const struct def_oe *oe;
+		const struct def_info *curr_info;
+		struct def_deps *deps;
+		struct acvp_search_ctx search;
+
+		if (!curr_def->deps)
+			continue;
+
+		vendor = curr_def->vendor;
+		oe = curr_def->oe;
+		curr_info = curr_def->info;
+
+		/* Make sure that the dependency definition has the same OE. */
+		memset(&search, 0, sizeof(search));
+		search.orig_modulename = curr_info->orig_module_name;
+		search.moduleversion = curr_info->module_version;
+		search.vendorname = vendor->vendor_name;
+		search.execenv = oe->oe_env_name;
+		search.processor = oe->proc_name;
+
+		/* Iterate through the dependencies */
+		for (deps = curr_def->deps; deps != NULL; deps = deps->next) {
+			struct definition *s_def;
+
+			/*
+			 * We have an external certificate reference. The user
+			 * requested a manual dependency handling for this
+			 * entry, we do not resolve anything.
+			 */
+			if (deps->deps_type == acvp_deps_manual_resolution)
+				continue;
+
+			/*
+			 * Search through all definitions for a match of the
+			 * impl_name.
+			 */
+			for (s_def = def_head;
+			     s_def != NULL;
+			     s_def = s_def->next) {
+				struct def_info *info = s_def->info;
+
+				CKNULL(info, -EFAULT);
+
+				/*
+				 * We allow a fuzzy search. The reason is that
+				 * a dependency can be matched by any
+				 * implementation as long as it is tested.
+				 * For example, if we have a Hash DRBG which
+				 * depends on SHA, it does not matter whether
+				 * the dependency is covered by a SHA C
+				 * implementation or by a SHA assembler
+				 */
+				if (!acvp_find_match(deps->dep_name,
+						     info->impl_name, true))
+					continue;
+
+				/* We do not allow references to ourselves */
+				if (s_def == curr_def)
+					continue;
+
+				/*
+				 * Make sure that the dependency applies to our
+				 * environment.
+				 */
+				if (acvp_match_def_search(&search, s_def))
+					continue;
+
+				/* We found a match, wire it up */
+				deps->dependency = s_def;
+				logger(LOGGER_DEBUG, LOGGER_C_ANY,
+				       "Found dependency for %s: type %s -> %s (vendor name: %s, OE %s, processor %s)\n",
+				       curr_info->impl_name, deps->dep_cipher,
+				       info->impl_name, search.vendorname,
+				       search.execenv, search.processor);
+
+				/*
+				 * One match is sufficient. As we have a fuzzy
+				 * search criteria above, we may find multiple
+				 * matches.
+				 */
+				break;
+			}
+
+			/*
+			 * If we did not find anything, the references are
+			 * wrong
+			 */
+			CKNULL_LOG(deps->dependency, -EINVAL,
+				   "Unmatched dependency for %s: type %s -> %s (vendor name: %s, OE %s, processor %s)\n",
+				   curr_info->impl_name, deps->dep_cipher,
+				   deps->dep_name, search.vendorname,
+				   search.execenv, search.processor);
+		}
+	}
+
+out:
+	mutex_unlock(&def_mutex);
+	return ret;
+}
+
 static int acvp_def_init(struct definition **def_out, struct def_algo_map *map)
 {
 	struct definition *def;
@@ -698,6 +895,7 @@ static void acvp_def_release(struct definition *def)
 	acvp_def_del_oe(def);
 	acvp_def_del_vendor(def);
 	acvp_def_del_info(def);
+	acvp_def_del_deps(def);
 	free(def);
 }
 
@@ -1203,6 +1401,28 @@ static int acvp_check_features(uint64_t feature)
 	return 0;
 }
 
+static int acvp_def_load_deps(struct json_object *config,
+			      struct definition *def)
+{
+	struct json_object *deps_int = NULL, *deps_ext = NULL;
+	int ret;
+
+	/* Dependencies may not be defined */
+	json_find_key(config, "dependencies-internal", &deps_int,
+		      json_type_object);
+	json_find_key(config, "dependencies-external", &deps_ext,
+		      json_type_object);
+
+	/* First stage of dependencies */
+	CKINT(acvp_def_add_deps(def, deps_int,
+				acvp_deps_automated_resolution));
+	CKINT(acvp_def_add_deps(def, deps_ext,
+				acvp_deps_manual_resolution));
+
+out:
+	return ret;
+}
+
 static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 				const char *info_file, const char *impl_file)
 {
@@ -1353,7 +1573,7 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	mutex_lock(&def_uninstantiated_mutex);
 
 	for (map = def_uninstantiated_head; map != NULL; map = map->next) {
-		unsigned int i, found = 0;
+		size_t i, found = 0;
 
 		/* Ensure that configuration applies to map. */
 		if (strncmp(map->algo_name, local_module_name,
@@ -1366,9 +1586,7 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 		 * Match one of the requested implementation
 		 * configurations.
 		 */
-		for (i = 0;
-		     i < (uint32_t)json_object_array_length(impl_array);
-		     i++) {
+		for (i = 0; i < json_object_array_length(impl_array); i++) {
 			struct json_object *impl =
 				json_object_array_get_idx(impl_array, i);
 			const char *string;
@@ -1405,6 +1623,20 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 			goto unlock;
 
 		ret = acvp_def_add_info(def, &info, map->impl_name);
+		if (ret)
+			goto unlock;
+
+		/* First stage of dependencies */
+		ret = acvp_def_load_deps(impl_config, def);
+		if (ret)
+			goto unlock;
+		ret = acvp_def_load_deps(oe_config, def);
+		if (ret)
+			goto unlock;
+		ret = acvp_def_load_deps(vendor_config, def);
+		if (ret)
+			goto unlock;
+		ret = acvp_def_load_deps(info_config, def);
 		if (ret)
 			goto unlock;
 
@@ -1549,6 +1781,18 @@ int acvp_def_config(const char *directory)
 		}
 		rewinddir(info_dir);
 	}
+
+	/*
+	 * Resolving the dependencies at this point implies that the
+	 * dependency resolution is confined to an IUT. For example, if OpenSSL
+	 * has multiple cipher implementations defined, all of these
+	 * implementations are used for resolving the dependencies. But, say,
+	 * a reference to the Linux kernel API IUT will not be resolved.
+	 *
+	 * This is due to the fact that our current function only operates
+	 * on one given module definition directory.
+	 */
+	CKINT(acvp_def_wire_deps());
 
 out:
 	if (oe_dir)

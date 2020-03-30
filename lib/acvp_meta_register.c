@@ -36,7 +36,7 @@ static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 	const char *uri, *status;
 
 	/* Strip the version array entry and get the oe URI data. */
-	CKINT(acvp_req_strip_version(response->buf, &resp, &data));
+	CKINT(acvp_req_strip_version(response, &resp, &data));
 
 	/*
 	 * {
@@ -204,7 +204,6 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 			ret = 0;
 			goto out;
 		}
-
 
 		tmpbuf.buf = (uint8_t *)json_object_to_json_string_ext(
 						json_submission,

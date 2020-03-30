@@ -21,12 +21,10 @@
 #include "definition.h"
 #include "internal.h"
 
-static int acvp_rename_execenv(const struct acvp_testid_ctx *testid_ctx,
-			       const char *newname)
+static int acvp_rename_generic(const struct acvp_testid_ctx *testid_ctx,
+			       char **curr_ptr, const char *newname)
 {
-	const struct definition *def = testid_ctx->def;
-	struct def_oe *oe = def->oe;
-	char *curr_name = oe->oe_env_name;
+	char *curr_name = *curr_ptr;
 	char *newname_modify = NULL;
 	int ret;
 
@@ -35,14 +33,14 @@ static int acvp_rename_execenv(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_duplicate(&newname_modify, newname));
 
 	/* Update names */
-	oe->oe_env_name = newname_modify;
+	*curr_ptr = newname_modify;
 
 	/* Update definition */
 	CKINT(acvp_export_def_search(testid_ctx));
 
 	logger_status(LOGGER_C_ANY,
 		      "Rename of OE name for testID %u from %s to %s completed\n",
-		      testid_ctx->testid, curr_name, oe->oe_env_name);
+		      testid_ctx->testid, curr_name, newname_modify);
 
 	/*
 	 * We deliberately do not touch the module definition JSON files
@@ -54,7 +52,68 @@ static int acvp_rename_execenv(const struct acvp_testid_ctx *testid_ctx,
 out:
 	if (newname_modify)
 		free(newname_modify);
-	oe->oe_env_name = curr_name;
+	if (ret)
+		*curr_ptr = curr_name;
+	return ret;
+}
+
+static int acvp_rename_execenv(const struct acvp_testid_ctx *testid_ctx,
+			       const char *newname)
+{
+	const struct definition *def = testid_ctx->def;
+	struct def_oe *oe = def->oe;
+	int ret;
+
+	CKNULL(newname, 0);
+
+	CKINT(acvp_rename_generic(testid_ctx, &oe->oe_env_name, newname));
+
+out:
+	return ret;
+}
+
+static int acvp_rename_procname(const struct acvp_testid_ctx *testid_ctx,
+			        const char *newname)
+{
+	const struct definition *def = testid_ctx->def;
+	struct def_oe *oe = def->oe;
+	int ret;
+
+	CKNULL(newname, 0);
+
+	CKINT(acvp_rename_generic(testid_ctx, &oe->proc_name, newname));
+
+out:
+	return ret;
+}
+
+static int acvp_rename_procfamily(const struct acvp_testid_ctx *testid_ctx,
+			          const char *newname)
+{
+	const struct definition *def = testid_ctx->def;
+	struct def_oe *oe = def->oe;
+	int ret;
+
+	CKNULL(newname, 0);
+
+	CKINT(acvp_rename_generic(testid_ctx, &oe->proc_family, newname));
+
+out:
+	return ret;
+}
+
+static int acvp_rename_procseries(const struct acvp_testid_ctx *testid_ctx,
+			          const char *newname)
+{
+	const struct definition *def = testid_ctx->def;
+	struct def_oe *oe = def->oe;
+	int ret;
+
+	CKNULL(newname, 0);
+
+	CKINT(acvp_rename_generic(testid_ctx, &oe->proc_series, newname));
+
+out:
 	return ret;
 }
 
@@ -101,8 +160,12 @@ out:
 		free(newname_modify);
 	if (newname_unmodify)
 		free(newname_unmodify);
-	info->module_name = curr_name;
-	info->module_name_filesafe = curr_name_filesafe;
+
+	if (ret) {
+		info->module_name = curr_name;
+		info->module_name_filesafe = curr_name_filesafe;
+	}
+
 	return ret;
 }
 
@@ -147,8 +210,12 @@ out:
 		free(newversion_modify);
 	if (newversion_unmodify)
 		free(newversion_unmodify);
-	info->module_version = curr_version;
-	info->module_version_filesafe = curr_version_filesafe;
+
+	if (ret) {
+		info->module_version = curr_version;
+		info->module_version_filesafe = curr_version_filesafe;
+	}
+
 	return ret;
 }
 
@@ -169,6 +236,9 @@ static int acvp_rename_module_cb(const struct acvp_ctx *ctx,
 	CKINT(acvp_rename_version(&testid_ctx, rename_ctx->moduleversion_new));
 	CKINT(acvp_rename_name(&testid_ctx, rename_ctx->modulename_new));
 	CKINT(acvp_rename_execenv(&testid_ctx, rename_ctx->oe_env_name_new));
+	CKINT(acvp_rename_procname(&testid_ctx, rename_ctx->proc_name_new));
+	CKINT(acvp_rename_procseries(&testid_ctx, rename_ctx->proc_series_new));
+	CKINT(acvp_rename_procfamily(&testid_ctx, rename_ctx->proc_family_new));
 
 out:
 	return ret;

@@ -31,7 +31,7 @@
 # Example:
 #	TARGETDIR="/my/specific/IUT/path/acvpproxy"
 #
-TARGETDIR="$(pwd)"
+TARGETDIR="."
 
 #
 # Development environment of ACVP Proxy: point to the directory where either
@@ -55,7 +55,7 @@ PROXYCODEPATH=""
 # Example:
 #	PROXYVERSION="1020000"
 #
-PROXYVERSION="1020100"
+PROXYVERSION="1030000"
 
 #
 # Specify the ACVP search parameters if needed. As documented with the ACVP

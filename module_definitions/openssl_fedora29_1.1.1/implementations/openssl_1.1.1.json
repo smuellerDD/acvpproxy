@@ -6,6 +6,13 @@
 		"SSH_AVX2",
 		"SSH_AVX",
 		"SSH_SSSE3",
-		"SSH_ASM"
-	]
+		"SSH_ASM",
+		"FFC_DH"
+	],
+	"dependencies-internal": {
+		"FFC_DH": {
+			"SHA": "SHA_",
+			"DRBG": "AES"
+		}
+	}
 }

@@ -32,6 +32,86 @@ static inline int acvp_req_check_zero(const int val)
 	return ((val == DEF_ALG_ZERO_VALUE) ? 0 : val);
 }
 
+int acvp_req_valid_range_one(unsigned int min, unsigned int max,
+			     unsigned int step, int supported_length)
+{
+	if (supported_length < (int)min ||
+	    supported_length > (int)max ||
+	    supported_length % (int)step)
+		return -EINVAL;
+	return 0;
+}
+
+int acvp_req_valid_range(unsigned int min, unsigned int max, unsigned int step,
+			 const int supported_lengths[])
+{
+	unsigned int i;
+
+	/* Check with range domain. */
+	if (supported_lengths[0]  & DEF_ALG_RANGE_TYPE) {
+		int range_min = supported_lengths[0] & ~DEF_ALG_RANGE_TYPE;
+		int range_max = supported_lengths[1];
+		int range_step = supported_lengths[2];
+
+		if (range_min == DEF_ALG_ZERO_VALUE)
+			range_min = 0;
+
+		if (range_min >= (int)min && range_max <= (int)max &&
+		    !(range_step % (int)step) &&
+		    !(range_min % (int)step) && !(range_max % (int)step))
+			return 0;
+
+		return -EINVAL;
+	}
+
+	/* Check with finite set of integers. */
+	for (i = 0; i < DEF_ALG_MAX_INT; i++) {
+		int length = supported_lengths[i];
+		int ret;
+
+		if (!length)
+			break;
+
+		if (length == DEF_ALG_ZERO_VALUE)
+			length = 0;
+
+		ret = acvp_req_valid_range_one(min, max, step, length);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+int acvp_req_in_range(unsigned int val, const int supported_lengths[])
+{
+	unsigned int i;
+
+	/* Check with range domain. */
+	if (supported_lengths[0]  & DEF_ALG_RANGE_TYPE) {
+		int min = supported_lengths[0] & ~DEF_ALG_RANGE_TYPE;
+		int max = supported_lengths[1];
+		int inc = supported_lengths[2];
+
+		if (min <= (int)val &&
+		    max >= (int)val &&
+		    !((int)val % inc))
+			return 0;
+
+		return -EINVAL;
+	}
+
+	/* Check with finite set of integers. */
+	for (i = 0; i < DEF_ALG_MAX_INT; i++) {
+		if (!supported_lengths[i])
+			break;
+		if (supported_lengths[i] == (int)val)
+			return 0;
+	}
+
+	return -EINVAL;
+}
+
 int acvp_req_algo_domain(struct json_object *entry,
 			 int min, int max, int inc,
 			 const char *key)
@@ -194,10 +274,50 @@ int acvp_req_cipher_to_array(struct json_object *entry, cipher_t cipher,
 	return found ? 0 : -EINVAL;
 }
 
+/* Return true when a match is found, otherwise false */
+bool acvp_find_match(const char *searchstr, const char *defstr,
+		     bool fuzzy_search)
+{
+	/* If no searchstring is provided, we match */
+	if (!searchstr)
+		return true;
+	if (!defstr)
+		return true;
+
+	if (fuzzy_search) {
+		/* We perform a substring search */
+		logger(LOGGER_DEBUG2, LOGGER_C_ANY,
+		       "Fuzzy search for %s in string %s\n", searchstr, defstr);
+
+		if (strstr(defstr, searchstr))
+			return true;
+		else
+			return false;
+	} else {
+		size_t defstr_len = strlen(defstr);
+		size_t searchstr_len = strlen(searchstr);
+
+		/* Exact search */
+		logger(LOGGER_DEBUG2, LOGGER_C_ANY,
+		       "Exact search for %s in string %s\n", searchstr, defstr);
+
+		if (defstr_len != searchstr_len)
+			return false;
+
+		if (strncmp(searchstr, defstr, defstr_len))
+			return false;
+		else
+			return true;
+	}
+}
+
 int acvp_req_gen_prereq(const struct def_algo_prereqs *prereqs,
-			unsigned int num, struct json_object *entry,
+			unsigned int num,
+			const struct acvp_test_deps *deps,
+			struct json_object *entry,
 			bool publish)
 {
+	const struct acvp_test_deps *curr_dep;
 	struct json_object *tmp_array = NULL, *tmp = NULL;
 	unsigned int i;
 	int ret = 0;
@@ -209,8 +329,23 @@ int acvp_req_gen_prereq(const struct def_algo_prereqs *prereqs,
 	CKNULL(tmp_array, -ENOMEM);
 
 	for (i = 0; i < num; i++) {
+		const char *value;
+
 		if (!prereqs || !prereqs->algorithm || !prereqs->valvalue)
 			break;
+
+		value = prereqs->valvalue;
+
+		/* Set certificate number from dependencies */
+		for (curr_dep = deps;
+		     curr_dep != NULL;
+		     curr_dep = curr_dep->next) {
+			if (acvp_find_match(curr_dep->dep_cipher,
+					    prereqs->algorithm, false)) {
+				value = curr_dep->dep_cert;
+				break;
+			}
+		}
 
 		tmp = json_object_new_object();
 		CKNULL(tmp, -ENOMEM);
@@ -218,7 +353,7 @@ int acvp_req_gen_prereq(const struct def_algo_prereqs *prereqs,
 				json_object_new_string(prereqs->algorithm)));
 		CKINT(json_object_object_add(tmp, publish ? "validationId" :
 							    "valValue",
-				json_object_new_string(prereqs->valvalue)));
+				json_object_new_string(value)));
 		CKINT(json_object_array_add(tmp_array, tmp));
 
 		prereqs++;

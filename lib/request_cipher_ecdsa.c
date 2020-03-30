@@ -138,6 +138,7 @@ out:
  * Generate algorithm entry for symmetric ciphers
  */
 static int _acvp_req_set_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
+				    const struct acvp_test_deps *deps,
 				    struct json_object *entry, bool full,
 				    bool publish)
 {
@@ -173,14 +174,14 @@ static int _acvp_req_set_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown ECDSA keygen definition\n");
+		       "ECDSA: Unknown ECDSA keygen definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;
 	}
 
 	CKINT(acvp_req_gen_prereq(ecdsa->prereqvals, ecdsa->prereqvals_num,
-				  entry, publish));
+				  deps, entry, publish));
 
 	ret = 0;
 
@@ -189,13 +190,14 @@ out:
 }
 
 int acvp_req_set_prereq_ecdsa(const struct def_algo_ecdsa *ecdsa,
+			      const struct acvp_test_deps *deps,
 			      struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_algo_ecdsa(ecdsa, entry, false, publish);
+	return _acvp_req_set_algo_ecdsa(ecdsa, deps, entry, false, publish);
 }
 
 int acvp_req_set_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
 			    struct json_object *entry)
 {
-	return _acvp_req_set_algo_ecdsa(ecdsa, entry, true, false);
+	return _acvp_req_set_algo_ecdsa(ecdsa, NULL, entry, true, false);
 }

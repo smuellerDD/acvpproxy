@@ -90,9 +90,13 @@ static int acvp_get_certificate_info(const struct acvp_testid_ctx *testid_ctx,
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
+	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	ACVP_BUFFER_INIT(response);
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
+
+	if (req_details->dump_register)
+		return 0;
 
 	if (!certificate_id)
 		return -EINVAL;
@@ -154,7 +158,7 @@ static int acvp_publish_ready(const struct acvp_testid_ctx *testid_ctx)
 	 * Strip the version from the received array and return the array
 	 * entry containing the answer.
 	 */
-	CKINT(acvp_req_strip_version(response.buf, &req, &entry));
+	CKINT(acvp_req_strip_version(&response, &req, &entry));
 
 	/* Check that all test vectors passed */
 	CKINT(json_get_bool(entry, "passed", &val));
@@ -186,6 +190,7 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 				struct json_object *pub)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_test_deps *deps = testid_ctx->deps;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	const struct definition *def = testid_ctx->def;
 	struct json_object *prereq, *entry = NULL;
@@ -203,9 +208,9 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 		entry = json_object_new_object();
 		CKNULL(entry, -ENOMEM);
 
-		switch(def_algo->type) {
+		switch (def_algo->type) {
 		case DEF_ALG_TYPE_SYM:
-			CKINT(acvp_req_set_prereq_sym(&def_algo->algo.sym,
+			CKINT(acvp_req_set_prereq_sym(&def_algo->algo.sym, deps,
 						      entry, true));
 			break;
 		case DEF_ALG_TYPE_SHA:
@@ -216,64 +221,81 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 			break;
 		case DEF_ALG_TYPE_HMAC:
 			CKINT(acvp_req_set_prereq_hmac(&def_algo->algo.hmac,
-						       entry, true));
+						       deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_CMAC:
 			CKINT(acvp_req_set_prereq_cmac(&def_algo->algo.cmac,
-						       entry, true));
+						       deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_DRBG:
 			CKINT(acvp_req_set_prereq_drbg(&def_algo->algo.drbg,
-						       entry, true));
+						       deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_RSA:
 			CKINT(acvp_req_set_prereq_rsa(&def_algo->algo.rsa,
-						      entry, true));
+						      deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_ECDSA:
 			CKINT(acvp_req_set_prereq_ecdsa(&def_algo->algo.ecdsa,
-							entry, true));
+							deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_EDDSA:
 			CKINT(acvp_req_set_prereq_eddsa(&def_algo->algo.eddsa,
-							entry, true));
+							deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_DSA:
 			CKINT(acvp_req_set_prereq_dsa(&def_algo->algo.dsa,
-						      entry, true));
+						      deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_KAS_ECC:
 			CKINT(acvp_req_set_prereq_kas_ecc(
-				&def_algo->algo.kas_ecc, entry, true));
+				&def_algo->algo.kas_ecc, deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_KAS_FFC:
 			CKINT(acvp_req_set_prereq_kas_ffc(
-				&def_algo->algo.kas_ffc, entry, true));
+				&def_algo->algo.kas_ffc, deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_KDF_SSH:
 			CKINT(acvp_req_set_prereq_kdf_ssh(
-				&def_algo->algo.kdf_ssh, entry, true));
+				&def_algo->algo.kdf_ssh, deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_KDF_IKEV1:
 			CKINT(acvp_req_set_prereq_kdf_ikev1(
-				&def_algo->algo.kdf_ikev1, entry, true));
+				&def_algo->algo.kdf_ikev1, deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_KDF_IKEV2:
 			CKINT(acvp_req_set_prereq_kdf_ikev2(
-				&def_algo->algo.kdf_ikev2, entry, true));
+				&def_algo->algo.kdf_ikev2, deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_KDF_TLS:
 			CKINT(acvp_req_set_prereq_kdf_tls(
-				&def_algo->algo.kdf_tls, entry, true));
+				&def_algo->algo.kdf_tls, deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_KDF_108:
 			CKINT(acvp_req_set_prereq_kdf_108(
-				&def_algo->algo.kdf_108, entry, true));
+				&def_algo->algo.kdf_108, deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_PBKDF:
 			CKINT(acvp_req_set_prereq_pbkdf(&def_algo->algo.pbkdf,
-							entry, true));
+							deps, entry, true));
 			break;
+		case DEF_ALG_TYPE_KAS_FFC_R3:
+			CKINT(acvp_req_set_prereq_kas_ffc_r3(
+				&def_algo->algo.kas_ffc_r3, deps, entry, true));
+			break;
+		case DEF_ALG_TYPE_KAS_ECC_R3:
+			CKINT(acvp_req_set_prereq_kas_ecc_r3(
+				&def_algo->algo.kas_ecc_r3, deps, entry, true));
+			break;
+		case DEF_ALG_TYPE_SAFEPRIMES:
+			CKINT(acvp_req_set_prereq_safeprimes(
+				&def_algo->algo.safeprimes, deps, entry, true));
+			break;
+		case DEF_ALG_TYPE_KAS_IFC:
+			CKINT(acvp_req_set_prereq_kas_ifc(
+				&def_algo->algo.kas_ifc, deps, entry, true));
+			break;
+
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			"Unknown algorithm definition type\n");
@@ -382,6 +404,173 @@ out:
 	return ret;
 }
 
+static void acvp_test_del_deps(struct acvp_testid_ctx *testid_ctx)
+{
+	struct acvp_test_deps *deps;
+
+	if (!testid_ctx || !testid_ctx->deps)
+		return;
+
+	deps = testid_ctx->deps;
+
+	while (deps) {
+		struct acvp_test_deps *tmp = deps->next;
+
+		ACVP_PTR_FREE_NULL(deps->dep_cert);
+		ACVP_PTR_FREE_NULL(deps);
+
+		/*
+		 * deps->dep_cipher is freed by the deallocation of the
+		 * definition.
+		 */
+
+		deps = tmp;
+	}
+}
+
+/*
+ * The concept of configured dependencies is as follows:
+ * During start time, the user configuration is parsed into the linked list
+ * of definition->deps. This list only contains the dependencies between
+ * module definitions. At this point the dependency list is applied
+ * by assigning certificate IDs to each dependency. This is achieved by
+ * iterating through definition->deps and using each dependency in a new
+ * search query to find all test session IDs that are covered by the definition.
+ * The first test session in that list is identified to have a certificate ID
+ * the certificate ID for this dependency is stored in testid_ctx->deps.
+ *
+ * testid_ctx->deps is finally applied when the prerequisite JSON structure
+ * is created.
+ */
+static int acvp_test_add_deps(struct acvp_testid_ctx *testid_ctx)
+{
+	const struct acvp_ctx *ctx;
+	const struct definition *def;
+	const struct def_info *info;
+	const struct def_deps *def_deps;
+	struct acvp_test_deps *test_deps;
+	struct acvp_testid_ctx tmp_testid_ctx;
+	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
+	unsigned int i, testid_count = ACVP_REQ_MAX_FAILED_TESTID;
+	int ret;
+
+	if (!testid_ctx)
+		return 0;
+
+	memset(&tmp_testid_ctx, 0, sizeof(tmp_testid_ctx));
+
+	def = testid_ctx->def;
+	CKNULL_LOG(def, -EINVAL, "Definition structure is NULL\n");
+
+	if (!def->deps)
+		return 0;
+
+	ctx = testid_ctx->ctx;
+	test_deps = testid_ctx->deps;
+	info = def->info;
+
+	/* Iterate through the configured dependencies */
+	for (def_deps = def->deps;
+	     def_deps != NULL;
+	     def_deps = def_deps->next) {
+		/*
+		 * As we found a new dependency, prepare a new entry in the
+		 * testid_ctx linked list to hold the dependency with a
+		 * certificate.
+		 */
+		if (test_deps) {
+			/* fast-forward to the end */
+			while (test_deps->next)
+				test_deps = test_deps->next;
+
+			test_deps->next = calloc(1, sizeof(*test_deps));
+			CKNULL(test_deps->next, -ENOMEM);
+			test_deps = test_deps->next;
+		} else {
+			/* First entry */
+			test_deps = calloc(1, sizeof(*test_deps));
+			CKNULL(test_deps, -ENOMEM);
+			testid_ctx->deps = test_deps;
+		}
+
+		/* Store the cipher name of the dependency */
+		test_deps->dep_cipher = def_deps->dep_cipher;
+
+		/*
+		 * Manual dependency handling
+		 */
+		if (def_deps->deps_type == acvp_deps_manual_resolution) {
+			CKNULL_LOG(def_deps->dep_name, -EINVAL,
+				   "Certificate reference missing");
+			CKINT(acvp_duplicate(&test_deps->dep_cert,
+					     def_deps->dep_name));
+
+			continue;
+		}
+
+		/* Automated dependency handling */
+
+		/*
+		 * Search for all testids for the given dependency
+		 *
+		 * Note, this search operation is limited by the search
+		 * testid and vsid search criteria, i.e. when the user only
+		 * requests the processing of a given set of test sessions or
+		 * vector set IDs.
+		 */
+		CKINT(ds->acvp_datastore_find_testsession(def_deps->dependency,
+							  ctx, testids,
+							  &testid_count));
+
+		/*
+		 * Iterate through all testids returned by the search and
+		 * find one with a cert.
+		 */
+		for (i = 0; i < testid_count; i++) {
+			struct acvp_auth_ctx *auth;
+
+			tmp_testid_ctx.def = def_deps->dependency;
+			tmp_testid_ctx.ctx = ctx;
+			tmp_testid_ctx.testid = testids[i];
+
+			CKINT(acvp_init_auth(&tmp_testid_ctx));
+			/* Get authtoken and cert ID if available */
+			CKINT(ds->acvp_datastore_read_authtoken(
+							&tmp_testid_ctx));
+			auth = tmp_testid_ctx.server_auth;
+
+			if (auth->testsession_certificate_number) {
+				/* We found a certificate, store it */
+				CKINT(acvp_duplicate(&test_deps->dep_cert,
+					auth->testsession_certificate_number));
+
+				logger(LOGGER_DEBUG, LOGGER_C_ANY,
+				       "Dependency  certificate for cipher type %s found: %s\n",
+				       test_deps->dep_cipher,
+				       test_deps->dep_cert);
+
+				acvp_release_auth(&tmp_testid_ctx);
+
+				/* once we found one entry, we stop */
+				break;
+			}
+			acvp_release_auth(&tmp_testid_ctx);
+		}
+
+		if (!test_deps->dep_cert) {
+			logger_status(LOGGER_C_ANY,
+				      "No certificate found for dependency cipher %s for module %s - skipping module implementation (invoke operation again once the certificate is obtained)\n",
+				      test_deps->dep_cipher, info->module_name);
+			ret = -EAGAIN;
+			goto out;
+		}
+	}
+
+out:
+	acvp_release_auth(&tmp_testid_ctx);
+	return ret;
+}
+
 static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
@@ -487,6 +676,17 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 	/* Verify / register the operational environment information */
 	CKINT(acvp_module_handle(testid_ctx));
 
+	/*
+	 * Resolve dependencies if configured. If we are at this point,
+	 * we are going to request a certificate and are about to publish
+	 * dependencies. If dependencies are configured, we require that
+	 * we have a certificate from the depending test sessions at this
+	 * point. If not, we stop here to let the other certificate requests
+	 * to pass hoping that when they receive a certificate, we can
+	 * progress during the next round.
+	 */
+	CKINT(acvp_test_add_deps(testid_ctx));
+
 	/* Will the ACVP server accept our publication request? */
 	if (!req_details->dump_register)
 		CKINT(acvp_publish_ready(testid_ctx));
@@ -525,6 +725,7 @@ static int _acvp_publish(const struct acvp_ctx *ctx,
 	CKINT(acvp_publish_testid(testid_ctx));
 
 out:
+	acvp_test_del_deps(testid_ctx);
 	acvp_release_testid(testid_ctx);
 
 	return ret;

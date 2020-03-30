@@ -80,6 +80,8 @@ struct def_lock {
  *
  * @var module_name Specify the name of the cryptographic module (i.e. cipher
  *		    implementation) under test.
+ * @var impl_name Implementation name of module
+ * @var orig_module_name Original module name without the implementation name
  * @var module_name_filesafe Same information as @var module_name except
  *			     that the string is cleared of characters
  *			     inappropriate for file names.
@@ -104,6 +106,8 @@ struct def_lock {
  */
 struct def_info {
 	char *module_name;
+	char *impl_name;
+	char *orig_module_name;
 	char *module_name_filesafe;
 	char *module_name_internal;
 	enum def_mod_type module_type;
@@ -236,6 +240,33 @@ static const struct acvp_feature {
 	{ OE_PROC_ARM_AES,	"aes" },
 };
 
+enum acvp_deps_type {
+	acvp_deps_automated_resolution,
+	acvp_deps_manual_resolution
+};
+
+/**
+ * @brief Data structure holding cipher dependencies read from the configuration
+ *	  file and the resolution of the dependency pointer.
+ *
+ * @var dep_cipher Cipher name for which the dependency applies to
+ * @var dep_name Name of dependency
+ * 		 (automated dependency handling: implementation name of
+ *						 referenced definition
+ *		  manual dependency handling: certificate)
+ * @var deps_type Type of dependency: internal or external
+ * @var dependency Pointer to the cipher definition that satisfies the
+ *		   dependency
+ * @var next This pointer is internal to the library and MUST NOT be used.
+ */
+struct def_deps {
+	char *dep_cipher;
+	char *dep_name;
+	enum acvp_deps_type deps_type;
+	const struct definition *dependency;
+	struct def_deps *next;
+};
+
 /**
  * @brief This data structure is the root of a cipher definition. It is made
  *	 known to the library using the acvp_req_register_def function call
@@ -251,6 +282,7 @@ static const struct acvp_feature {
  * @var num_algos The number of algorithm definitions is specified here.
  *		  Commonly ARRAY_SIZE(algos) would be used here.
  * @var uninstantiated_def Reference to uninstantiated algorithm definition
+ * @var deps Dependencies - if NULL then no dependencies
  * @var next This pointer is internal to the library and MUST NOT be used.
  */
 struct definition {
@@ -260,6 +292,7 @@ struct definition {
 	struct def_vendor *vendor;
 	struct def_oe *oe;
 	struct def_algo_map *uninstantiated_def;
+	struct def_deps *deps;
 	struct definition *next;
 };
 

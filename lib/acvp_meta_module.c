@@ -234,7 +234,7 @@ static int acvp_module_get_match(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-	CKINT(acvp_req_strip_version(buf.buf, &resp, &data));
+	CKINT(acvp_req_strip_version(&buf, &resp, &data));
 	CKINT(acvp_module_match(def_info, data));
 
 out:

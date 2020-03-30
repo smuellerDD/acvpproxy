@@ -61,7 +61,7 @@ static void acvp_list_verdict_print(struct acvp_test_verdict_status *verdict,
 		return;
 	}
 
-	switch(verdict->verdict) {
+	switch (verdict->verdict) {
 	case acvp_verdict_pass:
 		fprintf_green(stdout, "PASSED\n");
 		break;
@@ -72,10 +72,13 @@ static void acvp_list_verdict_print(struct acvp_test_verdict_status *verdict,
 		fprintf_blue(stdout, "UNKNOWN\n");
 		break;
 	case acvp_verdict_unreceived:
-		fprintf_blue(stdout, "UNVERIFIED\n");
+		fprintf_blue(stdout, "UNRECEIVED\n");
 		break;
 	case acvp_verdict_downloadpending:
 		fprintf_cyan(stdout, "PENDING\n");
+		break;
+	case acvp_verdict_unverified:
+		fprintf_blue(stdout, "UNVERIFIED\n");
 		break;
 	default:
 		fprintf_red(stdout, "ERROR in obtaining verdict\n");

@@ -66,6 +66,7 @@ out:
 }
 
 static int _acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
+				    const struct acvp_test_deps *deps,
 				    struct json_object *entry, bool complete,
 				    bool publish)
 {
@@ -79,7 +80,7 @@ static int _acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
 						"algorithm"));
 
 		CKINT(acvp_req_gen_prereq(sym->prereqvals, sym->prereqvals_num,
-					  entry, publish));
+					  deps, entry, publish));
 	}
 
 out:
@@ -87,9 +88,10 @@ out:
 }
 
 int acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
+			    const struct acvp_test_deps *deps,
 			    struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_prereq_sym(sym, entry, false, publish);
+	return _acvp_req_set_prereq_sym(sym, deps, entry, false, publish);
 }
 
 /*
@@ -121,7 +123,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		}
 	}
 
-	CKINT(_acvp_req_set_prereq_sym(sym, entry, true, false));
+	CKINT(_acvp_req_set_prereq_sym(sym, NULL, entry, true, false));
 
 	tmp_array = json_object_new_array();
 	CKNULL(tmp_array, -ENOMEM);
@@ -163,7 +165,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown IV generator definition\n");
+		       "Symmetric ciphers: Unknown IV generator definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;
@@ -189,7 +191,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown IV generator mode definition\n");
+		       "Symmetric ciphers: Unknown IV generator mode definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;
@@ -209,7 +211,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown salt generator definition\n");
+		       "Symmetric ciphers: Unknown salt generator definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;
@@ -321,7 +323,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown CTR source definition\n");
+		       "Symmetric ciphers: Unknown CTR source definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;
@@ -349,7 +351,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown CTR overflow definition\n");
+		       "Symmetric ciphers: Unknown CTR overflow definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;
@@ -377,7 +379,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown CTR overflow definition\n");
+		       "Symmetric ciphers: Unknown CTR overflow definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;

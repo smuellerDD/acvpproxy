@@ -217,17 +217,26 @@ out:
 	return ret;
 }
 
-int acvp_req_strip_version(const uint8_t *buf,
+int acvp_req_strip_version(const struct acvp_buf *buf,
 			   struct json_object **full_json,
 			   struct json_object **parsed)
 {
 	struct json_object *resp, *version;
+	struct json_tokener* tok;
 	int ret = 0;
 
-	if (!buf)
+	if (!buf || !buf->buf || !buf->len)
 		return 0;
 
-	resp = json_tokener_parse((const char*)buf);
+	if (buf->len > INT32_MAX)
+		return -EOVERFLOW;
+
+	tok = json_tokener_new();
+	CKNULL(tok, -ENOMEM);
+
+	resp = json_tokener_parse_ex(tok, (const char*)buf->buf, (int)buf->len);
+	json_tokener_free(tok);
+
 	CKNULL(resp, -EINVAL);
 	json_logger(LOGGER_DEBUG2, LOGGER_C_ANY, resp,
 		    "Parsed ACVP response\n");

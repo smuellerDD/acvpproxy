@@ -1,0 +1,11 @@
+{
+	"implementations": [
+		"AESNI_AVX"
+	],
+	"dependencies-external": {
+                "AESNI_AVX": {
+                        "AES": "C123",
+                        "DRBG": "DRBG 456"
+                }
+	}
+}

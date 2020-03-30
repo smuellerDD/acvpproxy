@@ -198,7 +198,8 @@ static void acvp_curl_log_peer_cert(CURL *hnd)
 		for (slist = ptr.to_certinfo->certinfo[i];
 			slist;
 			slist = slist->next) {
-			fprintf(stderr, "%s\n", slist->data);
+			logger(LOGGER_DEBUG2, LOGGER_C_CURL, "%s\n",
+			       slist->data);
 		}
 	}
 }
@@ -307,6 +308,7 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST,
 					    "DELETE"));
 		break;
+	case acvp_http_none:
 	default:
 		logger(LOGGER_WARN, LOGGER_C_CURL,
 		       "Unhandled HTTP request option %u\n", http_type);
@@ -314,8 +316,11 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 		goto out;
 	}
 
-	if (logger_get_verbosity(LOGGER_C_CURL) >= LOGGER_VERBOSE)
+	if (logger_get_verbosity(LOGGER_C_CURL) >= LOGGER_VERBOSE) {
 		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_STDERR,
+					    logger_log_stream()));
+	}
 
 	if (net->certs_ca_file) {
 		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_CAINFO,

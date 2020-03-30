@@ -66,6 +66,13 @@ extern "C"
 #define ACVP_THREAD_SIGHANDLER_GROUP		((uint32_t) -3)
 #define ACVP_THREAD_MAX_SPECIAL_GROUPS		3
 
+enum acvp_request_type {
+	acvp_testid,
+	acvp_vsid,
+	acvp_signal,
+	acvp_totp,
+};
+
 /**
  * @brief - Initializiation of the threading support
  *
@@ -110,6 +117,13 @@ int thread_wait(void);
  */
 int thread_start(int(*start_routine)(void *), void *tdata,
 		 uint32_t thread_group, int *ret_ancestor);
+
+#define ACVP_THREAD_MAX_NAMELEN		16
+/**
+ * @brief - Give a name to a thread that is used for logging
+ */
+int thread_set_name(enum acvp_request_type type, uint32_t id);
+int thread_get_name(char *name, size_t len);
 
 /**
  * @brief - Stop spawning new threads

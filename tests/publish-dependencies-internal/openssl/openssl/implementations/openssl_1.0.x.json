@@ -1,0 +1,13 @@
+{
+	"implementations": [
+		"AESNI",
+		"AESNI_ASM",
+		"AESNI_AVX"
+	],
+	"dependencies-internal": {
+                "AESNI_AVX": {
+                        "AES": "AESNI",
+                        "DRBG": "AESNI_ASM"
+                }
+	}
+}

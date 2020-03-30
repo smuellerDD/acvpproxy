@@ -38,6 +38,9 @@
 #error "The long long type isn't 64-bits"
 #endif
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch-enum"
+
 // Don't define this.  It's not thread-safe.
 /* #define REFCOUNT_DEBUG 1 */
 
@@ -1514,3 +1517,4 @@ int json_object_deep_copy(struct json_object *src, struct json_object **dst, jso
 	return rc;
 }
 
+#pragma GCC diagnostic pop

@@ -30,6 +30,7 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
+				  const struct acvp_test_deps *deps,
 				  struct json_object *entry, bool publish)
 {
 	int ret;
@@ -40,7 +41,8 @@ int acvp_req_set_prereq_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
 				     json_object_new_string("ikev2")));
 
 	CKINT(acvp_req_gen_prereq(kdf_ikev2->prereqvals,
-				  kdf_ikev2->prereqvals_num, entry, publish));
+				  kdf_ikev2->prereqvals_num, deps, entry,
+				  publish));
 
 out:
 	return ret;
@@ -57,7 +59,7 @@ int acvp_req_set_algo_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_set_prereq_kdf_ikev2(kdf_ikev2, entry, false));
+	CKINT(acvp_req_set_prereq_kdf_ikev2(kdf_ikev2, NULL, entry, false));
 
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);

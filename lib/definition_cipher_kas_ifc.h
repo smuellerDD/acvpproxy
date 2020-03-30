@@ -21,131 +21,12 @@
 #define DEFINITION_CIPHER_KAS_IFC_H
 
 #include "definition_cipher_rsa_common.h"
+#include "definition_cipher_kas_kdf_common.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
-/*
- * IUTs SHALL be capable of specifying how the FixedInfo is constructed
- * for the KAS/KTS negotiation.
- */
-enum kas_ifc_fixedinfo_pattern {
-	/* Use the specified hex within value. */
-	DEF_ALG_KAS_IFC_FI_PATTERN_LITERAL,
-
-	/* uPartyId { || dkmNonce } { || c } */
-	DEF_ALG_KAS_IFC_FI_PATTERN_U_PARTY_INFO,
-
-	/* vPartyId { || dkmNonce } { || c } */
-	DEF_ALG_KAS_IFC_FI_PATTERN_V_PARTY_INFO,
-
-	/* Random value chosen by ACVP server to represent the context. */
-	DEF_ALG_KAS_IFC_FI_PATTERN_CONTEXT,
-
-	/* Random value chosen by ACVP server to represent the algorithmId. */
-	DEF_ALG_KAS_IFC_FI_PATTERN_ALGORITHM_ID,
-
-	/* Random value chosen by ACVP server to represent the label. */
-	DEF_ALG_KAS_IFC_FI_PATTERN_LABEL,
-
-	/*
-	 * Concatenation of multiple entries: example (Note that party U is the
-	 * server in this case "434156536964", party V is the IUT "a1b2c3d4e5").
-	 * The example of "literal[123456789CAFECAFE]||uPartyInfo||vPartyInfo" is
-	 * evaluated as "123456789CAFECAFE434156536964a1b2c3d4e5".
-	 */
-	DEF_ALG_KAS_IFC_FI_PATTERN_CONCATENATION,
-};
-
-enum kas_ifc_fixedinfo_encoding {
-	DEF_ALG_KAS_IFC_FI_ENCODING_CONCATENATION,
-	/* TODO: ASN.1 not yet supported by ACVP server */
-	//DEF_ALG_KAS_IFC_FI_ENCODING_ASN1,
-};
-
-struct def_algo_kas_ifc_onestepkdf_aux {
-	/*
-	 * Used auxiliary function
-	 *
-	 * Allowed values for onestep:
-	 *	"SHA2-224"
-	 *	"SHA2-256"
-	 *	"SHA2-384"
-	 *	"SHA2-512"
-	 *	"SHA2-512/224"
-	 *	"SHA2-512/256"
-	 *	"SHA3-224"
-	 *	"SHA3-256"
-	 *	"SHA3-384"
-	 *	"SHA3-512"
-	 *	"KMAC-128"
-	 *	"KMAC-256"
-	 *
-	 * Allowed values for twostep:
-	 *	"CMAC-AES128"
-	 *	"CMAC-AES192"
-	 *	"CMAC-AES256"
-	 *	"HMAC-SHA-1"
-	 *	"HMAC-SHA2-224"
-	 *	"HMAC-SHA2-256"
-	 *	"HMAC-SHA2-384"
-	 *	"HMAC-SHA2-512"
-	 *	"HMAC-SHA2-512/224"
-	 *	"HMAC-SHA2-512/256"
-	 *	"HMAC-SHA3-224"
-	 *	"HMAC-SHA3-256"
-	 *	"HMAC-SHA3-384"
-	 *	"HMAC-SHA3-512"
-	 *
-	 * required: always
-	 */
-	cipher_t auxfunc;
-
-	/*
-	 * How the salt is determined (default means a set of zero bytes)
-	 *
-	 * required: if auxfunc points to a MAC method
-	 */
-#define DEF_ALG_KAS_IFC_MACSALTMETHOD_DEFAULT	(1<<0)
-#define DEF_ALG_KAS_IFC_MACSALTMETHOD_RANDOM	(1<<1)
-	unsigned int macsaltmethod;
-};
-
-/*
- * oneStepKdf: Indicates the IUT will be testing key derivation using
- *	       the SP800-56Cr1 OneStepKdf.
- */
-struct def_algo_kas_ifc_onestepkdf {
-	/*
-	 * Auxiliary function to be used with KDF
-	 *
-	 * This is an array of one or more function definitions with the
-	 * array numbers defined by aux_function_num.
-	 *
-	 * required: always
-	 */
-	const struct def_algo_kas_ifc_onestepkdf_aux aux_function;
-	unsigned int aux_function_num;
-
-	/*
-	 * The pattern and encoding used for fixedInfo construction.
-	 *
-	 * required: always
-	 */
-	enum kas_ifc_fixedinfo_pattern fixed_info_pattern_type;
-	const char *fixedinfo_pattern;
-	enum kas_ifc_fixedinfo_encoding fixed_info_encoding;
-};
-
-/*
- * twoStepKdf: Indicates the IUT will be testing key derivation using
- *	       the SP800-56Cr1 TwoStepKdf.
- */
-struct def_algo_kas_ifc_twostepkdf {
-	unsigned int mac_salt_method;
-};
 
 struct def_algo_kas_ifc_keygen {
 
@@ -187,7 +68,8 @@ struct def_algo_kas_ifc_keygen {
 	 *
 	 * required: always
 	 */
-	enum rsa_modulo rsa_modulo;
+#define DEF_ALG_KAS_IFC_MODULO_MAX_NUM	10
+	enum rsa_modulo rsa_modulo[DEF_ALG_KAS_IFC_MODULO_MAX_NUM];
 
 	/*
 	 * The value of the public key exponent e in hex
@@ -197,11 +79,50 @@ struct def_algo_kas_ifc_keygen {
 	const char *fixedpubexp;
 };
 
+struct def_algo_kts_method {
+	/*
+	 * The hasl algorithms available to the IUT.
+	 *
+	 * One or more of the following are allowed
+	 * SHA2-224
+	 * SHA2-256
+	 * SHA2-384
+	 * SHA2-512
+	 * SHA2-512/224
+	 * SHA2-512/256
+	 * SHA3-224
+	 * SHA3-256
+	 * SHA3-384
+	 * SHA3-512
+	 *
+	 * required
+	 */
+	cipher_t hashalg;
+
+	/*
+	 * Does the IUT support a null association data (fixedInfo)?
+	 *
+	 * required
+	 */
+	bool supports_null_association_data;
+
+	/*
+	 * The pattern used to construct the associated data.
+	 *
+	 * If a DEF_ALG_KAS_KDF_FI_PATTERN_LITERAL is specified, the literal
+	 * must be provided with *literal which is a hex value.
+	 *
+	 * required: always
+	 */
+	enum kas_kdf_fixedinfo_pattern associated_data_pattern_type[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN];
+	const char *literal;
+	enum kas_kdf_fixedinfo_encoding associated_data_pattern_encoding;
+};
+
 /******************************************************************************
  * Definition of one given KAS-IFC schema
  ******************************************************************************/
 struct def_algo_kas_ifc_schema {
-
 	/*
 	 * Key agreement schema defined with this structure instance
 	 *
@@ -234,6 +155,13 @@ struct def_algo_kas_ifc_schema {
 	} schema;
 
 	/*
+	 * KAS IFC role
+	 */
+#define DEF_ALG_KAS_IFC_INITIATOR		(1<<0)
+#define DEF_ALG_KAS_IFC_RESPONDER		(1<<1)
+	unsigned int kas_ifc_role;
+
+	/*
 	 * Supported Key Generation Methods
 	 * Note that AT LEAST one Key Generation Method is required.
 	 */
@@ -248,15 +176,50 @@ struct def_algo_kas_ifc_schema {
 	unsigned int keygen_num;
 
 	/*
-	 * Supported KDF Methods
+	 * Supported KDF Methods for KAS
 	 *
 	 * required: For KAS methods, at least one KDF method is required
 	 */
-	const struct def_algo_kas_ifc_onestepkdf *onestekdf;
-	unsigned int onestekdf_num;
+	const struct def_algo_kas_kdf_onestepkdf onestekdf;
 
-	const struct def_algo_kas_ifc_twostepkdf *twostekdf;
+	const struct def_algo_kas_kdf_twostepkdf *twostekdf;
 	unsigned int twostekdf_num;
+
+	/*
+	 * The KTS method to use when testing KTS schemes.
+	 *
+	 * required: For KTS methods
+	 */
+	const struct def_algo_kts_method kts_method;
+
+	/*
+	 * One or more MAC definitions
+	 *
+	 * required: for
+	 * DEF_ALG_KAS_IFC_KAS1_PARTY_V
+	 * DEF_ALG_KAS_IFC_KAS2_BILATERAL_CONFIRMATION
+	 * DEF_ALG_KAS_IFC_KAS2_PARTY_U
+	 * DEF_ALG_KAS_IFC_KAS2_PARTY_V
+	 * DEF_ALG_KAS_IFC_KTS_OAEP_BASIC
+	 * DEF_ALG_KAS_IFC_KTS_OAEP_PARTY_V
+	 */
+	const struct def_algo_kas_mac_method *mac;
+	unsigned int mac_entries;
+
+	/*
+	 * The length of the key to derive (using a KDF) or transport (using a
+	 * KTS scheme). This value should be large enough to accommodate the
+	 * key length used for the MAC algorithms in use for the key confirmation,
+	 * ideally the maximum value the IUT can support with their KAS/KTS
+	 * implementation. Maximum value (for testing purposes) is 1024.
+	 *
+	 * Minimum without key confirmation is 128.
+	 * Minimum with key confirmation is 136.
+	 * Maximum is 1024
+	 *
+	 * required: always
+	 */
+	unsigned int length;
 };
 
 /****************************************************************************
@@ -288,6 +251,7 @@ struct def_algo_kas_ifc {
 	 */
 	unsigned int prereqvals_num;
 
+
 	/*
 	 * Supported KAS IFC Functions
 	 *
@@ -305,6 +269,12 @@ struct def_algo_kas_ifc {
 	unsigned int function;
 
 	/*
+	 * The identifier of the IUT - this is a hex string
+	 * required: always
+	 */
+	const char *iut_identifier;
+
+	/*
 	 * Supported key agreement schemes. An array of one or more key
 	 * agreement schemes can be defined. There must be one definition
 	 * per requested scheme.
@@ -312,13 +282,8 @@ struct def_algo_kas_ifc {
 	 * required: always
 	 */
 	const struct def_algo_kas_ifc_schema *schema;
-
-	/*
-	 * Number of schemes. There must be one or more schema definitions.
-	 * Note, the scheme pointer above must point to the first
-	 * entry of an array of schemes!
-	 */
-	unsigned int scheme_num;
+	/* Number of schemas */
+	unsigned int schema_num;
 };
 
 #ifdef __cplusplus

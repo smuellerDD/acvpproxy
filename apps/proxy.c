@@ -79,8 +79,10 @@ struct opt_data {
 	bool publish;
 	bool list_available_ids;
 	bool list_pending_request_ids;
+	bool list_pending_request_ids_sparse;
 	bool list_verdicts;
 	bool list_certificates;
+	bool list_certificates_detailed;
 	bool dump_register;
 	bool request_sample;
 	bool official_testing;
@@ -349,6 +351,7 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\tOption can be specified up to %d times\n",
 		MAX_SUBMIT_ID);
 	fprintf(stderr, "\t   --testid <TESTID>\t\tSubmit response for given testID\n");
+	fprintf(stderr, "\t\t\t\t\t(use -1 to download all pending testIDs)\n");
 	fprintf(stderr, "\t\t\t\t\tOption can be specified up to %d times\n",
 		MAX_SUBMIT_ID);
 	fprintf(stderr, "\t   --request\t\t\tRequest new test vector set\n");
@@ -396,9 +399,13 @@ static void usage(void)
 
 	fprintf(stderr, "\tList of IDs and verdicts:\n");
 	fprintf(stderr, "\t   --list-request-ids\t\tList all pending request IDs\n");
+	fprintf(stderr, "\t   --list-request-ids-sparse\tList all pending request IDs\n");
+	fprintf(stderr, "\t\t\t\t\twithout duplicates\n");
 	fprintf(stderr, "\t   --list-available-ids\t\tList all available IDs\n");
 	fprintf(stderr, "\t   --list-verdicts\t\tList all verdicts\n\n");
-	fprintf(stderr, "\t   --list-certificates\t\tList all certificates\n\n");
+	fprintf(stderr, "\t   --list-certificates\t\tList all certificates\n");
+	fprintf(stderr, "\t   --list-cert-details\t\tList all certificate details for\n");
+	fprintf(stderr, "\t\t\t\t\tTE.01.12.01\n\n");
 
 	fprintf(stderr, "\tGathering cipher definitions from ACVP server:\n");
 	fprintf(stderr, "\t   --cipher-list\t\tList all ciphers supported by ACVP\n");
@@ -411,8 +418,15 @@ static void usage(void)
 	fprintf(stderr, "\t   --proxy-extension <SO-FILE>\tShared library of ACVP Proxy extension\n");
 	fprintf(stderr, "\t\t\t\t\tZero or more extensions can be provided.\n");
 	fprintf(stderr, "\t   --rename-version <NEW>\tRename version of definition\n");
-	fprintf(stderr, "\t   --rename-name <NEW_NAME>\tRename name of definition\n");
-	fprintf(stderr, "\t   --rename-oename <NEW_NAME>\tRename OE name of definition\n");
+	fprintf(stderr, "\t\t\t\t\t(moduleVersion)\n");
+	fprintf(stderr, "\t   --rename-name <NEW>\t\tRename name of definition (moduleName)\n");
+	fprintf(stderr, "\t   --rename-oename <NEW>\tRename OE name of definition (oeEnvName)\n");
+	fprintf(stderr, "\t   --rename-procname <NEW>\tRename processor name of definition \n");
+	fprintf(stderr, "\t\t\t\t\t(procName)\n");
+	fprintf(stderr, "\t   --rename-procseries <NEW>\tRename processor series of definition \n");
+	fprintf(stderr, "\t\t\t\t\t(procSeries)\n");
+	fprintf(stderr, "\t   --rename-procfamily <NEW>\tRename processor family of definition \n");
+	fprintf(stderr, "\t\t\t\t\t(procFamily)\n");
 	fprintf(stderr, "\t   --register-only\t\tOnly register tests without downloading\n");
 	fprintf(stderr, "\t\t\t\t\ttest vectors\n");
 	fprintf(stderr, "\t-v --verbose\t\t\tVerbose logging, multiple options\n");
@@ -421,6 +435,7 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\t      threading is disabled.\n");
 	fprintf(stderr, "\t   --logger-class <NUM>\t\tLimit logging to given class\n");
 	fprintf(stderr, "\t\t\t\t\t(-1 lists all logging classes)\n");
+	fprintf(stderr, "\t   --logfile <FILE>\t\tFile to write logs to\n");
 	fprintf(stderr, "\t-q --quiet\t\t\tNo output - quiet operation\n");
 	fprintf(stderr, "\t   --version\t\t\tVersion of ACVP proxy\n");
 	fprintf(stderr, "\t   --version-numeric\t\tNumeric version of ACVP proxy\n");
@@ -571,6 +586,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 	unsigned long val = 0;
 	long lval;
 	unsigned int dolist = 0, listunregistered = 0, modconf_loaded = 0;
+	bool logger_force_threading = false;
 
 	memset(opts, 0, sizeof(*opts));
 
@@ -579,6 +595,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 		static struct option options[] = {
 			{"verbose",		no_argument,		0, 'v'},
 			{"logger-class",	required_argument,	0, 0},
+			{"logfile",		required_argument,	0, 0},
 			{"quiet",		no_argument,		0, 'q'},
 			{"version",		no_argument,		0, 0},
 			{"version-numeric",	no_argument,		0, 0},
@@ -616,9 +633,11 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"nopublish-prereqs",	required_argument,	0, 0},
 
 			{"list-request-ids",	no_argument,		0, 0},
+			{"list-request-ids-sparse",no_argument,		0, 0},
 			{"list-available-ids",	no_argument,		0, 0},
 			{"list-verdicts",	no_argument,		0, 0},
 			{"list-certificates",	no_argument,		0, 0},
+			{"list-cert-details",	no_argument,		0, 0},
 
 			{"cipher-options",	required_argument,	0, 0},
 			{"cipher-algo",		required_argument,	0, 0},
@@ -628,6 +647,9 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"rename-version",	required_argument,	0, 0},
 			{"rename-name",		required_argument,	0, 0},
 			{"rename-oename",	required_argument,	0, 0},
+			{"rename-procname",	required_argument,	0, 0},
+			{"rename-procseries",	required_argument,	0, 0},
+			{"rename-procfamily",	required_argument,	0, 0},
 
 			{"register-only",	no_argument,		0, 0},
 
@@ -643,7 +665,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			case 0:
 				logger_inc_verbosity();
 				if (logger_get_verbosity(LOGGER_C_ANY) >=
-							LOGGER_DEBUG)
+				    LOGGER_DEBUG && !logger_force_threading)
 					opts->acvp_ctx_options.threading_disabled = true;
 				break;
 			case 1:
@@ -668,52 +690,57 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				}
 				break;
 			case 2:
-				logger_set_verbosity(LOGGER_NONE);
+				CKINT(logger_set_file(optarg));
+				logger_force_threading = true;
+				opts->acvp_ctx_options.threading_disabled = false;
 				break;
 			case 3:
+				logger_set_verbosity(LOGGER_NONE);
+				break;
+			case 4:
 				acvp_versionstring(version, sizeof(version));
 				fprintf(stderr, "Version %s\n", version);
 				ret = 0;
 				goto out;
 				break;
-			case 4:
+			case 5:
 				fprintf(stderr, "%u\n",
 					acvp_versionstring_numeric());
 				ret = 0;
 				goto out;
 				break;
-			case 5:
+			case 6:
 				usage();
 				ret = 0;
 				goto out;
 				break;
 
-			case 6:
+			case 7:
 				CKINT(parse_fuzzy_flag(
 					&search->modulename_fuzzy_search,
 					&search->modulename, optarg));
 				break;
-			case 7:
+			case 8:
 				CKINT(parse_fuzzy_flag(
 					&search->vendorname_fuzzy_search,
 					&search->vendorname, optarg));
 				break;
-			case 8:
+			case 9:
 				CKINT(parse_fuzzy_flag(
 					&search->execenv_fuzzy_search,
 					&search->execenv, optarg));
 				break;
-			case 9:
+			case 10:
 				CKINT(parse_fuzzy_flag(
 					&search->moduleversion_fuzzy_search,
 					&search->moduleversion, optarg));
 				break;
-			case 10:
+			case 11:
 				CKINT(parse_fuzzy_flag(
 					&search->processor_fuzzy_search,
 					&search->processor, optarg));
 				break;
-			case 11:
+			case 12:
 				search->modulename_fuzzy_search = true;
 				search->moduleversion_fuzzy_search = true;
 				search->vendorname_fuzzy_search = true;
@@ -721,17 +748,17 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				search->processor_fuzzy_search = true;
 				break;
 
-			case 12:
+			case 13:
 				dolist = 1;
 				break;
-			case 13:
+			case 14:
 				listunregistered = 1;
 				break;
-			case 14:
+			case 15:
 				CKINT(duplicate_string(&opts->specific_modversion,
 						       optarg));
 				break;
-			case 15:
+			case 16:
 				if (search->nr_submit_vsid >= MAX_SUBMIT_ID) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "%u --submit options are allowed at maximum\n",
@@ -739,17 +766,21 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					ret = -EINVAL;
 					goto out;
 				}
-				val = strtoul(optarg, NULL, 10);
-				if (val == UINT_MAX) {
+				lval = strtol(optarg, NULL, 10);
+				if (lval == UINT_MAX || lval < -2) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "vsID too big\n");
 					usage();
 					ret = -EINVAL;
 					goto out;
 				}
-				search->submit_vsid[search->nr_submit_vsid++] = (unsigned int)val;
+				/* Download all pending testIDs */
+				if (lval == -1)
+					search->submit_vsid[search->nr_submit_vsid++] = UINT_MAX;
+				else
+					search->submit_vsid[search->nr_submit_vsid++] = (unsigned int)lval;
 				break;
-			case 16:
+			case 17:
 				if (search->nr_submit_testid >= MAX_SUBMIT_ID) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "%u --session options are allowed at maximum\n",
@@ -767,87 +798,95 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				}
 				search->submit_testid[search->nr_submit_testid++] = (unsigned int)val;
 				break;
-			case 17:
+			case 18:
 				opts->request = true;
 				break;
-			case 18:
+			case 19:
 				opts->publish = true;
 				break;
 
-			case 19:
+			case 20:
 				opts->dump_register = true;
 				break;
-			case 20:
+			case 21:
 				opts->request_sample = true;
 				break;
-			case 21:
+			case 22:
 				CKINT(duplicate_string(&opts->configfile,
 						       optarg));
 				break;
-			case 22:
+			case 23:
 				CKINT(acvp_def_config(optarg));
 				modconf_loaded = 1;
 				break;
-			case 23:
+			case 24:
 				opts->official_testing = true;
 				break;
-			case 24:
+			case 25:
 				CKINT(duplicate_string(&opts->basedir, optarg));
 				break;
-			case 25:
+			case 26:
 				CKINT(duplicate_string(&opts->secure_basedir,
 						       optarg));
 				break;
-			case 26:
+			case 27:
 				CKINT(duplicate_string(&opts->definition_basedir,
 						       optarg));
 				break;
 
-			case 27:
+			case 28:
 				opts->acvp_ctx_options.resubmit_result = true;
 				break;
-			case 28:
+			case 29:
 				opts->acvp_ctx_options.delete_vsid = true;
 				break;
-			case 29:
+			case 30:
 				opts->acvp_ctx_options.register_new_module = true;
 				opts->acvp_ctx_options.register_new_vendor = true;
 				opts->acvp_ctx_options.register_new_oe = true;
 				break;
-			case 30:
+			case 31:
 				CKINT(convert_update_delete_type(optarg,
 				  &opts->acvp_ctx_options.delete_db_entry));
 				break;
-			case 31:
+			case 32:
 				CKINT(convert_update_delete_type(optarg,
 				  &opts->acvp_ctx_options.update_db_entry));
 				break;
-			case 32:
+			case 33:
 				opts->acvp_ctx_options.no_publish_prereqs = true;
 				break;
 
-			case 33:
+			case 34:
 				opts->list_pending_request_ids = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 34:
-				opts->list_available_ids = true;
-				opts->acvp_ctx_options.threading_disabled = true;
-				break;
 			case 35:
-				opts->list_verdicts = true;
+				opts->list_pending_request_ids_sparse = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
 			case 36:
+				opts->list_available_ids = true;
+				opts->acvp_ctx_options.threading_disabled = true;
+				break;
+			case 37:
+				opts->list_verdicts = true;
+				opts->acvp_ctx_options.threading_disabled = true;
+				break;
+			case 38:
 				opts->list_certificates = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
+			case 39:
+				opts->list_certificates_detailed = true;
+				opts->acvp_ctx_options.threading_disabled = true;
+				break;
 
-			case 37:
+			case 40:
 				CKINT(duplicate_string(&opts->cipher_options_file,
 						       optarg));
 				break;
-			case 38:
+			case 41:
 				CKINT(duplicate_string(&opts->cipher_options_algo[opts->cipher_options_algo_idx],
 						       optarg));
 				opts->cipher_options_algo_idx++;
@@ -857,30 +896,45 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					goto out;
 				}
 				break;
-			case 39:
+			case 42:
 				opts->cipher_list = true;
 				break;
 
-			case 40:
+			case 43:
 				CKINT(acvp_load_extension(optarg));
 				break;
-			case 41:
+			case 44:
 				rename->moduleversion_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 42:
+			case 45:
 				rename->modulename_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 43:
+			case 46:
 				rename->oe_env_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
+			case 47:
+				rename->proc_name_new = optarg;
+				opts->acvp_ctx_options.threading_disabled = true;
+				opts->rename = true;
+				break;
+			case 48:
+				rename->proc_series_new = optarg;
+				opts->acvp_ctx_options.threading_disabled = true;
+				opts->rename = true;
+				break;
+			case 49:
+				rename->proc_family_new = optarg;
+				opts->acvp_ctx_options.threading_disabled = true;
+				opts->rename = true;
+				break;
 
-			case 44:
+			case 50:
 				opts->acvp_ctx_options.register_only = true;
 				break;
 
@@ -1270,6 +1324,8 @@ static int list_ids(struct opt_data *opts)
 		CKINT(acvp_list_available_ids(ctx));
 	} else if (opts->list_pending_request_ids) {
 		CKINT(acvp_list_request_ids(ctx));
+	} else if (opts->list_pending_request_ids_sparse) {
+		CKINT(acvp_list_request_ids_sparse(ctx));
 	}
 
 out:
@@ -1299,6 +1355,20 @@ static int list_certificates(struct opt_data *opts)
 	CKINT(initialize_ctx(&ctx, opts));
 
 	CKINT(acvp_list_certificates(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int list_certificates_detailed(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts));
+
+	CKINT(acvp_list_certificates_detailed(ctx));
 
 out:
 	acvp_ctx_release(ctx);
@@ -1363,12 +1433,15 @@ int main(int argc, char *argv[])
 	} else if (opts.publish) {
 		CKINT(do_publish(&opts));
 	} else if (opts.list_available_ids ||
-		   opts.list_pending_request_ids) {
+		   opts.list_pending_request_ids ||
+		   opts.list_pending_request_ids_sparse) {
 		CKINT(list_ids(&opts));
 	} else if (opts.list_verdicts) {
 		CKINT(list_verdicts(&opts));
 	} else if (opts.list_certificates) {
 		CKINT(list_certificates(&opts));
+	} else if (opts.list_certificates_detailed) {
+		CKINT(list_certificates_detailed(&opts));
 	} else {
 		CKINT(do_submit(&opts));
 	}

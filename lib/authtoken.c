@@ -91,12 +91,19 @@ static int acvp_set_authtoken_temp(const struct acvp_testid_ctx *testid_ctx,
 				   const char *authtoken)
 {
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
+	size_t tokenlen = strlen(authtoken);
 	int ret = 0;
+
+	if (tokenlen > ACVP_JWT_TOKEN_MAX) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "New auth token too long (size %zu)\n", tokenlen);
+		return -EINVAL;
+	}
 
 	_acvp_release_auth(auth);
 	auth->jwt_token = strndup(authtoken, ACVP_JWT_TOKEN_MAX);
 	CKNULL(auth->jwt_token, -ENOMEM);
-	auth->jwt_token_len = strlen(auth->jwt_token);
+	auth->jwt_token_len = tokenlen;
 
 	auth->jwt_token_generated = time(NULL);
 
@@ -176,7 +183,7 @@ static int acvp_process_login(const struct acvp_testid_ctx *testid_ctx,
 	 * Strip the version from the received array and return the array
 	 * entry containing the answer.
 	 */
-	CKINT(acvp_req_strip_version(response->buf, &req, &entry));
+	CKINT(acvp_req_strip_version(response, &req, &entry));
 
 	/* Get the size constraint information. */
 	auth->max_reg_msg_size = UINT_MAX;

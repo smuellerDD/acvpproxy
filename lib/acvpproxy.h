@@ -118,6 +118,7 @@ struct acvp_modinfo_ctx {
  * @brief Search parameters that can be set by the caller. If an entry is NULL
  *	  it is not used as a search criteria.
  * @var modulename Module name as reported by the list operation
+ * @var orig_modulename Module name without the implementation name
  * @var moduleversion Version string as reported by the list operation
  * @var vendorname Vendor name as reported by the list operation
  * @var execenv Execution environment as reported by the list operation
@@ -147,6 +148,7 @@ struct acvp_modinfo_ctx {
  */
 struct acvp_search_ctx {
 	char *modulename;
+	char *orig_modulename;
 	char *moduleversion;
 	char *vendorname;
 	char *execenv;
@@ -304,14 +306,20 @@ struct acvp_opts_ctx {
 /**
  * @brief Specification of information to be renamed
  *
- * @var moduleversion_new new module version string
- * @var modulename_new new module name
- * @var oe_env_name_new new OE name
+ * @var moduleversion_new new module version string (moduleVersion)
+ * @var modulename_new new module name (moduleName)
+ * @var oe_env_name_new new OE name (oeEnvName)
+ * @var proc_name_new new processor name (procName)
+ * @var proc_series_new new processor series name (procSeries)
+ * @var proc_family_new new processor family name (procFamily)
  */
 struct acvp_rename_ctx {
 	const char *moduleversion_new;
 	const char *modulename_new;
 	const char *oe_env_name_new;
+	const char *proc_name_new;
+	const char *proc_series_new;
+	const char *proc_family_new;
 };
 
 struct acvp_ctx {
@@ -496,12 +504,22 @@ int acvp_publish(const struct acvp_ctx *ctx);
 /**
  * @brief List all currently pending requests for the given context, including
  *	  any applicable search criteria. The command will list all
- *	  pending requests on STDOUT.
+ *	  pending requests for all modules on STDOUT.
  *
  * @param ctx [in] ACVP Proxy library context
  * @return 0 on success, < 0 on error
  */
 int acvp_list_request_ids(const struct acvp_ctx *ctx);
+
+/**
+ * @brief List all currently pending requests for the given context, including
+ *	  any applicable search criteria. The command will list all
+ *	  pending requests on STDOUT. Duplications are not printed
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int acvp_list_request_ids_sparse(const struct acvp_ctx *ctx);
 
 /**
  * @brief List all available IDs for the given (search) context. A test
@@ -527,6 +545,14 @@ int acvp_list_verdicts(const struct acvp_ctx *ctx);
  * @return 0 on success, < 0 on error
  */
 int acvp_list_certificates(const struct acvp_ctx *ctx);
+
+/**
+ * @brief List all certificates with their tested ciphers
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int acvp_list_certificates_detailed(const struct acvp_ctx *ctx);
 
 /**
  * @brief Refresh JWT authentication token for all already obtained test vectors

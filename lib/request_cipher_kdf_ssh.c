@@ -30,6 +30,7 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
+				const struct acvp_test_deps *deps,
 				struct json_object *entry, bool publish)
 {
 	int ret;
@@ -40,7 +41,7 @@ int acvp_req_set_prereq_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
 				     json_object_new_string("ssh")));
 
 	CKINT(acvp_req_gen_prereq(kdf_ssh->prereqvals, kdf_ssh->prereqvals_num,
-				  entry, publish));
+				  deps, entry, publish));
 
 out:
 	return ret;
@@ -56,7 +57,7 @@ int acvp_req_set_algo_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_set_prereq_kdf_ssh(kdf_ssh, entry, false));
+	CKINT(acvp_req_set_prereq_kdf_ssh(kdf_ssh, NULL, entry, false));
 
 	if (!(kdf_ssh->cipher & ACVP_AES128 || kdf_ssh->cipher & ACVP_AES192 ||
 	      kdf_ssh->cipher & ACVP_AES256 || kdf_ssh->cipher & ACVP_TDES)) {

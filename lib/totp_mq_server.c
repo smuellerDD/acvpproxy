@@ -84,6 +84,11 @@ static atomic_t mq_cln_tx = ATOMIC_INIT(-1);
 static atomic_t mq_cln_rx = ATOMIC_INIT(-1);
 
 /*
+ * TOTP MQ server was initialized by our application.
+ */
+static atomic_bool_t totp_thread_init = ATOMIC_BOOL_INIT(false);
+
+/*
  * Mutex guards the mq_srv_* / mq_cln_* descriptors as well as
  * the associated message queues.
  */
@@ -142,8 +147,12 @@ static int totp_mq_server_thread(void *arg)
 
 	(void)arg;
 
+	atomic_bool_set_true(&totp_thread_init);
+
 	logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,
 	       "Server: message queue server initialized\n");
+
+	thread_set_name(acvp_totp, 0);
 
 	while (1) {
 		int errsv;
@@ -165,6 +174,10 @@ static int totp_mq_server_thread(void *arg)
 			}
 		}
 
+		/* Shutdown */
+		if (msg.totp_val == UINT32_MAX)
+			goto out;
+
 		/* Generate TOTP value - we usually sleep here. */
 		CKINT_LOG(totp_get_val(&msg.totp_val),
 			  "Server: getting TOTP value failed for (%d)\n", ret);
@@ -184,7 +197,7 @@ static int totp_mq_server_thread(void *arg)
 	}
 
 out:
-	logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER,  "terminate server\n");
+	logger(LOGGER_VERBOSE, LOGGER_C_MQSERVER, "terminate server\n");
 
 	/*
 	 * Do not lock this operation as the invocation of the server already
@@ -194,6 +207,8 @@ out:
 	totp_mq_terminate_ipc(&mq_srv_tx);
 
 	atomic_bool_set_false(&mq_server_alive);
+
+	pthread_exit(NULL);
 
 	return ret;
 }
@@ -583,6 +598,24 @@ void totp_mq_release(void)
 {
 	atomic_bool_set_true(&mq_client_shutdown);
 	atomic_bool_set_false(&mq_server_alive);
+
+	if (atomic_bool_read(&totp_thread_init)) {
+		struct totp_msgbuf msg;
+		int ret;
+
+		/* Ping server to shut down */
+		msg.mtype = TOTP_MSG_TYPE_PING;
+		msg.totp_val = UINT32_MAX;
+		ret = msgsnd(atomic_read(&mq_cln_tx),
+			     (void *)&msg, sizeof(msg.totp_val), 0);
+		if (!ret) {
+			atomic_bool_set_false(&totp_thread_init);
+			/*
+			 * pthread_join(totp_thread, NULL); is not called
+			 * as the threading support collects this thread.
+			 */
+		}
+	}
 
 	/*
 	 * In case the server thread was canceled, clean up the message

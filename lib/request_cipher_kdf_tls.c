@@ -30,6 +30,7 @@
 #include "request_helper.h"
 
 int acvp_req_set_prereq_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
+				const struct acvp_test_deps *deps,
 				struct json_object *entry, bool publish)
 {
 	int ret;
@@ -40,7 +41,7 @@ int acvp_req_set_prereq_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 				     json_object_new_string("tls")));
 
 	CKINT(acvp_req_gen_prereq(kdf_tls->prereqvals, kdf_tls->prereqvals_num,
-				  entry, publish));
+				  deps, entry, publish));
 
 out:
 	return ret;
@@ -58,7 +59,7 @@ int acvp_req_set_algo_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_set_prereq_kdf_tls(kdf_tls, entry, false));
+	CKINT(acvp_req_set_prereq_kdf_tls(kdf_tls, NULL, entry, false));
 
 	version = json_object_new_array();
 	CKNULL(version, -ENOMEM);

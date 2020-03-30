@@ -1,0 +1,13 @@
+{
+  "oeEnvName":"Fedora 29",
+  "_swid_COMMENT":"from /etc/swid/swidtags.d/fedoraproject.org/org.fedoraproject.Fedora-29.swidtag",
+  "swid":"org.fedoraproject.Fedora-29",
+  "_oe_description_COMMENT":"from /etc/swid/swidtags.d/fedoraproject.org/org.fedoraproject.Fedora-29.swidtag",
+  "oe_description":"Linux distribution developed by the community-supported Fedora Project and sponsored by Red Hat, Inc.",
+  "manufacturer":"IBM",
+  "procFamily":"S390",
+  "procName":"z15",
+  "procSeries":"System Z",
+  "features":7,
+  "envType":0,
+}

@@ -37,7 +37,7 @@ static int acvp_req_kas_ffc_paramset(enum kas_ffc_paramset kas_ffc_paramset,
 	struct json_object *tmp, *tmp2;
 	int ret = 0;
 
-	CKNULL_LOG(hashalg, -EINVAL, "hashalg value empty\n");
+	CKNULL_LOG(hashalg, -EINVAL, "KAS FFC: hashalg value empty\n");
 
 	tmp = json_object_new_object();
 	CKNULL(tmp, -ENOMEM);
@@ -55,7 +55,7 @@ static int acvp_req_kas_ffc_paramset(enum kas_ffc_paramset kas_ffc_paramset,
 	default:
 		json_object_put(tmp);
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown kas_ffc_paramset entry\n");
+		       "KAS FFC: Unknown kas_ffc_paramset entry\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -80,7 +80,7 @@ static int acvp_req_kas_ffc_mac(cipher_t mac,
 	const char *mac_str;
 	int ret;
 
-	CKNULL_LOG(mac, -EINVAL, "mac value empty\n");
+	CKNULL_LOG(mac, -EINVAL, "KAS FFC: mac value empty\n");
 
 	tmp = json_object_new_object();
 	CKNULL(tmp, -ENOMEM);
@@ -89,7 +89,7 @@ static int acvp_req_kas_ffc_mac(cipher_t mac,
 	CKINT_LOG(acvp_req_cipher_to_name(mac, ACVP_CIPHERTYPE_MAC |
 					       ACVP_CIPHERTYPE_AEAD,
 					  &mac_str),
-		  "Cannot convert mac cipher definition\n");
+		  "KAS FFC: Cannot convert mac cipher definition\n");
 	tmp2 = json_object_new_object();
 	CKNULL(tmp2, -ENOMEM);
 	CKINT(json_object_object_add(tmp, mac_str, tmp2));
@@ -97,8 +97,9 @@ static int acvp_req_kas_ffc_mac(cipher_t mac,
 	CKINT(acvp_req_algo_int_array(tmp2, keylen, "keyLen"));
 
 	if ((mac & ACVP_CCM)) {
-		CKNULL_LOG(noncelen, -EINVAL, "noncelen not provided\n");
-		CKNULL_LOG(maclen, -EINVAL, "maclen not provided\n");
+		CKNULL_LOG(noncelen, -EINVAL,
+			   "KAS FFC: noncelen not provided\n");
+		CKNULL_LOG(maclen, -EINVAL, "KAS FFC: maclen not provided\n");
 		CKINT(json_object_object_add(tmp2, "nonceLen",
 					     json_object_new_int(noncelen)));
 		CKINT(json_object_object_add(tmp2, "macLen",
@@ -132,7 +133,7 @@ static int acvp_req_kas_ffc_kdfoption(unsigned int kas_ffc_kdfoption,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for kas_ffc_kdfoption found\n");
+		   "KAS FFC: No applicable entry for kas_ffc_kdfoption found\n");
 
 out:
 	return ret;
@@ -202,7 +203,7 @@ static int acvp_req_kas_ffc_kdfkc(const struct def_algo_kas_ffc_kdfkc *kdfkc,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for kcrole found\n");
+		   "KAS FFC: No applicable entry for kcrole found\n");
 
 	tmp = json_object_new_array();
 	CKNULL(tmp, -ENOMEM);
@@ -218,7 +219,7 @@ static int acvp_req_kas_ffc_kdfkc(const struct def_algo_kas_ffc_kdfkc *kdfkc,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for kctype found\n");
+		   "KAS FFC: No applicable entry for kctype found\n");
 
 	tmp = json_object_new_array();
 	CKNULL(tmp, -ENOMEM);
@@ -244,7 +245,7 @@ static int acvp_req_kas_ffc_kdfkc(const struct def_algo_kas_ffc_kdfkc *kdfkc,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for noncetype found\n");
+		   "KAS FFC: No applicable entry for noncetype found\n");
 
 
 out:
@@ -272,7 +273,7 @@ static int acvp_req_kas_ffc_schema(const struct def_algo_kas_ffc *kas_ffc,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for kas_ffc_role found\n");
+		   "KAS FFC: No applicable entry for kas_ffc_role found\n");
 
 	switch(kas_ffc->kas_ffc_dh_type) {
 	case DEF_ALG_KAS_FFC_NO_KDF_NO_KC:
@@ -298,7 +299,7 @@ static int acvp_req_kas_ffc_schema(const struct def_algo_kas_ffc *kas_ffc,
 	default:
 		json_object_put(tmp);
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown entry for kas_ffc_dh_type\n");
+		       "KAS FFC: Unknown entry for kas_ffc_dh_type\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -311,6 +312,7 @@ out:
  * Generate algorithm entry for SHA hashes
  */
 static int _acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
+				      const struct acvp_test_deps *deps,
 				      struct json_object *entry, bool full,
 				      bool publish)
 {
@@ -330,7 +332,7 @@ static int _acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 	}
 
 	CKINT(acvp_req_gen_prereq(kas_ffc->prereqvals, kas_ffc->prereqvals_num,
-				  entry, publish));
+				  deps, entry, publish));
 
 	if (!full)
 		goto out;
@@ -374,7 +376,7 @@ static int _acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 	if (kas_ffc->kas_ffc_schema & DEF_ALG_KAS_FFC_DH_EPHEM) {
 		if (kas_ffc->kas_ffc_dh_type == DEF_ALG_KAS_FFC_KDF_KC) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "ephemeralUnified does not support key confirmation\n");
+			       "KAS FFC: ephemeralUnified does not support key confirmation\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -428,20 +430,21 @@ static int _acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,
-		   "No applicable entry for kas_ffc_schema found\n");
+		   "KAS FFC: No applicable entry for kas_ffc_schema found\n");
 
 out:
 	return ret;
 }
 
 int acvp_req_set_prereq_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
-			      struct json_object *entry, bool publish)
+				const struct acvp_test_deps *deps,
+				struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_algo_kas_ffc(kas_ffc, entry, false, publish);
+	return _acvp_req_set_algo_kas_ffc(kas_ffc, deps, entry, false, publish);
 }
 
 int acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 			      struct json_object *entry)
 {
-	return _acvp_req_set_algo_kas_ffc(kas_ffc, entry, true, false);
+	return _acvp_req_set_algo_kas_ffc(kas_ffc, NULL, entry, true, false);
 }

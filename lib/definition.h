@@ -32,7 +32,9 @@
 #include "definition_cipher_eddsa.h"
 #include "definition_cipher_dsa.h"
 #include "definition_cipher_kas_ecc.h"
+#include "definition_cipher_kas_ecc_r3.h"
 #include "definition_cipher_kas_ffc.h"
+#include "definition_cipher_kas_ffc_r3.h"
 #include "definition_cipher_kdf_ssh.h"
 #include "definition_cipher_kdf_ikev1.h"
 #include "definition_cipher_kdf_ikev2.h"
@@ -40,6 +42,7 @@
 #include "definition_cipher_kdf_108.h"
 #include "definition_cipher_pbkdf.h"
 #include "definition_cipher_kas_ifc.h"
+#include "definition_cipher_safeprimes.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -92,6 +95,14 @@ struct def_algo {
 		DEF_ALG_TYPE_KDF_108,
 		/** SP800-132 PBKDF */
 		DEF_ALG_TYPE_PBKDF,
+		/** SP800-56A rev3 FFC */
+		DEF_ALG_TYPE_KAS_FFC_R3,
+		/** SP800-56A rev3 KAS ECC */
+		DEF_ALG_TYPE_KAS_ECC_R3,
+		/** SP800-56A rev 3 Safe Primes */
+		DEF_ALG_TYPE_SAFEPRIMES,
+		/** SP800-56B rev2 KAS IFC (RSA) */
+		DEF_ALG_TYPE_KAS_IFC,
 	} type;
 	union {
 		/** DEF_ALG_TYPE_SYM */
@@ -130,6 +141,14 @@ struct def_algo {
 		struct def_algo_kdf_108 kdf_108;
 		/** DEF_ALG_TYPE_PBKDF */
 		struct def_algo_pbkdf pbkdf;
+		/** DEF_ALG_TYPE_KAS_FFC_R3 */
+		struct def_algo_kas_ffc_r3 kas_ffc_r3;
+		/** DEF_ALG_TYPE_KAS_ECC_R3 */
+		struct def_algo_kas_ecc_r3 kas_ecc_r3;
+		/** DEF_ALG_TYPE_SAFEPRIMES */
+		struct def_algo_safeprimes safeprimes;
+		/** DEF_ALG_TYPE_KAS_IFC */
+		struct def_algo_kas_ifc kas_ifc;
 	} algo;
 };
 

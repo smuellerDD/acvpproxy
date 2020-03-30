@@ -21,6 +21,7 @@
 #define LOGGER_H
 
 #include <stdint.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -102,6 +103,22 @@ enum logger_verbosity logger_get_verbosity(enum logger_class class);
  * logger_inc_verbosity - increase verbosity level by one
  */
 void logger_inc_verbosity(void);
+
+/**
+ * Log into the given file
+ *
+ * Note: The status logging will always log to stderr and will be always
+ *	 active if a log file is set.
+ *
+ * @param pathname [in] Path name of log file
+ * @return 0 on success, < 0 on error
+ */
+int logger_set_file(const char *pathname);
+
+/**
+ * Retrieve the file stream to log to.
+ */
+FILE *logger_log_stream(void);
 
 #ifdef __cplusplus
 }

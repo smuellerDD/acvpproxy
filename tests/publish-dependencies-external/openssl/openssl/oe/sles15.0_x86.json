@@ -1,0 +1,14 @@
+{
+  "oeEnvName":"SUSE Linux Enterprise Server 15 SP0",
+  "cpe":"cpe:/o:suse:linux_enterprise_server:15",
+  "oe_description":"SUSE Linux Enterprise distribution",
+  "manufacturer":"Intel",
+  "procFamily":"X86",
+  "procName":"i7",
+  "procSeries":"Broadwell",
+  "features":7,
+  "envType":0,
+  "acvpOeId":22796,
+  "acvpOeDepProcId":25567,
+  "acvpOeDepSwId":25566,
+}

@@ -209,7 +209,7 @@ static int acvp_person_get_match(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-	CKINT(acvp_req_strip_version(buf.buf, &resp, &data));
+	CKINT(acvp_req_strip_version(&buf, &resp, &data));
 	CKINT(acvp_person_match(def_vendor, data));
 
 out:

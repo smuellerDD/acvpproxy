@@ -231,7 +231,7 @@ static int acvp_response_error_handler(const struct acvp_buf *response_buf,
 	 * Strip the version from the received array and return the array
 	 * entry containing the answer.
 	 */
-	if (acvp_req_strip_version(response_buf->buf, &response, &entry)) {
+	if (acvp_req_strip_version(response_buf, &response, &entry)) {
 		// TODO return may not match definition - clear after issue #771 is fixed
 		entry = response;
 //		ret = http_ret;
@@ -406,7 +406,7 @@ static int acvp_submit_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
 	 * Strip the version from the received array and return the array
 	 * entry containing the answer.
 	 */
-	CKINT(acvp_req_strip_version(large_endpoint->buf, &req, &entry));
+	CKINT(acvp_req_strip_version(large_endpoint, &req, &entry));
 
 	/*
 	 * Get new access token if exists - we ignore any error as the
@@ -751,6 +751,8 @@ static int acvp_process_testids_thread(void *arg)
 		  uint32_t testid) = tdata->cb;
 
 	free(tdata);
+
+	thread_set_name(acvp_testid, testid);
 
 	return cb(ctx, def, testid);
 }

@@ -196,7 +196,7 @@ int acvp_cipher_get(const struct acvp_ctx *ctx,
 	 * Strip the version from the received array and return the array
 	 * entry containing the answer.
 	 */
-	CKINT(acvp_req_strip_version(buf.buf, &req, &entry));
+	CKINT(acvp_req_strip_version(&buf, &req, &entry));
 
 	if (ciphername_arraylen) {
 		for (i = 0; i < ciphername_arraylen; i++)

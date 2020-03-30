@@ -93,7 +93,7 @@ int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
 			goto out;
 		}
 
-		CKINT(acvp_req_strip_version(buf.buf, &resp, &pagingdata));
+		CKINT(acvp_req_strip_version(&buf, &resp, &pagingdata));
 
 		CKINT(json_get_bool(pagingdata, "incomplete", &incomplete));
 		if (incomplete) {

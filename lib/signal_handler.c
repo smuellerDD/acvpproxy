@@ -108,7 +108,7 @@ static int acvp_cancel(struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_net_op(testid_ctx, url, NULL, &response, acvp_http_delete));
 
 	if (response.len) {
-		if (acvp_req_strip_version(response.buf, &req, &entry)) {
+		if (acvp_req_strip_version(&response, &req, &entry)) {
 			logger(LOGGER_ERR, LOGGER_C_SIGNALHANDLER,
 			       "Server response does not indicate cancellation: %s\n",
 			       response.buf);
@@ -332,6 +332,8 @@ static int sig_handler_thread(void *arg)
 
 	(void)arg;
 
+	thread_set_name(acvp_signal, 0);
+
 	sig_thread = pthread_self();
 	atomic_bool_set_true(&sig_thread_init);
 
@@ -397,6 +399,7 @@ static int sig_handler_thread(void *arg)
 
 out:
 	logger(LOGGER_VERBOSE, LOGGER_C_SIGNALHANDLER, "thread terminated\n");
+	pthread_exit(NULL);
 	return 0;
 }
 #endif
@@ -430,5 +433,9 @@ void sig_uninstall_handler(void)
 	if (atomic_bool_read(&sig_thread_init)) {
 		atomic_bool_set_false(&sig_thread_init);
 		pthread_kill(sig_thread, SIGUSR1);
+		/*
+		 * pthread_join(sig_thread, NULL) is not invoked as the
+		 * threading support collects the thread.
+		 */
 	}
 }

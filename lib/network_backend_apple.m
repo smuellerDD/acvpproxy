@@ -231,6 +231,7 @@ static int acvp_nsurl_http_common(const struct acvp_na_ex *netinfo,
 		       "Performing an HTTP DELETE operation\n");
 		[urlRequest setHTTPMethod:@"DELETE"];
 		break;
+	case acvp_http_none:
 	default:
 		logger(LOGGER_WARN, LOGGER_C_CURL,
 		       "Unhandled HTTP request option %u\n", http_type);

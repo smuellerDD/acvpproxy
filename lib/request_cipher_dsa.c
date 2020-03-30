@@ -42,7 +42,7 @@ static int acvp_req_dsa_l_n(const struct def_algo_dsa *dsa,
 		if (dsa->dsa_mode != DEF_ALG_DSA_MODE_SIGVER &&
 		    dsa->dsa_mode != DEF_ALG_DSA_MODE_PQGVER) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "L = 1024 only allowed for SigVer\n");
+			       "DSA: L = 1024 only allowed for SigVer\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -58,7 +58,8 @@ static int acvp_req_dsa_l_n(const struct def_algo_dsa *dsa,
 					     json_object_new_int(3072)));
 		break;
 	default:
-		logger(LOGGER_WARN, LOGGER_C_ANY, "Unknown DSA L definition\n");
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "DSA: Unknown DSA L definition\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -67,7 +68,7 @@ static int acvp_req_dsa_l_n(const struct def_algo_dsa *dsa,
 	case DEF_ALG_DSA_N_160:
 		if (dsa->dsa_l != DEF_ALG_DSA_L_1024) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "N = 160 only allowed for L = 1024");
+			       "DSA: N = 160 only allowed for L = 1024");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -77,7 +78,7 @@ static int acvp_req_dsa_l_n(const struct def_algo_dsa *dsa,
 	case DEF_ALG_DSA_N_224:
 		if (dsa->dsa_l != DEF_ALG_DSA_L_2048) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "N = 224 only allowed for L = 2048");
+			       "DSA: N = 224 only allowed for L = 2048");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -89,7 +90,8 @@ static int acvp_req_dsa_l_n(const struct def_algo_dsa *dsa,
 					     json_object_new_int(256)));
 		break;
 	default:
-		logger(LOGGER_WARN, LOGGER_C_ANY, "Unknown DSA N definition\n");
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "DSA: Unknown DSA N definition\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -142,7 +144,7 @@ static int acvp_req_dsa_pqggen(const struct def_algo_dsa *dsa,
 	}
 	if (!found) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "No gGen information provided\n");
+		       "DSA: No gGen information provided\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -151,7 +153,7 @@ static int acvp_req_dsa_pqggen(const struct def_algo_dsa *dsa,
 	    (dsa->dsa_mode != DEF_ALG_DSA_MODE_PQGVER) &&
 	    (dsa->dsa_mode != DEF_ALG_DSA_MODE_SIGVER)) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "SHA-1 can only be used with PQGVer or SigVer\n");
+		       "DSA: SHA-1 can only be used with PQGVer or SigVer\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -197,6 +199,7 @@ static int acvp_req_dsa_sigver(const struct def_algo_dsa *dsa,
  * Generate algorithm entry for symmetric ciphers
  */
 static int _acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
+				  const struct acvp_test_deps *deps,
 				  struct json_object *entry, bool full,
 				  bool publish)
 {
@@ -253,13 +256,13 @@ static int _acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Unknown DSA keygen definition\n");
+		       "DSA: Unknown DSA keygen definition\n");
 		ret = -EINVAL;
 		goto out;
 		break;
 	}
 
-	CKINT(acvp_req_gen_prereq(dsa->prereqvals, dsa->prereqvals_num,
+	CKINT(acvp_req_gen_prereq(dsa->prereqvals, dsa->prereqvals_num, deps,
 				  entry, publish));
 
 out:
@@ -269,13 +272,14 @@ out:
 }
 
 int acvp_req_set_prereq_dsa(const struct def_algo_dsa *dsa,
+			    const struct acvp_test_deps *deps,
 			    struct json_object *entry, bool publish)
 {
-	return _acvp_req_set_algo_dsa(dsa, entry, false, publish);
+	return _acvp_req_set_algo_dsa(dsa, deps, entry, false, publish);
 }
 
 int acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
 			  struct json_object *entry)
 {
-	return _acvp_req_set_algo_dsa(dsa, entry, true, false);
+	return _acvp_req_set_algo_dsa(dsa, NULL, entry, true, false);
 }

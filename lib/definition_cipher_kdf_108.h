@@ -126,6 +126,12 @@ struct def_algo_kdf_108 {
 	 */
 	bool supports_empty_iv;
 
+	/*
+	 * Whether the IUT requires an empty IV.
+	 *
+	 * required: always
+	 */
+	bool requires_empty_iv;
 };
 
 #ifdef __cplusplus

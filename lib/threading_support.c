@@ -18,12 +18,14 @@
  * DAMAGE.
  */
 
+#define _GNU_SOURCE
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include <unistd.h>
 
 #include "atomic_bool.h"
@@ -220,6 +222,7 @@ static void *thread_worker(void *arg)
 			 * does not exist any more.
 			 */
 			thread_cleanup_full(tctx);
+			pthread_exit(NULL);
 			break;
 		} else if (tctx->start_routine) {
 			/* Work to do, execute */
@@ -402,6 +405,40 @@ int thread_wait(void)
 	return ret;
 }
 
+int thread_set_name(enum acvp_request_type type, uint32_t id)
+{
+	char name[ACVP_THREAD_MAX_NAMELEN];
+
+	switch (type) {
+	case acvp_testid:
+		snprintf(name, sizeof(name), "tid%u", id);
+		break;
+	case acvp_vsid:
+		snprintf(name, sizeof(name), "vid%u", id);
+		break;
+	case acvp_signal:
+		snprintf(name, sizeof(name), "signal%u", id);
+		break;
+	case acvp_totp:
+		snprintf(name, sizeof(name), "totp%u", id);
+		break;
+	default:
+		snprintf(name, sizeof(name), "%u", id);
+		break;
+	}
+
+#ifdef __APPLE__
+	return -pthread_setname_np(name);
+#else
+	return -pthread_setname_np(pthread_self(), name);
+#endif
+}
+
+int thread_get_name(char *name, size_t len)
+{
+	return -pthread_getname_np(pthread_self(), name, len);
+}
+
 /* Wait for all threads */
 static int thread_wait_all(bool system_threads)
 {
@@ -454,14 +491,8 @@ static void thread_cancel(bool system_threads)
 	/* Kill all worker threads. */
 	for (i = 0; i < upper; i++) {
 		if (thread_dirty(i)) {
-			pthread_kill(threads[i].thread_id, SIGTERM);
-
-			/*
-			 * Cancel/join does not work as some threads wait in
-			 * non-cancelable operations
 			pthread_cancel(threads[i].thread_id);
 			pthread_join(threads[i].thread_id, NULL);
-			 */
 			thread_cleanup_full(&threads[i]);
 			logger(LOGGER_VERBOSE, LOGGER_C_THREADING,
 			       "Thread %u killed\n", i);
@@ -537,6 +568,18 @@ int thread_start(int(*start_routine)(void *), void *tdata,
 	(void)tdata;
 	(void)thread_group;
 	(void)ret_ancestor;
+	return 0;
+}
+
+int thread_set_name(const char *name)
+{
+	(void)name;
+	return 0;
+}
+
+int thread_get_name(char *name, size_t len)
+{
+	memset(name, 0, len);
 	return 0;
 }
 

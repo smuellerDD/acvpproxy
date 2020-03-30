@@ -24,5 +24,43 @@
 		"DRBG_10X_SHA_AVX",
 		"DRBG_10X_SHA_SSSE3",
 		"DRBG_10X_SHA_ASM"
-	]
+	],
+	"dependencies-internal": {
+		"AESNI_AVX": {
+			"AES": "AESNI",
+			"DRBG": "AESNI"
+		},
+		"AESNI_CLMULNI": {
+			"AES": "AESNI",
+			"DRBG": "AESNI"
+		},
+		"AESNI_ASM": {
+			"AES": "AESNI",
+			"DRBG": "AESNI"
+		},
+		"AESASM_AVX": {
+			"AES": "AESASM",
+			"DRBG": "AESASM"
+		},
+		"AESASM_CLMULNI": {
+			"AES": "AESASM",
+			"DRBG": "AESASM"
+		},
+		"AESASM_ASM": {
+			"AES": "AESASM",
+			"DRBG": "AESASM"
+		},
+		"BAES_CTASM_AVX": {
+			"AES": "BAES_CTASM",
+			"DRBG": "BAES_CTASM"
+		},
+		"BAES_CTASM_CLMULNI": {
+			"AES": "BAES_CTASM",
+			"DRBG": "BAES_CTASM"
+		},
+		"BAES_CTASM_ASM": {
+			"AES": "BAES_CTASM",
+			"DRBG": "BAES_CTASM"
+		}
+	}
 }

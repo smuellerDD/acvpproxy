@@ -1,0 +1,134 @@
+[
+  {
+    "acvVersion":"1.0"
+  },
+  {
+    "name":"atsec corp.",
+    "website":"www.atsec.com",
+    "addresses":[
+      {
+        "street1":"9130 Jollyville Rd",
+        "locality":"Austin",
+        "region":"TX",
+        "country":"USA",
+        "postalCode":"78759"
+      }
+    ]
+  }
+]
+[
+  {
+    "acvVersion":"1.0"
+  },
+  {
+    "fullName":"Stephan Müller",
+    "vendorUrl":"/acvp/v1/vendors/10646",
+    "emails":[
+      "smueller@atsec.com"
+    ],
+    "phoneNumbers":[
+      {
+        "number":"+1-512-615-7300",
+        "type":"voice"
+      }
+    ]
+  }
+]
+[
+  {
+    "acvVersion":"1.0"
+  },
+  {
+    "type":"processor",
+    "manufacturer":"Intel",
+    "family":"X86",
+    "name":"i7",
+    "series":"Broadwell",
+    "description":"Processor i7 (processor family X86) from Intel"
+  }
+]
+[
+  {
+    "acvVersion":"1.0"
+  },
+  {
+    "type":"software",
+    "name":"SUSE Linux Enterprise Server 15 SP0",
+    "cpe":"cpe:/o:suse:linux_enterprise_server:15",
+    "description":"SUSE Linux Enterprise distribution"
+  }
+]
+[
+  {
+    "acvVersion":"1.0"
+  },
+  {
+    "name":"SUSE Linux Enterprise Server 15 SP0 on Intel Broadwell i7",
+    "dependencyUrls":[
+      "/acvp/v1/dependencies/25567",
+      "/acvp/v1/dependencies/25566"
+    ]
+  }
+]
+[
+  {
+    "acvVersion":"1.0"
+  },
+  {
+    "name":"OpenSSL (64 bit) (AESNI_AVX)",
+    "version":"4.0",
+    "type":"Software",
+    "vendorUrl":"/acvp/v1/vendors/10646",
+    "addressUrl":"/acvp/v1/vendors/10646/addresses/10588",
+    "contactUrls":[
+      "/acvp/v1/persons/14125"
+    ],
+    "description":"OpenSSL library implementation providing cryptographic services to Linux user space software components. The module was tested with 64 bit word size."
+  }
+]
+[
+  {
+    "acvVersion":"1.0"
+  },
+  {
+    "moduleUrl":"/acvp/v1/modules/11983",
+    "oeUrl":"/acvp/v1/oes/22796",
+    "algorithmPrerequisites":[
+      {
+        "algorithm":"ACVP-AES-GCM",
+        "prerequisites":[
+          {
+            "algorithm":"AES",
+            "validationId":"C123"
+          },
+          {
+            "algorithm":"DRBG",
+            "validationId":"DRBG 456"
+          }
+        ]
+      },
+      {
+        "algorithm":"ACVP-AES-GCM",
+        "prerequisites":[
+          {
+            "algorithm":"AES",
+            "validationId":"C123"
+          },
+          {
+            "algorithm":"DRBG",
+            "validationId":"DRBG 456"
+          }
+        ]
+      },
+      {
+        "algorithm":"ctrDRBG",
+        "prerequisites":[
+          {
+            "algorithm":"AES",
+            "validationId":"C123"
+          }
+        ]
+      }
+    ]
+  }
+]
