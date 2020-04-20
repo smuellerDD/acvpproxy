@@ -29,6 +29,39 @@
 #include "internal.h"
 #include "request_helper.h"
 
+int acvp_list_algo_safeprimes(const struct def_algo_safeprimes *safeprimes,
+			      struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp = NULL;
+	int ret = 0;
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
+
+	CKINT(acvp_duplicate(&tmp->cipher_name, "safePrimes"));
+	tmp->prereqs = &safeprimes->prereqvals;
+	tmp->prereq_num = 1;
+
+	switch (safeprimes->safeprime_mode) {
+	case DEF_ALG_SAFEPRIMES_KEYGENERATION:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyGen"));
+		break;
+	case DEF_ALG_SAFEPRIMES_KEYVERIFICATION:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyVer"));
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Safe Primes: Unknown safeprimes key mode\n");
+		return -EINVAL;
+	}
+
+out:
+	return ret;
+}
+
 int acvp_req_set_prereq_safeprimes(const struct def_algo_safeprimes *safeprimes,
 				   const struct acvp_test_deps *deps,
 				   struct json_object *entry, bool publish)

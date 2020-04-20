@@ -257,25 +257,47 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
  *	* all allowed tag lengths
  *	* support for zero values of plaintext and AAD
  * 	* arbitrary plaintext length
- *	* external IV generation
- *	* IV generation following section 8.2.2. of SP800-38D
+ *	* external/internal IV generation - specify with param ivtype
+ *	* IV generation following section 8.2.1 / 8.2.2. of SP800-38D -
+ *	  specify with param mode
  *	* AES cipher prerequisites are covered in the same ACVP request
  */
-#define GENERIC_AES_GCM_822_NONNULL					\
+#define GENERIC_AES_GCM_NONNULL(mode, ivtype)				\
 	{								\
 	GENERIC_AES_ALGO_GEN(ACVP_GCM),					\
 	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
 	.algo.sym.ivlen = { 96, },					\
-	.algo.sym.ivgen = DEF_ALG_SYM_IVGEN_EXTERNAL,			\
-	.algo.sym.ivgenmode = DEF_ALG_SYM_IVGENMODE_822,		\
+	.algo.sym.ivgen = ivtype,					\
+	.algo.sym.ivgenmode = mode,					\
 	.algo.sym.aadlen = { 128, 256, 120, DEF_ALG_ZERO_VALUE },	\
 	.algo.sym.taglen = { 32, 64, 96, 104, 112, 120, 128 },		\
 	.algo.sym.prereqvals = generic_gcm_prereqs,			\
 	.algo.sym.prereqvals_num = ARRAY_SIZE(generic_gcm_prereqs)	\
 	}
+
+/* External IV */
+#define GENERIC_AES_GCM_EIV_NONNULL(mode)				\
+		GENERIC_AES_GCM_NONNULL(mode, DEF_ALG_SYM_IVGEN_EXTERNAL)
+#define GENERIC_AES_GCM_822_NONNULL					\
+		GENERIC_AES_GCM_EIV_NONNULL(DEF_ALG_SYM_IVGENMODE_822)
+#define GENERIC_AES_GCM_821_NONNULL					\
+		GENERIC_AES_GCM_EIV_NONNULL(DEF_ALG_SYM_IVGENMODE_821)
 #define GENERIC_AES_GCM_822						\
 		GENERIC_AES_GCM_822_NONNULL, GENERIC_AES_GMAC_822
+#define GENERIC_AES_GCM_821						\
+		GENERIC_AES_GCM_821_NONNULL, GENERIC_AES_GMAC_821
 
+/* Internal IV */
+#define GENERIC_AES_GCM_IIV_NONNULL(mode)				\
+		GENERIC_AES_GCM_NONNULL(mode, DEF_ALG_SYM_IVGEN_INTERNAL)
+#define GENERIC_AES_GCM_822_IIV_NONNULL					\
+		GENERIC_AES_GCM_IIV_NONNULL(DEF_ALG_SYM_IVGENMODE_822)
+#define GENERIC_AES_GCM_821_IIV_NONNULL					\
+		GENERIC_AES_GCM_IIV_NONNULL(DEF_ALG_SYM_IVGENMODE_821)
+#define GENERIC_AES_GCM_822_IIV						\
+		GENERIC_AES_GCM_822_NONNULL, GENERIC_AES_GMAC_822
+#define GENERIC_AES_GCM_821_IIV						\
+		GENERIC_AES_GCM_821_NONNULL, GENERIC_AES_GMAC_821
 
 /**
  * @brief AES CCM definition.

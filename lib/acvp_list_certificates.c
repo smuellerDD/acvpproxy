@@ -24,6 +24,7 @@
 #include "definition_internal.h"
 #include "internal.h"
 #include "mutex_w.h"
+#include "request_helper.h"
 #include "term_colors.h"
 
 static DEFINE_MUTEX_W_UNLOCKED(acvp_list_cert_mutex);
@@ -32,9 +33,10 @@ struct acvp_list_cert_uniq {
 	struct acvp_list_cert_uniq *next;
 	char *cipher_name;
 	char *cipher_mode;
+	char *certificate;
+	bool listed;
 };
 static struct acvp_list_cert_uniq *acvp_list_cert_uniq = NULL;
-static bool acvp_list_cert_one_vsid = false;
 
 static int acvp_list_certificates_cb(const struct acvp_ctx *ctx,
 				     const struct definition *def,
@@ -71,25 +73,45 @@ out:
 	return ret;
 }
 
-static int acvp_list_cert_unique(struct acvp_test_verdict_status *verdict)
+static int acvp_store_cert_sorted(struct acvp_test_verdict_status *verdict,
+				  const char *certificate)
 {
 	struct acvp_list_cert_uniq *new, *list = acvp_list_cert_uniq;
 	int ret;
 
+	CKNULL(certificate, -EINVAL);
+
+	mutex_w_lock(&acvp_list_cert_mutex);
+
+	fprintf(stderr, ".");
+
+	/* Remove duplications */
 	while (list) {
+		/* Duplication check only applies to same certificate */
+		if (strncmp(certificate, list->certificate,
+			    strlen(list->certificate))) {
+			if (!list->next)
+				break;
+			list = list->next;
+			continue;
+		}
 		if (verdict->cipher_mode) {
 			if (!strncmp(list->cipher_name,
 				     verdict->cipher_name,
 				     strlen(list->cipher_name)) &&
 			    !strncmp(list->cipher_mode,
 				     verdict->cipher_mode,
-				     strlen(list->cipher_mode)))
-				return -EAGAIN;
+				     strlen(list->cipher_mode))) {
+				ret = -EAGAIN;
+				goto out;
+			}
 		} else {
 			if (!strncmp(list->cipher_name,
 				     verdict->cipher_name,
-				     strlen(list->cipher_name)))
-				return -EAGAIN;
+				     strlen(list->cipher_name))) {
+				ret = -EAGAIN;
+				goto out;
+			}
 		}
 		if (!list->next)
 			break;
@@ -100,16 +122,62 @@ static int acvp_list_cert_unique(struct acvp_test_verdict_status *verdict)
 	CKNULL(new, -ENOMEM);
 	CKINT(acvp_duplicate(&new->cipher_mode, verdict->cipher_mode));
 	CKINT(acvp_duplicate(&new->cipher_name, verdict->cipher_name));
+	CKINT(acvp_duplicate(&new->certificate, certificate));
 
 	if (!acvp_list_cert_uniq) {
 		acvp_list_cert_uniq = new;
 	} else {
+		struct acvp_list_cert_uniq *prev = acvp_list_cert_uniq;
+
 		CKNULL_LOG(list, -EFAULT,
 			   "Programming bug in acvp_list_cert_unique\n");
-		list->next = new;
+
+		/* Sorting */
+		for (list = acvp_list_cert_uniq;
+		     list != NULL;
+		     list = list->next) {
+
+			/*
+			 * Sort the certificate numbers for given certificate
+			 * name in ascending order
+			 */
+			if (acvp_find_match(list->cipher_name,
+					    new->cipher_name, false) &&
+			    (strncasecmp(list->certificate, new->certificate,
+					 strlen(list->certificate)) > 0)) {
+				if (list == acvp_list_cert_uniq)
+					acvp_list_cert_uniq = new;
+				else
+					prev->next = new;
+
+				new->next = list;
+				break;
+			}
+
+			/* Sort cipher name in ascending order. */
+			if ((strncasecmp(list->cipher_name, new->cipher_name,
+					 strlen(list->cipher_name)) > 0)) {
+				if (list == acvp_list_cert_uniq)
+					acvp_list_cert_uniq = new;
+				else
+					prev->next = new;
+
+				new->next = list;
+				break;
+			}
+
+			prev = list;
+
+			/* We reached the end */
+			if (!list->next) {
+				list->next = new;
+				break;
+			}
+		}
 	}
 
 out:
+	mutex_w_unlock(&acvp_list_cert_mutex);
 	return ret;
 }
 
@@ -122,6 +190,7 @@ static void acvp_list_cert_unique_free(void)
 
 		ACVP_PTR_FREE_NULL(list->cipher_mode);
 		ACVP_PTR_FREE_NULL(list->cipher_name);
+		ACVP_PTR_FREE_NULL(list->certificate);
 		list = list->next;
 		ACVP_PTR_FREE_NULL(tmp);
 	}
@@ -129,9 +198,11 @@ static void acvp_list_cert_unique_free(void)
 	acvp_list_cert_uniq = NULL;
 }
 
-static int acvp_list_cert_detail_vsid(const struct acvp_vsid_ctx *vsid_ctx,
-				      const struct acvp_buf *buf)
+static int acvp_get_cert_detail_vsid(const struct acvp_vsid_ctx *vsid_ctx,
+				     const struct acvp_buf *buf)
 {
+	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
+	const struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_vsid_ctx tmp_ctx;
 	struct acvp_test_verdict_status *verdict;
 	int ret;
@@ -144,27 +215,18 @@ static int acvp_list_cert_detail_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 	verdict = &tmp_ctx.verdict;
 
 	/* Ensure that a given name/mode combo is only listed once */
-	ret = acvp_list_cert_unique(verdict);
+	ret = acvp_store_cert_sorted(verdict,
+				     auth->testsession_certificate_number);
 	if (ret == -EAGAIN)
 		return 0;
-	if (ret)
-		goto out;
-
-	if (verdict->cipher_mode)
-		fprintf(stdout, " %s (%s),", verdict->cipher_name,
-			verdict->cipher_mode);
-	else
-		fprintf(stdout, " %s,", verdict->cipher_name);
-
-	acvp_list_cert_one_vsid = true;
 
 out:
 	return ret;
 }
 
-static int acvp_list_cert_details_cb(const struct acvp_ctx *ctx,
-				     const struct definition *def,
-				     const uint32_t testid)
+static int acvp_get_cert_details_cb(const struct acvp_ctx *ctx,
+				    const struct definition *def,
+				    const uint32_t testid)
 {
 	const struct def_info *def_info = def->info;
 	struct acvp_testid_ctx *testid_ctx = NULL;
@@ -192,28 +254,17 @@ static int acvp_list_cert_details_cb(const struct acvp_ctx *ctx,
 		return 0;
 	}
 
-	mutex_w_lock(&acvp_list_cert_mutex);
-
 	CKINT(ds->acvp_datastore_get_testid_verdict(testid_ctx));
 
-	/* If there was no testresponse, we mark it accordingly. */
+	/* If there was no test response, we mark it accordingly. */
 	if (!testid_ctx->verdict.verdict)
 		testid_ctx->verdict.verdict = acvp_verdict_downloadpending;
 
 	testid_ctx->verdict.cipher_mode = NULL;
 	testid_ctx->verdict.cipher_name = NULL;
 
-	fprintf(stdout, "%s, %s: ", def_info->module_name,
-		auth->testsession_certificate_number);
-
 	CKINT(ds->acvp_datastore_find_responses(testid_ctx,
-						acvp_list_cert_detail_vsid));
-
-	/* Remove trailing comma */
-	if (acvp_list_cert_one_vsid)
-		fprintf(stdout, "\b \b");
-
-	fprintf(stdout, "\n");
+						acvp_get_cert_detail_vsid));
 
 	/*
 	 * We will get an EEXIST back due to the final call to
@@ -223,10 +274,71 @@ static int acvp_list_cert_details_cb(const struct acvp_ctx *ctx,
 	ret = 0;
 
 out:
-	acvp_list_cert_unique_free();
-	mutex_w_unlock(&acvp_list_cert_mutex);
 	acvp_release_auth(testid_ctx);
 	acvp_release_testid(testid_ctx);
+	return ret;
+}
+
+static int acvp_list_cert_details(void)
+{
+	struct acvp_list_cert_uniq *list;
+	const char *cipher_name = NULL, *cipher_mode = NULL;
+	int ret = 0;
+	bool complete = true;
+
+	mutex_w_lock(&acvp_list_cert_mutex);
+
+	for (list = acvp_list_cert_uniq; list != NULL; list = list->next) {
+		complete &= list->listed;
+
+		/* Skip an already processed list entry */
+		if (list->listed)
+			goto nextloop;
+
+		/* We have a fresh new cipher name */
+		if (!cipher_name) {
+			cipher_name = list->cipher_name;
+			cipher_mode = list->cipher_mode;
+
+			fprintf(stdout, " * %s", cipher_name);
+			if (cipher_mode)
+				fprintf(stdout, " (%s)", cipher_mode);
+
+			fprintf(stdout, " - Cert. #%s", list->certificate);
+
+			list->listed = true;
+			goto nextloop;
+		}
+
+		/* Only process entries with same cipher name / mode */
+		if (!acvp_find_match(cipher_name, list->cipher_name,
+				     false))
+			goto nextloop;
+		if (cipher_mode && !acvp_find_match(cipher_mode,
+						    list->cipher_mode,
+						    false))
+			goto nextloop;
+
+		/* Print */
+		fprintf(stdout, ", Cert. #%s", list->certificate);
+		list->listed = true;
+
+nextloop:
+		/*
+		 * We reached the end of the list but not all entries
+		 * were processed - rewind.
+		 */
+		if (!list->next && !complete) {
+			complete = true;
+			cipher_name = NULL;
+			cipher_mode = NULL;
+			list = acvp_list_cert_uniq;
+			fprintf(stdout, "\n\n");
+		}
+	}
+
+	acvp_list_cert_unique_free();
+	mutex_w_unlock(&acvp_list_cert_mutex);
 	return ret;
 }
 
@@ -241,5 +353,13 @@ int acvp_list_certificates(const struct acvp_ctx *ctx)
 DSO_PUBLIC
 int acvp_list_certificates_detailed(const struct acvp_ctx *ctx)
 {
-	return acvp_process_testids(ctx, &acvp_list_cert_details_cb);
+	int ret;
+
+	fprintf(stderr, "processing database ");
+	CKINT(acvp_process_testids(ctx, &acvp_get_cert_details_cb));
+	fprintf(stderr, "\n");
+	CKINT(acvp_list_cert_details());
+
+out:
+	return ret;
 }

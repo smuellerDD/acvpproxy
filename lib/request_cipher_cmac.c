@@ -29,6 +29,28 @@
 #include "internal.h"
 #include "request_helper.h"
 
+int acvp_list_algo_cmac(const struct def_algo_cmac *cmac,
+			struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp;
+	const char *name;
+	int ret;
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	CKINT(acvp_req_cipher_to_name(cmac->algorithm,
+				      ACVP_CIPHERTYPE_MAC, &name));
+	CKINT(acvp_duplicate(&tmp->cipher_name, name));
+	CKINT(acvp_set_sym_keylen(tmp->keylen, cmac->keylen));
+	tmp->prereqs = &cmac->prereqvals;
+	tmp->prereq_num = 1;
+
+out:
+	return ret;
+}
+
 int acvp_req_set_prereq_cmac(const struct def_algo_cmac *cmac,
 			     const struct acvp_test_deps *deps,
 			     struct json_object *entry, bool publish)
@@ -85,23 +107,28 @@ int acvp_req_set_algo_cmac(const struct def_algo_cmac *cmac,
 	CKINT(acvp_req_algo_int_array(caps, cmac->msglen, "msgLen"));
 
 	/*
-	 * Not configurable as truncated hashes are not seen in the wild
+	 * Allow unset maclen definitions - we take the default of the block
+	 * size of the symmetric cipher.
 	 */
-	if (acvp_match_cipher(cmac->algorithm, ACVP_CMAC_TDES))
-		maclen = 64;
-	else if (acvp_match_cipher(cmac->algorithm, ACVP_CMAC_AES))
-		maclen = 128;
-	else {
-		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "CMAC: Cannot determine mac length for keyed message digest %s\n",
-		       cmac->algorithm);
-		ret = -EINVAL;
-		goto out;
+	if (cmac->maclen[0] == 0) {
+		if (acvp_match_cipher(cmac->algorithm, ACVP_CMAC_TDES))
+			maclen = 64;
+		else if (acvp_match_cipher(cmac->algorithm, ACVP_CMAC_AES))
+			maclen = 128;
+		else {
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			       "CMAC: Cannot determine mac length for keyed message digest %s\n",
+			       cmac->algorithm);
+			ret = -EINVAL;
+			goto out;
+		}
+		/* This is a domain definition */
+		CKINT_LOG(acvp_req_valid_range_one(32, 128, 8, maclen),
+			"CMAC: MAC length is outside of allowed range (32 - 128)\n");
+		CKINT(acvp_req_algo_int_array_len(caps, &maclen, 1, "macLen"));
+	} else {
+		CKINT(acvp_req_algo_int_array(caps, cmac->maclen, "macLen"));
 	}
-	/* This is a domain definition */
-	CKINT_LOG(acvp_req_valid_range_one(32, 128, 8, maclen),
-		  "CMAC: MAC length is outside of allowed range (32 - 128)\n");
-	CKINT(acvp_req_algo_int_array_len(caps, &maclen, 1, "macLen"));
 
 out:
 	if (tmp_array)

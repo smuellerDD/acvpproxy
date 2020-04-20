@@ -12,7 +12,8 @@
 	"dependencies-internal": {
 		"FFC_DH": {
 			"SHA": "SHA_",
-			"DRBG": "AES"
+			"DRBG": "AES",
+			"DSA": "SHA_"
 		}
 	}
 }

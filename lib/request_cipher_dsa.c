@@ -100,6 +100,63 @@ out:
 	return ret;
 }
 
+static int acvp_list_dsa_n(const struct def_algo_dsa *dsa,
+			   cipher_t keylen[DEF_ALG_MAX_INT], unsigned int *idx)
+{
+	if (dsa->dsa_n == DEF_ALG_DSA_N_160) {
+		keylen[*idx] = 160;
+		*idx += 1;
+		if (*idx >= DEF_ALG_MAX_INT)
+			return 0;
+	}
+	if (dsa->dsa_n == DEF_ALG_DSA_N_224) {
+		keylen[*idx] = 224;
+		*idx += 1;
+		if (*idx >= DEF_ALG_MAX_INT)
+			return 0;
+	}
+	if (dsa->dsa_n == DEF_ALG_DSA_N_256) {
+		keylen[*idx] = 256;
+		*idx += 1;
+		if (*idx >= DEF_ALG_MAX_INT)
+			return 0;
+	}
+
+	return 0;
+}
+
+static int acvp_list_dsa_l_n(const struct def_algo_dsa *dsa,
+			     cipher_t keylen[DEF_ALG_MAX_INT])
+{
+	unsigned int idx = 0;
+	int ret = 0;
+
+	if (dsa->dsa_l == DEF_ALG_DSA_L_1024) {
+		keylen[idx++] = 1024;
+		CKINT(acvp_list_dsa_n(dsa, keylen, &idx));
+		if (idx >= DEF_ALG_MAX_INT)
+			goto out;
+	}
+	if (dsa->dsa_l == DEF_ALG_DSA_L_2048) {
+		keylen[idx++] = 2048;
+		CKINT(acvp_list_dsa_n(dsa, keylen, &idx));
+		if (idx >= DEF_ALG_MAX_INT)
+			goto out;
+	}
+	if (dsa->dsa_l == DEF_ALG_DSA_L_3072) {
+		keylen[idx++] = 3072;
+		CKINT(acvp_list_dsa_n(dsa, keylen, &idx));
+		if (idx >= DEF_ALG_MAX_INT)
+			goto out;
+	}
+
+	if (idx < DEF_ALG_MAX_INT)
+		keylen[idx] = DEF_ALG_ZERO_VALUE;
+
+out:
+	return ret;
+}
+
 static int acvp_req_dsa_pqggen(const struct def_algo_dsa *dsa,
 			       struct json_object *entry)
 {
@@ -268,6 +325,52 @@ static int _acvp_req_set_algo_dsa(const struct def_algo_dsa *dsa,
 out:
 	if (caparray)
 		json_object_put(caparray);
+	return ret;
+}
+
+int acvp_list_algo_dsa(const struct def_algo_dsa *dsa,
+		       struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp = NULL;
+	int ret = 0;
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	CKINT(acvp_duplicate(&tmp->cipher_name, "DSA"));
+	CKINT(acvp_list_dsa_l_n(dsa, tmp->keylen));
+	tmp->prereqs = dsa->prereqvals;
+	tmp->prereq_num = dsa->prereqvals_num;
+
+	switch (dsa->dsa_mode) {
+	case DEF_ALG_DSA_MODE_PQGGEN:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "pqgGen"));
+		break;
+	case DEF_ALG_DSA_MODE_PQGVER:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "pqgVer"));
+		break;
+	case DEF_ALG_DSA_MODE_KEYGEN:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyGen"));
+		break;
+	case DEF_ALG_DSA_MODE_SIGGEN:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "sigGen"));
+		break;
+	case DEF_ALG_DSA_MODE_SIGVER:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "sigVer"));
+		break;
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "DSA: Unknown DSA keygen definition\n");
+		ret = -EINVAL;
+		goto out;
+		break;
+	}
+
+	CKINT(acvp_req_cipher_to_stringarray(dsa->hashalg, ACVP_CIPHERTYPE_HASH,
+					     &tmp->cipher_aux));
+
+out:
 	return ret;
 }
 

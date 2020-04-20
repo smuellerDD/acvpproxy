@@ -63,6 +63,17 @@ struct def_algo_hmac {
 	 * required: always
 	 */
 	int keylen[DEF_ALG_MAX_INT];
+
+	/*
+	 * Length of the generated MAC. It allows a range between
+	 * 32 and the output length of the used hash algorithm.
+	 *
+	 * If this array contains all zeros (i.e. it is unset), the
+	 * hash output lengths are automatically used.
+	 *
+	 * required: optional
+	 */
+	int maclen[DEF_ALG_MAX_INT];
 };
 
 struct def_algo_cmac {
@@ -101,6 +112,16 @@ struct def_algo_cmac {
 	 */
 	int msglen[DEF_ALG_MAX_INT];
 
+	/*
+	 * Length of the generated MAC. It allows a range between
+	 * 32 and the block length of the used symmetric cipher algorithm.
+	 *
+	 * If this array contains all zeros (i.e. it is unset), the
+	 * hash output lengths are automatically used.
+	 *
+	 * required: optional
+	 */
+	int maclen[DEF_ALG_MAX_INT];
 };
 
 #ifdef __cplusplus

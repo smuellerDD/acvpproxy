@@ -47,6 +47,40 @@ out:
 	return ret;
 }
 
+int acvp_list_algo_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
+			   struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp = NULL;
+	unsigned int entry = 0;
+	int ret;
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	CKINT(acvp_duplicate(&tmp->cipher_name, "kdf-components"));
+	CKINT(acvp_duplicate(&tmp->cipher_mode, "ssh"));
+	CKINT(acvp_req_cipher_to_stringarray(kdf_ssh->hashalg,
+					     ACVP_CIPHERTYPE_HASH,
+					     &tmp->cipher_aux));
+	tmp->prereqs = kdf_ssh->prereqvals;
+	tmp->prereq_num = kdf_ssh->prereqvals_num;
+
+	if (kdf_ssh->cipher & ACVP_AES128)
+		tmp->keylen[entry++] = 128;
+	if (kdf_ssh->cipher & ACVP_AES192)
+		tmp->keylen[entry++] = 192;
+	if (kdf_ssh->cipher & ACVP_AES256)
+		tmp->keylen[entry++] = 256;
+	if (kdf_ssh->cipher & ACVP_TDES)
+		tmp->keylen[entry++] = 168;
+
+	tmp->keylen[entry] = DEF_ALG_ZERO_VALUE;
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for KDF SSH
  */

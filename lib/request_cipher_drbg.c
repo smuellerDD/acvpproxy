@@ -140,6 +140,93 @@ out:
 	return ret;
 }
 
+int acvp_list_algo_drbg(const struct def_algo_drbg *drbg,
+		        struct acvp_list_ciphers **new)
+{
+	const struct def_algo_drbg_caps *caps = drbg->capabilities;
+	struct acvp_list_ciphers *tmp;
+	char buf[FILENAME_MAX];
+	unsigned int i, idx = 0;
+	int ret;
+	bool aes128 = false, aes192 = false, aes256 = false, tdes = false;
+
+	memset(buf, 0, sizeof(buf));
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	CKINT(acvp_duplicate(&tmp->cipher_name, drbg->algorithm));
+
+	for (i = 0; i < drbg->num_caps; i++) {
+		if ((caps->mode == ACVP_AES128 ||
+		     caps->mode == ACVP_AES192 ||
+		     caps->mode == ACVP_AES256) &&
+		     (!aes128 && !aes192 && !aes256)) {
+			if (strlen(buf))
+				CKINT(acvp_extend_string(buf, sizeof(buf),
+							 ", "));
+			CKINT(acvp_extend_string(buf, sizeof(buf), "AES"));
+		}
+
+		if (caps->mode == ACVP_AES128 && !aes128) {
+			tmp->keylen[idx++] = 128;
+			aes128 = true;
+			if (idx >= DEF_ALG_MAX_INT)
+				goto out;
+		}
+		if (caps->mode == ACVP_AES192 && !aes192) {
+			tmp->keylen[idx++] = 192;
+			aes192 = true;
+			if (idx >= DEF_ALG_MAX_INT)
+				goto out;
+		}
+		if (caps->mode == ACVP_AES256 && !aes256) {
+			tmp->keylen[idx++] = 256;
+			aes256 = true;
+			if (idx >= DEF_ALG_MAX_INT)
+				goto out;
+		}
+		if (caps->mode == ACVP_TDES && !tdes) {
+			if (strlen(buf))
+				CKINT(acvp_extend_string(buf, sizeof(buf),
+							 ", "));
+			CKINT(acvp_extend_string(buf, sizeof(buf), "TDES"));
+
+			tmp->keylen[idx++] = 168;
+			tdes = true;
+			if (idx >= DEF_ALG_MAX_INT)
+				goto out;
+		}
+
+		if (caps->mode & ACVP_CIPHERTYPE_HASH) {
+			const char *algo;
+
+			if (strlen(buf))
+				CKINT(acvp_extend_string(buf, sizeof(buf),
+							 ", "));
+
+			CKINT(acvp_req_cipher_to_name(caps->mode,
+						      ACVP_CIPHERTYPE_HASH,
+						      &algo));
+			CKINT(acvp_extend_string(buf, sizeof(buf), algo));
+		}
+
+		caps++;
+	}
+
+	if (idx < DEF_ALG_MAX_INT)
+		tmp->keylen[idx] = DEF_ALG_ZERO_VALUE;
+
+	CKINT(acvp_duplicate(&tmp->cipher_aux, buf));
+
+	tmp->prereqs = drbg->prereqvals;
+	tmp->prereq_num = drbg->prereqvals_num;
+
+out:
+	return ret;
+}
+
 int acvp_req_set_prereq_drbg(const struct def_algo_drbg *drbg,
 			     const struct acvp_test_deps *deps,
 			     struct json_object *entry, bool publish)

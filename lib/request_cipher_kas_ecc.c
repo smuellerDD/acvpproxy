@@ -324,6 +324,40 @@ out:
 	return ret;
 }
 
+
+static int acvp_list_kas_ecc_schema(const struct def_algo_kas_ecc *kas_ecc,
+				    cipher_t cipher[DEF_ALG_MAX_INT])
+{
+	int ret;
+
+	switch(kas_ecc->kas_ecc_dh_type) {
+	case DEF_ALG_KAS_ECC_NO_KDF_NO_KC:
+		CKINT(acvp_req_cipher_to_intarray(
+				kas_ecc->type_info.nokdfnokc->curve,
+				ACVP_CIPHERTYPE_ECC, cipher));
+		break;
+	case DEF_ALG_KAS_ECC_KDF_NO_KC:
+		CKINT(acvp_req_cipher_to_intarray(
+				kas_ecc->type_info.kdfnokc->curve,
+				ACVP_CIPHERTYPE_ECC, cipher));
+		break;
+	case DEF_ALG_KAS_ECC_KDF_KC:
+		CKINT(acvp_req_cipher_to_intarray(
+				kas_ecc->type_info.kdfkc->curve,
+				ACVP_CIPHERTYPE_ECC, cipher));
+		break;
+	case DEF_ALG_KAS_ECC_CDH:
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "KAS ECC: Unknown entry for kas_ecc_dh_type\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for SHA hashes
  */
@@ -468,6 +502,61 @@ static int _acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 	}
 	CKNULL_LOG(found, -EINVAL,
 		   "KAS ECC: No applicable entry for kas_ecc_schema found\n");
+
+out:
+	return ret;
+}
+
+int acvp_list_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
+			   struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp = NULL;
+	int ret = 0;
+	bool found = false;
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	CKINT(acvp_duplicate(&tmp->cipher_name, "KAS-ECC"));
+	tmp->prereqs = kas_ecc->prereqvals;
+	tmp->prereq_num = kas_ecc->prereqvals_num;
+
+	if (kas_ecc->kas_ecc_function & DEF_ALG_KAS_ECC_DPGEN) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "dpGen"));
+		found = true;
+	}
+	if (kas_ecc->kas_ecc_function & DEF_ALG_KAS_ECC_DPVAL) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "dpVal"));
+		found = true;
+	}
+	if (kas_ecc->kas_ecc_function & DEF_ALG_KAS_ECC_KEYPAIRGEN) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyPairGen"));
+		found = true;
+	}
+	if (kas_ecc->kas_ecc_function & DEF_ALG_KAS_ECC_FULLVAL) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "fullVal"));
+		found = true;
+	}
+	if (kas_ecc->kas_ecc_function & DEF_ALG_KAS_ECC_PARTIALVAL) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "partialVal"));
+		found = true;
+	}
+	CKNULL_LOG(found, -EINVAL,
+		   "KAS ECC: No applicable entry for kas_ecc_function found\n");
+
+	if (kas_ecc->kas_ecc_dh_type == DEF_ALG_KAS_ECC_CDH) {
+		const struct def_algo_kas_ecc_cdh_component *cdh_component =
+					kas_ecc->type_info.cdh_component;
+
+		CKINT(acvp_req_cipher_to_intarray(cdh_component->curves,
+						  ACVP_CIPHERTYPE_ECC,
+						  tmp->keylen));
+		/* we are done */
+		goto out;
+	}
+
+	CKINT(acvp_list_kas_ecc_schema(kas_ecc, tmp->keylen));
 
 out:
 	return ret;

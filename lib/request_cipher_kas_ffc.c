@@ -70,6 +70,34 @@ out:
 	return ret;
 }
 
+static int acvp_list_kas_ffc_paramset(enum kas_ffc_paramset kas_ffc_paramset,
+				      char **str)
+{
+	char buf[15];
+	int ret = 0;
+
+	memset(buf, 0, sizeof(buf));
+
+	switch(kas_ffc_paramset) {
+	case DEF_ALG_KAS_FFC_FB:
+		CKINT(acvp_extend_string(buf, sizeof(buf), "2048/224"));
+		break;
+	case DEF_ALG_KAS_FFC_FC:
+		CKINT(acvp_extend_string(buf, sizeof(buf), "2048/256"));
+		break;
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "KAS FFC: Unknown kas_ffc_paramset entry\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	CKINT(acvp_duplicate(str, buf));
+
+out:
+	return ret;
+}
+
 static int acvp_req_kas_ffc_mac(cipher_t mac,
 				const int keylen[],
 				int noncelen,
@@ -308,6 +336,35 @@ out:
 	return ret;
 }
 
+static int acvp_list_kas_ffc_schema(const struct def_algo_kas_ffc *kas_ffc,
+				    char **str)
+{
+	int ret;
+
+	switch(kas_ffc->kas_ffc_dh_type) {
+	case DEF_ALG_KAS_FFC_NO_KDF_NO_KC:
+		CKINT(acvp_list_kas_ffc_paramset(
+			kas_ffc->type_info.nokdfnokc->kas_ffc_paramset, str));
+		break;
+	case DEF_ALG_KAS_FFC_KDF_NO_KC:
+		CKINT(acvp_list_kas_ffc_paramset(
+			kas_ffc->type_info.kdfnokc->kas_ffc_paramset, str));
+		break;
+	case DEF_ALG_KAS_FFC_KDF_KC:
+		CKINT(acvp_list_kas_ffc_paramset(
+			kas_ffc->type_info.kdfkc->kas_ffc_paramset, str));
+		break;
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "KAS FFC: Unknown entry for kas_ffc_dh_type\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for SHA hashes
  */
@@ -431,6 +488,52 @@ static int _acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 	}
 	CKNULL_LOG(found, -EINVAL,
 		   "KAS FFC: No applicable entry for kas_ffc_schema found\n");
+
+out:
+	return ret;
+}
+
+int acvp_list_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
+			   struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp = NULL;
+	int ret = 0;
+	bool found = false;
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
+
+	CKINT(acvp_duplicate(&tmp->cipher_name, "KAS-FFC"));
+	tmp->prereqs = kas_ffc->prereqvals;
+	tmp->prereq_num = kas_ffc->prereqvals_num;
+
+	if (kas_ffc->kas_ffc_function & DEF_ALG_KAS_FFC_DPGEN) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "dpGen"));
+		found = true;
+	}
+	if (kas_ffc->kas_ffc_function & DEF_ALG_KAS_FFC_DPVAL) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "dpVal"));
+		found = true;
+	}
+	if (kas_ffc->kas_ffc_function & DEF_ALG_KAS_FFC_KEYPAIRGEN) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyPairGen"));
+		found = true;
+	}
+	if (kas_ffc->kas_ffc_function & DEF_ALG_KAS_FFC_FULLVAL) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "fullVal"));
+		found = true;
+	}
+	if (kas_ffc->kas_ffc_function & DEF_ALG_KAS_FFC_KEYREGEN) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyRegen"));
+		found = true;
+	}
+	CKNULL_LOG(found, -EINVAL,
+		   "No applicable entry for kas_ffc_function found\n");
+
+	CKINT(acvp_list_kas_ffc_schema(kas_ffc, &tmp->cipher_aux));
 
 out:
 	return ret;

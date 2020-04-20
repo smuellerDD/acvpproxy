@@ -84,6 +84,68 @@ out:
 	return ret;
 }
 
+static int acvp_req_rsa_modulo_list(enum rsa_modulo modulo, cipher_t *keylen)
+{
+	int ret = 0;
+
+	switch (modulo) {
+	case DEF_ALG_RSA_MODULO_1024:
+		*keylen = 1024;
+		break;
+	case DEF_ALG_RSA_MODULO_2048:
+		*keylen = 2048;
+		break;
+	case DEF_ALG_RSA_MODULO_3072:
+		*keylen = 3072;
+		break;
+	case DEF_ALG_RSA_MODULO_4096:
+		*keylen = 4096;
+		break;
+	case DEF_ALG_RSA_MODULO_5120:
+		*keylen = 5120;
+		break;
+	case DEF_ALG_RSA_MODULO_6144:
+		*keylen = 6144;
+		break;
+	case DEF_ALG_RSA_MODULO_7168:
+		*keylen = 7168;
+		break;
+	case DEF_ALG_RSA_MODULO_8192:
+		*keylen = 8192;
+		break;
+	case DEF_ALG_RSA_MODULO_UNDEF:
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "RSA: Unknown RSA modulo definition\n");
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int acvp_req_rsa_sigtype_list(enum sigtype sigtype, const char **name)
+{
+	int ret = 0;
+
+	switch (sigtype) {
+	case DEF_ALG_RSA_SIGTYPE_ANSIX931:
+		*name = "ANSIX931";
+		break;
+	case DEF_ALG_RSA_SIGTYPE_PKCS1V15:
+		*name = "PKCS1v1.5";
+		break;
+	case DEF_ALG_RSA_SIGTYPE_PSS:
+		*name = "PSS";
+		break;
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "RSA: Unknown RSA signature type definition\n");
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
 static int acvp_req_rsa_pubexpmode(enum pubexpmode pubexpmode,
 				   const char *fixedpubexp,
 				   struct json_object *entry)
@@ -314,6 +376,30 @@ static int acvp_req_rsa_keyformat(enum keyformat keyformat,
 	case DEF_ALG_RSA_KEYFORMAT_CRT:
 		CKINT(json_object_object_add(entry, "keyFormat",
 					json_object_new_string("crt")));
+		break;
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "RSA: Unknown RSA keyFormat definition\n");
+		ret = -EINVAL;
+		goto out;
+		break;
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_req_rsa_keyformat_list(enum keyformat keyformat,
+				       const char **name)
+{
+	int ret = 0;
+
+	switch (keyformat) {
+	case DEF_ALG_RSA_KEYFORMAT_STANDARD:
+		*name = "standard";
+		break;
+	case DEF_ALG_RSA_KEYFORMAT_CRT:
+		*name = "crt";
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
@@ -612,8 +698,197 @@ static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 	CKINT(acvp_req_gen_prereq(rsa->prereqvals, rsa->prereqvals_num, deps,
 				  entry, publish));
 
-
 	return 0;
+
+out:
+	return ret;
+}
+
+int acvp_list_algo_rsa(const struct def_algo_rsa *rsa,
+		       struct acvp_list_ciphers **new)
+{
+	const struct def_algo_rsa_component_sig_gen *component_sig;
+	const char *name;
+	char str[FILENAME_MAX];
+	struct acvp_list_ciphers *tmp = NULL, *prev;
+	unsigned int i, j, total = 0;
+	cipher_t consolidated;
+	int ret = 0;
+
+	switch (rsa->rsa_mode) {
+	case DEF_ALG_RSA_MODE_KEYGEN:
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		CKINT(acvp_duplicate(&tmp->cipher_name, "RSA"));
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyGen"));
+		tmp->prereqs = rsa->prereqvals;
+		tmp->prereq_num = rsa->prereqvals_num;
+
+		consolidated = 0;
+		for (i = 0; i < rsa->algspecs_num; i++) {
+			const struct def_algo_rsa_keygen *keygen =
+						rsa->algspecs.keygen + i;
+
+			for (j = 0; j < keygen->capabilities_num; j++) {
+				const struct def_algo_rsa_keygen_caps *caps =
+						keygen->capabilities + j;
+
+				if (total >= DEF_ALG_MAX_INT)
+					break;
+
+				CKINT(acvp_req_rsa_modulo_list(caps->rsa_modulo,
+							&tmp->keylen[total++]));
+				consolidated |= caps->hashalg;
+			}
+
+			if (total >= DEF_ALG_MAX_INT)
+				break;
+		}
+
+		CKINT(acvp_req_cipher_to_stringarray(consolidated,
+						     ACVP_CIPHERTYPE_HASH,
+						     &tmp->cipher_aux));
+		break;
+	case DEF_ALG_RSA_MODE_SIGGEN:
+		for (i = 0; i < rsa->algspecs_num; i++) {
+			const struct def_algo_rsa_siggen *siggen =
+						rsa->algspecs.siggen + i;
+			const char *sigtype;
+
+			memset(str, 0, sizeof(str));
+
+			prev = tmp;
+			tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+			CKNULL(tmp, -ENOMEM);
+			tmp->next = prev;
+			CKINT(acvp_duplicate(&tmp->cipher_name, "RSA"));
+
+			CKINT(acvp_extend_string(str, sizeof(str), "sigGen"));
+			tmp->prereqs = rsa->prereqvals;
+			tmp->prereq_num = rsa->prereqvals_num;
+			CKINT(acvp_req_rsa_sigtype_list(siggen->sigtype,
+							&sigtype));
+			CKINT(acvp_extend_string(str, sizeof(str), " - %s",
+						 sigtype));
+			CKINT(acvp_duplicate(&tmp->cipher_mode, str));
+
+			total = 0;
+			consolidated = 0;
+			for (j = 0; j < siggen->capabilities_num; j++) {
+				const struct def_algo_rsa_siggen_caps *caps =
+						siggen->capabilities + j;
+
+				if (total >= DEF_ALG_MAX_INT)
+					break;
+
+				CKINT(acvp_req_rsa_modulo_list(caps->rsa_modulo,
+							&tmp->keylen[total++]));
+				consolidated |= caps->hashalg;
+			}
+
+			CKINT(acvp_req_cipher_to_stringarray(consolidated,
+				ACVP_CIPHERTYPE_HASH, &tmp->cipher_aux));
+
+			if (total < DEF_ALG_MAX_INT)
+				tmp->keylen[total] = DEF_ALG_ZERO_VALUE;
+			else
+				break;
+		}
+		break;
+	case DEF_ALG_RSA_MODE_LEGACY_SIGVER:
+	case DEF_ALG_RSA_MODE_SIGVER:
+		for (i = 0; i < rsa->algspecs_num; i++) {
+			const struct def_algo_rsa_sigver *sigver =
+						rsa->algspecs.sigver + i;
+			const char *sigtype;
+
+			memset(str, 0, sizeof(str));
+
+			prev = tmp;
+			tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+			CKNULL(tmp, -ENOMEM);
+			tmp->next = prev;
+			CKINT(acvp_duplicate(&tmp->cipher_name, "RSA"));
+			if (rsa->rsa_mode == DEF_ALG_RSA_MODE_SIGVER) {
+				CKINT(acvp_extend_string(str, sizeof(str),
+							 "sigVer"));
+			} else {
+				CKINT(acvp_extend_string(str, sizeof(str),
+							 "legacySigVer"));
+			}
+			tmp->prereqs = rsa->prereqvals;
+			tmp->prereq_num = rsa->prereqvals_num;
+
+			CKINT(acvp_req_rsa_sigtype_list(sigver->sigtype,
+							&sigtype));
+			CKINT(acvp_extend_string(str, sizeof(str), " - %s",
+						 sigtype));
+			CKINT(acvp_duplicate(&tmp->cipher_mode, str));
+
+			total = 0;
+			consolidated = 0;
+			for (j = 0; j < sigver->capabilities_num; j++) {
+				const struct def_algo_rsa_sigver_caps *caps =
+						sigver->capabilities + j;
+
+				if (total >= DEF_ALG_MAX_INT)
+					break;
+
+				CKINT(acvp_req_rsa_modulo_list(caps->rsa_modulo,
+							&tmp->keylen[total++]));
+				consolidated |= caps->hashalg;
+			}
+			CKINT(acvp_req_cipher_to_stringarray(consolidated,
+				ACVP_CIPHERTYPE_HASH, &tmp->cipher_aux));
+
+			if (total < DEF_ALG_MAX_INT)
+				tmp->keylen[total] = DEF_ALG_ZERO_VALUE;
+			else
+				break;
+		}
+		break;
+	case DEF_ALG_RSA_MODE_COMPONENT_SIG_PRIMITIVE:
+		component_sig = rsa->gen_info.component_sig;
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		CKINT(acvp_duplicate(&tmp->cipher_name, "RSA"));
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "signaturePrimitive"));
+		tmp->prereqs = rsa->prereqvals;
+		tmp->prereq_num = rsa->prereqvals_num;
+		CKINT(acvp_req_rsa_keyformat_list(component_sig->keyformat,
+						  &name));
+		CKINT(acvp_duplicate(&tmp->cipher_aux, name));
+		tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
+		break;
+	case DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE:
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		CKINT(acvp_duplicate(&tmp->cipher_name, "RSA"));
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "decryptionPrimitive"));
+		tmp->prereqs = rsa->prereqvals;
+		tmp->prereq_num = rsa->prereqvals_num;
+		for (i = 0; i < rsa->algspecs_num; i++) {
+			const struct def_algo_rsa_component_dec *component_dec =
+						rsa->algspecs.component_dec + i;
+
+			CKINT(acvp_req_rsa_modulo_list(
+						component_dec->rsa_modulo,
+						&tmp->keylen[total++]));
+		}
+		break;
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "RSA: Unknown RSA keygen definition\n");
+		ret = -EINVAL;
+		goto out;
+		break;
+	}
+
+	if (tmp && total < DEF_ALG_MAX_INT)
+		tmp->keylen[total] = DEF_ALG_ZERO_VALUE;
+
+	/* in case of an error, we leak memory, but we do not care */
+	*new = tmp;
 
 out:
 	return ret;

@@ -48,7 +48,7 @@
 /**************************************************************************
  * SP800-56A rev3 FFC
  **************************************************************************/
-#if 0
+#if 1
 static const struct def_algo_prereqs devel_dh_r3_prereqs[] = {
 	{
 		.algorithm = "SHA",
@@ -180,7 +180,7 @@ const struct def_algo_kas_ffc_r3_schema devel_ffc_r3_schema[] = { {
 /**************************************************************************
  * SP800-56A rev3 ECC
  **************************************************************************/
-#if 1
+#if 0
 static const struct def_algo_prereqs devel_dh_r3_prereqs[] = {
 	{
 		.algorithm = "SHA",

@@ -29,6 +29,27 @@
 #include "internal.h"
 #include "request_helper.h"
 
+int acvp_list_algo_sha(const struct def_algo_sha *sha,
+		       struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp;
+	const char *name;
+	int ret;
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
+
+	CKINT(acvp_req_cipher_to_name(sha->algorithm,
+				      ACVP_CIPHERTYPE_HASH, &name));
+	CKINT(acvp_duplicate(&tmp->cipher_name, name));
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for SHA hashes
  */

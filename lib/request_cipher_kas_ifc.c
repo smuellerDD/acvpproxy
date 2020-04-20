@@ -142,7 +142,7 @@ acvp_req_kas_ifc_keygen_method(const struct def_algo_kas_ifc_keygen *keygen,
 	}
 
 	if (keygen->fixedpubexp) {
-		CKINT(json_object_object_add(tmp, "fixedPublicExponent",
+		CKINT(json_object_object_add(tmp, "fixedPubExp",
 				json_object_new_string(keygen->fixedpubexp)));
 	}
 
@@ -405,6 +405,127 @@ _acvp_req_set_algo_kas_ifc(const struct def_algo_kas_ifc *kas_ifc,
 	for (i = 0; i < kas_ifc->schema_num; i++) {
 		schema = kas_ifc->schema + i;
 		CKINT(acvp_req_kas_ifc_schema(schema, tmp));
+	}
+
+out:
+	return ret;
+}
+
+static int
+acvp_list_algo_kas_ifc_one(const struct def_algo_kas_ifc_schema *schema,
+			   struct acvp_list_ciphers *new)
+{
+	unsigned int j, k, entry = 0;
+	int ret;
+
+	if (schema->schema == DEF_ALG_KAS_IFC_KTS_OAEP_BASIC ||
+		    schema->schema == DEF_ALG_KAS_IFC_KTS_OAEP_PARTY_V) {
+		CKINT(acvp_duplicate(&new->cipher_name, "KTS-IFC"));
+	} else {
+		CKINT(acvp_duplicate(&new->cipher_name, "KAS-IFC"));
+	}
+
+	if (schema->keygen_num > 0) {
+		for (k = 0; k < schema->keygen_num; k++) {
+			const struct def_algo_kas_ifc_keygen *keygen =
+						schema->keygen + k;
+
+			for (j = 0;
+			     j < DEF_ALG_KAS_IFC_MODULO_MAX_NUM;
+			     j ++) {
+				if (keygen->rsa_modulo[j] ==
+					DEF_ALG_RSA_MODULO_UNDEF)
+					break;
+
+				switch (keygen->rsa_modulo[j]) {
+				case DEF_ALG_RSA_MODULO_2048:
+					new->keylen[entry++] = 2048;
+					break;
+				case DEF_ALG_RSA_MODULO_3072:
+					new->keylen[entry++] = 3072;
+					break;
+				case DEF_ALG_RSA_MODULO_4096:
+					new->keylen[entry++] = 4096;
+					break;
+				case DEF_ALG_RSA_MODULO_5120:
+					new->keylen[entry++] = 5120;
+					break;
+				case DEF_ALG_RSA_MODULO_6144:
+					new->keylen[entry++] = 6144;
+					break;
+				case DEF_ALG_RSA_MODULO_7168:
+					new->keylen[entry++] = 7168;
+					break;
+				case DEF_ALG_RSA_MODULO_8192:
+					new->keylen[entry++] = 8192;
+					break;
+				case DEF_ALG_RSA_MODULO_UNDEF:
+				case DEF_ALG_RSA_MODULO_1024:
+				default:
+					logger(LOGGER_WARN, LOGGER_C_ANY,
+						"Unknown RSA modulo definition\n");
+					return -EINVAL;
+				}
+
+				if (entry >= DEF_ALG_MAX_INT)
+					break;
+			}
+
+			if (entry >= DEF_ALG_MAX_INT)
+				break;
+		}
+	}
+
+	if (entry < DEF_ALG_MAX_INT)
+		new->keylen[entry] = DEF_ALG_ZERO_VALUE;
+
+out:
+	return ret;
+}
+
+int acvp_list_algo_kas_ifc(const struct def_algo_kas_ifc *kas_ifc,
+			   struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp = NULL, *prev;
+	unsigned int i;
+	int ret = 0;
+
+	for (i = 0; i < kas_ifc->schema_num; i++) {
+		const struct def_algo_kas_ifc_schema *schema =
+							kas_ifc->schema + i;
+
+		/*
+		 * TODO: fix after clarifying the seemingly inconsistent
+		 * specification as outlined in issue 814
+		 */
+		if (kas_ifc->function & DEF_ALG_KAS_IFC_KEYPAIRGEN) {
+			prev = tmp;
+			tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+			CKNULL(tmp, -ENOMEM);
+			*new = tmp;
+			tmp->next = prev;
+
+			CKINT(acvp_duplicate(&tmp->cipher_mode, "keyPairGen"));
+			tmp->prereqs = kas_ifc->prereqvals;
+			tmp->prereq_num = kas_ifc->prereqvals_num;
+
+			CKINT(acvp_list_algo_kas_ifc_one(schema, tmp));
+		}
+		if (kas_ifc->function & DEF_ALG_KAS_IFC_PARITALVAL) {
+			prev = tmp;
+			tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+			CKNULL(tmp, -ENOMEM);
+			*new = tmp;
+			tmp->next = prev;
+
+			CKINT(acvp_duplicate(&tmp->cipher_mode, "partialVal"));
+			tmp->prereqs = kas_ifc->prereqvals;
+			tmp->prereq_num = kas_ifc->prereqvals_num;
+
+			CKINT(acvp_list_algo_kas_ifc_one(schema, tmp));
+		}
+		CKNULL_LOG(tmp, -EINVAL,
+			   "KAS IFC: No applicable entry for function found\n");
 	}
 
 out:

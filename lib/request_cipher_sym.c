@@ -94,6 +94,64 @@ int acvp_req_set_prereq_sym(const struct def_algo_sym *sym,
 	return _acvp_req_set_prereq_sym(sym, deps, entry, false, publish);
 }
 
+int acvp_list_algo_sym(const struct def_algo_sym *sym,
+		       struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp;
+	char buf[128];
+	const char *name;
+	int ret;
+	bool enc = false;
+
+	memset(buf, 0, sizeof(buf));
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	CKINT(acvp_req_cipher_to_name(sym->algorithm,
+				      ACVP_CIPHERTYPE_AES |
+				      ACVP_CIPHERTYPE_TDES |
+				      ACVP_CIPHERTYPE_AEAD, &name));
+	CKINT(acvp_duplicate(&tmp->cipher_name, name));
+	CKINT(acvp_set_sym_keylen(tmp->keylen, sym->keylen));
+	if (sym->direction & DEF_ALG_SYM_DIRECTION_ENCRYPTION) {
+		CKINT(acvp_extend_string(buf, sizeof(buf), "encryption"));
+		enc = true;
+	}
+	if (sym->direction & DEF_ALG_SYM_DIRECTION_DECRYPTION) {
+		CKINT(acvp_extend_string(buf, sizeof(buf), "%sdecryption",
+					 enc ? ", " : ""));
+	}
+	CKINT(acvp_duplicate(&tmp->cipher_mode, buf));
+
+	memset(buf, 0, sizeof(buf));
+	switch (sym->ivgen) {
+	case DEF_ALG_SYM_IVGEN_UNDEF:
+		/* Do nothing */
+		break;
+	case DEF_ALG_SYM_IVGEN_INTERNAL:
+		CKINT(acvp_extend_string(buf, sizeof(buf), "internal IV gen"));
+		break;
+	case DEF_ALG_SYM_IVGEN_EXTERNAL:
+		CKINT(acvp_extend_string(buf, sizeof(buf), "external IV gen"));
+		break;
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "Symmetric ciphers: Unknown IV generator definition\n");
+		ret = -EINVAL;
+		goto out;
+		break;
+	}
+	CKINT(acvp_duplicate(&tmp->cipher_aux, buf));
+
+	tmp->prereqs = sym->prereqvals;
+	tmp->prereq_num = sym->prereqvals_num;
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for symmetric ciphers
  */

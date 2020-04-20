@@ -211,6 +211,69 @@ out:
 	return ret;
 }
 
+int acvp_list_algo_kas_ecc_r3(const struct def_algo_kas_ecc_r3 *kas_ecc_r3,
+			      struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp = NULL, *prev;
+	int ret;
+	bool found = false;
+
+	if (kas_ecc_r3->kas_ecc_function & DEF_ALG_KAS_ECC_R3_KEYPAIRGEN) {
+		prev = tmp;
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		*new = tmp;
+		tmp->next = prev;
+
+		CKINT(acvp_duplicate(&tmp->cipher_name, "KAS-ECC Sp800-56Ar3"));
+		CKINT(acvp_req_cipher_to_intarray(kas_ecc_r3->domain_parameter,
+						  ACVP_CIPHERTYPE_ECC,
+						  tmp->keylen));
+
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyPairGen"));
+		found = true;
+	}
+	if (kas_ecc_r3->kas_ecc_function & DEF_ALG_KAS_ECC_R3_PARTIALVAL) {
+		prev = tmp;
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		*new = tmp;
+		tmp->next = prev;
+
+		CKINT(acvp_duplicate(&tmp->cipher_name, "KAS-ECC Sp800-56Ar3"));
+		CKINT(acvp_req_cipher_to_intarray(kas_ecc_r3->domain_parameter,
+						  ACVP_CIPHERTYPE_ECC,
+						  tmp->keylen));
+
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "partialVal"));
+		found = true;
+	}
+	if (kas_ecc_r3->kas_ecc_function & DEF_ALG_KAS_ECC_R3_FULLVAL) {
+		prev = tmp;
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		*new = tmp;
+		tmp->next = prev;
+
+		CKINT(acvp_duplicate(&tmp->cipher_name, "KAS-ECC Sp800-56Ar3"));
+		CKINT(acvp_req_cipher_to_intarray(kas_ecc_r3->domain_parameter,
+						  ACVP_CIPHERTYPE_ECC,
+						  tmp->keylen));
+
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "fullVal"));
+		found = true;
+	}
+	CKNULL_LOG(found, -EINVAL,
+		   "KAS ECC r3: No applicable entry for kas_ecc_function found\n");
+
+	tmp->prereqs = kas_ecc_r3->prereqvals;
+	tmp->prereq_num = kas_ecc_r3->prereqvals_num;
+
+
+out:
+	return ret;
+}
+
 int acvp_req_set_prereq_kas_ecc_r3(const struct def_algo_kas_ecc_r3 *kas_ecc_r3,
 				   const struct acvp_test_deps *deps,
 				   struct json_object *entry, bool publish)

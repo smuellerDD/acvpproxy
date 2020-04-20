@@ -274,6 +274,84 @@ int acvp_req_cipher_to_array(struct json_object *entry, cipher_t cipher,
 	return found ? 0 : -EINVAL;
 }
 
+int acvp_req_cipher_to_intarray(cipher_t cipher,
+				cipher_t cipher_type_mask,
+				cipher_t array[DEF_ALG_MAX_INT])
+{
+	cipher_t typemask = cipher_type_mask ? cipher_type_mask :
+					       ACVP_CIPHERTYPE;
+	unsigned int i, entry = 0;
+	bool found = false;
+
+	for (i = 0; i < ARRAY_SIZE(cipher_def_map); i++) {
+		if ((cipher & typemask) &
+		     ((cipher_def_map[i].cipher) & typemask) &&
+		    (cipher & ACVP_CIPHERDEF) &
+		     ((cipher_def_map[i].cipher) & ACVP_CIPHERDEF)) {
+			array[entry++] = cipher_def_map[i].cipher;
+
+			found = true;
+
+			if (entry >= DEF_ALG_MAX_INT)
+				break;
+		}
+	}
+
+	if (entry < DEF_ALG_MAX_INT)
+		array[entry] = DEF_ALG_ZERO_VALUE;
+
+	return found ? 0 : -EINVAL;
+}
+
+int acvp_extend_string(char *string, size_t stringmaxlen,
+		       const char *fmt, ...)
+{
+	va_list args;
+	char part[FILENAME_MAX];
+	size_t stringlen = strlen(string);
+
+	va_start(args, fmt);
+	vsnprintf(part, sizeof(part), fmt, args);
+	va_end(args);
+
+	snprintf(string + stringlen,
+		 stringmaxlen - stringlen - 1, "%s", part);
+
+	return 0;
+}
+
+int acvp_req_cipher_to_stringarray(cipher_t cipher,
+				   cipher_t cipher_type_mask,
+				   char **str)
+{
+	cipher_t typemask = cipher_type_mask ? cipher_type_mask :
+					       ACVP_CIPHERTYPE;
+	char buf[FILENAME_MAX];
+	unsigned int i;
+	int ret = 0;
+	bool found = false;
+
+	memset(buf, 0, sizeof(buf));
+
+	for (i = 0; i < ARRAY_SIZE(cipher_def_map); i++) {
+		if ((cipher & typemask) &
+		     ((cipher_def_map[i].cipher) & typemask) &&
+		    (cipher & ACVP_CIPHERDEF) &
+		     ((cipher_def_map[i].cipher) & ACVP_CIPHERDEF)) {
+			CKINT(acvp_extend_string(buf, sizeof(buf), "%s%s",
+						 found ? ", " : "",
+						 cipher_def_map[i].acvp_name));
+			found = true;
+		}
+	}
+
+	if (found)
+		CKINT(acvp_duplicate(str, buf));
+
+out:
+	return ret;
+}
+
 /* Return true when a match is found, otherwise false */
 bool acvp_find_match(const char *searchstr, const char *defstr,
 		     bool fuzzy_search)
@@ -392,6 +470,24 @@ out:
 	return ret;
 }
 
+int acvp_set_sym_keylen(cipher_t keylen[DEF_ALG_MAX_INT], unsigned int keyflags)
+{
+	unsigned int i = 0;
+	int ret = 0;
+
+	if (keyflags & DEF_ALG_SYM_KEYLEN_128)
+		keylen[i++] = 128;
+	if (keyflags & DEF_ALG_SYM_KEYLEN_168)
+		keylen[i++] = 168;
+	if (keyflags & DEF_ALG_SYM_KEYLEN_192)
+		keylen[i++] = 192;
+	if (keyflags & DEF_ALG_SYM_KEYLEN_256)
+		keylen[i++] = 256;
+	keylen[i] = DEF_ALG_ZERO_VALUE;
+
+	return ret;
+}
+
 int acvp_req_tdes_keyopt(struct json_object *entry, cipher_t algorithm)
 {
 	struct json_object *tmp_array = NULL;
@@ -426,23 +522,6 @@ int acvp_duplicate_string(char **dst, const char *src)
 	} else {
 		*dst = NULL;
 	}
-
-	return 0;
-}
-
-int acvp_extend_string(char *string, size_t stringmaxlen,
-		       const char *fmt, ...)
-{
-	va_list args;
-	char part[FILENAME_MAX];
-	size_t stringlen = strlen(string);
-
-	va_start(args, fmt);
-	vsnprintf(part, sizeof(part), fmt, args);
-	va_end(args);
-
-	snprintf(string + stringlen,
-		 stringmaxlen - stringlen - 1, "%s", part);
 
 	return 0;
 }

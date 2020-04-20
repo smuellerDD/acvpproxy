@@ -20,6 +20,9 @@ EXTENSION_DIR="module_implementations"
 # ACVP Proxy log file
 LOGFILE="acvp-proxy"
 
+# File that will contain a general cipher options overview
+CIPHER_OPTION_OVERVIEW="cipher_options_overview.txt"
+
 # name of the executable
 PROXYBIN="acvp-proxy"
 
@@ -67,7 +70,7 @@ usage() {
 	echo -e "\tpost\t\tPost the test responses to ACVP server and get verdicts"
 	echo -e "\tpublish\t\tPublish the tests to obtain certificate"
 	echo -e "\tstatus\t\tList of verdicts, request IDs and certificates"
-	echo -e "\tapproval\t\tGet files that vendor must approve"
+	echo -e "\tapproval\tGet files that vendor must approve"
 	echo
 	echo "The following additional options are allowed"
 	echo -e "\t--official\tUse the production ACVP server (default: demo server)"
@@ -257,6 +260,19 @@ getVendorApprovalPackage()
 {
 	local moddef=""
 	local dirs=""
+
+	if [ ! -d "$TARGETDIR" ]
+	then
+		echo "$TARGETDIR not found"
+		exit 1
+	fi
+
+	if [ ! -d "$TARGETDIR/${SECUREDATA_DIR}${PRODUCTION}" ]
+	then
+		echo "$TARGETDIR/${SECUREDATA_DIR}${PRODUCTION} not found"
+		exit 1
+	fi
+
 	if [ -d "$TARGETDIR/${MODULEDEF_DIR}" ]
 	then
 		moddef="$TARGETDIR/${MODULEDEF_DIR}"
@@ -271,12 +287,17 @@ getVendorApprovalPackage()
 		exit 1
 	fi
 
+	invoke $PROXYBIN $PARAMS --list-cipher-options > $TARGETDIR/$CIPHER_OPTION_OVERVIEW
+
+	dirs="${dirs} $TARGETDIR/$CIPHER_OPTION_OVERVIEW"
 	dirs="${dirs} $(find ${moddef} -name oe)"
 	dirs="${dirs} $(find ${moddef} -name vendor)"
 	dirs="${dirs} $(find ${moddef} -name module_info)"
 	dirs="${dirs} $(find $TARGETDIR/${SECUREDATA_DIR}${PRODUCTION} -name request-*.json)"
 
 	tar -cJf vendor-approval-package-${DATE}.tar.xz $dirs
+
+	rm -f $TARGETDIR/$CIPHER_OPTION_OVERVIEW
 }
 
 getvectors() {

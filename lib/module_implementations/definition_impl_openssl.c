@@ -734,6 +734,21 @@ static const struct def_algo_kas_ecc_cdh_component openssl_kas_ecc_cdh = {
 /**************************************************************************
  * FFC DH Definitions
  **************************************************************************/
+static const struct def_algo_prereqs openssl_ffc_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DSA",
+		.valvalue = "same"
+	},
+};
+
 static const struct def_algo_kas_ffc_nokdfnokc openssl_kas_ffc_nokdfnokc_fb = {
 	.kas_ffc_paramset = DEF_ALG_KAS_FFC_FB,
 	.hashalg = ACVP_SHA224
@@ -748,7 +763,7 @@ static const struct def_algo_kas_ffc_nokdfnokc openssl_kas_ffc_nokdfnokc_fc = {
 	{								\
 	.type = DEF_ALG_TYPE_KAS_FFC,					\
 	.algo.kas_ffc = {						\
-		DEF_PREREQS(openssl_rsa_prereqs),			\
+		DEF_PREREQS(openssl_ffc_prereqs),			\
 		.kas_ffc_function = DEF_ALG_KAS_FFC_FULLVAL,		\
 		.kas_ffc_schema = DEF_ALG_KAS_FFC_DH_EPHEM,		\
 		.kas_ffc_role = DEF_ALG_KAS_FFC_INITIATOR |		\
@@ -871,46 +886,24 @@ static const struct def_algo openssl_aes [] = {
 
 	OPENSSL_AES_CCM,
 
-	OPENSSL_CMAC_AES
+	OPENSSL_CMAC_AES,
+
+	/* Built-in DRBG in crypto/rand/ */
+	OPENSSL_DRBG_CTR,
 };
 
 static const struct def_algo openssl_gcm [] = {
-	//TODO remove after automated dependency handling is in place
-	OPENSSL_AES_ECB,
-
 	OPENSSL_AES_GCM,
 	//zero length data not supported by OpenSSL
 	//OPENSSL_AES_GMAC,
 	OPENSSL_AES_GCM_IIV,
-
-	//TODO remove after automated dependency handling is in place
-	OPENSSL_DRBG_CTR
 };
 
 static const struct def_algo openssl_ffcdh [] = {
-	//TODO remove after automated dependency handling is in place
-	OPENSSL_AES_ECB,
-
-	//TODO remove after automated dependency handling is in place
-	OPENSSL_SHA(ACVP_SHA224),
-	OPENSSL_SHA(ACVP_SHA256),
-
-	//TODO remove after automated dependency handling is in place
-	OPENSSL_DRBG_CTR,
-
-	/* DH_generate_key */
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA256),
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA384),
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA512),
-
 	OPENSSL_KAS_FFC,
 };
 
 static const struct def_algo openssl_sha [] = {
-	/* Dependencies */
-	OPENSSL_AES_ECB,
-	OPENSSL_DRBG_CTR,
-
 	OPENSSL_SHA(ACVP_SHA1),
 	OPENSSL_SHA(ACVP_SHA224),
 	OPENSSL_SHA(ACVP_SHA256),
@@ -932,19 +925,16 @@ static const struct def_algo openssl_sha [] = {
 	OPENSSL_ECDSA_SIGGEN,
 	OPENSSL_ECDSA_SIGVER,
 
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224, ACVP_SHA224),
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224, ACVP_SHA256),
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224, ACVP_SHA384),
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224, ACVP_SHA512),
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224,
+			   ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |
+			   ACVP_SHA512),
 
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256, ACVP_SHA256),
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256, ACVP_SHA384),
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256, ACVP_SHA512),
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256,
+			   ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512),
 
 	/* DSA_generate_key */
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA256),
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA384),
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA512),
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256,
+			   ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512),
 
 	//TODO OpenSSL SLES does not have 1024 bits, RHEL has it
 	//OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_1024, DEF_ALG_DSA_N_160, ACVP_SHA1),
@@ -1009,22 +999,9 @@ static const struct def_algo openssl_sha3 [] = {
 		      ACVP_SHA3_512),
 };
 
-static const struct def_algo openssl_10x_sym_drbg [] = {
-	OPENSSL_AES_ECB,
+static const struct def_algo openssl_10x_drbg [] = {
+	/* DRBG in crypto/fips/ */
 	OPENSSL_DRBG_CTR,
-};
-
-static const struct def_algo openssl_10x_hash_drbg [] = {
-	OPENSSL_SHA(ACVP_SHA1),
-	OPENSSL_SHA(ACVP_SHA224),
-	OPENSSL_SHA(ACVP_SHA256),
-	OPENSSL_SHA(ACVP_SHA384),
-	OPENSSL_SHA(ACVP_SHA512),
-	OPENSSL_HMAC(ACVP_HMACSHA1),
-	OPENSSL_HMAC(ACVP_HMACSHA2_224),
-	OPENSSL_HMAC(ACVP_HMACSHA2_256),
-	OPENSSL_HMAC(ACVP_HMACSHA2_384),
-	OPENSSL_HMAC(ACVP_HMACSHA2_512),
 	OPENSSL_DRBG_HMAC,
 	OPENSSL_DRBG_HASH,
 };
@@ -1206,40 +1183,10 @@ static struct def_algo_map openssl_algo_map [] = {
 	 * The different instances relate to the different implementations of
 	 * the underlying cipher
 	 **********************************************************************/
-		SET_IMPLEMENTATION(openssl_10x_sym_drbg),
+		SET_IMPLEMENTATION(openssl_10x_drbg),
 		.algo_name = "OpenSSL",
-		.processor = "X86",
-		.impl_name = "DRBG_10X_AESNI"
-	}, {
-		SET_IMPLEMENTATION(openssl_10x_sym_drbg),
-		.algo_name = "OpenSSL",
-		.processor = "X86",
-		.impl_name = "DRBG_10X_AESASM"
-	}, {
-		SET_IMPLEMENTATION(openssl_10x_sym_drbg),
-		.algo_name = "OpenSSL",
-		.processor = "X86",
-		.impl_name = "DRBG_10X_BAES_CTASM"
-	}, {
-		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
-		.algo_name = "OpenSSL",
-		.processor = "X86",
-		.impl_name = "DRBG_10X_SHA_AVX2"
-	}, {
-		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
-		.algo_name = "OpenSSL",
-		.processor = "X86",
-		.impl_name = "DRBG_10X_SHA_AVX"
-	}, {
-		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
-		.algo_name = "OpenSSL",
-		.processor = "X86",
-		.impl_name = "DRBG_10X_SHA_SSSE3"
-	}, {
-		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
-		.algo_name = "OpenSSL",
-		.processor = "X86",
-		.impl_name = "DRBG_10X_SHA_ASM"
+		.processor = "",
+		.impl_name = "DRBG_10X"
 	}, {
 
 	/* OpenSSL ARM64v8 Assembler implementation ***************************/
@@ -1247,11 +1194,6 @@ static struct def_algo_map openssl_algo_map [] = {
 		.algo_name = "OpenSSL",
 		.processor = "ARM64",
 		.impl_name = "SHA_ASM"
-	}, {
-		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
-		.algo_name = "OpenSSL",
-		.processor = "ARM64",
-		.impl_name = "DRBG_10X_SHA_ASM"
 	}, {
 	/* OpenSSL ARM64v8 SHA3 assembler implementation **********************/
 		SET_IMPLEMENTATION(openssl_sha3),
@@ -1295,11 +1237,6 @@ static struct def_algo_map openssl_algo_map [] = {
 		.algo_name = "OpenSSL",
 		.processor = "S390",
 		.impl_name = "SHA_ASM"
-	}, {
-		SET_IMPLEMENTATION(openssl_10x_hash_drbg),
-		.algo_name = "OpenSSL",
-		.processor = "S390",
-		.impl_name = "DRBG_10X_SHA_ASM"
 	}, {
 	/* OpenSSL S390x SHA3 assembler implementation ************************/
 		SET_IMPLEMENTATION(openssl_sha3),

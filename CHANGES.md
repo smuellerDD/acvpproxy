@@ -1,3 +1,10 @@
+v1.3.1
+- update --list-cert-details output to match structure required by NIST
+- add --list-cipher-options
+- add --list-cipher-options-deps
+- get SP800-56A rev3 ECC/FFC and SP800-56B rev2 IFC working after update on the ACVP server side
+- add maclen configuration support to CMAC / HMAC
+
 v1.3.0
 - add --rename-procname, --rename-procseries, --rename-procfamily
 - add SP800-56A rev3 registration capabilities

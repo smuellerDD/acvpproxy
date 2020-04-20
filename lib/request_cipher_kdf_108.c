@@ -46,6 +46,48 @@ out:
 	return ret;
 }
 
+int acvp_list_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
+			   struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp = NULL;
+	int ret;
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	CKINT(acvp_duplicate(&tmp->cipher_name, "KDF"));
+	CKINT(acvp_duplicate(&tmp->cipher_mode, "SP800-108"));
+	CKINT(acvp_req_cipher_to_stringarray(kdf_108->macalg,
+					     ACVP_CIPHERTYPE_MAC,
+					     &tmp->cipher_aux));
+	tmp->prereqs = kdf_108->prereqvals;
+	tmp->prereq_num = kdf_108->prereqvals_num;
+
+	tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
+
+	switch (kdf_108->kdf_108_type) {
+	case DEF_ALG_KDF_108_COUNTER:
+		CKINT(acvp_duplicate(&tmp->cipher_aux, "counter"));
+		break;
+	case DEF_ALG_KDF_108_FEEDBACK:
+		CKINT(acvp_duplicate(&tmp->cipher_aux, "feedback"));
+		break;
+	case DEF_ALG_KDF_108_DOUBLE_PIPELINE_ITERATION:
+		CKINT(acvp_duplicate(&tmp->cipher_aux,
+				     "double pipeline iteration"));
+		break;
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "SP800-108 KDF: Unknown kdf_108_type\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
 int acvp_req_set_algo_kdf_108_details(const struct def_algo_kdf_108 *kdf_108,
 				      struct json_object *entry)
 {

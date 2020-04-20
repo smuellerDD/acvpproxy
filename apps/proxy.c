@@ -83,6 +83,8 @@ struct opt_data {
 	bool list_verdicts;
 	bool list_certificates;
 	bool list_certificates_detailed;
+	bool list_cipher_options;
+	bool list_cipher_options_deps;
 	bool dump_register;
 	bool request_sample;
 	bool official_testing;
@@ -405,7 +407,10 @@ static void usage(void)
 	fprintf(stderr, "\t   --list-verdicts\t\tList all verdicts\n\n");
 	fprintf(stderr, "\t   --list-certificates\t\tList all certificates\n");
 	fprintf(stderr, "\t   --list-cert-details\t\tList all certificate details for\n");
-	fprintf(stderr, "\t\t\t\t\tTE.01.12.01\n\n");
+	fprintf(stderr, "\t\t\t\t\tTE.01.12.01\n");
+	fprintf(stderr, "\t   --list-cipher-options\tList all cipher options\n");
+	fprintf(stderr, "\t   --list-cipher-options-deps\tList all cipher options with\n");
+	fprintf(stderr, "\t\t\t\t\tcipher dependencies\n\n");
 
 	fprintf(stderr, "\tGathering cipher definitions from ACVP server:\n");
 	fprintf(stderr, "\t   --cipher-list\t\tList all ciphers supported by ACVP\n");
@@ -638,6 +643,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"list-verdicts",	no_argument,		0, 0},
 			{"list-certificates",	no_argument,		0, 0},
 			{"list-cert-details",	no_argument,		0, 0},
+			{"list-cipher-options",	no_argument,		0, 0},
+			{"list-cipher-options-deps",no_argument,	0, 0},
 
 			{"cipher-options",	required_argument,	0, 0},
 			{"cipher-algo",		required_argument,	0, 0},
@@ -663,12 +670,14 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 		case 0:
 			switch (opt_index) {
 			case 0:
+				/* verbose */
 				logger_inc_verbosity();
 				if (logger_get_verbosity(LOGGER_C_ANY) >=
 				    LOGGER_DEBUG && !logger_force_threading)
 					opts->acvp_ctx_options.threading_disabled = true;
 				break;
 			case 1:
+				/* logger-class */
 				lval = strtol(optarg, NULL, 10);
 				if (lval == LONG_MAX) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -690,57 +699,68 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				}
 				break;
 			case 2:
+				/* logfile */
 				CKINT(logger_set_file(optarg));
 				logger_force_threading = true;
 				opts->acvp_ctx_options.threading_disabled = false;
 				break;
 			case 3:
+				/* quiet */
 				logger_set_verbosity(LOGGER_NONE);
 				break;
 			case 4:
+				/* version */
 				acvp_versionstring(version, sizeof(version));
 				fprintf(stderr, "Version %s\n", version);
 				ret = 0;
 				goto out;
 				break;
 			case 5:
+				/* version-numeric */
 				fprintf(stderr, "%u\n",
 					acvp_versionstring_numeric());
 				ret = 0;
 				goto out;
 				break;
 			case 6:
+				/* help */
 				usage();
 				ret = 0;
 				goto out;
 				break;
 
 			case 7:
+				/* module */
 				CKINT(parse_fuzzy_flag(
 					&search->modulename_fuzzy_search,
 					&search->modulename, optarg));
 				break;
 			case 8:
+				/* vendorname */
 				CKINT(parse_fuzzy_flag(
 					&search->vendorname_fuzzy_search,
 					&search->vendorname, optarg));
 				break;
 			case 9:
+				/* execenv */
 				CKINT(parse_fuzzy_flag(
 					&search->execenv_fuzzy_search,
 					&search->execenv, optarg));
 				break;
 			case 10:
+				/* releaseversion */
 				CKINT(parse_fuzzy_flag(
 					&search->moduleversion_fuzzy_search,
 					&search->moduleversion, optarg));
 				break;
 			case 11:
+				/* processor */
 				CKINT(parse_fuzzy_flag(
 					&search->processor_fuzzy_search,
 					&search->processor, optarg));
 				break;
 			case 12:
+				/* fuzzy */
 				search->modulename_fuzzy_search = true;
 				search->moduleversion_fuzzy_search = true;
 				search->vendorname_fuzzy_search = true;
@@ -749,16 +769,20 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				break;
 
 			case 13:
+				/* list */
 				dolist = 1;
 				break;
 			case 14:
+				/* unregistered */
 				listunregistered = 1;
 				break;
 			case 15:
+				/* modversion */
 				CKINT(duplicate_string(&opts->specific_modversion,
 						       optarg));
 				break;
 			case 16:
+				/* vsid */
 				if (search->nr_submit_vsid >= MAX_SUBMIT_ID) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "%u --submit options are allowed at maximum\n",
@@ -781,6 +805,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					search->submit_vsid[search->nr_submit_vsid++] = (unsigned int)lval;
 				break;
 			case 17:
+				/* testid */
 				if (search->nr_submit_testid >= MAX_SUBMIT_ID) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "%u --session options are allowed at maximum\n",
@@ -799,94 +824,133 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				search->submit_testid[search->nr_submit_testid++] = (unsigned int)val;
 				break;
 			case 18:
+				/* request */
 				opts->request = true;
 				break;
 			case 19:
+				/* publish */
 				opts->publish = true;
 				break;
 
 			case 20:
+				/* dump-register */
 				opts->dump_register = true;
 				break;
 			case 21:
+				/* sample */
 				opts->request_sample = true;
 				break;
 			case 22:
+				/* config */
 				CKINT(duplicate_string(&opts->configfile,
 						       optarg));
 				break;
 			case 23:
+				/* definitions */
 				CKINT(acvp_def_config(optarg));
 				modconf_loaded = 1;
 				break;
+
 			case 24:
+				/* official */
 				opts->official_testing = true;
 				break;
 			case 25:
+				/* basedir */
 				CKINT(duplicate_string(&opts->basedir, optarg));
 				break;
 			case 26:
+				/* secure-basedir */
 				CKINT(duplicate_string(&opts->secure_basedir,
 						       optarg));
 				break;
 			case 27:
+				/* definition-basedir */
 				CKINT(duplicate_string(&opts->definition_basedir,
 						       optarg));
 				break;
 
 			case 28:
+				/* resubmit-result */
 				opts->acvp_ctx_options.resubmit_result = true;
 				break;
 			case 29:
+				/* delete-test */
 				opts->acvp_ctx_options.delete_vsid = true;
 				break;
 			case 30:
+				/* register-definition */
 				opts->acvp_ctx_options.register_new_module = true;
 				opts->acvp_ctx_options.register_new_vendor = true;
 				opts->acvp_ctx_options.register_new_oe = true;
 				break;
 			case 31:
+				/* delete-definition */
 				CKINT(convert_update_delete_type(optarg,
 				  &opts->acvp_ctx_options.delete_db_entry));
+				/* This operation must use the publish path */
+				opts->publish = true;
 				break;
 			case 32:
+				/* update-definition */
 				CKINT(convert_update_delete_type(optarg,
 				  &opts->acvp_ctx_options.update_db_entry));
+				/* This operation must use the publish path */
+				opts->publish = true;
 				break;
 			case 33:
+				/* nopublish-prereqs */
 				opts->acvp_ctx_options.no_publish_prereqs = true;
 				break;
 
 			case 34:
+				/* list-request-ids */
 				opts->list_pending_request_ids = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
 			case 35:
+				/* list-request-ids-sparse */
 				opts->list_pending_request_ids_sparse = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
 			case 36:
+				/* list-available-ids */
 				opts->list_available_ids = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
 			case 37:
+				/* list-verdicts */
 				opts->list_verdicts = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
 			case 38:
+				/* list-certificates */
 				opts->list_certificates = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
 			case 39:
+				/* list-cert-details */
 				opts->list_certificates_detailed = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-
 			case 40:
+				/* list-cipher-options */
+				opts->list_cipher_options = true;
+				opts->acvp_ctx_options.threading_disabled = true;
+				break;
+			case 41:
+				/* list-cipher-options-deps */
+				opts->list_cipher_options_deps = true;
+				opts->acvp_ctx_options.threading_disabled = true;
+				break;
+
+			case 42:
+				/* cipher-options */
 				CKINT(duplicate_string(&opts->cipher_options_file,
 						       optarg));
 				break;
-			case 41:
+			case 43:
+				/* cipher-algo */
 				CKINT(duplicate_string(&opts->cipher_options_algo[opts->cipher_options_algo_idx],
 						       optarg));
 				opts->cipher_options_algo_idx++;
@@ -896,45 +960,54 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					goto out;
 				}
 				break;
-			case 42:
+			case 44:
+				/* cipher-list */
 				opts->cipher_list = true;
 				break;
 
-			case 43:
+			case 45:
+				/* proxy-extension */
 				CKINT(acvp_load_extension(optarg));
 				break;
-			case 44:
+			case 46:
+				/* rename-version */
 				rename->moduleversion_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 45:
+			case 47:
+				/* rename-name */
 				rename->modulename_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 46:
+			case 48:
+				/* rename-oename */
 				rename->oe_env_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 47:
+			case 49:
+				/* rename-procname */
 				rename->proc_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 48:
+			case 50:
+				/* rename-procseries */
 				rename->proc_series_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 49:
+			case 51:
+				/* rename-procfamily */
 				rename->proc_family_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
 
-			case 50:
+			case 52:
+				/* register-only */
 				opts->acvp_ctx_options.register_only = true;
 				break;
 
@@ -1361,6 +1434,20 @@ out:
 	return ret;
 }
 
+static int list_cipher_options(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts));
+
+	CKINT(acvp_list_cipher_options(ctx, opts->list_cipher_options_deps));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 static int list_certificates_detailed(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
@@ -1440,6 +1527,8 @@ int main(int argc, char *argv[])
 		CKINT(list_verdicts(&opts));
 	} else if (opts.list_certificates) {
 		CKINT(list_certificates(&opts));
+	} else if (opts.list_cipher_options || opts.list_cipher_options_deps) {
+		CKINT(list_cipher_options(&opts));
 	} else if (opts.list_certificates_detailed) {
 		CKINT(list_certificates_detailed(&opts));
 	} else {

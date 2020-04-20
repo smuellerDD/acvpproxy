@@ -100,6 +100,8 @@ int acvp_req_gen_prereq(const struct def_algo_prereqs *in_prereqs,
  * Add keyLen array for symmetric ciphers
  */
 int acvp_req_sym_keylen(struct json_object *entry, unsigned int keyflags);
+int acvp_set_sym_keylen(cipher_t keylen[DEF_ALG_MAX_INT],
+			unsigned int keyflags);
 
 /*
  * Add flag for TDES keying option
@@ -129,6 +131,26 @@ int acvp_req_cipher_to_string(struct json_object *entry, cipher_t cipher,
  */
 int acvp_req_cipher_to_array(struct json_object *entry, cipher_t cipher,
 			     cipher_t cipher_type_mask, const char *key);
+
+/*
+ * Convert an internal representation of the cipher reference to an array
+ * of cipher_t entries. I.e. if multiple definitions are found in
+ * the cipher parameter, they are separated into individual entries
+ *
+ * Using the cipher_type_mask, the caller can narrow the search to only
+ * the ciphers with this type mask. It is permissible to use 0 as mask.
+ */
+int acvp_req_cipher_to_intarray(cipher_t cipher,
+				cipher_t cipher_type_mask,
+				cipher_t array[DEF_ALG_MAX_INT]);
+
+/*
+ * Convert an internal representation of the cipher reference to a
+ * comma-delimited string.
+ */
+int acvp_req_cipher_to_stringarray(cipher_t cipher,
+				   cipher_t cipher_type_mask,
+				   char **str);
 
 /*
  * Add request revision number.

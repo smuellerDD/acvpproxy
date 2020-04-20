@@ -17,13 +17,7 @@
 		"SHA_AVX",
 		"SHA_SSSE3",
 		"SHA_ASM",
-		"DRBG_10X_AESNI",
-		"DRBG_10X_AESASM",
-		"DRBG_10X_BAES_CTASM",
-		"DRBG_10X_SHA_AVX2",
-		"DRBG_10X_SHA_AVX",
-		"DRBG_10X_SHA_SSSE3",
-		"DRBG_10X_SHA_ASM"
+		"DRBG_10X",
 	],
 	"dependencies-internal": {
 		"AESNI_AVX": {
@@ -61,6 +55,23 @@
 		"BAES_CTASM_ASM": {
 			"AES": "BAES_CTASM",
 			"DRBG": "BAES_CTASM"
+		},
+		"DRBG_10X": {
+			"AES": "AES",
+			"HMAC": "SHA_",
+			"SHA": "SHA_",
+		},
+		"SHA_AVX2": {
+			"DRBG": "AES",
+		},
+		"SHA_AVX": {
+			"DRBG": "AES",
+		},
+		"SHA_SSSE3": {
+			"DRBG": "AES",
+		},
+		"SHA_ASM": {
+			"DRBG": "AES",
 		}
 	}
 }

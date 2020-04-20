@@ -208,6 +208,15 @@ out:
 
 	atomic_bool_set_false(&mq_server_alive);
 
+	/*
+	 * Silence Clang analyzer which (rightfully) marks ret as not being used
+	 * when using goto out. Thus, setting of ret makes no sense. But we
+	 * keep it nonetheless in case we remove the pthread_exit eventually.
+	 * In this case we surely will forget about re-adding the setting of
+	 * the variable ret.
+	 */
+	(void)ret;
+
 	pthread_exit(NULL);
 
 	return ret;

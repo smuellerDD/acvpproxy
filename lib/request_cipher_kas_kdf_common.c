@@ -19,6 +19,7 @@
  */
 
 #include <errno.h>
+#include <string.h>
 
 #include "definition.h"
 #include "logger.h"
@@ -55,6 +56,12 @@ acvp_req_kas_kdf_fi(const enum kas_kdf_fixedinfo_pattern
 		case DEF_ALG_KAS_KDF_FI_PATTERN_LITERAL:
 			CKNULL_LOG(literal, -EINVAL,
 				   "KAS FixedInfo: literal string missing\n");
+			if (strlen(literal) % 2) {
+				logger(LOGGER_ERR, LOGGER_C_ANY,
+				       "Literal hex string must be an even number of characters\n");
+				ret = -EINVAL;
+				goto out;
+			}
 			CKINT(acvp_extend_string(buf, sizeof(buf), "%s%s[%s]",
 						 first_in ? "||" : "",
 						 "literal", literal));

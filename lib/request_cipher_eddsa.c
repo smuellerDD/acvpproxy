@@ -194,6 +194,48 @@ out:
 	return ret;
 }
 
+int acvp_list_algo_eddsa(const struct def_algo_eddsa *eddsa,
+			 struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp = NULL;
+	int ret = 0;
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	CKINT(acvp_duplicate(&tmp->cipher_name, "EDDSA"));
+
+	CKINT(acvp_req_cipher_to_intarray(eddsa->curve, ACVP_CIPHERTYPE_ECC,
+					  tmp->keylen));
+	tmp->prereqs = eddsa->prereqvals;
+	tmp->prereq_num = eddsa->prereqvals_num;
+
+	switch (eddsa->eddsa_mode) {
+	case DEF_ALG_EDDSA_MODE_KEYGEN:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyGen"));
+		break;
+	case DEF_ALG_EDDSA_MODE_KEYVER:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyVer"));
+		break;
+	case DEF_ALG_EDDSA_MODE_SIGGEN:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "sigGen"));
+		break;
+	case DEF_ALG_EDDSA_MODE_SIGVER:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "sigVer"));
+		break;
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "EDDSA: Unknown EDDSA keygen definition\n");
+		ret = -EINVAL;
+		goto out;
+		break;
+	}
+
+out:
+	return ret;
+}
+
 int acvp_req_set_prereq_eddsa(const struct def_algo_eddsa *eddsa,
 			      const struct acvp_test_deps *deps,
 			      struct json_object *entry, bool publish)

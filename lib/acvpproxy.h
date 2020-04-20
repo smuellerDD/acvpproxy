@@ -713,6 +713,15 @@ int acvp_cipher_get(const struct acvp_ctx *ctx,
  */
 int acvp_rename_module(const struct acvp_ctx *ctx);
 
+/**
+ * @brief List cipher options of all ciphers in scope
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @param list_deps [in] Shall the cipher dependencies being listed?
+ * @return 0 on success, < 0 on error
+ */
+int acvp_list_cipher_options(const struct acvp_ctx *ctx, bool list_deps);
+
 #ifdef __cplusplus
 }
 #endif

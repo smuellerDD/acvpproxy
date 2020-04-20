@@ -29,6 +29,29 @@
 #include "internal.h"
 #include "request_helper.h"
 
+int acvp_list_algo_hmac(const struct def_algo_hmac *hmac,
+			struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp;
+	const char *name;
+	int ret;
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
+
+	CKINT(acvp_req_cipher_to_name(hmac->algorithm,
+				      ACVP_CIPHERTYPE_MAC, &name));
+	CKINT(acvp_duplicate(&tmp->cipher_name, name));
+	tmp->prereqs = &hmac->prereqvals;
+	tmp->prereq_num = 1;
+
+out:
+	return ret;
+}
+
 int acvp_req_set_prereq_hmac(const struct def_algo_hmac *hmac,
 			     const struct acvp_test_deps *deps,
 			     struct json_object *entry, bool publish)
@@ -58,40 +81,47 @@ int acvp_req_set_algo_hmac(const struct def_algo_hmac *hmac,
 	CKINT(acvp_req_algo_int_array(entry, hmac->keylen, "keyLen"));
 
 	/*
-	 * Not configurable as truncated hashes are not seen in the wild
+	 * Allow unset maclen definitions - we take the default of the hash
+	 * output size.
 	 */
-	if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA1))
-		maclen = 160;
-	else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA2_224))
-		maclen = 224;
-	else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA2_256))
-		maclen = 256;
-	else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA2_384))
-		maclen = 384;
-	else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA2_512224))
-		maclen = 224;
-	else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA2_512256))
-		maclen = 256;
-	else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA2_512))
-		maclen = 512;
-	else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA3_224))
-		maclen = 224;
-	else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA3_256))
-		maclen = 256;
-	else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA3_384))
-		maclen = 384;
-	else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA3_512))
-		maclen = 512;
-	else {
-		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "HMAC: Cannot determine mac length for keyed message digest %s\n",
-		       hmac->algorithm);
-		ret = -EINVAL;
-		goto out;
-	}
+	if (hmac->maclen[0] == 0) {
+		if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA1))
+			maclen = 160;
+		else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA2_224))
+			maclen = 224;
+		else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA2_256))
+			maclen = 256;
+		else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA2_384))
+			maclen = 384;
+		else if (acvp_match_cipher(hmac->algorithm,
+					   ACVP_HMACSHA2_512224))
+			maclen = 224;
+		else if (acvp_match_cipher(hmac->algorithm,
+					   ACVP_HMACSHA2_512256))
+			maclen = 256;
+		else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA2_512))
+			maclen = 512;
+		else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA3_224))
+			maclen = 224;
+		else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA3_256))
+			maclen = 256;
+		else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA3_384))
+			maclen = 384;
+		else if (acvp_match_cipher(hmac->algorithm, ACVP_HMACSHA3_512))
+			maclen = 512;
+		else {
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			       "HMAC: Cannot determine mac length for keyed message digest %s\n",
+			       hmac->algorithm);
+			ret = -EINVAL;
+			goto out;
+		}
 
-	/* This is a domain definition */
-	CKINT(acvp_req_algo_int_array_len(entry, &maclen, 1, "macLen"));
+		/* This is a domain definition */
+		CKINT(acvp_req_algo_int_array_len(entry, &maclen, 1, "macLen"));
+	} else {
+		CKINT(acvp_req_algo_int_array(entry, hmac->maclen, "macLen"));
+	}
 
 out:
 	return ret;

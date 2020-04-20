@@ -48,6 +48,31 @@ out:
 	return ret;
 }
 
+int acvp_list_algo_kdf_ikev2(const struct def_algo_kdf_ikev2 *kdf_ikev2,
+			     struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp = NULL;
+	int ret;
+
+	(void)kdf_ikev2;
+
+	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+	CKNULL(tmp, -ENOMEM);
+	*new = tmp;
+
+	CKINT(acvp_duplicate(&tmp->cipher_name, "kdf-components"));
+	CKINT(acvp_duplicate(&tmp->cipher_mode, "ikev2"));
+	CKINT(acvp_req_cipher_to_stringarray(kdf_ikev2->hashalg,
+					     ACVP_CIPHERTYPE_HASH,
+					     &tmp->cipher_aux));
+	tmp->prereqs = kdf_ikev2->prereqvals;
+	tmp->prereq_num = kdf_ikev2->prereqvals_num;
+	tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for KDF IKE v2
  */

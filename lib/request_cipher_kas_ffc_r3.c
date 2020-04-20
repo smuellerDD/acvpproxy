@@ -50,14 +50,14 @@ acvp_req_kas_ffc_r3_schema(const struct def_algo_kas_ffc_r3_schema *r3_schema,
 		CKINT(json_object_object_add(entry, "dhHybrid1", schema_entry));
 		break;
 	case DEF_ALG_KAS_FFC_R3_MQV2:
-		CKINT(json_object_object_add(entry, "MQV2", schema_entry));
+		CKINT(json_object_object_add(entry, "mqv2", schema_entry));
 		break;
 	case DEF_ALG_KAS_FFC_R3_DH_HYBRID_ONE_FLOW:
 		CKINT(json_object_object_add(entry, "dhHybridOneFlow",
 					     schema_entry));
 		break;
 	case DEF_ALG_KAS_FFC_R3_MQV1:
-		CKINT(json_object_object_add(entry, "MQV1", schema_entry));
+		CKINT(json_object_object_add(entry, "mqv1", schema_entry));
 		break;
 	case DEF_ALG_KAS_FFC_R3_DH_ONE_FLOW:
 		CKINT(json_object_object_add(entry, "dhOneFlow", schema_entry));
@@ -203,6 +203,68 @@ _acvp_req_set_algo_kas_ffc_r3(const struct def_algo_kas_ffc_r3 *kas_ffc_r3,
 					   ACVP_CIPHERTYPE_DOMAIN,
 					   "domainParameterGenerationMethods"),
 		  "KAS FC r3: Unknown domain parameter set\n");
+
+out:
+	return ret;
+}
+
+int acvp_list_algo_kas_ffc_r3(const struct def_algo_kas_ffc_r3 *kas_ffc_r3,
+			      struct acvp_list_ciphers **new)
+{
+	struct acvp_list_ciphers *tmp = NULL, *prev;
+	int ret;
+	bool found = false;
+
+	if (kas_ffc_r3->kas_ffc_function & DEF_ALG_KAS_FFC_R3_KEYPAIRGEN) {
+		prev = tmp;
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		*new = tmp;
+		tmp->next = prev;
+
+		CKINT(acvp_duplicate(&tmp->cipher_name, "KAS-FFC Sp800-56Ar3"));
+		CKINT(acvp_req_cipher_to_intarray(kas_ffc_r3->domain_parameter,
+						  ACVP_CIPHERTYPE_DOMAIN,
+						  tmp->keylen));
+
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyPairGen"));
+		found = true;
+	}
+	if (kas_ffc_r3->kas_ffc_function & DEF_ALG_KAS_FFC_R3_PARTIALVAL) {
+		prev = tmp;
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		*new = tmp;
+		tmp->next = prev;
+
+		CKINT(acvp_duplicate(&tmp->cipher_name, "KAS-FFC Sp800-56Ar3"));
+		CKINT(acvp_req_cipher_to_intarray(kas_ffc_r3->domain_parameter,
+						  ACVP_CIPHERTYPE_DOMAIN,
+						  tmp->keylen));
+
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "partialVal"));
+		found = true;
+	}
+	if (kas_ffc_r3->kas_ffc_function & DEF_ALG_KAS_FFC_R3_FULLVAL) {
+		prev = tmp;
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		*new = tmp;
+		tmp->next = prev;
+
+		CKINT(acvp_duplicate(&tmp->cipher_name, "KAS-FFC Sp800-56Ar3"));
+		CKINT(acvp_req_cipher_to_intarray(kas_ffc_r3->domain_parameter,
+						  ACVP_CIPHERTYPE_DOMAIN,
+						  tmp->keylen));
+
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "fullVal"));
+		found = true;
+	}
+	CKNULL_LOG(found, -EINVAL,
+		   "KAS FFC r3: No applicable entry for kas_ffc_function found\n");
+
+	tmp->prereqs = kas_ffc_r3->prereqvals;
+	tmp->prereq_num = kas_ffc_r3->prereqvals_num;
 
 out:
 	return ret;
