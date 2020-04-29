@@ -24,31 +24,16 @@
 /**************************************************************************
  * Safeprimes
  **************************************************************************/
-#if 0
-#define DEVEL_SAFEPRIMES(mode)						\
-	{								\
-	.type = DEF_ALG_TYPE_SAFEPRIMES,				\
-	.algo.safeprimes = {						\
-		.prereqvals = {						\
-				.algorithm = "DRBG",			\
-				.valvalue = "same"			\
-			},						\
-		.safeprime_mode = mode,					\
-		.safeprime_groups = ACVP_DH_MODP_2048 |			\
-				    ACVP_DH_MODP_3072 |			\
-				    ACVP_DH_MODP_4096 |			\
-				    ACVP_DH_MODP_6144 |			\
-				    ACVP_DH_MODP_8192,			\
-		},							\
-	}
+#if 1
+#define DEVEL_SAFEPRIMES(mode, groups) GENERIC_SAFEPRIMES(mode, groups)
 #else
-#define DEVEL_SAFEPRIMES(mode)
+#define DEVEL_SAFEPRIMES(mode, groups)
 #endif
 
 /**************************************************************************
  * SP800-56A rev3 FFC
  **************************************************************************/
-#if 1
+#if 0
 static const struct def_algo_prereqs devel_dh_r3_prereqs[] = {
 	{
 		.algorithm = "SHA",
@@ -491,8 +476,14 @@ static const struct def_algo devel[] = {
 	DEVEL_KAS_ECC_R3
 	DEVEL_KAS_IFC
 
-	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYGENERATION)
-	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYVERIFICATION)
+	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYGENERATION,
+			 ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |
+			 ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |
+			 ACVP_DH_MODP_8192),
+	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYVERIFICATION,
+			 ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |
+			 ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |
+			 ACVP_DH_MODP_8192)
 };
 
 /**************************************************************************

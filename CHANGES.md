@@ -1,3 +1,8 @@
+v1.3.2
+- bug fix to make option --vsid work again
+- OpenSSL: add safeprime keygen test
+- macOS: log HTTP error return data
+
 v1.3.1
 - update --list-cert-details output to match structure required by NIST
 - add --list-cipher-options

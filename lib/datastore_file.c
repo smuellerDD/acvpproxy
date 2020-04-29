@@ -1517,7 +1517,7 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 			unsigned int j, found = 0;
 
 			for (j = 0; j < search->nr_submit_vsid; j++) {
-				if (search->submit_vsid[i] == vsid_val) {
+				if (search->submit_vsid[j] == vsid_val) {
 					found = 1;
 					break;
 				}

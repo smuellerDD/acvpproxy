@@ -628,6 +628,43 @@ static const struct def_algo_prereqs generic_pbkdf_prereqs[] = {
 		},							\
 	}
 
+/**************************************************************************
+ * Safeprimes Definitions
+ **************************************************************************/
+
+/**
+ * @brief DH key generation with safe primes
+ *
+ * Cipher definition properties
+ *	* dependency on DRBG is satisfied within the same ACVP register op
+ *
+ * @param mode One definition from enum safeprimes_mode (see
+ *	       definition_cipher_safeprimes.h)
+ * @param groups One or more combined with an OR
+ *		 ACVP_DH_MODP_2048
+ *		 ACVP_DH_MODP_3072
+ *		 ACVP_DH_MODP_4096
+ *		 ACVP_DH_MODP_6144
+ *		 ACVP_DH_MODP_8192
+ *		 ACVP_DH_FFDHE_2048
+ *		 ACVP_DH_FFDHE_3072
+ *		 ACVP_DH_FFDHE_4096
+ *		 ACVP_DH_FFDHE_6144
+ *		 ACVP_DH_FFDHE_8192
+ */
+#define GENERIC_SAFEPRIMES(mode, groups)				\
+	{								\
+	.type = DEF_ALG_TYPE_SAFEPRIMES,				\
+	.algo.safeprimes = {						\
+		.prereqvals = {						\
+				.algorithm = "DRBG",			\
+				.valvalue = "same"			\
+			},						\
+		.safeprime_mode = mode,					\
+		.safeprime_groups = groups,				\
+		},							\
+	}
+
 #ifdef __cplusplus
 }
 #endif

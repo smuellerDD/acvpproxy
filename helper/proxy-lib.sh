@@ -71,6 +71,9 @@ usage() {
 	echo -e "\tpublish\t\tPublish the tests to obtain certificate"
 	echo -e "\tstatus\t\tList of verdicts, request IDs and certificates"
 	echo -e "\tapproval\tGet files that vendor must approve"
+	echo -e "\tanyop\t\tJust set the test directories and configuration file"
+	echo -e	"\t\t\tand pass through any option to the proxy for unspecified"
+	echo -e "\t\t\toperations with the ACVP Proxy"
 	echo
 	echo "The following additional options are allowed"
 	echo -e "\t--official\tUse the production ACVP server (default: demo server)"
@@ -171,7 +174,7 @@ setParams() {
 			"--show-cmd")
 				SHOW_CMD="y"
 				;;
-			"get"|"post"|"publish"|"list"|"status"|"approval")
+			"get"|"post"|"publish"|"list"|"status"|"approval"|"anyop")
 				INVOCATION_TYPE=$arg
 				;;
 			"--log")
@@ -366,6 +369,11 @@ listscope() {
 	invoke $PROXYBIN $PARAMS -l
 }
 
+anyop() {
+	local log="${LOGFILE}-anyop-${DATE}.log"
+	invoke $PROXYBIN $PARAMS $(addlogging "$log")
+}
+
 checkArgLen
 checkForBinary
 checkProxyVersion
@@ -390,6 +398,9 @@ case "$INVOCATION_TYPE" in
 		;;
 	"approval")
 		getVendorApprovalPackage
+		;;
+	"anyop")
+		anyop
 		;;
 	*)
 		echo "Unknown invocation type $INVOCATION_TYPE"

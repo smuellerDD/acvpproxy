@@ -68,11 +68,17 @@ static void acvp_nsurl_write_cb(struct acvp_buf *response_buf,
 		logger(LOGGER_ERR, LOGGER_C_CURL,
 		       "HTTP error status code: %u\n",
 		       http_response.statusCode);
-		goto out;
+		/*
+		 * We do not goto out here because we want the response data
+		 * from the server (if there is any) to be send to the caller.
+		 */
 	}
 	
 	text = [[NSString alloc] initWithData: data
 				     encoding: NSUTF8StringEncoding];
+	if (text == nil)
+		goto out;
+
 	bufsize = text.length;
 	ptr = text.UTF8String;
 
@@ -112,7 +118,7 @@ static void acvp_nsurl_write_cb(struct acvp_buf *response_buf,
 	/* NULL-terminate string */
 	response_buf->buf[response_buf->len] = '\0';
 
-	logger(LOGGER_DEBUG2, LOGGER_C_CURL,
+	logger(LOGGER_DEBUG, LOGGER_C_CURL,
 	       "Current complete retrieved data (len %u): %s\n",
 	       response_buf->len, response_buf->buf);
 
@@ -152,6 +158,10 @@ static int acvp_nsurl_http_common(const struct acvp_na_ex *netinfo,
 	CKNULL_LOG(acvp_certs, -EFAULT, "Certificates not loaded\n");
 	
 	http = [[ACVPHTTPRequest alloc] initWithCerts:acvp_certs];
+	if (http == nil) {
+		ret = -ENOMEM;
+		goto out;
+	}
 	
 	url = [NSURL URLWithString:[NSString stringWithFormat:@"%s",
 				    netinfo->url]];
@@ -279,6 +289,7 @@ static int acvp_nsurl_http_common(const struct acvp_na_ex *netinfo,
 				ret = ret2;
 				goto out;
 			}
+			acvp_free_buf(resp_buf);
 		}
 	}
 

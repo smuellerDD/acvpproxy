@@ -44,19 +44,43 @@ didCompleteWithError:(NSError *)error
 
 - (void)loggingrequest:(NSURLRequest *)request
 {
-	logger(LOGGER_DEBUG, LOGGER_C_CURL,
-	       "\n* Network port %u\n"
-	       "* Schema %s\n"
-	       "* URL %s\n"
-	       "* HTTP method %s\n"
-	       "* HTTP header %s\n"
-	       "* HTTP body %s\n",
-	       request.URL.port.unsignedIntValue,
-	       request.URL.scheme.UTF8String,
-	       request.URL.absoluteString.UTF8String,
-	       request.HTTPMethod.UTF8String,
-	       request.allHTTPHeaderFields.description.UTF8String,
-	       request.HTTPBody.description.UTF8String);
+	NSString *text = NULL;
+	const char *resp_text = NULL;
+	
+	if (request.HTTPBody.length) {
+		text = [[NSString alloc] initWithData: request.HTTPBody
+					     encoding: NSUTF8StringEncoding];
+		if (text)
+			resp_text = text.UTF8String;
+	}
+	
+	if (resp_text) {
+		logger(LOGGER_DEBUG, LOGGER_C_CURL,
+		       "\n* Network port %u\n"
+		       "* Schema %s\n"
+		       "* URL %s\n"
+		       "* HTTP method %s\n"
+		       "* HTTP header %s\n"
+		       "* HTTP body %s\n",
+		       request.URL.port.unsignedIntValue,
+		       request.URL.scheme.UTF8String,
+		       request.URL.absoluteString.UTF8String,
+		       request.HTTPMethod.UTF8String,
+		       request.allHTTPHeaderFields.description.UTF8String,
+		       resp_text);
+	} else {
+		logger(LOGGER_DEBUG, LOGGER_C_CURL,
+		       "\n* Network port %u\n"
+		       "* Schema %s\n"
+		       "* URL %s\n"
+		       "* HTTP method %s\n"
+		       "* HTTP header %s\n",
+		       request.URL.port.unsignedIntValue,
+		       request.URL.scheme.UTF8String,
+		       request.URL.absoluteString.UTF8String,
+		       request.HTTPMethod.UTF8String,
+		       request.allHTTPHeaderFields.description.UTF8String);
+	}
 }
 
 - (void)URLSession:(NSURLSession *)session
@@ -76,7 +100,7 @@ totalBytesExpectedToSend:(int64_t)totalBytesExpectedToSend
 	//logger(LOGGER_DEBUG, LOGGER_C_CURL, "Current request:\n");
 	//[self loggingrequest:task.currentRequest];
 	
-	logger(LOGGER_DEBUG, LOGGER_C_CURL, "Request:\n");
+	logger(LOGGER_DEBUG, LOGGER_C_CURL, "Submitted data request:\n");
 	[self loggingrequest:task.originalRequest];
 }
 
@@ -199,6 +223,10 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
 	{
 		completion(response_buf, &task_complete, data, response, error);
 	}];
+
+	logger(LOGGER_DEBUG, LOGGER_C_CURL,
+	       "About to perform HTTP operation:\n");
+	[self loggingrequest:task.originalRequest];
 	
 	[task resume];
 	

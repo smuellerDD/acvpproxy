@@ -328,7 +328,7 @@ struct def_algo_kas_ffc {
 	 * CCM
 	 * CMAC
 	 * DRBG
-	 * DSA
+	 * DSA or Safeprimes
 	 * HMAC
 	 * SHA
 	 */

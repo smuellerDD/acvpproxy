@@ -653,6 +653,13 @@ static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
 		}							\
 	}
 
+//TODO wire up
+#define OPENSSL_SAFEPRIMES						\
+	GENERIC_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYGENERATION,		\
+			   ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |	\
+			   ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |	\
+			   ACVP_DH_MODP_8192)
+
 /**************************************************************************
  * ECDH Definitions
  **************************************************************************/
