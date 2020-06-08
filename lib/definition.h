@@ -158,6 +158,7 @@ struct def_algo_map {
 	const char *algo_name;
 	const char *processor;
 	const char *impl_name;
+	const char *impl_description;
 	struct def_algo_map *next;
 };
 

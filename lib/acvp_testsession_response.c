@@ -24,12 +24,20 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "acvp_error_handler.h"
 #include "logger.h"
 #include "acvpproxy.h"
 #include "json_wrapper.h"
 #include "internal.h"
 #include "request_helper.h"
+#include "sleep.h"
 #include "threading_support.h"
+
+/*
+ * The support for the large endpoint is deactivated on the server. We leave
+ * the code for the time being to remove it later.
+ */
+#undef ACVP_LARGE_ENDPOINT
 
 static int acvp_vsid_verdict_url(const struct acvp_vsid_ctx *vsid_ctx,
 				 char *url, uint32_t urllen, bool urlpath)
@@ -76,6 +84,7 @@ out:
 	return ret;
 }
 
+#ifdef ACVP_LARGE_ENDPOINT
 static int acvp_copy_vsid_ctx(struct acvp_vsid_ctx *dst,
 			      const struct acvp_vsid_ctx *src)
 {
@@ -97,6 +106,7 @@ static int acvp_copy_testid_ctx(struct acvp_testid_ctx *dst,
 out:
 	return ret;
 }
+#endif
 
 /*****************************************************************************
  * Remember the test verdicts of the vsIDs
@@ -217,40 +227,22 @@ out:
 static int acvp_response_error_handler(const struct acvp_buf *response_buf,
 				       int http_ret)
 {
-	struct json_object *response = NULL, *entry = NULL;
-	const char *error_str;
+	enum acvp_error_code error_code;
 	int ret;
 
-	if (http_ret == 0)
+	if (http_ret >= 0)
 		return 0;
 
 	if (!response_buf->buf || !response_buf->len)
 		return http_ret;
 
-	/*
-	 * Strip the version from the received array and return the array
-	 * entry containing the answer.
-	 */
-	if (acvp_req_strip_version(response_buf, &response, &entry)) {
-		// TODO return may not match definition - clear after issue #771 is fixed
-		entry = response;
-//		ret = http_ret;
-//		goto out;
-	}
-
-	if (json_get_string(entry, "error", &error_str)) {
-		/* If we have no error entry, we cannot assess the response */
-		ret = http_ret;
-		goto out;
-	}
+	CKINT(acvp_error_convert(response_buf, &error_code));
 
 	/*
 	 * Vectors were uploaded, we clear the error to allow downloading of
 	 * verdict.
 	 */
-	if (strstr(error_str, "KAT_RECEIVED") ||
-	    strstr(error_str, "PASSED") ||
-	    strstr(error_str, "FAILED")) {
+	if (error_code == ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "ACVP server already received responses, continuing to obtain verdict\n");
 		ret = 0;
@@ -265,7 +257,6 @@ out:
 		       "Received following ACVP server error response: %s\n",
 		       response_buf->buf);
 	}
-	ACVP_JSON_PUT_NULL(response);
 	return ret;
 }
 
@@ -303,19 +294,30 @@ out:
 /* DELETE /testSessions/<testSessionId>/vectorSets/<vectorSetId> */
 static int acvp_response_delete(const struct acvp_vsid_ctx *vsid_ctx)
 {
+#define ACVP_RESPONSE_DELETE_SLEEP_TIME	30
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	char url[ACVP_NET_URL_MAXLEN];
 	int ret;
 
 	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url), false));
 	CKINT(acvp_net_op(testid_ctx, url, NULL, NULL, acvp_http_delete));
-	logger_status(LOGGER_C_ANY, "VsID %u (test session %u) invalidated\n",
-		      vsid_ctx->vsid, testid_ctx->testid);
+	logger_status(LOGGER_C_ANY, "VsID %u (test session %u) invalidated - sleeping for %u seconds to allow ACVP server propagation\n",
+		      vsid_ctx->vsid, testid_ctx->testid,
+		      ACVP_RESPONSE_DELETE_SLEEP_TIME);
+
+	/*
+	 * As we re-download the testID verdict, we need to sleep
+	 * to allow the propagation of the deletion operation through
+	 * the ACVP server.
+	 */
+	CKINT(sleep_interruptible(ACVP_RESPONSE_DELETE_SLEEP_TIME,
+				  &acvp_op_interrupted));
 
 out:
 	return ret;
 }
 
+#ifdef ACVP_LARGE_ENDPOINT
 /* POST /large */
 static int acvp_get_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
 				   const struct acvp_buf *submit_buf,
@@ -432,20 +434,23 @@ out:
 	ACVP_JSON_PUT_NULL(req);
 	return ret;
 }
+#endif
 
 static int acvp_check_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
 				     const struct acvp_buf *submit_buf)
 {
-	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	ACVP_BUFFER_INIT(received_buf);
-	uint32_t max_msg_size;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
+#ifdef ACVP_LARGE_ENDPOINT
+	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
+	uint32_t max_msg_size;
 	CKINT(acvp_get_max_msg_size(testid_ctx, &max_msg_size));
 
 	/* Check whether we need to request a /large endpoint communication */
 	if (!submit_buf || max_msg_size >= submit_buf->len) {
+#endif
 		/*
 		 * Construct the URL to submit the results for the given
 		 * vsID to.
@@ -454,14 +459,43 @@ static int acvp_check_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
 		       "Sending response to regular endpoint\n");
 		CKINT(acvp_vsid_verdict_url(vsid_ctx, url, sizeof(url), false));
 		return acvp_response_upload(vsid_ctx, submit_buf, url);
+#ifdef ACVP_LARGE_ENDPOINT
 	}
 
 	CKINT(acvp_get_large_endpoint(vsid_ctx, submit_buf, &received_buf));
 
 	CKINT(acvp_submit_large_endpoint(vsid_ctx, &received_buf, submit_buf));
+#endif
 
 out:
 	acvp_free_buf(&received_buf);
+	return ret;
+}
+
+static int acvp_request_sample_vsid(const struct acvp_vsid_ctx *vsid_ctx,
+				    const struct acvp_buf *buf)
+{
+	struct json_object *full = NULL, *response;
+	const char *new_str;
+	ACVP_BUFFER_INIT(new_buf);
+	int ret;
+
+	CKINT_LOG(acvp_req_strip_version(buf, &full, &response),
+		  "Cannot parse response data %s\n", buf->buf);
+	CKINT(json_object_object_add(response, "showExpected",
+				     json_object_new_boolean(true)));
+
+	new_str = json_object_to_json_string_ext(full,
+						 JSON_C_TO_STRING_PRETTY |
+						 JSON_C_TO_STRING_NOSLASHESCAPE);
+	CKNULL(new_str, -EFAULT);
+	new_buf.buf = (uint8_t *)new_str;
+	new_buf.len = (uint32_t)strlen(new_str);
+
+	CKINT(acvp_check_large_endpoint(vsid_ctx, &new_buf));
+
+out:
+	ACVP_JSON_PUT_NULL(full);
 	return ret;
 }
 
@@ -471,6 +505,7 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *opts = &ctx->options;
+	const struct acvp_req_ctx *req = &ctx->req_details;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	const struct acvp_net_ctx *net;
 	ACVP_BUFFER_INIT(tmp);
@@ -510,7 +545,11 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 	 * requested by user.
 	 */
 	if (!vsid_ctx->verdict_file_present || opts->resubmit_result) {
-		CKINT(acvp_check_large_endpoint(vsid_ctx, buf));
+		if (req->request_sample) {
+			CKINT(acvp_request_sample_vsid(vsid_ctx, buf));
+		} else {
+			CKINT(acvp_check_large_endpoint(vsid_ctx, buf));
+		}
 	}
 
 	CKINT(acvp_get_vsid_verdict(vsid_ctx));
@@ -623,6 +662,8 @@ static int acvp_respond_testid(struct acvp_testid_ctx *testid_ctx)
 
 	/* Get auth token for test session */
 	CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
+
+	CKINT(acvp_handle_open_requests(testid_ctx));
 
 	sig_enqueue_ctx(testid_ctx);
 

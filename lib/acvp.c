@@ -18,6 +18,7 @@
  * DAMAGE.
  */
 
+#include <dirent.h>
 #include <dlfcn.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -28,14 +29,17 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "logger.h"
 #include "acvpproxy.h"
+#include "fips.h"
 #include "internal.h"
 #include "json_wrapper.h"
 #include "definition.h"
+#include "logger.h"
 #include "memset_secure.h"
+#include "request_helper.h"
 #include "threading_support.h"
 #include "totp.h"
+#include "totp_mq_server.h"
 
 /*****************************************************************************
  * Globals
@@ -542,6 +546,7 @@ void acvp_ctx_release(struct acvp_ctx *ctx)
 	acvp_release_modinfo(&ctx->modinfo);
 	acvp_release_datastore(&ctx->datastore);
 	acvp_release_search(search);
+	acvp_release_auth_ctx(ctx);
 
 	free(ctx);
 }
@@ -627,6 +632,8 @@ int acvp_ctx_init(struct acvp_ctx **ctx,
 	CKINT(acvp_duplicate(&datastore->srcserver, ACVP_DS_SRCSERVER));
 	CKINT(acvp_duplicate(&datastore->expectedfile, ACVP_DS_EXPECTED));
 
+	CKINT(acvp_init_auth_ctx(*ctx));
+
 out:
 	return ret;
 }
@@ -650,12 +657,9 @@ void acvp_release(void)
 
 DSO_PUBLIC
 int acvp_init(const uint8_t *seed, uint32_t seed_len, time_t last_gen,
-	      void (*last_gen_cb)(time_t now))
+	      bool production, void (*last_gen_cb)(time_t now))
 {
 	int ret;
-
-	CKNULL_LOG(seed, -EINVAL, "TOTP seed missing\n");
-	CKNULL_LOG(seed_len, -EINVAL, "TOTP seed length is zero\n");
 
 	if (!ds) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -676,7 +680,10 @@ int acvp_init(const uint8_t *seed, uint32_t seed_len, time_t last_gen,
 	if (!acvp_library_initialized())
 		CKINT(thread_init(2));
 
-	CKINT(totp_set_seed(seed, seed_len, last_gen, last_gen_cb));
+	if (seed && seed_len)
+		CKINT(totp_set_seed(seed, seed_len, last_gen, production,
+				    last_gen_cb));
+
 	CKINT(sig_install_handler());
 
 	acvp_op_enable();
@@ -694,10 +701,13 @@ int acvp_load_extension(const char *path)
 	int ret = 0;
 	void *library_handle = NULL;
 
+	CKNULL_LOG(path, -EINVAL, "Pathname missing\n");
+
+	CKINT(fips_post_integrity(path));
+
 	library_handle = dlopen(path, RTLD_NOW);
 	CKNULL_LOG(library_handle, -EFAULT, "Error loading library: %s\n",
 		   dlerror());
-
 	dlerror();
 	extension = (struct acvp_extension *)dlsym(library_handle,
 						   "acvp_extension");
@@ -706,5 +716,35 @@ int acvp_load_extension(const char *path)
 	acvp_register_algo_map(extension->curr_map, extension->nrmaps);
 
 out:
+	return ret;
+}
+
+DSO_PUBLIC
+int acvp_load_extension_directory(const char *dir)
+{
+	struct dirent *dentry;
+	DIR *extension_dir = NULL;
+	char filename[FILENAME_MAX];
+	int ret = 0;
+
+	CKNULL_LOG(dir, -EINVAL, "Configuration directory missing\n");
+
+	extension_dir = opendir(dir);
+	CKNULL_LOG(extension_dir, -errno, "Failed to open directory %s\n",
+		   extension_dir);
+
+	while ((dentry = readdir(extension_dir)) != NULL) {
+		if (!acvp_usable_dirent(dentry, "so") &&
+		    !acvp_usable_dirent(dentry, "dylib"))
+			continue;
+
+		snprintf(filename, sizeof(filename), "%s/%s", dir,
+			 dentry->d_name);
+		CKINT(acvp_load_extension(filename));
+	}
+
+out:
+	if (extension_dir)
+		closedir(extension_dir);
 	return ret;
 }

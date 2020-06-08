@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -17,18 +17,34 @@
  * DAMAGE.
  */
 
-#ifndef FIPS_H
-#define FIPS_H
+#ifndef ACVP_ERROR_HANDLER_H
+#define ACVP_ERROR_HANDLER_H
+
+#include <buffer.h>
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-int fips_post_integrity(const char *pathname);
+enum acvp_error_code {
+	ACVP_ERR_NO_ERR = 0,
+	ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING,
+};
+
+/**
+ * @brief Convert an ACVP Error code into an internal representation
+ *
+ * @param response_buf [in] Buffer with the JSON response data from the server
+ * @param code [out] Error code that was identified from the data
+ *
+ * @return 0 on successful conversion, < 0 on error
+ */
+int acvp_error_convert(const struct acvp_buf *response_buf,
+		       enum acvp_error_code *code);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* FIPS_H */
+#endif /* ACVP_ERROR_HANDLER_H */

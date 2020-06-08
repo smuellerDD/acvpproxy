@@ -24,7 +24,7 @@
 /**************************************************************************
  * Safeprimes
  **************************************************************************/
-#if 1
+#if 0
 #define DEVEL_SAFEPRIMES(mode, groups) GENERIC_SAFEPRIMES(mode, groups)
 #else
 #define DEVEL_SAFEPRIMES(mode, groups)
@@ -33,7 +33,7 @@
 /**************************************************************************
  * SP800-56A rev3 FFC
  **************************************************************************/
-#if 0
+#if 1
 static const struct def_algo_prereqs devel_dh_r3_prereqs[] = {
 	{
 		.algorithm = "SHA",

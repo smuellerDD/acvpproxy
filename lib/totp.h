@@ -53,6 +53,8 @@ int totp(uint32_t *totp_val);
  * @param last_gen [in] Time stamp when TOTP value was generated last time. It
  *			is permissible to set it to 0 in case TOTP was never
  *			used.
+ * @param production [in] Indicator whether the production or demo server
+ *			  will be accessed
  * @param last_gen_cb [in] Callback to be invoked when a TOTP value is generated
  *			   to allow a framework to store the current time
  *			   for potential later initialization. This function
@@ -60,7 +62,7 @@ int totp(uint32_t *totp_val);
  * @return 0 on success, < 0 on error
  */
 int totp_set_seed(const uint8_t *K, uint32_t Klen, time_t last_gen,
-		  void (*last_gen_cb)(time_t now));
+		  bool production, void (*last_gen_cb)(time_t now));
 
 /**
  * @brief release the seed data

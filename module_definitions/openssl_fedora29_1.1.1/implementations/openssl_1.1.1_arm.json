@@ -3,7 +3,10 @@
 		"CE",
 		"CE_GCM",
 		"VPAES",
-		"VPAES_GCM"
+		"VPAES_GCM",
+		"NEON",
+		"AES_C",
+		"AES_C_GCM"
 	],
 
 	"dependencies-internal": {
@@ -14,6 +17,10 @@
 		"VPAES_GCM": {
 			"AES":"VPAES",
 			"DRBG": "VPAES"
+		},
+		"AES_C_GCM": {
+			"AES":"AES_C",
+			"DRBG": "AES_C"
 		}
 	}
 }

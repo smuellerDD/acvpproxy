@@ -1,3 +1,18 @@
+v1.4.0
+- add --proxy-extension-dir
+- enable modularized compilation
+- bug fix: generation of cipher listing in SP800-108 KDF
+- bug fix: disable threading for publication operation
+- enhancement: only require the presence of the key / seed data if a network operation is to be performed
+- enhancement: allow parallel execution of production and demo ACVP Proxy execution
+- fix: deactivate large endpoint handling as new ACVP server frontend does not need it
+- fix: listing of ciphers modified to new ACVP server structure
+- enhancement: --sample is now allowed to be used during posting of results or resubmitting results (--resubmit-result) showing the expected result for the failures
+- enhancement: add .impl_description to struct def_algo_map to allow specific implementation descriptions to be mentioned on the certificate
+- enhancement: speed-up of authentication: re-use of initial login token
+- fix: OpenSSL ARM definitions
+- code restructuring: consolidate ACVP meta data handling
+
 v1.3.2
 - bug fix to make option --vsid work again
 - OpenSSL: add safeprime keygen test

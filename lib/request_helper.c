@@ -26,6 +26,8 @@
 #include "build_bug_on.h"
 #include "internal.h"
 #include "logger.h"
+#include "request_helper.h"
+#include "term_colors.h"
 
 static inline int acvp_req_check_zero(const int val)
 {
@@ -681,4 +683,68 @@ int acvp_req_add_revision(struct json_object *entry, const char *str)
 {
 	return json_object_object_add(entry, "revision",
 				      json_object_new_string(str));
+}
+
+/* Sanity check for path name. */
+int acvp_usable_dirent(struct dirent *dirent, const char *extension)
+{
+	size_t filenamelen, extensionlen;
+	int ret = 0;
+
+	/* Check that entry is neither ".", "..", or a hidden file */
+	if (!strncmp(dirent->d_name, ".", 1))
+		goto out;
+
+	/* Check that it is a regular file or a symlink */
+	if (dirent->d_type != DT_REG && dirent->d_type != DT_LNK)
+		goto out;
+
+	filenamelen = strlen(dirent->d_name);
+	extensionlen = strlen(extension);
+
+	/* Check that file name is long enough */
+	if (filenamelen < extensionlen + 1)
+		goto out;
+
+	/* Check for presence of extension */
+	if (strncmp(dirent->d_name + filenamelen - extensionlen,
+		    extension, extensionlen))
+		goto out;
+
+	ret = 1;
+
+out:
+	if (!ret)
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Skipping directory entry %s\n", dirent->d_name);
+
+	return ret;
+}
+
+int ask_yes(const char *question)
+{
+	unsigned char answer;
+
+	fprintf_red(stdout, "%s (Y/N)? ", question);
+
+	while (1) {
+		answer = (unsigned char)fgetc(stdin);
+
+		switch (answer) {
+		case 'y':
+		case 'Y':
+		case 'j':
+		case 'J':
+			return 0;
+		case 'n':
+		case 'N':
+			return -EINTR;
+		default:
+			if (answer < 127 && answer > 31)
+				fprintf_red(stdout, "%s (Y/N)? ", question);
+			break;
+		}
+	}
+
+	return -EINTR;
 }

@@ -50,10 +50,14 @@ static int acvp_rename_generic(const struct acvp_testid_ctx *testid_ctx,
 	logger_status(LOGGER_C_ANY, "If the name is already registered with the ACVP server and you want to update it with \"--update-definition oe\" remember to perform TWO rounds of update, one for the software dependency and one for the OE name!\n");
 
 out:
-	if (newname_modify)
-		free(newname_modify);
-	if (ret)
+	if (ret) {
+		if (newname_modify)
+			free(newname_modify);
 		*curr_ptr = curr_name;
+	} else {
+		if (curr_name != *curr_ptr)
+			free(curr_name);
+	}
 	return ret;
 }
 
@@ -156,14 +160,19 @@ static int acvp_rename_name(const struct acvp_testid_ctx *testid_ctx,
 	 */
 
 out:
-	if (newname_modify)
-		free(newname_modify);
-	if (newname_unmodify)
-		free(newname_unmodify);
-
 	if (ret) {
+		if (newname_modify)
+			free(newname_modify);
+		if (newname_unmodify)
+			free(newname_unmodify);
+
 		info->module_name = curr_name;
 		info->module_name_filesafe = curr_name_filesafe;
+	} else {
+		if (curr_name != info->module_name)
+			free(curr_name);
+		if (curr_name_filesafe != info->module_name_filesafe)
+			free(curr_name_filesafe);
 	}
 
 	return ret;
@@ -206,14 +215,19 @@ static int acvp_rename_version(const struct acvp_testid_ctx *testid_ctx,
 	 */
 
 out:
-	if (newversion_modify)
-		free(newversion_modify);
-	if (newversion_unmodify)
-		free(newversion_unmodify);
-
 	if (ret) {
+		if (newversion_modify)
+			free(newversion_modify);
+		if (newversion_unmodify)
+			free(newversion_unmodify);
+
 		info->module_version = curr_version;
 		info->module_version_filesafe = curr_version_filesafe;
+	} else {
+		if (curr_version != info->module_version)
+			free(curr_version);
+		if (curr_version_filesafe != info->module_version_filesafe)
+			free(curr_version_filesafe);
 	}
 
 	return ret;

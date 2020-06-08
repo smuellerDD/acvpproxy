@@ -65,8 +65,8 @@ static int acvp_curl_progress_callback(void *clientp, curl_off_t dltotal,
 	return atomic_bool_read(&acvp_curl_interrupted);
 }
 
-static size_t acvp_curl_read_cb(char *buffer, size_t size, size_t nitems,
-				void *userdata)
+static size_t
+acvp_curl_read_cb(char *buffer, size_t size, size_t nitems, void *userdata)
 {
 	struct acvp_buf *send_buf = (struct acvp_buf *)userdata;
 	size_t sendsize = (size * nitems);
@@ -90,8 +90,8 @@ static size_t acvp_curl_read_cb(char *buffer, size_t size, size_t nitems,
 	return sendsize;
 }
 
-static size_t acvp_curl_write_cb(void *ptr, size_t size, size_t nmemb,
-				 void *userdata)
+static size_t
+acvp_curl_write_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
 {
 	struct acvp_buf *response_buf = (struct acvp_buf *)userdata;
 	size_t bufsize = (size * nmemb);
@@ -143,7 +143,7 @@ static size_t acvp_curl_write_cb(void *ptr, size_t size, size_t nmemb,
 
 static int
 acvp_curl_add_auth_hdr(const struct acvp_auth_ctx *auth,
-			struct curl_slist **slist)
+		       struct curl_slist **slist)
 {
 	size_t bearer_size;
 	char *bearer;
@@ -368,6 +368,12 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_WRITEDATA, response_buf));
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
 				    acvp_curl_write_cb));
+
+#if 0
+	/* Set a specific cipher */
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_SSL_CIPHER_LIST,
+				    "ECDHE-RSA-AES128-SHA256"));
+#endif
 
 	/* Perform the HTTP request */
 	while (retries < ACVP_CURL_MAX_RETRIES) {

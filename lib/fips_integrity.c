@@ -312,44 +312,48 @@ out:
 	return ret;
 }
 
-int fips_post_integrity(void)
+int fips_post_integrity(const char *pathname)
 {
 	char *checkfile = NULL;
 	size_t n = 0;
 	int ret = -EINVAL;
-	char fipsflag[1];
+	static char fipsflag[1] = { 'A' };
 #define BUFSIZE 4096
 	char selfname[BUFSIZE];
+	const char *selfname_p;
 	ssize_t selfnamesize = 0;
 
+	if (fipsflag[0] == 'A') {
 #ifdef HAVE_SECURE_GETENV
-	if (secure_getenv("ACVPPROXY_FORCE_FIPS")) {
+		if (secure_getenv("ACVPPROXY_FORCE_FIPS")) {
 #else
-	if (getenv("ACVPPROXY_FORCE_FIPS")) {
+		if (getenv("ACVPPROXY_FORCE_FIPS")) {
 #endif
-		fipsflag[0] = 1;
-	} else {
-		FILE *fipsfile = NULL;
+			fipsflag[0] = 1;
+		} else {
+			FILE *fipsfile = NULL;
 
-		fipsfile = fopen("/proc/sys/crypto/fips_enabled", "r");
-		if (!fipsfile) {
-			if (errno == ENOENT) {
-				/* FIPS support not enabled in kernel */
-				return 0;
-			} else {
-				fprintf(stderr, FIPS_INTEGRITY_LOGGER_PREFIX
-					"Cannot open fips_enabled file: %s\n",
-					strerror(errno));
-				return -EIO;
+			fipsfile = fopen("/proc/sys/crypto/fips_enabled", "r");
+			if (!fipsfile) {
+				if (errno == ENOENT) {
+					/* FIPS support not enabled in kernel */
+					return 0;
+				} else {
+					fprintf(stderr,
+						FIPS_INTEGRITY_LOGGER_PREFIX
+						"Cannot open fips_enabled file: %s\n",
+						strerror(errno));
+					return -EIO;
+				}
 			}
-		}
 
-		n = fread((void *)fipsflag, 1, 1, fipsfile);
-		fclose(fipsfile);
-		if (n != 1) {
-			fprintf(stderr, FIPS_INTEGRITY_LOGGER_PREFIX
-				"Cannot read FIPS flag\n");
-			goto out;
+			n = fread((void *)fipsflag, 1, 1, fipsfile);
+			fclose(fipsfile);
+			if (n != 1) {
+				fprintf(stderr, FIPS_INTEGRITY_LOGGER_PREFIX
+					"Cannot read FIPS flag\n");
+				goto out;
+			}
 		}
 	}
 
@@ -358,50 +362,57 @@ int fips_post_integrity(void)
 		goto out;
 	}
 
-	/* Integrity check of our application. */
-	memset(selfname, 0, sizeof(selfname));
+	if (pathname) {
+		selfname_p = pathname;
+	} else {
+		/* Integrity check of our application. */
+		memset(selfname, 0, sizeof(selfname));
 
-	/*
-	 * Some OS-specific interfaces:
-	 * Mac OS X: _NSGetExecutablePath() (man 3 dyld)
-	 * Linux: readlink /proc/self/exe
-	 * Solaris: getexecname()
-	 * FreeBSD: sysctl CTL_KERN KERN_PROC KERN_PROC_PATHNAME -1
-	 * FreeBSD if it has procfs: readlink /proc/curproc/file
-	 * (FreeBSD doesn't have procfs by default)
-	 * NetBSD: readlink /proc/curproc/exe
-	 * DragonFly BSD: readlink /proc/curproc/file
-	 * Windows: GetModuleFileName() with hModule = NULL
-	 */
+		/*
+		* Some OS-specific interfaces:
+		* Mac OS X: _NSGetExecutablePath() (man 3 dyld)
+		* Linux: readlink /proc/self/exe
+		* Solaris: getexecname()
+		* FreeBSD: sysctl CTL_KERN KERN_PROC KERN_PROC_PATHNAME -1
+		* FreeBSD if it has procfs: readlink /proc/curproc/file
+		* (FreeBSD doesn't have procfs by default)
+		* NetBSD: readlink /proc/curproc/exe
+		* DragonFly BSD: readlink /proc/curproc/file
+		* Windows: GetModuleFileName() with hModule = NULL
+		*/
 
-#ifdef __linux__
-	selfnamesize = readlink("/proc/self/exe", selfname, BUFSIZE - 1);
-#elif __APPLE__
-	selfnamesize = BUFSIZE - 1;
-	if (_NSGetExecutablePath(selfname, (uint32_t *)&selfnamesize)) {
-		fprintf(stderr, FIPS_INTEGRITY_LOGGER_PREFIX
-			"Buffer for executable too small\n");
-		ret = -ENAMETOOLONG;
-		goto out;
+	#ifdef __linux__
+		selfnamesize = readlink("/proc/self/exe", selfname,
+					BUFSIZE - 1);
+	#elif __APPLE__
+		selfnamesize = BUFSIZE - 1;
+		if (_NSGetExecutablePath(selfname, (uint32_t *)&selfnamesize)) {
+			fprintf(stderr, FIPS_INTEGRITY_LOGGER_PREFIX
+				"Buffer for executable too small\n");
+			ret = -ENAMETOOLONG;
+			goto out;
+		}
+	#else
+		selfnamesize = -1;
+	#endif
+
+		if (selfnamesize >= BUFSIZE || selfnamesize < 0) {
+			fprintf(stderr, FIPS_INTEGRITY_LOGGER_PREFIX
+				"Cannot obtain my filename\n");
+			ret = -EFAULT;
+			goto out;
+		}
+
+		selfname_p = selfname;
 	}
-#else
-	selfnamesize = -1;
-#endif
 
-	if (selfnamesize >= BUFSIZE || selfnamesize < 0) {
-		fprintf(stderr, FIPS_INTEGRITY_LOGGER_PREFIX
-			"Cannot obtain my filename\n");
-		ret = -EFAULT;
-		goto out;
-	}
-
-	checkfile = get_hmac_file(selfname);
+	checkfile = get_hmac_file(selfname_p);
 	if (!checkfile) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	ret = process_checkfile(checkfile, selfname);
+	ret = process_checkfile(checkfile, selfname_p);
 
 out:
 	if (checkfile)

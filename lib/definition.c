@@ -446,6 +446,7 @@ static void acvp_def_del_info(struct definition *def)
 
 	ACVP_PTR_FREE_NULL(info->module_name);
 	ACVP_PTR_FREE_NULL(info->impl_name);
+	ACVP_PTR_FREE_NULL(info->impl_description);
 	ACVP_PTR_FREE_NULL(info->orig_module_name);
 	ACVP_PTR_FREE_NULL(info->module_name_filesafe);
 	ACVP_PTR_FREE_NULL(info->module_name_internal);
@@ -557,7 +558,8 @@ out:
 }
 
 static int acvp_def_add_info(struct definition *def, struct def_info *src,
-			     const char *impl_name)
+			     const char *impl_name,
+			     const char *impl_description)
 {
 	struct def_info *info;
 	int ret = 0;
@@ -571,6 +573,7 @@ static int acvp_def_add_info(struct definition *def, struct def_info *src,
 	CKINT(acvp_def_module_name(&info->module_name, src->module_name,
 				   impl_name));
 	CKINT(acvp_duplicate(&info->impl_name, impl_name));
+	CKINT(acvp_duplicate(&info->impl_description, impl_description));
 	CKINT(acvp_duplicate(&info->orig_module_name, src->module_name));
 	CKINT(acvp_duplicate(&info->module_name_filesafe, info->module_name));
 	CKINT(acvp_duplicate(&info->module_name_internal,
@@ -695,7 +698,7 @@ static int acvp_def_add_deps(struct definition *def,
 
 	deps = def->deps;
 	info = def->info;
-	CKNULL_LOG(def, -EINVAL, "Module information context missing\n");
+	CKNULL_LOG(info, -EINVAL, "Module meta data missing\n");
 
 	/* Try finding the dependency for our definition */
 	ret = json_find_key(json_deps, info->impl_name, &my_dep,
@@ -1018,6 +1021,8 @@ static int acvp_def_update_id(const char *pathname,
 	unsigned int i;
 	int ret = 0;
 	bool updated = false;
+
+	CKNULL(pathname, -EINVAL);
 
 	CKINT_LOG(acvp_def_read_json(&config, pathname),
 		  "Cannot parse config file %s\n", pathname);
@@ -1595,8 +1600,7 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 
 			string = json_object_get_string(impl);
 
-			if (!strncmp(map->impl_name, string,
-				     strlen(map->impl_name))) {
+			if (acvp_find_match(map->impl_name, string, false)) {
 				found = 1;
 				break;
 			}
@@ -1610,35 +1614,17 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Algorithm map for name %s, processor %s found\n",
 		       info.module_name, oe.proc_family);
-		ret = acvp_def_init(&def, map);
-		if (ret)
-			goto unlock;
-
-		ret = acvp_def_add_oe(def, &oe);
-		if (ret)
-			goto unlock;
-
-		ret = acvp_def_add_vendor(def, &vendor);
-		if (ret)
-			goto unlock;
-
-		ret = acvp_def_add_info(def, &info, map->impl_name);
-		if (ret)
-			goto unlock;
+		CKINT_ULCK(acvp_def_init(&def, map));
+		CKINT_ULCK(acvp_def_add_oe(def, &oe));
+		CKINT_ULCK(acvp_def_add_vendor(def, &vendor));
+		CKINT_ULCK(acvp_def_add_info(def, &info, map->impl_name,
+					     map->impl_description));
 
 		/* First stage of dependencies */
-		ret = acvp_def_load_deps(impl_config, def);
-		if (ret)
-			goto unlock;
-		ret = acvp_def_load_deps(oe_config, def);
-		if (ret)
-			goto unlock;
-		ret = acvp_def_load_deps(vendor_config, def);
-		if (ret)
-			goto unlock;
-		ret = acvp_def_load_deps(info_config, def);
-		if (ret)
-			goto unlock;
+		CKINT_ULCK(acvp_def_load_deps(impl_config, def));
+		CKINT_ULCK(acvp_def_load_deps(oe_config, def));
+		CKINT_ULCK(acvp_def_load_deps(vendor_config, def));
+		CKINT_ULCK(acvp_def_load_deps(info_config, def));
 
 		def->uninstantiated_def = map;
 
@@ -1667,40 +1653,9 @@ out:
 	return ret;
 }
 
-/* Sanity check for path name. */
 static int acvp_def_usable_dirent(struct dirent *dirent)
 {
-	size_t filenamelen, extensionlen;
-	int ret = 0;
-
-	/* Check that entry is neither ".", "..", or a hidden file */
-	if (!strncmp(dirent->d_name, ".", 1))
-		goto out;
-
-	/* Check that it is a regular file or a symlink */
-	if (dirent->d_type != DT_REG && dirent->d_type != DT_LNK)
-		goto out;
-
-	filenamelen = strlen(dirent->d_name);
-	extensionlen = strlen(ACVP_DEF_CONFIG_FILE_EXTENSION);
-
-	/* Check that file name is long enough */
-	if (filenamelen < extensionlen + 1)
-		goto out;
-
-	/* Check for presence of extension */
-	if (strncmp(dirent->d_name + filenamelen - extensionlen,
-		    ACVP_DEF_CONFIG_FILE_EXTENSION, extensionlen))
-		goto out;
-
-	ret = 1;
-
-out:
-	if (!ret)
-		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Skipping directory entry %s\n", dirent->d_name);
-
-	return ret;
+	return acvp_usable_dirent(dirent, ACVP_DEF_CONFIG_FILE_EXTENSION);
 }
 
 DSO_PUBLIC

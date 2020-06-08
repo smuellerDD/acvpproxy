@@ -20,6 +20,8 @@
 #ifndef REQUEST_HELPER_H
 #define REQUEST_HELPER_H
 
+#include <dirent.h>
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -68,7 +70,7 @@ int acvp_req_in_range(unsigned int val, const int supported_lengths[]);
  * key.
  */
 int acvp_req_algo_domain(struct json_object *entry,
-			 unsigned int min, unsigned int max, unsigned int inc,
+			 int min, int max, int inc,
 			 const char *key);
 
 /*
@@ -224,6 +226,18 @@ int acvp_get_trailing_number(const char *string, uint32_t *number);
 bool acvp_find_match(const char *searchstr, const char *defstr,
 		     bool fuzzy_search);
 
+/**
+ * Check whether the directory entry is usable.
+ * @param dirent [in] Entry to check
+ * @param extension [in] File name extension the file must have
+ * @return 1 for usable, 0 for not usable, < 0 for error
+ */
+int acvp_usable_dirent(struct dirent *dirent, const char *extension);
+
+/**
+ * Ask a boolean question to user
+ */
+int ask_yes(const char *question);
 
 #ifdef __cplusplus
 }

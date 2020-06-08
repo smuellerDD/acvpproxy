@@ -43,7 +43,7 @@ struct acvp_thread_ctx {
 /*
  * Shall the ACVP operation be shut down?
  */
-static atomic_bool_t acvp_op_interrupted = ATOMIC_BOOL_INIT(false);
+atomic_bool_t acvp_op_interrupted = ATOMIC_BOOL_INIT(false);
 
 /*****************************************************************************
  * Helper code
@@ -398,34 +398,44 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 	uint32_t sleep_time = 0;
 	int ret, ret2;
 
-	if (vsid_ctx->vsid) {
-		logger_status(LOGGER_C_ANY,
-			      "(Re)Try testID %u / vsID %u (%u / %u done)\n",
-			      testid_ctx->testid, vsid_ctx->vsid,
-			      atomic_read(&glob_vsids_processed),
-			      atomic_read(&glob_vsids_to_process));
-	} else {
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY, "(Re)Try testID %u\n",
-		       testid_ctx->testid);
-	}
+	while (1) {
+		if (vsid_ctx->vsid) {
+			logger_status(LOGGER_C_ANY,
+				      "(Re)Try testID %u / vsID %u (%u / %u done)\n",
+				      testid_ctx->testid, vsid_ctx->vsid,
+				      atomic_read(&glob_vsids_processed),
+				      atomic_read(&glob_vsids_to_process));
+		} else {
+			logger(LOGGER_VERBOSE, LOGGER_C_ANY, "(Re)Try testID %u\n",
+			       testid_ctx->testid);
+		}
 
-	ret2 = acvp_net_op(testid_ctx, url, NULL, result_data, acvp_http_get);
+		ret2 = acvp_net_op(testid_ctx, url, NULL, result_data,
+				   acvp_http_get);
 
-	/* Store the debug version of the result unconditionally. */
-	if (debug_logger) {
-		CKINT(debug_logger(vsid_ctx, result_data, ret2));
-	}
+		/* Store the debug version of the result unconditionally. */
+		if (debug_logger) {
+			CKINT(debug_logger(vsid_ctx, result_data, ret2));
+		}
 
-	if (ret2) {
-		ret = ret2;
-		goto out;
-	}
+		if (ret2 < 0) {
+			ret = ret2;
+			goto out;
+		}
 
-	/* Strip the version array entry and get the data. */
-	CKINT(acvp_req_strip_version(result_data, &resp, &data));
+		/* Strip the version array entry and get the data. */
+		CKINT(acvp_req_strip_version(result_data, &resp, &data));
 
-	/* Server asked us to retry in given number of seconds */
-	if (!json_get_uint(data, "retry", &sleep_time)) {
+		/*
+		 * Terminate the loop when the server did not return a
+		 * retry statement.
+		 */
+		if (json_get_uint(data, "retry", &sleep_time))
+			break;
+
+		/* Server asked us to retry in given number of seconds */
+
+		/* Clear the buffers for the next loop iteration. */
 		ACVP_JSON_PUT_NULL(resp);
 		acvp_free_buf(result_data);
 
@@ -438,10 +448,9 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 			       "ACVP server requested retry - sleeping for %u seconds for testID %u again\n",
 			       sleep_time, testid_ctx->testid);
 		}
-		CKINT(sleep_interruptible(sleep_time, &acvp_op_interrupted));
 
-		return acvp_process_retry(vsid_ctx, result_data, url,
-					  debug_logger);
+		/* Wait the requested amount of seconds */
+		CKINT(sleep_interruptible(sleep_time, &acvp_op_interrupted));
 	}
 
 out:
@@ -549,7 +558,7 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 				       "vsID HTTP GET operation completed with return code %d\n",
 				       ret2));
 
-	if (ret2) {
+	if (ret2 < 0) {
 		ret = ret2;
 		goto out;
 	}
@@ -811,7 +820,7 @@ static int acvp_register_dump_request(struct acvp_testid_ctx *testid_ctx,
 	struct tm now_detail;
 	time_t now;
 	ACVP_BUFFER_INIT(register_buf);
-	char filename[40];
+	char filename[FILENAME_MAX];
 	const char *json_request;
 	int ret;
 
@@ -974,7 +983,7 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_store_register_debug(testid_ctx, &response_buf,
 					ret2));
 
-	if (ret2) {
+	if (ret2 < 0) {
 		ret = ret2;
 		goto out;
 	}
@@ -1084,7 +1093,7 @@ static int acvp_register_thread(void *arg)
 {
 	struct acvp_thread_reqresp_ctx *tdata = arg;
 	const struct acvp_ctx *ctx = tdata->ctx;
-	const struct definition *def = tdata->def;\
+	const struct definition *def = tdata->def;
 
 	free(tdata);
 
@@ -1106,7 +1115,8 @@ int acvp_register(const struct acvp_ctx *ctx)
 	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
 
 	if (!acvp_library_initialized()) {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "ACVP library was not yet initialized\n");
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "ACVP library was not yet initialized\n");
 		return -EOPNOTSUPP;
 	}
 

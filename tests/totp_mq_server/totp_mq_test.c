@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 	CKINT(thread_init(1));
 	CKINT(sig_install_handler());
 
-	CKINT(totp_set_seed(seed, sizeof(seed), 0, NULL));
+	CKINT(totp_set_seed(seed, sizeof(seed), 0, 0, NULL));
 
 	for (i = 0; i < 3; i++) {
 		CKINT(thread_start(test_thread, NULL, 0, NULL));

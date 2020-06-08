@@ -103,6 +103,9 @@ static atomic_bool_t mq_client_shutdown = ATOMIC_BOOL_INIT(false);
  */
 static atomic_bool_t mq_server_alive = ATOMIC_BOOL_INIT(false);
 
+/* TOTP for production server access? */
+static bool acvp_totp_mq_production = false;
+
 /*
  * Message buffer to be exchanged between client and server. Note, we do not
  * handle the endianess of totp_val as the message is only exchanged on the
@@ -113,6 +116,21 @@ struct totp_msgbuf {
 	long mtype;
 	uint32_t totp_val;
 };
+
+static key_t acvp_ftok(const char *pathname, int proj_id)
+{
+	/*
+	 * This operation ensures that there are two TOTP MQ servers
+	 * possibly instantiated: one for the production and one for the
+	 * demo server. This implies that an ACVP proxy instance for
+	 * the demo server can run in parallel to another instance
+	 * trying to access the production server. Both will spawn
+	 * their own MQ server that will not interfere with each other.
+	 * Even if additional proxy instances are spawned, they will
+	 * connect to the proper MQ server instance.
+	 */
+	return ftok(pathname, proj_id + (acvp_totp_mq_production ? 1 : 0));
+}
 
 /* Terminate one registered message queue */
 static void totp_mq_terminate_ipc(atomic_t *mq)
@@ -234,7 +252,7 @@ static bool totp_is_mq_alive(void)
 	struct msqid_ds mq_stat;
 	time_t max_wait;
 	int tmpmq;
-	key_t key = ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_CS);
+	key_t key = acvp_ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_CS);
 
 	if (key == -1)
 		return false;
@@ -284,7 +302,7 @@ static int totp_mq_start_server(void)
 		return EINTR;
 
 	/* Generate message queue key that is known to everybody. */
-	key = ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_CS);
+	key = acvp_ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_CS);
 	if (key == -1)
 		return -errno;
 
@@ -316,7 +334,7 @@ static int totp_mq_start_server(void)
 		int ret_ancestor, tmpmq;
 		
 		/* Setup server TX queue */
-		key = ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_SC);
+		key = acvp_ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_SC);
 		if (key == -1) {
 			ret = -errno;
 			totp_mq_terminate_ipc(&mq_srv_rx);
@@ -329,7 +347,7 @@ static int totp_mq_start_server(void)
 		 * client MQ.
 		 */
 		tmpmq = msgget(key, 0);
-		if (tmpmq != 1)
+		if (tmpmq != -1)
 			msgctl(tmpmq, IPC_RMID, NULL);
 
 		atomic_set(msgget(key, (IPC_CREAT | IPC_EXCL | 0600)),
@@ -368,7 +386,7 @@ static int totp_mq_start_client(void)
 		return 0;
 
 	/* Generate message queue key that is known to everybody. */
-	key = ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_CS);
+	key = acvp_ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_CS);
 	if (key == -1)
 		return -errno;
 
@@ -398,7 +416,7 @@ static int totp_mq_start_client(void)
 	}
 
 	/* Set up the TOTP server to client queue */
-	key = ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_SC);
+	key = acvp_ftok(TOTP_MQ_NAME, TOTP_MQ_PROJ_ID_SC);
 	if (key == -1)
 		return EAGAIN;
 	atomic_set(msgget(key, 0), &mq_cln_rx);
@@ -443,8 +461,14 @@ static int totp_mq_start(bool restart)
 		/* Start server if not alive. */
 		if (!atomic_bool_read(&mq_server_alive)) {
 			do {
+				/*
+				 * Sleep for as long as the step size
+				 * as in case of a stale message queue
+				 * we inject a message and check whether it
+				 * is unprocessed for more than a step size.
+				 */
 				if (restart)
-					sleep_interruptible(1,
+					sleep_interruptible(TOTP_STEP_SIZE + 2,
 							    &mq_client_shutdown);
 
 				atomic_bool_set_true(&mq_server_alive);
@@ -635,15 +659,18 @@ void totp_mq_release(void)
 	/* NO cleanup of mq_client as this will impact the server! */
 }
 
-int totp_mq_init(void)
+int totp_mq_init(bool production)
 {
+	acvp_totp_mq_production = production;
+
 	return totp_mq_start(false);
 }
 
 #else /* ACVP_TOTP_MQ_SERVER */
 
-int totp_mq_init(void)
+int totp_mq_init(bool production)
 {
+	(void)production;
 	return 0;
 }
 

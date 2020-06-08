@@ -319,7 +319,7 @@ static int totp_protection(void)
 }
 
 int totp_set_seed(const uint8_t *K, uint32_t Klen, time_t last_gen,
-		  void (*last_gen_cb)(time_t now))
+		  bool production, void (*last_gen_cb)(time_t now))
 {
 	int ret;
 
@@ -351,7 +351,7 @@ int totp_set_seed(const uint8_t *K, uint32_t Klen, time_t last_gen,
 	totp_last_generated = last_gen;
 	totp_last_gen_cb = last_gen_cb;
 
-	ret = totp_mq_init();
+	ret = totp_mq_init(production);
 
 out:
 	mutex_w_unlock(&totp_lock);

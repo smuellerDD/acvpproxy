@@ -66,24 +66,6 @@ int acvp_list_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 
 	tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
 
-	switch (kdf_108->kdf_108_type) {
-	case DEF_ALG_KDF_108_COUNTER:
-		CKINT(acvp_duplicate(&tmp->cipher_aux, "counter"));
-		break;
-	case DEF_ALG_KDF_108_FEEDBACK:
-		CKINT(acvp_duplicate(&tmp->cipher_aux, "feedback"));
-		break;
-	case DEF_ALG_KDF_108_DOUBLE_PIPELINE_ITERATION:
-		CKINT(acvp_duplicate(&tmp->cipher_aux,
-				     "double pipeline iteration"));
-		break;
-	default:
-		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "SP800-108 KDF: Unknown kdf_108_type\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
 out:
 	return ret;
 }

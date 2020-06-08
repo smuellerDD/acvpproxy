@@ -54,6 +54,7 @@
   {
     "type":"software",
     "name":"Fedora 29",
+    "cpe":null,
     "swid":"org.fedoraproject.Fedora-29",
     "description":"Linux distribution developed by the community-supported Fedora Project and sponsored by Red Hat, Inc."
   }
@@ -83,7 +84,7 @@
     "contactUrls":[
       "/acvp/v1/persons/14125"
     ],
-    "description":"The ACVPProxy access the NIST ACVP server to obtain test vectors and return test responses."
+    "description":"The ACVPProxy access the NIST ACVP server to obtain test vectors and return test responses. The following cipher implementation is covered: Generic C implementation of SHA and HMAC."
   }
 ]
 [

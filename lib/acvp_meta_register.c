@@ -20,6 +20,7 @@
 
 #include <string.h>
 
+#include "acvp_meta_internal.h"
 #include "internal.h"
 #include "json_wrapper.h"
 #include "request_helper.h"
@@ -75,7 +76,7 @@ static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 		goto out;
 	} else {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Request response indicates unsuccessful opoeration: %s\n",
+		       "Request response indicates unsuccessful operation: %s\n",
 		       status);
 		ret = -EOPNOTSUPP;
 		goto out;
@@ -90,6 +91,14 @@ static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 	/* Get the oe ID which is the last pathname component */
 	CKINT(acvp_get_trailing_number(uri, &tmp_id));
 
+	/* Reject a request ID */
+	if (acvp_request_id(tmp_id)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Invalid request ID received from ACVP server (did the request IDs became so large that it interferes with the indicator bits?)\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
 	tmp_id = acvp_id(tmp_id);
 	tmp_id |= status_flag;
 
@@ -100,9 +109,6 @@ static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 	 * ID
 	 */
 	if (status_flag) {
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Request ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %u\n",
-		       acvp_id(tmp_id));
 		logger_status(LOGGER_C_ANY,
 			      "Request ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %u\n",
 			      acvp_id(tmp_id));
@@ -134,8 +140,7 @@ int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
 	/* Remove the mask indicator */
 	tmp_id = acvp_id(tmp_id);
 
-	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "Fetch request for ID %u\n",
-	       tmp_id);
+	logger_status(LOGGER_C_ANY, "Fetch request for ID %u\n", tmp_id);
 
 	CKINT(acvp_create_url(NIST_VAL_OP_REQUESTS, url, sizeof(url)));
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u", tmp_id));
@@ -181,10 +186,15 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 	if (acvp_valid_id(*id))
 		CKINT(acvp_extend_string(url, urllen, "/%u", *id));
 
-	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "%s object\n",
+	logger_status(LOGGER_C_ANY, "%s object\n",
 	       (submit_type == acvp_http_delete) ? "Deleting" : "Registering");
 
 	if (json) {
+		logger_status(LOGGER_C_ANY, "%s\n",
+			      json_object_to_json_string_ext(json,
+				JSON_C_TO_STRING_PRETTY |
+				JSON_C_TO_STRING_NOSLASHESCAPE));
+
 		/* Build the JSON object to be submitted */
 		json_submission = json_object_new_array();
 		CKNULL(json_submission, -ENOMEM);
@@ -225,6 +235,10 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 		submit.buf = (uint8_t *)json_request;
 		submit.len = (uint32_t)strlen(json_request);
 	}
+
+#if 0
+	CKINT(ask_yes("Shall request to alter ACVP data base be sent to the ACVP Server?"));
+#endif
 
 	CKINT(acvp_net_op(testid_ctx, url, &submit, &response, submit_type));
 

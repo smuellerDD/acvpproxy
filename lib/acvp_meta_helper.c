@@ -50,7 +50,10 @@ int acvp_get_verdict_json(const struct acvp_buf *verdict_buf,
 
 	ret = json_get_bool(verdict, "passed", &test_passed);
 	if (!ret) {
-		*verdict_stat = acvp_verdict_pass;
+		if (test_passed)
+			*verdict_stat = acvp_verdict_pass;
+		else
+			*verdict_stat = acvp_verdict_fail;
 		goto out;
 	}
 

@@ -7,13 +7,22 @@
 		"SSH_AVX",
 		"SSH_SSSE3",
 		"SSH_ASM",
-		"FFC_DH"
+		"FFC_DH",
+		"KBKDF"
 	],
 	"dependencies-internal": {
 		"FFC_DH": {
 			"SHA": "SHA_",
 			"DRBG": "AES",
 			"DSA": "SHA_"
+		},
+		"KBKDF": {
+			"AES": "AES",
+			"TDES" : "TDES_C",
+			"CMAC" : "AES",
+			"CMAC" : "TDES",
+			"HMAC" : "SHA_",
+			"SHA": "SHA_"
 		}
 	}
 }

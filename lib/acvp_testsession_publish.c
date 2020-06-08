@@ -49,7 +49,7 @@ static int acvp_get_testid_metadata(const struct acvp_testid_ctx *testid_ctx,
 	logger(ret2 ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
 	       "Process following server response: %s\n", response_buf->buf);
 
-	if (ret2) {
+	if (ret2 < 0) {
 		ret = ret2;
 		goto out;
 	}
@@ -597,10 +597,12 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 					       &auth->testsession_certificate_id);
 	CKINT(acvp_publish_write_id(testid_ctx,
 				    auth->testsession_certificate_id));
-	if (ret2) {
+	if (ret2 < 0) {
 		ret = ret2;
 		goto out;
 	}
+
+	CKINT(acvp_handle_open_requests(testid_ctx));
 
 	/*
 	 * If we have an ID and reach here, it is a valid test session
@@ -629,52 +631,7 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 		goto out;
 	}
 
-	/*
-	 * The following error checking shall allow invocation of all
-	 * functions with a potential register operation even if the previous
-	 * register operation returned -EAGAIN (i.e. a register was performed).
-	 * Any other error will cause termination immediately.
-	 *
-	 * I.e. we allow all potential register operation to proceed. The final
-	 * publish operation, however, is only performed if no prior register
-	 * operations happened (i.e. if no -EAGAIN was returned beforehand).
-	 */
-
-	/* Verify / register the vendor information */
-	ret2 = acvp_vendor_handle(testid_ctx);
-	if (ret2 < 0) {
-		ret = ret2;
-		if (ret != -EAGAIN)
-			goto out;
-	}
-
-	/* Verify / register the person / contact information */
-	if (!ret) {
-		ret2 = acvp_person_handle(testid_ctx);
-		if (ret2 < 0) {
-			ret = ret2;
-			if (ret != -EAGAIN)
-				goto out;
-		}
-	}
-
-	/* Verify / register the operational environment information */
-	ret2 = acvp_oe_handle(testid_ctx);
-	if (ret2 < 0) {
-		ret = ret2;
-		if (ret != -EAGAIN)
-			goto out;
-	}
-
-	/*
-	 * We stop processing here if there was an error, including when there
-	 * is a request ID present.
-	 */
-	if (ret)
-		goto out;
-
-	/* Verify / register the operational environment information */
-	CKINT(acvp_module_handle(testid_ctx));
+	CKINT(acvp_sync_metadata(testid_ctx));
 
 	/*
 	 * Resolve dependencies if configured. If we are at this point,
@@ -700,6 +657,9 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 out:
 	acvp_release_auth(testid_ctx);
 	ACVP_JSON_PUT_NULL(json_publish);
+	/* -EAGAIN is no error code */
+	if (ret == -EAGAIN)
+		ret = 0;
 	return ret;
 }
 
@@ -732,7 +692,27 @@ out:
 }
 
 DSO_PUBLIC
-int acvp_publish(const struct acvp_ctx *ctx)
+int acvp_publish(struct acvp_ctx *ctx)
 {
+	struct acvp_opts_ctx *ctx_opts = &ctx->options;
+
+	/*
+	 * Force disabling of threading - the ACVP server performs
+	 * synchronous operations during publish, so we do not need to
+	 * enable threading.
+	 *
+	 * Also, threading is a problem because, if, say, we have one
+	 * module "abc" with two OEs and both module instances are registered
+	 * with one acvp_publish invocation, only one register operation
+	 * of the module should take place. With threading enabled there
+	 * will be two operations though, because the checking whether
+	 * a request is already pending will be done before hitting the server.
+	 * This implies that the proxy assumes there is no pending registration
+	 * at the moment. Once the first registration succeeds, the 2nd
+	 * pending request in the separate thread is not updated any more.
+	 *
+	 * Thus, all requests should be done serially.
+	 */
+	ctx_opts->threading_disabled = true;
 	return acvp_process_testids(ctx, &_acvp_publish);
 }

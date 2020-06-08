@@ -9,24 +9,12 @@
       "acvpModuleId":11171
     },
     {
-      "acvpModuleName":"OpenSSL (64 bit) (SHA3_AVX2)",
-      "acvpModuleId":536871061
-    },
-    {
       "acvpModuleName":"OpenSSL (64 bit) (AESNI)",
       "acvpModuleId":11189
     },
     {
-      "acvpModuleName":"OpenSSL (64 bit) (AESNI_CLMULNI)",
-      "acvpModuleId":536871087
-    },
-    {
       "acvpModuleName":"OpenSSL (64 bit) (AESNI_ASM)",
       "acvpModuleId":11183
-    },
-    {
-      "acvpModuleName":"OpenSSL (64 bit) (TDES_C)",
-      "acvpModuleId":536871084
     },
     {
       "acvpModuleName":"OpenSSL (64 bit) (AESASM)",
@@ -39,10 +27,6 @@
     {
       "acvpModuleName":"OpenSSL (64 bit) (AESASM_CLMULNI)",
       "acvpModuleId":11177
-    },
-    {
-      "acvpModuleName":"OpenSSL (64 bit) (SHA3_ASM)",
-      "acvpModuleId":536871078
     },
     {
       "acvpModuleName":"OpenSSL (64 bit) (SHA3_AVX512)",
@@ -77,24 +61,8 @@
       "acvpModuleId":11215
     },
     {
-      "acvpModuleName":"OpenSSL (64 bit) (SHA_SSSE3)",
-      "acvpModuleId":536871097
-    },
-    {
-      "acvpModuleName":"OpenSSL (64 bit) (SHA_ASM)",
-      "acvpModuleId":536871099
-    },
-    {
       "acvpModuleName":"OpenSSL (64 bit) (DRBG_10X_AESNI)",
       "acvpModuleId":11210
-    },
-    {
-      "acvpModuleName":"OpenSSL (64 bit) (DRBG_10X_AESASM)",
-      "acvpModuleId":536871101
-    },
-    {
-      "acvpModuleName":"OpenSSL (64 bit) (DRBG_10X_BAES_CTASM)",
-      "acvpModuleId":536871102
     },
     {
       "acvpModuleName":"OpenSSL (64 bit) (DRBG_10X_SHA_AVX2)",
@@ -108,9 +76,5 @@
       "acvpModuleName":"OpenSSL (64 bit) (DRBG_10X_SHA_SSSE3)",
       "acvpModuleId":11195
     },
-    {
-      "acvpModuleName":"OpenSSL (64 bit) (AESNI_AVX)",
-      "acvpModuleId":536871086
-    }
   ]
 }

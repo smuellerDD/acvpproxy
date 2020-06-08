@@ -80,7 +80,7 @@ static void fips_post(void)
 	if (ret)
 		exit(-ret);
 
-	ret = fips_post_integrity();
+	ret = fips_post_integrity(NULL);
 	if (ret)
 		exit(-ret);
 }

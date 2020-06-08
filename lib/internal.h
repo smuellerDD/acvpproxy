@@ -41,11 +41,11 @@ extern "C"
 			* zero, the API is not considered stable
 			* and can change without a bump of the
 			* major version). */
-#define MINVERSION 3   /* API compatible, ABI may change,
+#define MINVERSION 4   /* API compatible, ABI may change,
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 2   /* API / ABI compatible, no functional
+#define PATCHLEVEL 0   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -482,6 +482,7 @@ extern struct acvp_datastore_be *ds;
 extern struct acvp_netaccess_be *na;
 extern atomic_t glob_vsids_to_process;
 extern atomic_t glob_vsids_processed;
+extern atomic_bool_t acvp_op_interrupted;
 
 /************************************************************************
  * General support functions
@@ -654,39 +655,6 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 				   uint32_t testid));
 
 /**
- * @brief Check whether the ID is a request ID and download the request
- * in this case. Otherwise it is a noop.
- */
-int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
-				    uint32_t *id);
-
-/**
- * @brief Helper to register various module_definitions
- */
-int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
-		       struct json_object *json,
-		       char *url, unsigned int urllen, uint32_t *id,
-		       enum acvp_http_type submit_type);
-
-/*
- * Convert a URL into an ID
- */
-int acvp_get_id_from_url(const char *url, uint32_t *id);
-
-/**
- * @brief Convert search return code to HTTP request type
- *
- * @param search_errno [in] Error number of the search operation
- * @param type [in] request type
- * @param ctx_opts [in] Options of invocation
- * @param id [in] ID field of search operation
- * @param http_type [out] Returned HTTP type.
- */
-int acvp_search_to_http_type(int search_errno, unsigned int type,
-			     const struct acvp_opts_ctx *ctx_opts, uint32_t id,
-			     enum acvp_http_type *http_type);
-
-/**
  * @brief Match two strings
  */
 int acvp_str_match(const char *exp, const char *found, uint32_t id);
@@ -709,25 +677,53 @@ int acvp_get_algoinfo_json(const struct acvp_buf *buf,
 int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 		const char *url, const struct acvp_buf *submit,
 		struct acvp_buf *response, enum acvp_http_type nettype);
-/**
- * @brief Validate and potentially register vendor definition
- */
-int acvp_vendor_handle(const struct acvp_testid_ctx *testid_ctx);
+
+/************************************************************************
+ * ACVP meta data handling
+ ************************************************************************/
 
 /**
- * @brief Validate and potentially register person / contact definition
+ * @brief Check whether the ID is a request ID and download the request
+ * in this case. Otherwise it is a noop.
  */
-int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx);
+int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
+				    uint32_t *id);
 
 /**
- * @brief Validate and potentially register operational environment definition
+ * @brief Fetch all outstanding meta data requests with the ACVP server
  */
-int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx);
+int acvp_handle_open_requests(const struct acvp_testid_ctx *testid_ctx);
+
+/*
+ * Convert a URL into an ID
+ */
+int acvp_get_id_from_url(const char *url, uint32_t *id);
 
 /**
- * @brief Validate and potentially register module definition
+ * @brief Convert search return code to HTTP request type
+ *
+ * @param search_errno [in] Error number of the search operation
+ * @param type [in] request type
+ * @param ctx_opts [in] Options of invocation
+ * @param id [in] ID field of search operation
+ * @param http_type [out] Returned HTTP type.
  */
-int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx);
+int acvp_search_to_http_type(int search_errno, unsigned int type,
+			     const struct acvp_opts_ctx *ctx_opts, uint32_t id,
+			     enum acvp_http_type *http_type);
+
+/**
+ * @brief Synchronize local meta data with ACVP server's database.
+ */
+int acvp_sync_metadata(struct acvp_testid_ctx *testid_ctx);
+
+/**
+ * @brief Helper to register various module_definitions
+ */
+int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
+		       struct json_object *json,
+		       char *url, unsigned int urllen, uint32_t *id,
+		       enum acvp_http_type submit_type);
 
 /************************************************************************
  * Authentication token management
@@ -738,12 +734,14 @@ int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx);
  * the caller.
  */
 int acvp_init_auth(struct acvp_testid_ctx *testid_ctx);
+int acvp_init_auth_ctx(struct acvp_ctx *ctx);
 
 /**
  * @brief Release the information associated with the authentication token.
  * The caller must release the memory of the pointer.
  */
 void acvp_release_auth(struct acvp_testid_ctx *testid_ctx);
+void acvp_release_auth_ctx(struct acvp_ctx *ctx);
 
 /**
  * @brief parse the @param answer for an authtoken and set it either
@@ -758,6 +756,9 @@ int acvp_get_accesstoken(const struct acvp_testid_ctx *testid_ctx,
  * can be called multiple times even with a live authentication or expired
  * authentication. In this case, the function will refresh the authentication
  * token.
+ *
+ * The testid_ctx->server_auth and the testid_ctx->ctx->ctx_auth must have
+ * been initialized already.
  */
 int acvp_login(const struct acvp_testid_ctx *testid_ctx);
 

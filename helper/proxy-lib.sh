@@ -15,8 +15,10 @@ TESTVECTORS_DIR="testvectors"
 SECUREDATA_DIR="secure-datastore"
 # Module definition directory
 MODULEDEF_DIR="module_definitions"
-# ACVP Proxy extension directory
+# Local ACVP Proxy extension directory with source code
 EXTENSION_DIR="module_implementations"
+# Global ACVP Proxy extension directory
+GLOBAL_EXTENSION_DIR="extensions"
 # ACVP Proxy log file
 LOGFILE="acvp-proxy"
 
@@ -25,6 +27,14 @@ CIPHER_OPTION_OVERVIEW="cipher_options_overview.txt"
 
 # name of the executable
 PROXYBIN="acvp-proxy"
+
+# Directory hlding the ACVP Proxy extensions - if empty, the extensions
+# shipped with the current version of the TOE are used. If you, however,
+# want to point to a different version of the extensions (e.g. using a
+# newer version of teh the ACVP proxy code and older versions of the)
+# extensions defining the cipher options, point to the extension directory
+# here.
+EXTENSION_BASE_DIR=""
 
 ##########################################
 # DO NOT CHANGE THE CODE AFTER THIS LINE #
@@ -60,9 +70,15 @@ then
 	TARGETDIR=$(pwd)
 fi
 
+# Point the extension base to the current ACVP Proxy code base
+if [ -z "$EXTENSION_BASE_DIR" ]
+then
+	EXTENSION_BASE_DIR=${PROXYBINPATH}
+fi
+
 usage() {
 	echo "Usage:"
-	echo "$0 [--official] [--show-cmd] [--log] [get|post|publish|list|status|approval]"
+	echo "$0 [--official] [--show-cmd] [--log] [get|post|publish|list|status|approval|anyop]"
 	echo
 	echo "$0 must be used with one of the following commands"
 	echo -e "\tlist\t\tList the module definitions in scope for operations"
@@ -210,6 +226,12 @@ setParams() {
 		do
 			PARAMS="$PARAMS --proxy-extension $i"
 		done
+	fi
+
+	# Set global extension directory if present
+	if [ -d "${EXTENSION_BASE_DIR}/${GLOBAL_EXTENSION_DIR}" ]
+	then
+		PARAMS="$PARAMS --proxy-extension-dir ${EXTENSION_BASE_DIR}/${GLOBAL_EXTENSION_DIR}"
 	fi
 
 	if [ "$production" -eq 0 ]

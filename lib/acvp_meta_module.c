@@ -21,6 +21,7 @@
 #include "errno.h"
 #include "string.h"
 
+#include "acvp_meta_internal.h"
 #include "binhexbin.h"
 #include "internal.h"
 #include "json_wrapper.h"
@@ -31,7 +32,7 @@ int acvp_module_oe_type(enum def_mod_type env_type, const char **out_string)
 {
 	const char *type_string;
 
-	switch(env_type) {
+	switch (env_type) {
 	case MOD_TYPE_SOFTWARE:
 		type_string = "Software";
 		break;
@@ -66,12 +67,28 @@ out:
 	return ret;
 }
 
+static int acvp_module_description(const struct def_info *def_info,
+				   char *str, size_t str_len)
+{
+	int ret = 0;
+
+	snprintf(str, str_len, "%s", def_info->module_description);
+	if (def_info->impl_description) {
+		CKINT(acvp_extend_string(str, str_len,
+					 " The following cipher implementation is covered: %s.",
+					 def_info->impl_description));
+	}
+
+out:
+	return ret;
+}
+
 static int acvp_module_build(const struct def_info *def_info,
 			     struct json_object **json_module)
 {
 	struct json_object *entry = NULL, *array = NULL;
 	int ret = -EINVAL;
-	char url[ACVP_NET_URL_MAXLEN];
+	char url[ACVP_NET_URL_MAXLEN], desc[FILENAME_MAX];
 
 	/*
 	 * {
@@ -114,8 +131,9 @@ static int acvp_module_build(const struct def_info *def_info,
 	CKINT(json_object_object_add(entry, "contactUrls", array));
 	array = NULL;
 
+	CKINT(acvp_module_description(def_info, desc, sizeof(desc)));
 	CKINT(json_object_object_add(entry, "description",
-			json_object_new_string(def_info->module_description)));
+				     json_object_new_string(desc)));
 
 	*json_module = entry;
 
@@ -158,6 +176,7 @@ static int acvp_module_match(struct def_info *def_info,
 	unsigned int i;
 	int ret;
 	const char *str, *type_string, *moduleurl;
+	char desc[FILENAME_MAX];
 	bool found = false;
 
 	CKINT(json_get_string(json_module, "url", &moduleurl));
@@ -196,8 +215,8 @@ static int acvp_module_match(struct def_info *def_info,
 	}
 
 	CKINT(json_get_string(json_module, "description", &str));
-	CKINT(acvp_str_match(def_info->module_description, str,
-			     def_info->acvp_module_id));
+	CKINT(acvp_module_description(def_info, desc, sizeof(desc)));
+	CKINT(acvp_str_match(desc, str, def_info->acvp_module_id));
 
 	if (!found) {
 		logger(LOGGER_WARN, LOGGER_C_ANY, "Module ID %u not found\n",
@@ -249,12 +268,29 @@ static int acvp_module_register(const struct acvp_testid_ctx *testid_ctx,
 				char *url, unsigned int urllen,
 				enum acvp_http_type type)
 {
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
+	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	struct json_object *json_info = NULL;
 	int ret;
 
 	/* Build JSON object with the oe specification */
 	if (type != acvp_http_delete) {
 		CKINT(acvp_module_build(def_info, &json_info));
+	}
+
+	if (!req_details->dump_register && !ctx_opts->register_new_module) {
+		if (json_info) {
+			logger_status(LOGGER_C_ANY,
+				      "Data to be registered: %s\n",
+				      json_object_to_json_string_ext(json_info,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+		if (ask_yes("No module definition found - shall the module be registered")) {
+			ret = -ENOENT;
+			goto out;
+		}
 	}
 
 	CKINT(acvp_meta_register(testid_ctx, json_info, url, urllen,
@@ -270,6 +306,7 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
+	struct json_object *json_info = NULL;
 	int ret;
 	enum acvp_http_type http_type;
 	char url[ACVP_NET_URL_MAXLEN];
@@ -279,10 +316,33 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 
 	ret = acvp_module_get_match(testid_ctx, def_info);
 
-	CKINT_LOG(acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_MODULE,
-					   ctx_opts, def_info->acvp_module_id,
-					   &http_type),
-		  "Conversion from search type to HTTP request type failed for module\n");
+	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_MODULE,
+				       ctx_opts, def_info->acvp_module_id,
+				       &http_type);
+	if (ret == -ENOENT) {
+		CKINT(acvp_module_build(def_info, &json_info));
+		if (json_info) {
+			logger_status(LOGGER_C_ANY,
+				      "Data to be registered: %s\n",
+				      json_object_to_json_string_ext(json_info,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
+		if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
+			http_type = acvp_http_put;
+		} else if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be DELETED")) {
+			http_type = acvp_http_delete;
+		} else {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Registering operation interrupted\n");
+			goto out;
+		}
+	} else if (ret) {
+		  logger(LOGGER_ERR, LOGGER_C_ANY,
+			 "Conversion from search type to HTTP request type failed for module\n");
+		  goto out;
+	}
 
 	if (http_type == acvp_http_none)
 		goto out;
@@ -292,6 +352,7 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 				   http_type));
 
 out:
+	ACVP_JSON_PUT_NULL(json_info);
 	return ret;
 }
 
@@ -317,8 +378,6 @@ static int acvp_module_match_cb(void *private, struct json_object *json_vendor)
 static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 				    struct def_info *def_info)
 {
-	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN], queryoptions[256], modulestr[128];
 
@@ -344,21 +403,40 @@ static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-	/* Our vendor data does not match any vendor on ACVP server */
-	if (ctx_opts->register_new_module) {
-		CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
-		CKINT(acvp_module_register(testid_ctx, def_info, url,
-					   sizeof(url), acvp_http_post));
-	} else {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "No module definition found - request registering this module\n");
-		ret = -ENOENT;
-		goto out;
-	}
+	CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
+	CKINT(acvp_module_register(testid_ctx, def_info, url,
+				   sizeof(url), acvp_http_post));
 
 out:
 	return ret;
 }
+
+int acvp_module_handle_open_requests(const struct acvp_testid_ctx *testid_ctx)
+{
+	const struct definition *def;
+	struct def_info *def_info;
+	int ret;
+
+	CKNULL_LOG(testid_ctx, -EINVAL,
+		   "Vendor handling: testid_ctx missing\n");
+	def = testid_ctx->def;
+	CKNULL_LOG(def, -EINVAL,
+		   "Vendor handling: cipher definitions missing\n");
+	def_info = def->info;
+	CKNULL_LOG(def_info, -EINVAL,
+		   "Module handling: module definitions missing\n");
+
+	CKINT(acvp_def_get_module_id(def_info));
+
+	ret = acvp_meta_obtain_request_result(testid_ctx,
+					      &def_info->acvp_module_id);
+
+	ret |= acvp_def_put_module_id(def_info);
+
+out:
+	return ret;
+}
+
 
 int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx)
 {

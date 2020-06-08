@@ -21,6 +21,7 @@
 #include "errno.h"
 #include "string.h"
 
+#include "acvp_meta_internal.h"
 #include "binhexbin.h"
 #include "internal.h"
 #include "json_wrapper.h"
@@ -224,12 +225,29 @@ static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 				char *url, unsigned int urllen,
 				enum acvp_http_type type)
 {
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
+	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	struct json_object *json_person = NULL;
 	int ret;
 
 	/* Build JSON object with the vendor specification */
 	if (type != acvp_http_delete) {
 		CKINT(acvp_person_build(def_vendor, &json_person));
+	}
+
+	if (!req_details->dump_register && !ctx_opts->register_new_vendor) {
+		if (json_person) {
+			logger_status(LOGGER_C_ANY,
+				      "Data to be registered: %s\n",
+				      json_object_to_json_string_ext(json_person,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+		if (ask_yes("No module definition found - shall the person be registered")) {
+			ret = -ENOENT;
+			goto out;
+		}
 	}
 
 	CKINT(acvp_meta_register(testid_ctx, json_person, url, urllen,
@@ -245,6 +263,7 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
+	struct json_object *json_person = NULL;
 	int ret;
 	enum acvp_http_type http_type;
 	char url[ACVP_NET_URL_MAXLEN];
@@ -254,10 +273,33 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 
 	ret = acvp_person_get_match(testid_ctx, def_vendor);
 
-	CKINT_LOG(acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_PERSON,
-					   ctx_opts, def_vendor->acvp_person_id,
-					   &http_type),
-		  "Conversion from search type to HTTP request type failed for person\n");
+	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_PERSON,
+				       ctx_opts, def_vendor->acvp_person_id,
+				       &http_type);
+	if (ret == -ENOENT) {
+		CKINT(acvp_person_build(def_vendor, &json_person));
+		if (json_person) {
+			logger_status(LOGGER_C_ANY,
+				      "Data to be registered: %s\n",
+				      json_object_to_json_string_ext(json_person,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
+		if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
+			http_type = acvp_http_put;
+		} else if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be DELETED")) {
+			http_type = acvp_http_delete;
+		} else {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Registering operation interrupted\n");
+			goto out;
+		}
+	} else if (ret) {
+		  logger(LOGGER_ERR, LOGGER_C_ANY,
+			 "Conversion from search type to HTTP request type failed for person\n");
+		  goto out;
+	}
 
 	if (http_type == acvp_http_none)
 		goto out;
@@ -267,6 +309,7 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 				   http_type));
 
 out:
+	ACVP_JSON_PUT_NULL(json_person);
 	return ret;
 }
 
@@ -292,8 +335,6 @@ static int acvp_person_match_cb(void *private, struct json_object *json_vendor)
 static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 				    struct def_vendor *def_vendor)
 {
-	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN], queryoptions[256], personstr[128];
 
@@ -319,17 +360,35 @@ static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-	/* Our vendor data does not match any vendor on ACVP server */
-	if (ctx_opts->register_new_vendor) {
-		CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
-		CKINT(acvp_person_register(testid_ctx, def_vendor, url,
-					   sizeof(url), acvp_http_post));
-	} else {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "No person definition found - request registering this module\n");
-		ret = -ENOENT;
-		goto out;
-	}
+	CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
+	CKINT(acvp_person_register(testid_ctx, def_vendor, url,
+				   sizeof(url), acvp_http_post));
+
+out:
+	return ret;
+}
+
+int acvp_person_handle_open_requests(const struct acvp_testid_ctx *testid_ctx)
+{
+	const struct definition *def;
+	struct def_vendor *def_vendor;
+	int ret;
+
+	CKNULL_LOG(testid_ctx, -EINVAL,
+		   "Vendor handling: testid_ctx missing\n");
+	def = testid_ctx->def;
+	CKNULL_LOG(def, -EINVAL,
+		   "Vendor handling: cipher definitions missing\n");
+	def_vendor = def->vendor;
+	CKNULL_LOG(def_vendor, -EINVAL,
+		   "Vendor handling: vendor definitions missing\n");
+
+	CKINT(acvp_def_get_vendor_id(def_vendor));
+
+	ret = acvp_meta_obtain_request_result(testid_ctx,
+					      &def_vendor->acvp_person_id);
+
+	ret |= acvp_def_put_vendor_id(def_vendor);
 
 out:
 	return ret;

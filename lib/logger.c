@@ -131,6 +131,9 @@ void logger(enum logger_verbosity severity, enum logger_class class,
 	char c[30];
 	char thread_name[ACVP_THREAD_MAX_NAMELEN];
 
+	if (!logger_stream)
+		logger_stream = stderr;
+
 	if (severity > logger_verbosity_level)
 		return;
 
@@ -182,7 +185,7 @@ void logger_status(enum logger_class class, const char *fmt, ...)
 	struct tm now_detail;
 	va_list args;
 	int ret;
-	char msg[256];
+	char msg[4096];
 	char c[30];
 	char thread_name[ACVP_THREAD_MAX_NAMELEN];
 
@@ -190,8 +193,7 @@ void logger_status(enum logger_class class, const char *fmt, ...)
 	vsnprintf(msg, sizeof(msg), fmt, args);
 	va_end(args);
 
-	if (logger_stream == stderr &&
-	    logger_verbosity_level != LOGGER_WARN &&
+	if (logger_verbosity_level != LOGGER_WARN &&
 	    logger_verbosity_level != LOGGER_ERR) {
 		logger(LOGGER_VERBOSE, class, msg);
 		return;

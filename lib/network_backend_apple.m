@@ -60,7 +60,7 @@ static void acvp_nsurl_write_cb(struct acvp_buf *response_buf,
 	NSHTTPURLResponse *http_response = (NSHTTPURLResponse *)response;
 	const char *ptr;
 	
-	if (error != nil)
+	if (error != nil || response == nil || data == nil)
 		goto out;
 	
 	if (http_response.statusCode < 200 ||
@@ -265,6 +265,14 @@ static int acvp_nsurl_http_common(const struct acvp_na_ex *netinfo,
 		
 		if (rc >= 200 && rc < 300) {
 			ret = 0;
+			break;
+		}
+
+		/* Do stop processing if server return a permanent error */
+		if (rc >= 400 && rc < 500) {
+			ret = -EBADMSG;
+			logger(LOGGER_VERBOSE, LOGGER_C_CURL,
+			       "HTTP permanent error %ld received\n", rc);
 			break;
 		}
 

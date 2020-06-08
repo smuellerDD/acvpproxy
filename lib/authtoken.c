@@ -29,24 +29,37 @@
 #include "request_helper.h"
 #include "totp.h"
 
-int acvp_init_auth(struct acvp_testid_ctx *testid_ctx)
+static int _acvp_init_auth(struct acvp_auth_ctx **auth)
 {
-	if (!testid_ctx)
-		return -EINVAL;
-
-	if (testid_ctx->server_auth) {
+	if (*auth) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
 		       "Authentication token already allocated, not allocating it again!\n");
 		return -EINVAL;
 	}
 
-	testid_ctx->server_auth = calloc(1, sizeof(struct acvp_auth_ctx));
-	if (!testid_ctx->server_auth)
+	*auth = calloc(1, sizeof(struct acvp_auth_ctx));
+	if (!*auth)
 		return -ENOMEM;
 
-	mutex_init(&testid_ctx->server_auth->mutex, 0);
+	mutex_init(&(*auth)->mutex, 0);
 
 	return 0;
+}
+
+int acvp_init_auth_ctx(struct acvp_ctx *ctx)
+{
+	if (!ctx)
+		return -EINVAL;
+
+	return _acvp_init_auth(&ctx->ctx_auth);
+}
+
+int acvp_init_auth(struct acvp_testid_ctx *testid_ctx)
+{
+	if (!testid_ctx)
+		return -EINVAL;
+
+	return _acvp_init_auth(&testid_ctx->server_auth);
 }
 
 static void _acvp_release_auth(struct acvp_auth_ctx *auth)
@@ -57,6 +70,20 @@ static void _acvp_release_auth(struct acvp_auth_ctx *auth)
 	ACVP_PTR_FREE_NULL(auth->jwt_token);
 	auth->jwt_token_len = 0;
 	ACVP_PTR_FREE_NULL(auth->testsession_certificate_number);
+}
+
+void acvp_release_auth_ctx(struct acvp_ctx *ctx)
+{
+	struct acvp_auth_ctx *auth;
+
+	if (!ctx)
+		return;
+
+	auth = ctx->ctx_auth;
+	_acvp_release_auth(auth);
+	mutex_destroy(&auth->mutex);
+
+	ACVP_PTR_FREE_NULL(ctx->ctx_auth);
 }
 
 void acvp_release_auth(struct acvp_testid_ctx *testid_ctx)
@@ -82,6 +109,8 @@ int acvp_copy_auth(struct acvp_auth_ctx *dst, const struct acvp_auth_ctx *src)
 	dst->jwt_token_len = src->jwt_token_len;
 
 	dst->jwt_token_generated = src->jwt_token_generated;
+	dst->testsession_certificate_id = src->testsession_certificate_id;
+	dst->max_reg_msg_size = src->max_reg_msg_size;
 
 out:
 	return ret;
@@ -166,13 +195,43 @@ out:
 	return ret;
 }
 
+static bool acvp_jwt_exist(const struct acvp_auth_ctx *auth)
+{
+	if (!auth)
+		return false;
+
+	return (auth->jwt_token && auth->jwt_token_len);
+}
+
+static bool acvp_jwt_valid(const struct acvp_auth_ctx *auth)
+{
+	if (!auth)
+		return false;
+
+	return (acvp_jwt_exist(auth) &&
+		(ACVP_JWT_TOKEN_LIFETIME >
+				time(NULL) - auth->jwt_token_generated));
+}
+
+
 static int acvp_process_login(const struct acvp_testid_ctx *testid_ctx,
 			      struct acvp_buf *response)
 {
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
+	struct acvp_auth_ctx *ctx_auth = ctx->ctx_auth;
 	struct json_object *req = NULL, *entry = NULL;
 	int ret;
 	bool largeendpoint;
+
+	/*
+	 * An initial log in token is only received, if there was no previous
+	 * per test session JWT authentication token, because if there would
+	 * have been, this JWT would have been used during the authentication
+	 * and the server would issue a re-newed token bound to the test
+	 * session.
+	 */
+	bool initial_login = !acvp_jwt_exist(auth);
 
 	if (!response->buf || !response->len) {
 		logger(LOGGER_ERR, LOGGER_C_ANY, "No response data found\n");
@@ -198,6 +257,19 @@ static int acvp_process_login(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_get_accesstoken(testid_ctx, entry, true));
 
+	/*
+	 * It is allowed to re-use an initial login for multiple subsequent
+	 * test session logins. Thus, we maintain an initial login copy
+	 * in the context data structure which is re-used as long as it
+	 * is valid.
+	 */
+	if (initial_login) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Initial login received, store it for reuse\n");
+		_acvp_release_auth(ctx_auth);
+		CKINT(acvp_copy_auth(ctx_auth, testid_ctx->server_auth));
+	}
+
 out:
 	ACVP_JSON_PUT_NULL(req);
 	return ret;
@@ -209,6 +281,7 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_net_ctx *net;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
+	struct acvp_auth_ctx *ctx_auth = ctx->ctx_auth;
 	struct acvp_na_ex netinfo;
 	struct json_object *login = NULL, *entry = NULL;
 	ACVP_BUFFER_INIT(login_buf);
@@ -223,16 +296,29 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
 
 	mutex_lock(&auth->mutex);
+	mutex_lock(&ctx_auth->mutex);
 
 	/*
 	 * If we have an authentication token that has sufficient lifetime,
 	 * skip the re-login.
 	 */
-	if (auth->jwt_token && auth->jwt_token_len &&
-	    (ACVP_JWT_TOKEN_LIFETIME > time(NULL) - auth->jwt_token_generated)) {
+	if (acvp_jwt_valid(auth)) {
 		mutex_unlock(&auth->mutex);
+		mutex_unlock(&ctx_auth->mutex);
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Existing JWT access token has sufficient lifetime\n");
+		       "Existing test session JWT access token has sufficient lifetime\n");
+		return 0;
+	}
+
+	/*
+	 * If we have a valid initial login token, re-use that login token.
+	 */
+	if (acvp_jwt_valid(ctx_auth)) {
+		CKINT(acvp_copy_auth(testid_ctx->server_auth, ctx_auth));
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Setting context JWT access token as test session JWT access token\n");
+		mutex_unlock(&auth->mutex);
+		mutex_unlock(&ctx_auth->mutex);
 		return 0;
 	}
 
@@ -261,7 +347,7 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	 * adding the associated JWT access token to the request which
 	 * will cause the server to refresh the available JWT token
 	 */
-	if (auth->jwt_token && auth->jwt_token_len) {
+	if (acvp_jwt_exist(auth)) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Perform a refresh of the existing JWT access token\n");
 		json_object_object_add(entry, "accessToken",
@@ -347,6 +433,7 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 
 out:
 	mutex_unlock(&auth->mutex);
+	mutex_unlock(&ctx_auth->mutex);
 	ACVP_JSON_PUT_NULL(login);
 	ACVP_JSON_PUT_NULL(entry);
 	acvp_free_buf(&response_buf);

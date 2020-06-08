@@ -47,7 +47,9 @@ didCompleteWithError:(NSError *)error
 	NSString *text = NULL;
 	const char *resp_text = NULL;
 	
-	if (request.HTTPBody.length) {
+	if (request != nil &&
+	    request.HTTPBody != nil &&
+	    request.HTTPBody.length) {
 		text = [[NSString alloc] initWithData: request.HTTPBody
 					     encoding: NSUTF8StringEncoding];
 		if (text)
@@ -97,11 +99,11 @@ totalBytesExpectedToSend:(int64_t)totalBytesExpectedToSend
 	       bytesSent, totalBytesSent,
 	       totalBytesExpectedToSend);
 	
-	//logger(LOGGER_DEBUG, LOGGER_C_CURL, "Current request:\n");
-	//[self loggingrequest:task.currentRequest];
+	logger(LOGGER_DEBUG, LOGGER_C_CURL, "Current request:\n");
+	[self loggingrequest:task.currentRequest];
 	
-	logger(LOGGER_DEBUG, LOGGER_C_CURL, "Submitted data request:\n");
-	[self loggingrequest:task.originalRequest];
+	//logger(LOGGER_DEBUG, LOGGER_C_CURL, "Submitted data request:\n");
+	//[self loggingrequest:task.originalRequest];
 }
 
 - (void)URLSession:(NSURLSession *)session
@@ -287,6 +289,8 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
 	
 	if (task.error != nil && task.error.code) {
 		[defaultSession invalidateAndCancel];
+		logger(LOGGER_ERR, LOGGER_C_CURL, "HTTP operation error: %s\n",
+		       task.error.localizedDescription.UTF8String);
 		return -task.error.code;
 	}
 	

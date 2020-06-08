@@ -556,7 +556,7 @@ static int set_totp_seed(struct opt_data *opts)
 
 	(void)opts;
 
-	CKINT(acvp_init(seed, sizeof(seed), 0, NULL));
+	CKINT(acvp_init(seed, sizeof(seed), 0, 0, NULL));
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
 	       "TOTP base64 seed converted into binary and applied\n");

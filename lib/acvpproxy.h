@@ -328,6 +328,7 @@ struct acvp_ctx {
 	struct acvp_datastore_ctx datastore;
 	struct acvp_opts_ctx options;
 	struct acvp_rename_ctx *rename;
+	struct acvp_auth_ctx *ctx_auth; /* initial login auth token */
 };
 
 /**
@@ -342,6 +343,8 @@ struct acvp_ctx {
  * @param last_gen [in] Time stamp when TOTP value was generated last time. It
  *			is permissible to set it to 0 in case TOTP was never
  *			used or caller does not know.
+ * @param production [in] Indicator whether it is production or demo server
+ *			  access.
  * @param last_gen_cb [in] Callback to be invoked when a TOTP value is generated
  *			   to allow a framework to store the current time
  *			   for potential later initialization. This function
@@ -350,7 +353,7 @@ struct acvp_ctx {
  * @return 0 on success, < 0 on error
  */
 int acvp_init(const uint8_t *seed, uint32_t seed_len, time_t last_gen,
-	      void (*last_gen_cb)(time_t now));
+	      bool production, void (*last_gen_cb)(time_t now));
 
 /**
  * @brief Load an ACVP Proxy extension
@@ -371,6 +374,17 @@ int acvp_init(const uint8_t *seed, uint32_t seed_len, time_t last_gen,
  * @return 0 on success, < 0 on error
  */
 int acvp_load_extension(const char *path);
+
+/**
+ * @brief Load all ACVP Proxy extensions found in given directory
+ *
+ * Invoke acvp_load_extension on all shared libraries found in the given
+ * directory.
+ *
+ * @param dir [in] directory name holding the shared libraries
+ * @return 0 on success, < 0 on error
+ */
+int acvp_load_extension_directory(const char *dir);
 
 /**
  * @brief Release ACVP Proxy library
@@ -499,7 +513,7 @@ int acvp_respond(const struct acvp_ctx *ctx);
  * @param ctx [in] ACVP Proxy library context
  * @return 0 on success, < 0 on error
  */
-int acvp_publish(const struct acvp_ctx *ctx);
+int acvp_publish(struct acvp_ctx *ctx);
 
 /**
  * @brief List all currently pending requests for the given context, including

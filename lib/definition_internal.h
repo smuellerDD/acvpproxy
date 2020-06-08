@@ -81,6 +81,7 @@ struct def_lock {
  * @var module_name Specify the name of the cryptographic module (i.e. cipher
  *		    implementation) under test.
  * @var impl_name Implementation name of module
+ * @var impl_description Description of the module implementation (may be NULL)
  * @var orig_module_name Original module name without the implementation name
  * @var module_name_filesafe Same information as @var module_name except
  *			     that the string is cleared of characters
@@ -107,6 +108,7 @@ struct def_lock {
 struct def_info {
 	char *module_name;
 	char *impl_name;
+	char *impl_description;
 	char *orig_module_name;
 	char *module_name_filesafe;
 	char *module_name_internal;

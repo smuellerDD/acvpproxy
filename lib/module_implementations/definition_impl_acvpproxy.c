@@ -53,7 +53,8 @@ static struct def_algo_map acvpproxy_algo_map [] = {
 		SET_IMPLEMENTATION(acvpproxy),
 		.algo_name = "Crypto for ACVPProxy",
 		.processor = "",
-		.impl_name = "Generic C"
+		.impl_name = "Generic C",
+		.impl_description = "Generic C implementation of SHA and HMAC",
 	}
 };
 

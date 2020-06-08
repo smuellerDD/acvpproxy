@@ -1197,6 +1197,9 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 
 	/* If there is already a processed file, do a resubmit */
 	if (!stat(processedpath, &statbuf)) {
+		if (ctx_opts->delete_vsid) {
+			return cb(vsid_ctx, NULL);
+		}
 		if (!ctx_opts->resubmit_result) {
 			char verdict_file[FILENAME_MAX];
 

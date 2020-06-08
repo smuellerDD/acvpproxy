@@ -109,6 +109,7 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 			ret = json_get_string(algo, "mode", &mode);
 			if (ret) {
 				fprintf(stdout, "%s\n", algoname);
+				ret = 0;
 			} else {
 				fprintf(stdout, "%s %s\n", algoname, mode);
 			}

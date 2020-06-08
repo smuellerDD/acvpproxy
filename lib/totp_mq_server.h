@@ -28,7 +28,7 @@ extern "C"
 #endif
 
 /* Initialize the message queue server and client. */
-int totp_mq_init(void);
+int totp_mq_init(bool production);
 
 /* Get a TOTP value from server */
 int totp_mq_get_val(uint32_t *totp_val);

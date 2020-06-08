@@ -55,9 +55,6 @@ struct opt_data {
 	struct acvp_rename_ctx rename_ctx;
 	char *specific_modversion;
 
-	char *seed_base64;
-	uint32_t seed_base64_len;
-
 	char *configfile;
 	struct json_object *config;
 	const char *tlskey;
@@ -66,6 +63,7 @@ struct opt_data {
 	const char *tlscertkeychainref;
 	const char *tlscabundle;
 	const char *tlscakeychainref;
+	const char *seedfile;
 	char *basedir;
 	char *secure_basedir;
 	char *definition_basedir;
@@ -183,11 +181,9 @@ static int read_complete(int fd, char *buf, uint32_t buflen)
 
 static int load_config(struct opt_data *opts)
 {
-	struct stat statbuf;
 	struct flock lock;
 	int ret;
 	int fd;
-	const char *seedfile;
 
 	fd = open(global_opts->configfile, O_RDONLY);
 	if (fd < 0) {
@@ -256,46 +252,64 @@ static int load_config(struct opt_data *opts)
 	if (ret)
 		opts->tlscakeychainref = NULL;
 
-	CKINT(json_get_string(opts->config, OPT_STR_TOTPSEEDFILE, &seedfile,
-			      false));
+	CKINT(json_get_string(opts->config, OPT_STR_TOTPSEEDFILE,
+			      &opts->seedfile, false));
 
-	if (stat(seedfile, &statbuf)) {
+out:
+	if (fd >= 0)
+		close(fd);
+	return ret;
+}
+
+static int load_totp_seed(struct opt_data *opts, char **seed_base64,
+			  uint32_t *seed_base64_len)
+{
+	struct stat statbuf;
+	char *seed;
+	uint32_t len;
+	int ret;
+	int fd = -1;
+
+	if (stat(opts->seedfile, &statbuf)) {
 		ret = -errno;
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Error accessing seed file %s (%d)\n", seedfile,
+		       "Error accessing seed file %s (%d)\n", opts->seedfile,
 		       ret);
 		goto out;
 	}
 
 	if (!statbuf.st_size) {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Seed file %s empty (%d)\n",
-		       seedfile, ret);
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Seed file %s empty\n",
+		       opts->seedfile);
 		ret = -EINVAL;
 		goto out;
 	}
 
-	fd = open(seedfile, O_RDONLY | O_CLOEXEC);
+	fd = open(opts->seedfile, O_RDONLY | O_CLOEXEC);
 	if (fd < 0) {
 		ret = -errno;
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Cannot open seed file %s (%d)\n", seedfile, ret);
+		       "Cannot open seed file %s (%d)\n", opts->seedfile, ret);
 		goto out;
 	}
 
-	opts->seed_base64_len = (uint32_t)statbuf.st_size;
-	opts->seed_base64 = malloc((size_t)statbuf.st_size);
-	if (!opts->seed_base64) {
+	len = (uint32_t)statbuf.st_size;
+	seed = malloc((size_t)statbuf.st_size);
+	if (!seed) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	CKINT(read_complete(fd, opts->seed_base64, opts->seed_base64_len));
+	CKINT(read_complete(fd, seed, len));
 
-	while (isspace(opts->seed_base64[opts->seed_base64_len - 1]))
-		opts->seed_base64_len--;
+	while (isspace(seed[len - 1]))
+		len--;
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
-	       "TOTP seed file %s read into memory\n", seedfile);
+	       "TOTP seed file %s read into memory\n", opts->seedfile);
+
+	*seed_base64 = seed;
+	*seed_base64_len = len;
 
 out:
 	if (fd >= 0)
@@ -422,6 +436,7 @@ static void usage(void)
 	fprintf(stderr, "\tAuxiliary options:\n");
 	fprintf(stderr, "\t   --proxy-extension <SO-FILE>\tShared library of ACVP Proxy extension\n");
 	fprintf(stderr, "\t\t\t\t\tZero or more extensions can be provided.\n");
+	fprintf(stderr, "\t   --proxy-extension-dir <DIR>\tDirectory with ACVP Proxy extensions\n");
 	fprintf(stderr, "\t   --rename-version <NEW>\tRename version of definition\n");
 	fprintf(stderr, "\t\t\t\t\t(moduleVersion)\n");
 	fprintf(stderr, "\t   --rename-name <NEW>\t\tRename name of definition (moduleName)\n");
@@ -464,8 +479,6 @@ static void free_opts(struct opt_data *opts)
 		free(search->processor);
 	if (opts->specific_modversion)
 		free(opts->specific_modversion);
-	if (opts->seed_base64)
-		free(opts->seed_base64);
 	if (opts->configfile)
 		free(opts->configfile);
 	if (opts->basedir)
@@ -651,6 +664,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"cipher-list",		no_argument,		0, 0},
 
 			{"proxy-extension",	required_argument,	0, 0},
+			{"proxy-extension-dir",	required_argument,	0, 0},
 			{"rename-version",	required_argument,	0, 0},
 			{"rename-name",		required_argument,	0, 0},
 			{"rename-oename",	required_argument,	0, 0},
@@ -887,7 +901,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			case 31:
 				/* delete-definition */
 				CKINT(convert_update_delete_type(optarg,
-				  &opts->acvp_ctx_options.delete_db_entry));
+				      &opts->acvp_ctx_options.delete_db_entry));
 				/* This operation must use the publish path */
 				opts->publish = true;
 				break;
@@ -970,43 +984,47 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				CKINT(acvp_load_extension(optarg));
 				break;
 			case 46:
+				/* proxy-extension-dir */
+				CKINT(acvp_load_extension_directory(optarg));
+				break;
+			case 47:
 				/* rename-version */
 				rename->moduleversion_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 47:
+			case 48:
 				/* rename-name */
 				rename->modulename_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 48:
+			case 49:
 				/* rename-oename */
 				rename->oe_env_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 49:
+			case 50:
 				/* rename-procname */
 				rename->proc_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 50:
+			case 51:
 				/* rename-procseries */
 				rename->proc_series_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 51:
+			case 52:
 				/* rename-procfamily */
 				rename->proc_family_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
 
-			case 52:
+			case 53:
 				/* register-only */
 				opts->acvp_ctx_options.register_only = true;
 				break;
@@ -1204,34 +1222,42 @@ static void last_gen_cb(time_t now)
 	return;
 }
 
-static int set_totp_seed(struct opt_data *opts)
+static int set_totp_seed(struct opt_data *opts, bool enable_net)
 {
 	int ret;
+	char *seed_base64 = NULL;
+	uint32_t seed_base64_len = 0;
 	uint8_t *seed = NULL;
 	uint32_t seed_len;
 	uint64_t totp_last_gen;
 
-	ret = base64_decode(opts->seed_base64, opts->seed_base64_len,
-			    &seed, &seed_len);
-	if (ret) {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Base64 decoding failed\n");
-		ret = -EFAULT;
-		goto out;
+	if (!enable_net) {
+		return acvp_init(NULL, 0, 0, false, NULL);
 	}
-	memset_secure(opts->seed_base64, 0, opts->seed_base64_len);
+
+	CKINT(load_totp_seed(opts, &seed_base64, &seed_base64_len));
+
+	CKINT_LOG(base64_decode(seed_base64, seed_base64_len,
+			        &seed, &seed_len),
+		  "Base64 decoding failed\n");
 
 	ret = json_get_uint64(opts->config, OPT_STR_TOTPLASTGEN,
 			      &totp_last_gen);
 	if (ret)
 		totp_last_gen = 0;
 
-	CKINT(acvp_init(seed, seed_len, (time_t)totp_last_gen, &last_gen_cb));
+	CKINT(acvp_init(seed, seed_len, (time_t)totp_last_gen,
+			opts->official_testing, &last_gen_cb));
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
 	       "TOTP base64 seed converted into binary and applied\n");
 
 out:
 	/* securely dispose of the seed */
+	if (seed_base64) {
+		memset_secure(seed_base64, 0, seed_base64_len);
+		free(seed_base64);
+	}
 	if (seed) {
 		memset_secure(seed, 0, seed_len);
 		free(seed);
@@ -1239,21 +1265,25 @@ out:
 	return ret;
 }
 
-static int initialize_ctx(struct acvp_ctx **ctx, struct opt_data *opts)
+static int initialize_ctx(struct acvp_ctx **ctx, struct opt_data *opts,
+			  bool enable_net)
 {
 	int ret;
+
+	CKINT(set_totp_seed(opts, enable_net));
 
 	CKINT(acvp_ctx_init(ctx, opts->basedir, opts->secure_basedir));
 
 	/* Official testing */
 	if (opts->official_testing) {
 		CKINT(acvp_req_production(*ctx));
-		CKINT(acvp_set_net(NIST_DEFAULT_SERVER,
-				   NIST_DEFAULT_SERVER_PORT,
+		if (enable_net)
+			CKINT(acvp_set_net(NIST_DEFAULT_SERVER,
+					   NIST_DEFAULT_SERVER_PORT,
 				   opts->tlscabundle, opts->tlscakeychainref,
 				   opts->tlscert, opts->tlscertkeychainref,
 				   opts->tlskey, opts->tlspasscode));
-	} else {
+	} else if (enable_net) {
 		CKINT(acvp_set_net(NIST_TEST_SERVER,
 				   NIST_DEFAULT_SERVER_PORT,
 				   opts->tlscabundle, opts->tlscakeychainref,
@@ -1277,7 +1307,7 @@ static int do_register(struct opt_data *opts)
 	int ret, idx = 0;
 	bool printed = false;
 
-	CKINT(initialize_ctx(&ctx, opts));
+	CKINT(initialize_ctx(&ctx, opts, true));
 
 	ctx->req_details.dump_register = opts->dump_register;
 	ctx->req_details.request_sample = opts->request_sample;
@@ -1326,7 +1356,9 @@ static int do_submit(struct opt_data *opts)
 	int ret, ret2, idx = 0;
 	bool printed = false;
 
-	CKINT(initialize_ctx(&ctx, opts));
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	ctx->req_details.request_sample = opts->request_sample;
 
 	/*
 	 * We want to list the verdicts we obtained irrespective of
@@ -1375,7 +1407,7 @@ static int do_publish(struct opt_data *opts)
 	struct acvp_ctx *ctx = NULL;
 	int ret;
 
-	CKINT(initialize_ctx(&ctx, opts));
+	CKINT(initialize_ctx(&ctx, opts, true));
 
 	ctx->req_details.dump_register = opts->dump_register;
 
@@ -1391,7 +1423,7 @@ static int list_ids(struct opt_data *opts)
 	struct acvp_ctx *ctx = NULL;
 	int ret;
 
-	CKINT(initialize_ctx(&ctx, opts));
+	CKINT(initialize_ctx(&ctx, opts, false));
 
 	if (opts->list_available_ids) {
 		CKINT(acvp_list_available_ids(ctx));
@@ -1411,7 +1443,7 @@ static int list_verdicts(struct opt_data *opts)
 	struct acvp_ctx *ctx = NULL;
 	int ret;
 
-	CKINT(initialize_ctx(&ctx, opts));
+	CKINT(initialize_ctx(&ctx, opts, false));
 
 	CKINT(acvp_list_verdicts(ctx));
 
@@ -1425,7 +1457,7 @@ static int list_certificates(struct opt_data *opts)
 	struct acvp_ctx *ctx = NULL;
 	int ret;
 
-	CKINT(initialize_ctx(&ctx, opts));
+	CKINT(initialize_ctx(&ctx, opts, false));
 
 	CKINT(acvp_list_certificates(ctx));
 
@@ -1439,7 +1471,7 @@ static int list_cipher_options(struct opt_data *opts)
 	struct acvp_ctx *ctx = NULL;
 	int ret;
 
-	CKINT(initialize_ctx(&ctx, opts));
+	CKINT(initialize_ctx(&ctx, opts, false));
 
 	CKINT(acvp_list_cipher_options(ctx, opts->list_cipher_options_deps));
 
@@ -1453,7 +1485,7 @@ static int list_certificates_detailed(struct opt_data *opts)
 	struct acvp_ctx *ctx = NULL;
 	int ret;
 
-	CKINT(initialize_ctx(&ctx, opts));
+	CKINT(initialize_ctx(&ctx, opts, false));
 
 	CKINT(acvp_list_certificates_detailed(ctx));
 
@@ -1467,7 +1499,7 @@ static int do_fetch_cipher_options(struct opt_data *opts)
 	struct acvp_ctx *ctx = NULL;
 	int ret;
 
-	CKINT(initialize_ctx(&ctx, opts));
+	CKINT(initialize_ctx(&ctx, opts, true));
 
 	CKINT(acvp_cipher_get(ctx, opts->cipher_options_algo,
 			      opts->cipher_options_algo_idx,
@@ -1483,7 +1515,7 @@ static int do_rename(struct opt_data *opts)
 	struct acvp_ctx *ctx = NULL;
 	int ret;
 
-	CKINT(initialize_ctx(&ctx, opts));
+	CKINT(initialize_ctx(&ctx, opts, false));
 
 	ctx->rename = &opts->rename_ctx;
 
@@ -1507,8 +1539,6 @@ int main(int argc, char *argv[])
 	logger_set_verbosity(LOGGER_ERR);
 
 	CKINT(parse_opts(argc, argv, &opts));
-
-	CKINT(set_totp_seed(&opts));
 
 	if (opts.cipher_list || opts.cipher_options_algo_idx ||
 	    opts.cipher_options_file) {
