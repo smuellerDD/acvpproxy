@@ -80,6 +80,7 @@ gcov_analysis()
 {
 	gcov_analyze "../../lib/request_cipher_sha.c" "test_common"
 	gcov_analyze "../../lib/request_cipher_hmac.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_cmac.c" "test_common"
 	gcov_analyze "../../lib/request_cipher_shake.c" "test_common"
 	gcov_analyze "../../lib/request_cipher_sym.c" "test_common"
 	gcov_analyze "../../lib/request_cipher_drbg.c" "test_common"
@@ -95,6 +96,10 @@ gcov_analysis()
 	gcov_analyze "../../lib/request_cipher_kdf_tls.c" "test_common"
 	gcov_analyze "../../lib/request_cipher_pbkdf.c" "test_common"
 	gcov_analyze "../../lib/request_cipher_eddsa.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_kas_ecc_r3.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_kas_ffc_r3.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_kas_ifc.c" "test_common"
+	gcov_analyze "../../lib/request_cipher_safeprimes.c" "test_common"
 }
 
 init_common
@@ -102,6 +107,7 @@ init
 
 test_common "SHA"
 test_common "HMAC"
+test_common "CMAC"
 test_common "SHAKE"
 test_common "AES-SYM"
 test_common "AES-AEAD"
@@ -114,6 +120,12 @@ test_common "KAS-ECC"
 test_common "KAS-FFC"
 test_common "KDF"
 test_common "EDDSA"
+test_common "KAS-ECC-R3"
+test_common "KAS-ECC-SSC-R3"
+test_common "KAS-FFC-R3"
+test_common "KAS-FFC-SSC-R3"
+test_common "SAFEPRIMES"
+test_common "KAS-IFC"
 
 gcov_analysis
 

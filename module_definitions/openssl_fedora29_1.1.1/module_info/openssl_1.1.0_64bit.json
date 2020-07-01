@@ -76,5 +76,9 @@
       "acvpModuleName":"OpenSSL (64 bit) (DRBG_10X_SHA_SSSE3)",
       "acvpModuleId":11195
     },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SHA3_AVX2)",
+      "acvpModuleId":11948
+    }
   ]
 }

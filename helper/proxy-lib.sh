@@ -105,9 +105,10 @@ invoke() {
 		return
 	fi
 	eval $@ ${PROXYSEARCH}
-	if [ $? -ne 0 ]
+	local ret=$?
+	if [ $ret -ne 0 ]
 	then
-		echo "Command invocation returned $?"
+		echo "Command invocation returned $ret"
 	fi
 }
 
@@ -314,13 +315,17 @@ getVendorApprovalPackage()
 
 	invoke $PROXYBIN $PARAMS --list-cipher-options > $TARGETDIR/$CIPHER_OPTION_OVERVIEW
 
-	dirs="${dirs} $TARGETDIR/$CIPHER_OPTION_OVERVIEW"
-	dirs="${dirs} $(find ${moddef} -name oe)"
-	dirs="${dirs} $(find ${moddef} -name vendor)"
-	dirs="${dirs} $(find ${moddef} -name module_info)"
-	dirs="${dirs} $(find $TARGETDIR/${SECUREDATA_DIR}${PRODUCTION} -name request-*.json)"
+	for moddef in $(find ${MODULEDEF_DIR} -maxdepth 1 -mindepth 1 -type d )
+	do
+		dirs="${dirs} $TARGETDIR/$CIPHER_OPTION_OVERVIEW"
+		dirs="${dirs} $(find ${moddef} -name oe)"
+		dirs="${dirs} $(find ${moddef} -name vendor)"
+		dirs="${dirs} $(find ${moddef} -name module_info)"
+		dirs="${dirs} $(find $TARGETDIR/${SECUREDATA_DIR}${PRODUCTION} -name request-*.json)"
 
-	tar -cJf vendor-approval-package-${DATE}.tar.xz $dirs
+		moddef=$(basename $moddef)
+		tar --exclude="__MACOSX" --exclude=".*" --exclude="._*" -cJf ${moddef}-vendor-approval-package-${DATE}.tar.xz $dirs
+	done
 
 	rm -f $TARGETDIR/$CIPHER_OPTION_OVERVIEW
 }

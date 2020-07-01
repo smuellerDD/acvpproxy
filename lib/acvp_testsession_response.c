@@ -236,7 +236,7 @@ static int acvp_response_error_handler(const struct acvp_buf *response_buf,
 	if (!response_buf->buf || !response_buf->len)
 		return http_ret;
 
-	CKINT(acvp_error_convert(response_buf, &error_code));
+	CKINT(acvp_error_convert(response_buf, http_ret, &error_code));
 
 	/*
 	 * Vectors were uploaded, we clear the error to allow downloading of
@@ -246,6 +246,13 @@ static int acvp_response_error_handler(const struct acvp_buf *response_buf,
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "ACVP server already received responses, continuing to obtain verdict\n");
 		ret = 0;
+		goto out;
+	}
+
+	if (error_code == ACVP_ERR_RESPONSE_REJECTED) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "ACVP server rejected response\n");
+		ret = -ACVP_ERR_RESPONSE_REJECTED;
 		goto out;
 	}
 
@@ -685,12 +692,17 @@ out:
 static int acvp_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *opts = &ctx->options;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	ACVP_BUFFER_INIT(result);
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
-	if (!testid_ctx->testid ||
+	if (!testid_ctx->testid)
+		return 0;
+
+	/* Force download of verdict unconditionally when vsID was deleted */
+	if (!opts->delete_vsid &&
 	    (atomic_read(&testid_ctx->vsids_processed) <
 	     atomic_read(&testid_ctx->vsids_to_process))) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
@@ -733,7 +745,7 @@ out:
 static int _acvp_respond(const struct acvp_ctx *ctx,
 			 const struct definition *def, uint32_t testid)
 {
-
+	const struct acvp_opts_ctx *opts = &ctx->options;
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	int ret;
 
@@ -748,8 +760,10 @@ static int _acvp_respond(const struct acvp_ctx *ctx,
 	/*
 	 * Skip re-downloading test session verdict if we have already obtained
 	 * it or when we restarted the test vector download.
+	 *
+	 * Force re-download of verdict if we deleted something.
 	 */
-	if (ret != EEXIST && ret != EINTR) {
+	if ((ret != EEXIST && ret != EINTR) || opts->delete_vsid) {
 		CKINT(acvp_get_testid_verdict(testid_ctx));
 	}
 
@@ -898,8 +912,110 @@ out:
 	return ret;
 }
 
+int acvp_testids_refresh(const struct acvp_ctx *ctx)
+{
+	const struct acvp_datastore_ctx *datastore;
+	const struct acvp_search_ctx *search;
+	struct acvp_testid_ctx *testid_ctx_head = NULL;
+	struct definition *def;
+	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
+	int ret = 0;
+
+	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
+
+	if (!acvp_library_initialized()) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "ACVP library was not yet initialized\n");
+		return -EOPNOTSUPP;
+	}
+
+	datastore = &ctx->datastore;
+	search = &datastore->search;
+
+	/* Find a module definition */
+	def = acvp_find_def(search, NULL);
+	if (!def) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "No cipher implementation found for search criteria\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * Iterate through all modules: The goal is to generate a linked
+	 * list of testid_ctx instances anchored in testid_ctx_head. All
+	 * members of that linked list are in need to get their JWT refreshed.
+	 */
+	while (def) {
+		unsigned int testid_count = ACVP_REQ_MAX_FAILED_TESTID;
+		unsigned int i;
+
+		/* Search for all testids for a given module */
+		CKINT(ds->acvp_datastore_find_testsession(def, ctx,
+							  testids,
+							  &testid_count));
+
+		/* Iterate through all testids */
+		for (i = 0; i < testid_count; i++) {
+			struct acvp_testid_ctx *testid_ctx;
+
+			testid_ctx = calloc(1, sizeof(struct acvp_testid_ctx));
+			CKNULL(testid_ctx, -ENOMEM);
+
+			CKINT(acvp_init_testid_ctx(testid_ctx, ctx, def,
+						   testids[i]));
+			CKINT(acvp_init_auth(testid_ctx));
+
+			/* Get auth token for test session */
+			CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
+
+			ret = acvp_login_need_refresh(testid_ctx);
+
+			/* No refresh is needed */
+			if (!ret) {
+				acvp_release_auth(testid_ctx);
+				acvp_release_testid(testid_ctx);
+			} else {
+				/* Put new context to the head of the list */
+				testid_ctx->next = testid_ctx_head;
+				testid_ctx_head = testid_ctx;
+			}
+		}
+
+		/* Check if we find another module definition. */
+		def = acvp_find_def(search, def);
+	}
+
+	/*
+	 * Give the linked list of testid_ctx to the login logic which
+	 * refreshes them all with one ACVP server interaction. This
+	 * function also ensures that the refreshed JWTs are stored permanently.
+	 * Thus, this refresh operation does not need to share state information
+	 * with subsequent uses of the test sessions. Hence, we can simply
+	 * delete all testid_ctx instances at the end.
+	 */
+	CKINT(acvp_login_refresh(testid_ctx_head));
+
+out:
+	while (testid_ctx_head) {
+		struct acvp_testid_ctx *testid_ctx = testid_ctx_head;
+
+		testid_ctx_head = testid_ctx->next;
+
+		acvp_release_auth(testid_ctx);
+		acvp_release_testid(testid_ctx);
+	}
+	return ret;
+}
+
 DSO_PUBLIC
 int acvp_respond(const struct acvp_ctx *ctx)
 {
-	return acvp_process_testids(ctx, &_acvp_respond);
+	int ret;
+
+	CKINT(acvp_testids_refresh(ctx));
+
+	CKINT(acvp_process_testids(ctx, &_acvp_respond));
+
+out:
+	return ret;
 }

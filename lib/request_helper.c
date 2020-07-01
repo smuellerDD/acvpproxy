@@ -623,10 +623,13 @@ int acvp_get_trailing_number(const char *string, uint32_t *number)
 	const char *string_p = string;
 	const char *saveptr = NULL;
 
-	if (!string) {
-		*number = (uint32_t)-1;
+	/*
+	 * Safety measure to ensure variable has a valid but undefined content.
+	 */
+	*number = (uint32_t)-1;
+
+	if (!string)
 		return 0;
-	}
 
 	len = strlen(string);
 

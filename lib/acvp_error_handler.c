@@ -30,10 +30,12 @@ struct acvp_error_code_convert {
 	const char *error_str;
 	enum acvp_error_code error_code;
 } acvp_error_code_converter[] = {
-	ACVP_ERR_CODE(ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING)
+	ACVP_ERR_CODE(ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING),
+	ACVP_ERR_CODE(ACVP_ERR_RESPONSE_REJECTED)
 };
 
 int acvp_error_convert(const struct acvp_buf *response_buf,
+		       int http_ret,
 		       enum acvp_error_code *code)
 {
 	struct json_object *response = NULL, *entry = NULL;
@@ -41,11 +43,15 @@ int acvp_error_convert(const struct acvp_buf *response_buf,
 	unsigned int i;
 	int ret;
 
+	(void)http_ret;
+
 	/* Ensure we have a valid error code in any case */
 	*code = ACVP_ERR_NO_ERR;
 
 	if (!response_buf->buf || !response_buf->len)
 		return 0;
+
+	//TODO add more return code checks
 
 	//TODO: fix after issue #863 is cleared
 	*code = ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING;

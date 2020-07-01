@@ -36,9 +36,7 @@ int acvp_req_set_prereq_pbkdf(const struct def_algo_pbkdf *pbkdf,
 	int ret;
 
 	CKINT(json_object_object_add(entry, "algorithm",
-				     json_object_new_string("kdf-components")));
-	CKINT(json_object_object_add(entry, "mode",
-				     json_object_new_string("pbkdf")));
+				     json_object_new_string("PBKDF")));
 
 	CKINT(acvp_req_gen_prereq(pbkdf->prereqvals,
 				  pbkdf->prereqvals_num, deps, entry, publish));

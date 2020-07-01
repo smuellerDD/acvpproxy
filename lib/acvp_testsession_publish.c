@@ -695,6 +695,9 @@ DSO_PUBLIC
 int acvp_publish(struct acvp_ctx *ctx)
 {
 	struct acvp_opts_ctx *ctx_opts = &ctx->options;
+	int ret;
+
+	CKINT(acvp_testids_refresh(ctx));
 
 	/*
 	 * Force disabling of threading - the ACVP server performs
@@ -714,5 +717,8 @@ int acvp_publish(struct acvp_ctx *ctx)
 	 * Thus, all requests should be done serially.
 	 */
 	ctx_opts->threading_disabled = true;
-	return acvp_process_testids(ctx, &_acvp_publish);
+	CKINT(acvp_process_testids(ctx, &_acvp_publish));
+
+out:
+	return ret;
 }

@@ -73,6 +73,7 @@ struct def_algo_kas_ecc_r3_schema {
 	 * Supported KDF Methods
 	 *
 	 * required: For KAS methods, at least one KDF method is required
+	 *	     except for DEF_ALG_KAS_ECC_R3_SSC
 	 */
 	const struct def_algo_kas_kdf_onestepkdf onestekdf;
 
@@ -99,7 +100,7 @@ struct def_algo_kas_ecc_r3_schema {
 	 * Minimum with key confirmation is 136.
 	 * Maximum is 1024
 	 *
-	 * required: always
+	 * required: always except for DEF_ALG_KAS_FFC_R3_SSC
 	 */
 	unsigned int length;
 };
@@ -130,16 +131,23 @@ struct def_algo_kas_ecc_r3 {
 
 	/*
 	 * KAS ECC function type
+	 *
+	 * * key pair generation
+	 * * partial validation
+	 * * full validation
+	 * * shared secret computation
+	 *
 	 * required: always
 	 */
 #define DEF_ALG_KAS_ECC_R3_KEYPAIRGEN		(1<<0)
 #define DEF_ALG_KAS_ECC_R3_PARTIALVAL		(1<<1)
 #define DEF_ALG_KAS_ECC_R3_FULLVAL		(1<<2)
+#define DEF_ALG_KAS_ECC_R3_SSC			(1<<3)
 	unsigned int kas_ecc_function;
 
 	/*
 	 * The identifier of the IUT - this is a hex string
-	 * required: always
+	 * required: always except for DEF_ALG_KAS_ECC_R3_SSC
 	 */
 	const char *iut_identifier;
 
@@ -174,6 +182,18 @@ struct def_algo_kas_ecc_r3 {
 	 * B-571
 	 */
 	cipher_t domain_parameter;
+
+	/*
+	 * IUT supported hash of the shared secret. This is optional
+	 * to accommodate clients with the inability to return `z` in clear.
+	 *
+	 * Any hash (SHA-1 through SHA-3) may be specified. Note, the strength
+	 * of the hash operation must be at least as strong as the selected
+	 * curve. E.g. NIST P-521 will not work with SHA-256.
+	 *
+	 * required: optional, only applicable to DEF_ALG_KAS_ECC_R3_SSC
+	 */
+	cipher_t hash_z;
 };
 
 #ifdef __cplusplus

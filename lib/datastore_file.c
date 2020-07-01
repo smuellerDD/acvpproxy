@@ -33,6 +33,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "acvp_error_handler.h"
 #include "acvpproxy.h"
 #include "internal.h"
 #include "json_wrapper.h"
@@ -1319,8 +1320,16 @@ static int acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 		munmap(resp_buf, (size_t)statbuf.st_size);
 		close(fd);
 
-		if (ret < 0)
+		if (ret < 0) {
+			/*
+			 * If the upload was rejected, we do not create the
+			 * processed.txt file. Yet, we return an error of 0
+			 * to keep the other threads processing.
+			 */
+			if (ret == -ACVP_ERR_RESPONSE_REJECTED)
+				ret = 0;
 			goto out;
+		}
 
 		/* Create processed file */
 		now = time(NULL);

@@ -7,6 +7,14 @@ CFLAGS		+= -Werror -Wextra -Wall -pedantic -fPIC -O2 -std=gnu99
 #Hardening
 CFLAGS		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wcast-align -Wmissing-field-initializers -Wshadow -Wswitch-enum
 
+#Optimizations
+CFLAGS		+= -flto
+LDFLAGS		+= -flto
+
+ifneq '' '$(findstring clang,$(CC))'
+CFLAGS		+= -Wno-gnu-zero-variadic-macro-arguments
+endif
+
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
 ifeq ($(UNAME_S),Linux)
@@ -119,6 +127,7 @@ CRYPTOVERSION := $(shell cat $(SRCDIR)lib/hash/hash.c $(SRCDIR)lib/hash/hash.h $
 CFLAGS += -DCRYPTOVERSION=\"$(CRYPTOVERSION)\"
 
 analyze_srcs = $(filter %.c, $(sort $(C_SRCS)))
+analyze_srcs += $(filter %.c, $(sort $(EX_SRCS)))
 analyze_plists = $(analyze_srcs:%.c=%.plist)
 
 .PHONY: all scan install clean cppcheck distclean debug asanaddress asanthread gcov binarchive extensions extensionsso

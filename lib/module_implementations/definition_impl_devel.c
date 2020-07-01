@@ -33,7 +33,7 @@
 /**************************************************************************
  * SP800-56A rev3 FFC
  **************************************************************************/
-#if 1
+#if 0
 static const struct def_algo_prereqs devel_dh_r3_prereqs[] = {
 	{
 		.algorithm = "SHA",
@@ -166,7 +166,7 @@ const struct def_algo_kas_ffc_r3_schema devel_ffc_r3_schema[] = { {
  * SP800-56A rev3 ECC
  **************************************************************************/
 #if 0
-static const struct def_algo_prereqs devel_dh_r3_prereqs[] = {
+static const struct def_algo_prereqs devel_ecdh_r3_prereqs[] = {
 	{
 		.algorithm = "SHA",
 		.valvalue = "same"
@@ -275,7 +275,7 @@ const struct def_algo_kas_ecc_r3_schema devel_ecc_r3_schema[] = { {
 	{								\
 	.type = DEF_ALG_TYPE_KAS_ECC_R3,				\
 	.algo.kas_ecc_r3 = {						\
-		DEF_PREREQS(devel_dh_r3_prereqs),			\
+		DEF_PREREQS(devel_ecdh_r3_prereqs),			\
 		.kas_ecc_function = DEF_ALG_KAS_ECC_R3_KEYPAIRGEN |	\
 				    DEF_ALG_KAS_ECC_R3_PARTIALVAL |	\
 				    DEF_ALG_KAS_ECC_R3_FULLVAL,		\
@@ -288,6 +288,24 @@ const struct def_algo_kas_ecc_r3_schema devel_ecc_r3_schema[] = { {
 	}
 #else
 #define DEVEL_KAS_ECC_R3
+#endif
+
+/**************************************************************************
+ * SP800-56A rev3 ECC SSC
+ **************************************************************************/
+#if 1
+#define DEVEL_KAS_ECC_SSC_R3						\
+ 	GENERIC_KAS_ECC_SSC_R3(ACVP_NISTP256 | ACVP_NISTP384 | ACVP_NISTP521),\
+ 	GENERIC_KAS_ECC_SSC_R3_HASH(ACVP_NISTP256 | ACVP_NISTP384 |	\
+				    ACVP_NISTP521, ACVP_SHA3_512),	\
+ 	GENERIC_KAS_FFC_SSC_R3(ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |	\
+			       ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |	\
+			       ACVP_DH_MODP_8192),			\
+	GENERIC_KAS_FFC_SSC_R3_HASH(ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |\
+				    ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |\
+				    ACVP_DH_MODP_8192, ACVP_SHA512)
+#else
+#define DEVEL_KAS_ECC_SSC_R3
 #endif
 
 /**************************************************************************
@@ -474,12 +492,13 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 static const struct def_algo devel[] = {
 	DEVEL_KAS_FFC_R3
 	DEVEL_KAS_ECC_R3
+	DEVEL_KAS_ECC_SSC_R3
 	DEVEL_KAS_IFC
 
 	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYGENERATION,
 			 ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |
 			 ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |
-			 ACVP_DH_MODP_8192),
+			 ACVP_DH_MODP_8192)
 	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYVERIFICATION,
 			 ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |
 			 ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |

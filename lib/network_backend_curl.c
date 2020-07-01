@@ -173,29 +173,24 @@ acvp_curl_add_auth_hdr(const struct acvp_auth_ctx *auth,
  */
 static void acvp_curl_log_peer_cert(CURL *hnd)
 {
-	union {
-		struct curl_slist *to_info;
-		struct curl_certinfo *to_certinfo;
-	} ptr;
+	struct curl_certinfo *to_certinfo = NULL;
 	int i;
 	CURLcode ret;
 
 	if (logger_get_verbosity(LOGGER_C_CURL) < LOGGER_DEBUG2)
 		return;
 
-	ptr.to_info = NULL;
-
-	ret = curl_easy_getinfo(hnd, CURLINFO_CERTINFO, &ptr.to_info);
-	if (ret || !ptr.to_info)
+	ret = curl_easy_getinfo(hnd, CURLINFO_CERTINFO, &to_certinfo);
+	if (ret || !to_certinfo)
 		return;
 
 	logger(LOGGER_DEBUG, LOGGER_C_CURL,
 		"TLS peer presented the following %d certificates...\n",
-		ptr.to_certinfo->num_of_certs);
+		to_certinfo->num_of_certs);
 
-	for (i = 0; i < ptr.to_certinfo->num_of_certs; i++) {
+	for (i = 0; i < to_certinfo->num_of_certs; i++) {
 		struct curl_slist *slist;
-		for (slist = ptr.to_certinfo->certinfo[i];
+		for (slist = to_certinfo->certinfo[i];
 			slist;
 			slist = slist->next) {
 			logger(LOGGER_DEBUG2, LOGGER_C_CURL, "%s\n",
@@ -219,6 +214,7 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	char useragent[30];
 	int ret;
 	unsigned int retries = 0;
+	long http_response_code = 0;
 
 	CKNULL_LOG(net, -EINVAL, "Network context missing\n");
 	CKNULL_LOG(url, -EINVAL, "URL missing\n");
@@ -378,19 +374,17 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 	/* Perform the HTTP request */
 	while (retries < ACVP_CURL_MAX_RETRIES) {
 		cret = curl_easy_perform(curl);
-		if (cret == CURLE_OK) {
-			ret = 0;
+		if (cret == CURLE_OK)
 			break;
-		}
-
-		ret = -ECONNREFUSED;
 
 		logger(LOGGER_WARN, LOGGER_C_CURL,
 		       "Curl HTTP operation failed with code %d (%s)\n",
 		       cret,  curl_easy_strerror(cret));
 
-		if (cret == CURLE_RECV_ERROR)
-			break;
+		if (cret == CURLE_RECV_ERROR) {
+			ret = -ECONNREFUSED;
+			goto out;
+		}
 
 		retries++;
 		if (retries < ACVP_CURL_MAX_RETRIES) {
@@ -409,20 +403,17 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 		}
 	}
 
-	if (ret)
-		goto out;
-
 	acvp_curl_log_peer_cert(curl);
 
 	/* Get the HTTP response status code from the server */
-	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &ret);
-	if (ret == HTTP_OK) {
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_response_code);
+	if (http_response_code == HTTP_OK) {
 		ret = 0;
 	} else {
 		logger(LOGGER_WARN, LOGGER_C_CURL,
-		       "Unable to HTTP %s data for URL %s: %d\n", http_type_str,
-		       url, ret);
-		ret = -ECONNREFUSED;
+		       "Unable to HTTP %s data for URL %s: %ld\n",
+		       http_type_str, url, http_response_code);
+		ret = -(int)http_response_code;
 	}
 
 out:

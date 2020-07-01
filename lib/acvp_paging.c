@@ -55,20 +55,31 @@ static int acvp_paging_get_url_parameters(const char **url)
 }
 
 int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
-		    void *private,
+		    unsigned int show_type, void *private,
 		    int (*cb)(void *private, struct json_object *dataentry))
 {
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *opts = &ctx->options;
 	ACVP_BUFFER_INIT(buf);
 	struct json_object *resp = NULL, *pagingdata, *links, *dataarray;
 	uint32_t totalcount = 0;
 	unsigned int i;
-	int ret, ret2;
+	int ret = 0, ret2;
 	const char *next = NULL;
 	char parametrized_url[FILENAME_MAX];
 	bool incomplete;
 
 	CKNULL(url, -EINVAL);
 	CKNULL(testid_ctx, -EINVAL);
+
+	/*
+	 * If there is one ACVP server database retrieval option set, this
+	 * function does not perform any actions if the show type does not
+	 * match with the search option. In this case, the caller's type
+	 * shall not be shown.
+	 */
+	if (opts->show_db_entries && !(opts->show_db_entries & show_type))
+		goto out;
 
 	strncpy(parametrized_url, url, sizeof(parametrized_url) - 1);
 	/* Safety measure */
@@ -131,7 +142,14 @@ int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
 			struct json_object *entry =
 					json_object_array_get_idx(dataarray, i);
 
-			CKINT(cb(private, entry));
+			if (opts->show_db_entries & show_type) {
+				fprintf(stdout, "%s\n",
+				        json_object_to_json_string_ext(entry,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+			} else if (cb) {
+				CKINT(cb(private, entry));
+			}
 
 			/* Callback indicated that we shall interrupt loop */
 			if (ret == EINTR) {

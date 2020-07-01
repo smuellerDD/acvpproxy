@@ -29,18 +29,26 @@ extern "C"
 
 enum acvp_error_code {
 	ACVP_ERR_NO_ERR = 0,
-	ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING,
+
+	/*
+	 * We start at 1000 with the private error codes to not conflict with
+	 * POSIX error codes and HTTP error codes.
+	 */
+	ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING = 1000,
+	ACVP_ERR_RESPONSE_REJECTED,
 };
 
 /**
  * @brief Convert an ACVP Error code into an internal representation
  *
  * @param response_buf [in] Buffer with the JSON response data from the server
+ * @param http_ret [in] HTTP error code
  * @param code [out] Error code that was identified from the data
  *
  * @return 0 on successful conversion, < 0 on error
  */
 int acvp_error_convert(const struct acvp_buf *response_buf,
+		       int http_ret,
 		       enum acvp_error_code *code);
 
 #ifdef __cplusplus

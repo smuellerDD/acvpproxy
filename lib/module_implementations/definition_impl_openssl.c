@@ -1109,8 +1109,8 @@ static const struct def_algo openssl_kbkdf [] = {
 };
 
 static const struct def_algo openssl_neon [] = {
-	OPENSSL_SHA(ACVP_SHA3_256),
-	OPENSSL_HMAC(ACVP_HMACSHA3_256),
+	OPENSSL_SHA(ACVP_SHA256),
+	OPENSSL_HMAC(ACVP_HMACSHA2_256),
 };
 
 /**************************************************************************
@@ -1372,6 +1372,12 @@ static struct def_algo_map openssl_algo_map [] = {
 		.impl_name = "SHA_ASM",
 		.impl_description = "Assembler SHA implementation"
 	}, {
+		SET_IMPLEMENTATION(openssl_ssh),
+		.algo_name = "OpenSSL",
+		.processor = "ARM64",
+		.impl_name = "SSH_ASM",
+		.impl_description = "SSH KDF using Assembler SHA implementation"
+	}, {
 	/* OpenSSL ARM64v8 SHA3 assembler implementation **********************/
 		SET_IMPLEMENTATION(openssl_sha3),
 		.algo_name = "OpenSSL",
@@ -1440,6 +1446,12 @@ static struct def_algo_map openssl_algo_map [] = {
 		.processor = "S390",
 		.impl_name = "SHA_ASM",
 		.impl_description = "Assembler SHA implementation"
+	}, {
+		SET_IMPLEMENTATION(openssl_ssh),
+		.algo_name = "OpenSSL",
+		.processor = "S390",
+		.impl_name = "SSH_ASM",
+		.impl_description = "SSH KDF using Assembler SHA implementation"
 	}, {
 	/* OpenSSL S390x SHA3 assembler implementation ************************/
 		SET_IMPLEMENTATION(openssl_sha3),

@@ -96,7 +96,7 @@ struct def_algo_kdf_108 {
 	int supported_lengths[DEF_ALG_MAX_INT];
 
 	/*
-	 * Describes where teh counter appears in the fixed data.
+	 * Describes where the counter appears in the fixed data.
 	 *
 	 * required: always
 	 */

@@ -270,18 +270,17 @@ static int acvp_nsurl_http_common(const struct acvp_na_ex *netinfo,
 
 		/* Do stop processing if server return a permanent error */
 		if (rc >= 400 && rc < 500) {
-			ret = -EBADMSG;
 			logger(LOGGER_VERBOSE, LOGGER_C_CURL,
 			       "HTTP permanent error %ld received\n", rc);
 			break;
 		}
 
-		ret = -ECONNREFUSED;
-
 		logger(LOGGER_WARN, LOGGER_C_CURL,
 		       "HTTP operation failed with code %ld\n", rc);
-		if (rc < 0)
-			break;
+		if (rc < 0) {
+			ret = rc;
+			goto out;
+		}
 
 		retries++;
 		if (retries < ACVP_CURL_MAX_RETRIES) {
@@ -301,17 +300,14 @@ static int acvp_nsurl_http_common(const struct acvp_na_ex *netinfo,
 		}
 	}
 
-	if (ret)
-		goto out;
-
 	/* Get the HTTP response status code from the server */
-	if (rc >= 200 && rc < 300) {
+	if (rc == 200) {
 		ret = 0;
 	} else {
 		logger(LOGGER_WARN, LOGGER_C_CURL,
 		       "Unable to HTTP %s data for URL %s\n",
 		       http_type_str, url);
-		ret = -ECONNREFUSED;
+		ret = -rc;
 	}
 
 out:

@@ -10,4 +10,7 @@
   "procSeries":"Z System",
   "features":7,
   "envType":0,
+  "acvpOeId":0,
+  "acvpOeDepProcId":0,
+  "acvpOeDepSwId":0
 }

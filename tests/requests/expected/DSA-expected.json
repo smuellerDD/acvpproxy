@@ -12,18 +12,6 @@
     "algorithms":[
       {
         "revision":"1.0",
-        "algorithm":"DSA",
-        "mode":"pqgGen",
-        "prereqVals":[
-          {
-            "algorithm":"SHA",
-            "valValue":"same"
-          },
-          {
-            "algorithm":"DRBG",
-            "valValue":"same"
-          }
-        ],
         "capabilities":[
           {
             "l":2048,
@@ -38,10 +26,7 @@
               "SHA2-224"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"pqgGen",
         "prereqVals":[
@@ -53,7 +38,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":2048,
@@ -68,10 +56,7 @@
               "SHA2-256"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"pqgGen",
         "prereqVals":[
@@ -83,7 +68,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":3072,
@@ -98,12 +86,9 @@
               "SHA2-256"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
-        "mode":"pqgVer",
+        "mode":"pqgGen",
         "prereqVals":[
           {
             "algorithm":"SHA",
@@ -113,7 +98,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":1024,
@@ -128,10 +116,7 @@
               "SHA-1"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"pqgVer",
         "prereqVals":[
@@ -143,7 +128,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":2048,
@@ -158,10 +146,7 @@
               "SHA2-224"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"pqgVer",
         "prereqVals":[
@@ -173,7 +158,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":2048,
@@ -188,10 +176,7 @@
               "SHA2-256"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"pqgVer",
         "prereqVals":[
@@ -203,7 +188,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":3072,
@@ -218,12 +206,9 @@
               "SHA2-256"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
-        "mode":"keyGen",
+        "mode":"pqgVer",
         "prereqVals":[
           {
             "algorithm":"SHA",
@@ -233,16 +218,16 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":2048,
             "n":224
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"keyGen",
         "prereqVals":[
@@ -254,16 +239,16 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":2048,
             "n":256
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"keyGen",
         "prereqVals":[
@@ -275,18 +260,18 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":3072,
             "n":256
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
-        "mode":"sigGen",
+        "mode":"keyGen",
         "prereqVals":[
           {
             "algorithm":"SHA",
@@ -296,7 +281,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":2048,
@@ -308,10 +296,7 @@
               "SHA2-512"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"sigGen",
         "prereqVals":[
@@ -323,7 +308,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":2048,
@@ -334,10 +322,7 @@
               "SHA2-512"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"sigGen",
         "prereqVals":[
@@ -349,7 +334,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":3072,
@@ -360,12 +348,9 @@
               "SHA2-512"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
-        "mode":"sigVer",
+        "mode":"sigGen",
         "prereqVals":[
           {
             "algorithm":"SHA",
@@ -375,7 +360,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":1024,
@@ -388,10 +376,7 @@
               "SHA2-512"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"sigVer",
         "prereqVals":[
@@ -403,7 +388,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":2048,
@@ -416,10 +404,7 @@
               "SHA2-512"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"sigVer",
         "prereqVals":[
@@ -431,7 +416,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":2048,
@@ -444,10 +432,7 @@
               "SHA2-512"
             ]
           }
-        ]
-      },
-      {
-        "revision":"1.0",
+        ],
         "algorithm":"DSA",
         "mode":"sigVer",
         "prereqVals":[
@@ -459,7 +444,10 @@
             "algorithm":"DRBG",
             "valValue":"same"
           }
-        ],
+        ]
+      },
+      {
+        "revision":"1.0",
         "capabilities":[
           {
             "l":3072,
@@ -471,6 +459,18 @@
               "SHA2-384",
               "SHA2-512"
             ]
+          }
+        ],
+        "algorithm":"DSA",
+        "mode":"sigVer",
+        "prereqVals":[
+          {
+            "algorithm":"SHA",
+            "valValue":"same"
+          },
+          {
+            "algorithm":"DRBG",
+            "valValue":"same"
           }
         ]
       }

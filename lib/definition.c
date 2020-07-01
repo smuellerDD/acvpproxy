@@ -1046,6 +1046,90 @@ out:
 	return ret;
 }
 
+static int acvp_def_set_str(struct json_object *json,
+			    const char *name, const char *str, bool *set)
+{
+	struct json_object *val;
+	int ret;
+
+	if (!name)
+		return -EINVAL;
+
+	/* We may have a string or NULL */
+	ret = json_find_key(json, name, &val, json_type_string);
+	if (ret)
+		ret = json_find_key(json, name, &val, json_type_null);
+
+	/* Create a new entry */
+	if (ret) {
+		/* Do not create a NULL entry */
+		if (!str)
+			return 0;
+
+		json_object_object_add(json, name,
+				       json_object_new_string(str));
+		*set = true;
+		return 0;
+	}
+
+	/* Update existing entry to NULL */
+	if (!str) {
+		/* We do not need updating as the entry is already NULL */
+		if (json_object_is_type(val, json_type_null))
+			return 0;
+
+		json_object_object_del(json, name);
+		json_object_object_add(json, name, NULL);
+		*set = true;
+		return 0;
+	}
+
+	/* Update existing entry if it does not match */
+	if (!acvp_find_match(str, json_object_get_string(val), false)) {
+		json_object_set_string(val, str);
+		*set = true;
+	}
+
+	return 0;
+}
+
+struct acvp_def_update_string_entry {
+	const char *name;
+	const char *str;
+};
+
+static int acvp_def_update_str(const char *pathname,
+			       const struct acvp_def_update_string_entry *list,
+			       uint32_t list_entries)
+{
+	struct json_object *config = NULL;
+	unsigned int i;
+	int ret = 0;
+	bool updated = false;
+
+	CKNULL(pathname, -EINVAL);
+
+	CKINT_LOG(acvp_def_read_json(&config, pathname),
+		  "Cannot parse config file %s\n", pathname);
+
+	for (i = 0; i < list_entries; i++) {
+		if (!list[i].name)
+			continue;
+
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Updating entry %s with %s\n",
+		       list[i].name, list[i].str);
+		CKINT(acvp_def_set_str(config, list[i].name, list[i].str,
+				       &updated));
+	}
+
+	if (updated)
+		CKINT(acvp_def_write_json(config, pathname));
+
+out:
+	return ret;
+}
+
 #define ACVP_DEF_PRODUCTION_ID(x)					\
 	(acvp_req_is_production() ? x "Production" : x)
 
@@ -1235,6 +1319,34 @@ out:
 	return ret;
 }
 
+int acvp_def_update_oe_config(const struct def_oe *def_oe)
+{
+	struct acvp_def_update_string_entry str_list[7];
+	int ret;
+
+	str_list[0].name = "oeEnvName";
+	str_list[0].str = def_oe->oe_env_name;
+	str_list[1].name = "cpe";
+	str_list[1].str = def_oe->cpe;
+	str_list[2].name = "swid";
+	str_list[2].str = def_oe->swid;
+	str_list[3].name = "manufacturer";
+	str_list[3].str = def_oe->manufacturer;
+	str_list[4].name = "procFamily";
+	str_list[4].str = def_oe->proc_family;
+	str_list[5].name = "procName";
+	str_list[5].str = def_oe->proc_name;
+	str_list[6].name = "procSeries";
+	str_list[6].str = def_oe->proc_series;
+
+	acvp_def_lock_lock(def_oe->def_lock);
+	ret = acvp_def_update_str(def_oe->def_oe_file, str_list,
+				  ARRAY_SIZE(str_list));
+	acvp_def_lock_unlock(def_oe->def_lock);
+
+	return ret;
+}
+
 static int acvp_def_find_module_id(struct def_info *def_info,
 				   struct json_object *config,
 				   struct json_object **entry)
@@ -1392,6 +1504,24 @@ out:
 	return ret;
 }
 
+int acvp_def_update_module_config(const struct def_info *def_info)
+{
+	struct acvp_def_update_string_entry str_list[2];
+	int ret;
+
+	str_list[0].name = "moduleName";
+	str_list[0].str = def_info->orig_module_name;
+	str_list[1].name = "moduleVersion";
+	str_list[1].str = def_info->module_version;
+
+	acvp_def_lock_lock(def_info->def_lock);
+	ret = acvp_def_update_str(def_info->def_module_file, str_list,
+				  ARRAY_SIZE(str_list));
+	acvp_def_lock_unlock(def_info->def_lock);
+
+	return ret;
+}
+
 static int acvp_check_features(uint64_t feature)
 {
 	unsigned int i;
@@ -1486,8 +1616,19 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 			      (const char **)&oe.proc_series));
 	CKINT(json_get_uint(oe_config, "features", (uint32_t *)&oe.features));
 	CKINT(acvp_check_features(oe.features));
-	CKINT(json_get_uint(oe_config, "envType", (uint32_t *)&oe.env_type));
-	CKINT(acvp_module_oe_type(oe.env_type, NULL));
+
+	/* Allow numeric or string-based name */
+	ret = json_get_uint(oe_config, "envType", (uint32_t *)&oe.env_type);
+	if (!ret) {
+		CKINT(acvp_module_oe_type(oe.env_type, NULL));
+	} else {
+		const char *oe_type_str;
+		CKINT(json_get_string(oe_config, "envType", &oe_type_str));
+		CKINT_LOG(acvp_module_type_name_to_enum(oe_type_str,
+							&oe.env_type),
+			  "OE envType is allowed to only hold 'Hardware', 'Software' or 'Firmware', but string %s found in file %s\n",
+			  oe_type_str ? oe_type_str : "(null)", oe_file);
+	}
 
 	/* Shall we use the internal name for the mapping lookup? */
 	local_proc_family = oe.proc_family_internal ?
@@ -1551,8 +1692,9 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 			      (const char **)&vendor.contact_name));
 	CKINT(json_get_string(vendor_config, "contactEmail",
 			      (const char **)&vendor.contact_email));
-	CKINT(json_get_string(vendor_config, "contactPhone",
-			      (const char **)&vendor.contact_phone));
+	/* no error handling */
+	json_get_string(vendor_config, "contactPhone",
+			(const char **)&vendor.contact_phone);
 	CKINT(json_get_string(vendor_config, "addressStreet",
 			      (const char **)&vendor.addr_street));
 	CKINT(json_get_string(vendor_config, "addressCity",

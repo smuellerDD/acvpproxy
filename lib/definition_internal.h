@@ -42,6 +42,15 @@ enum def_mod_type {
 	MOD_TYPE_FIRMWARE,
 };
 
+static const struct def_mod_type_conversion {
+	enum def_mod_type type;
+	char *type_name;
+} def_mod_type_conversion[] = {
+	{ MOD_TYPE_SOFTWARE, "Software" },
+	{ MOD_TYPE_HARDWARE, "Hardware" },
+	{ MOD_TYPE_FIRMWARE, "Firmware" }
+};
+
 /* Warning, we operate with a signed int, so leave the highest bit untouched */
 #define ACVP_REQUEST_INITIAL	(1<<30)
 #define ACVP_REQUEST_PROCESSING	(1<<29)
@@ -187,8 +196,8 @@ struct def_vendor {
  * @var env_type Environment type
  * @var oe_env_name Name of the execution environment (e.g. operating
  *		    system or SoC)
- * @var cpe UNKNOWN
- *
+ * @var cpe CPE string of module (may be NULL)
+ * @var swid SWID string of module (may be NULL)
  * @var manufacturer Processor manufacturer (e.g. "Intel")
  * @var proc_family Processor family (e.g. "X86")
  * @var proc_family_internal Processor family used for internal definition
@@ -377,6 +386,13 @@ int acvp_def_get_module_id(struct def_info *def_info);
 int acvp_def_put_module_id(struct def_info *def_info);
 
 void acvp_def_release_all(void);
+
+/**
+ * @brief write any updates of the definitions to the corresponding JSON
+ * configuration files
+ */
+int acvp_def_update_oe_config(const struct def_oe *def_oe);
+int acvp_def_update_module_config(const struct def_info *def_info);
 
 #ifdef __cplusplus
 }

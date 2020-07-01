@@ -31,7 +31,7 @@
 
 static int
 acvp_req_kas_ecc_r3_schema(const struct def_algo_kas_ecc_r3_schema *r3_schema,
-			   struct json_object *entry)
+			   struct json_object *entry, bool ssc)
 {
 	const struct def_algo_kas_r3_kc *kcm =
 					&r3_schema->key_confirmation_method;
@@ -93,6 +93,9 @@ acvp_req_kas_ecc_r3_schema(const struct def_algo_kas_ecc_r3_schema *r3_schema,
 	CKNULL_LOG(found, -EINVAL,
 		   "KAS ECC r3: No applicable entry for kas_ecc_r3_role found\n");
 
+	if (ssc)
+		goto out;
+
 	tmp = json_object_new_object();
 	CKNULL(tmp, -ENOMEM);
 	CKINT(json_object_object_add(schema_entry, "kdfMethods", tmp));
@@ -142,6 +145,46 @@ out:
 }
 
 static int
+acvp_req_set_algo_kas_ecc_ssc_r3(const struct def_algo_kas_ecc_r3 *kas_ecc_r3,
+				 struct json_object *entry, bool full)
+{
+	struct json_object *tmp;
+	unsigned int i;
+	int ret;
+
+	CKINT(json_object_object_add(entry, "algorithm",
+				     json_object_new_string("KAS-ECC-SSC")));
+	if (!full)
+		goto out;
+
+	tmp = json_object_new_object();
+	CKNULL(tmp, -ENOMEM);
+	CKINT(json_object_object_add(entry, "scheme", tmp));
+
+	for (i = 0; i < kas_ecc_r3->schema_num; i++) {
+		const struct def_algo_kas_ecc_r3_schema *schema =
+							kas_ecc_r3->schema + i;
+
+		CKINT(acvp_req_kas_ecc_r3_schema(schema, tmp, true));
+	}
+
+	CKINT_LOG(acvp_req_cipher_to_array(entry, kas_ecc_r3->domain_parameter,
+					   ACVP_CIPHERTYPE_ECC,
+					   "domainParameterGenerationMethods"),
+		  "KAS ECC r3: Unknown domain parameter set\n");
+
+	if (kas_ecc_r3->hash_z) {
+		CKINT_LOG(acvp_req_cipher_to_string(entry, kas_ecc_r3->hash_z,
+						    ACVP_CIPHERTYPE_HASH,
+						    "hashFunctionZ"),
+			  "KAS ECC r3 SSC: Unknown hash\n");
+	}
+
+out:
+	return ret;
+}
+
+static int
 _acvp_req_set_algo_kas_ecc_r3(const struct def_algo_kas_ecc_r3 *kas_ecc_r3,
 			      const struct acvp_test_deps *deps,
 			      struct json_object *entry, bool full,
@@ -158,9 +201,20 @@ _acvp_req_set_algo_kas_ecc_r3(const struct def_algo_kas_ecc_r3 *kas_ecc_r3,
 	CKINT(acvp_req_gen_prereq(kas_ecc_r3->prereqvals,
 				  kas_ecc_r3->prereqvals_num, deps, entry,
 				  publish));
+	CKINT(acvp_req_add_revision(entry, "Sp800-56Ar3"));
+
+	if (kas_ecc_r3->kas_ecc_function & DEF_ALG_KAS_ECC_R3_SSC) {
+		if ((kas_ecc_r3->kas_ecc_function &
+		     (unsigned int)~DEF_ALG_KAS_ECC_R3_SSC) != 0) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "KAS ECC SSC can only be defined by itself and not with other KAS ECC function types.\n");
+		}
+		return acvp_req_set_algo_kas_ecc_ssc_r3(kas_ecc_r3, entry,
+							full);
+	}
+
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("KAS-ECC")));
-	CKINT(acvp_req_add_revision(entry, "Sp800-56Ar3"));
 
 	if (!full)
 		goto out;
@@ -183,6 +237,11 @@ _acvp_req_set_algo_kas_ecc_r3(const struct def_algo_kas_ecc_r3 *kas_ecc_r3,
 					json_object_new_string("fullVal")));
 		found = true;
 	}
+	if (kas_ecc_r3->kas_ecc_function & DEF_ALG_KAS_ECC_R3_SSC) {
+		CKINT(json_object_array_add(tmp,
+					json_object_new_string("fullVal")));
+		found = true;
+	}
 	CKNULL_LOG(found, -EINVAL,
 		   "KAS ECC r3: No applicable entry for kas_ecc_function found\n");
 
@@ -199,7 +258,7 @@ _acvp_req_set_algo_kas_ecc_r3(const struct def_algo_kas_ecc_r3 *kas_ecc_r3,
 		const struct def_algo_kas_ecc_r3_schema *schema =
 							kas_ecc_r3->schema + i;
 
-		CKINT(acvp_req_kas_ecc_r3_schema(schema, tmp));
+		CKINT(acvp_req_kas_ecc_r3_schema(schema, tmp, false));
 	}
 
 	CKINT_LOG(acvp_req_cipher_to_array(entry, kas_ecc_r3->domain_parameter,
@@ -261,6 +320,22 @@ int acvp_list_algo_kas_ecc_r3(const struct def_algo_kas_ecc_r3 *kas_ecc_r3,
 						  tmp->keylen));
 
 		CKINT(acvp_duplicate(&tmp->cipher_mode, "fullVal"));
+		found = true;
+	}
+	if (kas_ecc_r3->kas_ecc_function & DEF_ALG_KAS_ECC_R3_SSC) {
+		prev = tmp;
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		*new = tmp;
+		tmp->next = prev;
+
+		CKINT(acvp_duplicate(&tmp->cipher_name,
+				     "KAS-ECC Sp800-56Ar3"));
+		CKINT(acvp_req_cipher_to_intarray(kas_ecc_r3->domain_parameter,
+						  ACVP_CIPHERTYPE_ECC,
+						  tmp->keylen));
+
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "SSC"));
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,

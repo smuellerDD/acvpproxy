@@ -213,6 +213,21 @@ static bool acvp_jwt_valid(const struct acvp_auth_ctx *auth)
 				time(NULL) - auth->jwt_token_generated));
 }
 
+int acvp_jwt_invalidate(const struct acvp_testid_ctx *testid_ctx)
+{
+	struct acvp_auth_ctx *auth;
+	int ret = 0;
+
+	CKNULL(testid_ctx, -EINVAL);
+
+	auth = testid_ctx->server_auth;
+	CKNULL(auth, -EINVAL);
+
+	auth->jwt_token_generated = 0;
+
+out:
+	return ret;
+}
 
 static int acvp_process_login(const struct acvp_testid_ctx *testid_ctx,
 			      struct acvp_buf *response)
@@ -275,36 +290,18 @@ out:
 	return ret;
 }
 
-/* POST /login */
-int acvp_login(const struct acvp_testid_ctx *testid_ctx)
+static int
+acvp_login_need_refresh_nonnull(const struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_net_ctx *net;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_auth_ctx *ctx_auth = ctx->ctx_auth;
-	struct acvp_na_ex netinfo;
-	struct json_object *login = NULL, *entry = NULL;
-	ACVP_BUFFER_INIT(login_buf);
-	ACVP_BUFFER_INIT(response_buf);
-	const char *json_login;
-	char url[ACVP_NET_URL_MAXLEN];
-	uint32_t totp_val = 0;
-	int ret = 0, ret2;
-	char totp_val_string[11];
-	bool dump_register = (ctx) ? ctx->req_details.dump_register : false;
-
-	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
-
-	mutex_lock(&auth->mutex);
-	mutex_lock(&ctx_auth->mutex);
 
 	/*
-	 * If we have an authentication token that has sufficient lifetime,
-	 * skip the re-login.
+	 * If we have an authentication token that has sufficient
+	 * lifetime, skip the re-login.
 	 */
 	if (acvp_jwt_valid(auth)) {
-		mutex_unlock(&auth->mutex);
-		mutex_unlock(&ctx_auth->mutex);
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Existing test session JWT access token has sufficient lifetime\n");
 		return 0;
@@ -314,61 +311,45 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	 * If we have a valid initial login token, re-use that login token.
 	 */
 	if (acvp_jwt_valid(ctx_auth)) {
-		CKINT(acvp_copy_auth(testid_ctx->server_auth, ctx_auth));
+		int ret = acvp_copy_auth(testid_ctx->server_auth, ctx_auth);
+
+		if (ret)
+			return ret;
+
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Setting context JWT access token as test session JWT access token\n");
-		mutex_unlock(&auth->mutex);
-		mutex_unlock(&ctx_auth->mutex);
 		return 0;
 	}
 
-	login = json_object_new_array();
-	CKNULL(login, -ENOMEM);
+	return -EAGAIN;
+}
 
-	CKINT(acvp_req_add_version(login));
 
-	/* Generate the OTP value based on the TOTP algorithm */
-	if (!dump_register)
-		CKINT(totp(&totp_val));
+int acvp_login_need_refresh(const struct acvp_testid_ctx *testid_ctx)
+{
+	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 
-	/* Ensure that the snprintf format string equals TOTP size. */
-	BUILD_BUG_ON(TOTP_NUMBER_DIGITS != 8);
-
-	/* Place the password as a string */
-	snprintf(totp_val_string, sizeof(totp_val_string), "%.08u", totp_val);
-
-	entry = json_object_new_object();
-	CKNULL(entry, ENOMEM);
-	json_object_object_add(entry, "password",
-			       json_object_new_string(totp_val_string));
+	if (!acvp_login_need_refresh_nonnull(testid_ctx))
+		return 0;
 
 	/*
-	 * If an auth token already exists, we perform a refresh by simply
-	 * adding the associated JWT access token to the request which
-	 * will cause the server to refresh the available JWT token
+	 * If we have no JWT token at this point, we cannot refresh it.
 	 */
-	if (acvp_jwt_exist(auth)) {
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Perform a refresh of the existing JWT access token\n");
-		json_object_object_add(entry, "accessToken",
-				       json_object_new_string(auth->jwt_token));
-	}
+	if (!acvp_jwt_exist(auth))
+		return 0;
 
-	CKINT(json_object_array_add(login, entry));
-	entry = NULL;
+	return -EAGAIN;
+}
 
-	/*
-	 * Dump the constructed message if requested and return (i.e. no
-	 * submission).
-	 */
-	if (dump_register) {
-		fprintf(stdout, "%s\n",
-			json_object_to_json_string_ext(login,
-					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
-		ret = 0;
-		goto out;
-	}
+static int acvp_login_submit(struct json_object *login,
+			     const char *url,
+			     struct acvp_buf *response_buf)
+{
+	const struct acvp_net_ctx *net;
+	struct acvp_na_ex netinfo;
+	ACVP_BUFFER_INIT(login_buf);
+	const char *json_login;
+	int ret;
 
 	/* Convert the JSON buffer into a string */
 	json_login = json_object_to_json_string_ext(login,
@@ -377,29 +358,28 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	CKNULL_LOG(json_login, -EFAULT,
 		   "JSON object conversion into string failed\n");
 
-	logger_status(LOGGER_C_ANY, "Logging into ACVP server%s\n",
-		      (auth->jwt_token && auth->jwt_token_len) ?
-		       " to refresh existing auth token" : "" );
-
 	login_buf.buf = (uint8_t *)json_login;
 	login_buf.len = (uint32_t)strlen(json_login);
 
 	CKINT(acvp_get_net(&net));
-	CKINT(acvp_create_url(NIST_VAL_OP_LOGIN, url, sizeof(url)));
 
 	/* Send the capabilities to the ACVP server. */
 	netinfo.net = net;
 	netinfo.url = url;
-	netinfo.server_auth = testid_ctx->server_auth;
-	ret2 = na->acvp_http_post(&netinfo, &login_buf, &response_buf);
+	netinfo.server_auth = NULL;
+	ret = na->acvp_http_post(&netinfo, &login_buf, response_buf);
 
-	if (response_buf.buf && response_buf.len) {
-		logger(ret2 ? LOGGER_ERR : LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Process following server response: %s\n",
-		       response_buf.buf);
+	if (ret < 0) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Process following server response for HTTP return code %d: %s\n",
+		       -ret,
+		       response_buf->buf ? (char *)response_buf->buf : "null");
+		goto out;
+	}
 
-		/* Store the debug version of the result unconditionally. */
-		CKINT(acvp_store_login_debug(testid_ctx, &response_buf, ret2));
+	if (response_buf->buf && response_buf->len) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Process following server response for HTTP return code 200: %s\n", response_buf->buf);
 
 #if 0
 		/* Dump the password in case of an error for debugging */
@@ -423,19 +403,305 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 #endif
 	}
 
-	if (ret2) {
-		ret = ret2;
+out:
+	return ret;
+}
+
+static int acvp_login_totp(struct json_object *entry, bool dump_register)
+{
+	uint32_t totp_val = 0;
+	char totp_val_string[11];
+	int ret = 0;
+
+	/* Generate the OTP value based on the TOTP algorithm */
+	if (!dump_register)
+		CKINT(totp(&totp_val));
+
+	/* Ensure that the snprintf format string equals TOTP size. */
+	BUILD_BUG_ON(TOTP_NUMBER_DIGITS != 8);
+
+	/* Place the password as a string */
+	snprintf(totp_val_string, sizeof(totp_val_string), "%.08u", totp_val);
+
+	json_object_object_add(entry, "password",
+			       json_object_new_string(totp_val_string));
+
+out:
+	return ret;
+}
+
+/* POST /login */
+int acvp_login(const struct acvp_testid_ctx *testid_ctx)
+{
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
+	struct acvp_auth_ctx *ctx_auth = ctx->ctx_auth;
+	struct json_object *login = NULL, *entry;
+	ACVP_BUFFER_INIT(response_buf);
+	int ret = 0;
+	char url[ACVP_NET_URL_MAXLEN];
+	bool dump_register = (ctx) ? ctx->req_details.dump_register : false;
+
+	mutex_lock(&auth->mutex);
+	mutex_lock(&ctx_auth->mutex);
+
+	if (!acvp_login_need_refresh_nonnull(testid_ctx))
+		goto out;
+
+	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
+
+	login = json_object_new_array();
+	CKNULL(login, -ENOMEM);
+
+	CKINT(acvp_req_add_version(login));
+
+	entry = json_object_new_object();
+	CKNULL(entry, ENOMEM);
+	CKINT(json_object_array_add(login, entry));
+
+	CKINT(acvp_login_totp(entry, dump_register));
+
+	/*
+	 * If an auth token already exists, we perform a refresh by simply
+	 * adding the associated JWT access token to the request which
+	 * will cause the server to refresh the available JWT token
+	 */
+	if (acvp_jwt_exist(auth)) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Perform a refresh of the existing JWT access token\n");
+		json_object_object_add(entry, "accessToken",
+				       json_object_new_string(auth->jwt_token));
+	}
+
+	/*
+	 * Dump the constructed message if requested and return (i.e. no
+	 * submission).
+	 */
+	if (dump_register) {
+		fprintf(stdout, "%s\n",
+			json_object_to_json_string_ext(login,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		ret = 0;
 		goto out;
 	}
 
-	/* Process the response and download the vectors. */
+	logger_status(LOGGER_C_ANY, "Logging into ACVP server%s\n",
+		      (auth->jwt_token && auth->jwt_token_len) ?
+		       " to refresh existing auth token" : "" );
+
+	CKINT(acvp_create_url(NIST_VAL_OP_LOGIN, url, sizeof(url)));
+	ret = acvp_login_submit(login, url, &response_buf);
+
+	if (response_buf.buf && response_buf.len) {
+		/* Store the debug version of the result unconditionally. */
+		ret |= acvp_store_login_debug(testid_ctx, &response_buf, ret);
+	}
+
+	if (ret)
+		goto out;
+
+	/* Process the response and set the authentication token. */
 	CKINT(acvp_process_login(testid_ctx, &response_buf));
 
 out:
 	mutex_unlock(&auth->mutex);
 	mutex_unlock(&ctx_auth->mutex);
 	ACVP_JSON_PUT_NULL(login);
-	ACVP_JSON_PUT_NULL(entry);
+	acvp_free_buf(&response_buf);
+
+	return ret;
+}
+
+static int
+acvp_process_login_refresh(const struct acvp_testid_ctx *testid_ctx_head,
+			   struct acvp_buf *response)
+{
+	const struct acvp_testid_ctx *testid_ctx = testid_ctx_head;
+	struct json_object *req = NULL, *entry = NULL, *jauth_array, *jauth;
+	char logbuf[FILENAME_MAX];
+	unsigned int max_reg_msg_size = UINT_MAX;
+	unsigned int i;
+	int ret;
+	bool largeendpoint;
+
+	if (!response->buf || !response->len) {
+		logger(LOGGER_ERR, LOGGER_C_ANY, "No response data found\n");
+		return -EINVAL;
+	}
+
+	logbuf[0] = '\0';
+
+	/*
+	 * Strip the version from the received array and return the array
+	 * entry containing the answer.
+	 */
+	CKINT(acvp_req_strip_version(response, &req, &entry));
+
+	/* Get the size constraint information. */
+	ret = json_get_bool(entry, "largeEndpointRequired", &largeendpoint);
+	if (!ret && largeendpoint) {
+		CKINT(json_get_uint(entry, "sizeConstraint",
+				    &max_reg_msg_size));
+	}
+
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Maximum message size: %u\n",
+	       max_reg_msg_size);
+
+	CKINT(json_find_key(entry, "accessToken", &jauth_array,
+			    json_type_array));
+
+	for (i = 0; i < json_object_array_length(jauth_array); i++) {
+		struct acvp_auth_ctx *auth;
+
+		CKNULL_LOG(testid_ctx, -EFAULT,
+			   "No testid authentication context found\n");
+
+		auth = testid_ctx->server_auth;
+
+		/*
+		 * In case we have a NULL auth, try to use the next
+		 * testid_ctx.
+		 */
+		while (!auth) {
+			testid_ctx = testid_ctx->next;
+
+			CKNULL_LOG(testid_ctx, -EFAULT,
+				   "No testid authentication context found\n");
+			auth = testid_ctx->server_auth;
+		}
+
+		jauth = json_object_array_get_idx(jauth_array, i);
+		if (!json_object_is_type(jauth, json_type_string)) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "JSON data type %s does not match expected type %s\n",
+			       json_type_to_name(json_object_get_type(jauth)),
+			       json_type_to_name(json_type_string));
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* We received a largeendpoint data size */
+		if (max_reg_msg_size != UINT_MAX)
+			auth->max_reg_msg_size = max_reg_msg_size;
+
+		CKINT(acvp_set_authtoken(testid_ctx,
+					 json_object_get_string(jauth)));
+		CKINT(acvp_extend_string(logbuf, sizeof(logbuf), "%u ",
+					 testid_ctx->testid));
+
+		testid_ctx = testid_ctx->next;
+	}
+
+	logger_status(LOGGER_C_ANY,
+		      "Refresh of auth token for test sessions: %s\n", logbuf);
+
+out:
+	ACVP_JSON_PUT_NULL(req);
+	return ret;
+}
+
+/* POST /login/refresh */
+int acvp_login_refresh(const struct acvp_testid_ctx *testid_ctx_head)
+{
+	const struct acvp_ctx *ctx;
+	const struct acvp_testid_ctx *testid_ctx;
+	struct json_object *login = NULL, *entry, *jauth;
+	struct acvp_auth_ctx *auth;
+	ACVP_BUFFER_INIT(response_buf);
+	unsigned int counter = 0;
+	int ret = 0;
+	char logbuf[FILENAME_MAX];
+	char url[ACVP_NET_URL_MAXLEN];
+	bool dump_register;
+
+	CKNULL(testid_ctx_head, 0);
+
+	ctx = testid_ctx_head->ctx;
+	dump_register = (ctx) ? ctx->req_details.dump_register : false;
+
+	login = json_object_new_array();
+	CKNULL(login, -ENOMEM);
+
+	CKINT(acvp_req_add_version(login));
+
+	entry = json_object_new_object();
+	CKNULL(entry, ENOMEM);
+	CKINT(json_object_array_add(login, entry));
+
+	CKINT(acvp_login_totp(entry, dump_register));
+
+	jauth = json_object_new_array();
+	CKNULL(jauth, ENOMEM);
+	CKINT(json_object_object_add(entry, "accessToken", jauth));
+
+	logbuf[0] = '\0';
+
+	for (testid_ctx = testid_ctx_head;
+	     testid_ctx != NULL;
+	     testid_ctx = testid_ctx->next) {
+		auth = testid_ctx->server_auth;
+
+		if (!auth)
+			continue;
+
+		mutex_lock(&auth->mutex);
+		json_object_array_add(jauth,
+			json_object_new_string(auth->jwt_token));
+
+		counter++;
+
+		CKINT(acvp_extend_string(logbuf, sizeof(logbuf), "%u ",
+					 testid_ctx->testid));
+	}
+
+	logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+	       "About to refresh of auth token for test sessions: %s\n",
+	       logbuf);
+
+#if 0	/* sensitive data ought to not be logged */
+	logger(LOGGER_DEBUG, LOGGER_C_ANY,
+	       "Refresh with following JSON data: %s\n",
+	       json_object_to_json_string_ext(login,
+					      JSON_C_TO_STRING_PRETTY |
+					      JSON_C_TO_STRING_NOSLASHESCAPE));
+#endif
+
+	/*
+	 * Dump the constructed message if requested and return (i.e. no
+	 * submission).
+	 */
+	if (dump_register) {
+		fprintf(stdout, "%s\n",
+			json_object_to_json_string_ext(login,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		ret = 0;
+		goto out;
+	}
+
+	logger_status(LOGGER_C_ANY,
+		      "Logging into ACVP server to refresh %u existing auth tokens",
+		      counter);
+
+	CKINT(acvp_create_url(NIST_VAL_OP_LOGIN_REFRESH, url, sizeof(url)));
+	CKINT(acvp_login_submit(login, url, &response_buf));
+
+	/* Process the response and set the authentication token. */
+	CKINT(acvp_process_login_refresh(testid_ctx_head, &response_buf));
+
+out:
+	/* Unlock the test session auth token */
+	for (testid_ctx = testid_ctx_head;
+	     testid_ctx != NULL;
+	     testid_ctx = testid_ctx->next) {
+		auth = testid_ctx->server_auth;
+		if (!auth)
+			continue;
+		mutex_unlock(&auth->mutex);
+	}
+
+	ACVP_JSON_PUT_NULL(login);
 	acvp_free_buf(&response_buf);
 
 	return ret;

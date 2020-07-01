@@ -274,6 +274,11 @@ int acvp_search_to_http_type(int search_errno, unsigned int type,
 			     const struct acvp_opts_ctx *ctx_opts, uint32_t id,
 			     enum acvp_http_type *http_type)
 {
+	if (ctx_opts->show_db_entries) {
+		*http_type = acvp_http_none;
+		return 0;
+	}
+
 	/* Only the errno of ENOENT is converted to HTTP request type */
 	if (search_errno && search_errno != -ENOENT)
 		return search_errno;

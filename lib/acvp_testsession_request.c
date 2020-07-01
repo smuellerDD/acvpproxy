@@ -146,10 +146,10 @@ static void acvp_release_verdict(struct acvp_test_verdict_status *verdict)
 
 void acvp_release_testid(struct acvp_testid_ctx *testid_ctx)
 {
-	acvp_release_verdict(&testid_ctx->verdict);
-
 	if (!testid_ctx)
 		return;
+
+	acvp_release_verdict(&testid_ctx->verdict);
 
 	free(testid_ctx);
 }

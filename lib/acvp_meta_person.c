@@ -1,4 +1,4 @@
-/* ACVP proxy protocol handler for managing the vendor information
+/* ACVP proxy protocol handler for managing the person information
  *
  * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
  *
@@ -190,9 +190,10 @@ out:
 
 /* GET /persons/<personId> */
 static int acvp_person_get_match(const struct acvp_testid_ctx *testid_ctx,
-				 struct def_vendor *def_vendor)
+				 struct def_vendor *def_vendor,
+				 struct json_object **resp,
+				 struct json_object **data)
 {
-	struct json_object *resp = NULL, *data = NULL;
 	ACVP_BUFFER_INIT(buf);
 	int ret, ret2;
 	char url[ACVP_NET_URL_MAXLEN];
@@ -210,11 +211,10 @@ static int acvp_person_get_match(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-	CKINT(acvp_req_strip_version(&buf, &resp, &data));
-	CKINT(acvp_person_match(def_vendor, data));
+	CKINT(acvp_req_strip_version(&buf, resp, data));
+	CKINT(acvp_person_match(def_vendor, *data));
 
 out:
-	ACVP_JSON_PUT_NULL(resp);
 	acvp_free_buf(&buf);
 	return ret;
 }
@@ -223,7 +223,7 @@ out:
 static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 				struct def_vendor *def_vendor,
 				char *url, unsigned int urllen,
-				enum acvp_http_type type)
+				enum acvp_http_type type, bool asked)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
@@ -236,7 +236,9 @@ static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 		CKINT(acvp_person_build(def_vendor, &json_person));
 	}
 
-	if (!req_details->dump_register && !ctx_opts->register_new_vendor) {
+	if (!req_details->dump_register &&
+	    !ctx_opts->register_new_vendor &&
+	    !asked) {
 		if (json_person) {
 			logger_status(LOGGER_C_ANY,
 				      "Data to be registered: %s\n",
@@ -264,14 +266,16 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	struct json_object *json_person = NULL;
+	struct json_object *resp = NULL, *found_data = NULL;
 	int ret;
 	enum acvp_http_type http_type;
 	char url[ACVP_NET_URL_MAXLEN];
+	bool asked = false;
 
 	logger_status(LOGGER_C_ANY, "Validating person reference %u\n",
 		      def_vendor->acvp_person_id);
 
-	ret = acvp_person_get_match(testid_ctx, def_vendor);
+	ret = acvp_person_get_match(testid_ctx, def_vendor, &resp, &found_data);
 
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_PERSON,
 				       ctx_opts, def_vendor->acvp_person_id,
@@ -286,19 +290,68 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 					JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
+		if (found_data) {
+			logger_status(LOGGER_C_ANY,
+				      "Data currently on ACVP server: %s\n",
+				      json_object_to_json_string_ext(found_data,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
 		if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
 			http_type = acvp_http_put;
-		} else if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be DELETED")) {
+		} else if (!ask_yes("Shall the entry be DELETED from the ACVP server data base")) {
 			http_type = acvp_http_delete;
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Registering operation interrupted\n");
 			goto out;
 		}
+
+		asked = true;
 	} else if (ret) {
 		  logger(LOGGER_ERR, LOGGER_C_ANY,
 			 "Conversion from search type to HTTP request type failed for person\n");
 		  goto out;
+	} else if (http_type == acvp_http_put) {
+		/* Update requested */
+		CKINT(acvp_person_build(def_vendor, &json_person));
+		if (json_person) {
+			logger_status(LOGGER_C_ANY,
+				      "Data to be registered: %s\n",
+				      json_object_to_json_string_ext(json_person,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
+		if (found_data) {
+			logger_status(LOGGER_C_ANY,
+				      "Data currently on ACVP server: %s\n",
+				      json_object_to_json_string_ext(found_data,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
+		if (ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
+			ret = -ENOENT;
+			goto out;
+		}
+		asked = true;
+	} else if (http_type == acvp_http_delete) {
+		/* Delete requested */
+		if (found_data) {
+			logger_status(LOGGER_C_ANY,
+				      "Data currently on ACVP server: %s\n",
+				      json_object_to_json_string_ext(found_data,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
+		if (ask_yes("Shall the entry be DELETED from the ACVP server data base")) {
+			ret = -ENOENT;
+			goto out;
+		}
+		asked = true;
 	}
 
 	if (http_type == acvp_http_none)
@@ -306,9 +359,10 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
 	CKINT(acvp_person_register(testid_ctx, def_vendor, url, sizeof(url),
-				   http_type));
+				   http_type, asked));
 
 out:
+	ACVP_JSON_PUT_NULL(resp);
 	ACVP_JSON_PUT_NULL(json_person);
 	return ret;
 }
@@ -335,6 +389,8 @@ static int acvp_person_match_cb(void *private, struct json_object *json_vendor)
 static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 				    struct def_vendor *def_vendor)
 {
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *opts = &ctx->options;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN], queryoptions[256], personstr[128];
 
@@ -351,18 +407,18 @@ static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 		 personstr);
 	CKINT(acvp_append_urloptions(queryoptions, url, sizeof(url)));
 
-	CKINT(acvp_paging_get(testid_ctx, url, def_vendor,
-			      &acvp_person_match_cb));
+	CKINT(acvp_paging_get(testid_ctx, url, ACVP_OPTS_SHOW_PERSON,
+			      def_vendor, &acvp_person_match_cb));
 
 	/* We found an entry and do not need to do anything */
-	if (ret > 0) {
+	if (ret > 0 || opts->show_db_entries) {
 		ret = 0;
 		goto out;
 	}
 
 	CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
 	CKINT(acvp_person_register(testid_ctx, def_vendor, url,
-				   sizeof(url), acvp_http_post));
+				   sizeof(url), acvp_http_post, false));
 
 out:
 	return ret;
@@ -398,6 +454,7 @@ int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details;
+	const struct acvp_opts_ctx *opts;
 	const struct definition *def;
 	struct def_vendor *def_vendor;
 	struct json_object *json_vendor = NULL;
@@ -414,6 +471,7 @@ int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx)
 	CKNULL_LOG(ctx, -EINVAL, "Vendor validation: ACVP context missing\n");
 
 	req_details = &ctx->req_details;
+	opts = &ctx->options;
 
 	/* Lock def_vendor */
 	CKINT(acvp_def_get_person_id(def_vendor));
@@ -432,7 +490,7 @@ int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx)
 		CKINT_ULCK(acvp_create_url(NIST_VAL_OP_PERSONS, url,
 					   sizeof(url)));
 		acvp_person_register(testid_ctx, def_vendor, url, sizeof(url),
-				     acvp_http_post);
+				     acvp_http_post, false);
 		goto unlock;
 	}
 
@@ -440,7 +498,7 @@ int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx)
 	CKINT_ULCK(acvp_meta_obtain_request_result(testid_ctx,
 						   &def_vendor->acvp_person_id));
 
-	if (def_vendor->acvp_person_id) {
+	if (def_vendor->acvp_person_id && !(opts->show_db_entries)) {
 		CKINT_ULCK(acvp_person_validate_one(testid_ctx, def_vendor));
 	} else {
 		CKINT_ULCK(acvp_person_validate_all(testid_ctx, def_vendor));

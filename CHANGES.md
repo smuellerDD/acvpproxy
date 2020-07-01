@@ -1,3 +1,24 @@
+v1.5.0
+- enhancement: envType can hold a numeric environment ID reference from enum def_mod_type or one of the strings Hardware, Software, Firmware
+- enhancement: add logic for tracking and enforcing versioning of extensions
+- fix: prevent asking question for registration twice
+- enhancement: add support for refresh of multiple JWT with one login providing a massive performance boost to submissions of test responses and publication
+- fix: force a JWT refresh if authentication error was received
+- enhancement: add KAS-ECC-SSC and KAS-FFC-SSC
+- enhancement: RSA - add DEF_ALG_RSA_PSS_SALT_VALUE to set a specific salt length value
+- enhancement: add --list-cert-niap to provide a listing of the available certificates limited to only the ciphers and their implementations of interest - this shall aid the CC evaluations
+- enhancement: --rename* now also cause the rename of the corresponding entry in the configuration files
+- enhancement: use interactive mode during publishing when ACVP server database does not match local data and --register-definition is not set
+- fix: add tests for KAS_FFC|ECC SP800-56A rev 3
+- fix: add tests for safeprimes SP800-56A rev 3
+- fix: add tests for KAS_FFC|ECC_SSC SP800-56A rev 3
+- fix: add tests for KAS_IFC SP800-56B rev 2
+- fix: update dependency listing parsing for /oes/<ID> for new web frontend
+- enhancement: use link-time-optimizations
+- enhancement: add --list-server-db
+- enhancement: add --search-searver-db
+- fix: update PBKDF request to new server structure
+
 v1.4.0
 - add --proxy-extension-dir
 - enable modularized compilation

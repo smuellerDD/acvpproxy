@@ -68,6 +68,15 @@ static DEFINE_MUTEX_W_UNLOCKED(totp_lock);
  */
 static atomic_bool_t totp_shutdown = ATOMIC_BOOL_INIT(false);
 
+#if (GCC_VERSION >= 40400) || defined(__clang__)
+# define __HAVE_BUILTIN_BSWAP32__
+# define __HAVE_BUILTIN_BSWAP64__
+#endif
+
+#ifdef __HAVE_BUILTIN_BSWAP64__
+# define _swap64(x) (uint64_t)__builtin_bswap64((uint64_t)(x))
+#else
+
 /****************
  * Rotate the 32 bit unsigned integer X by N bits left/right
  */
@@ -93,14 +102,6 @@ static inline uint64_t _bswap64(uint64_t x)
 		(uint64_t)(_bswap32((uint32_t)(x >> 32)));
 }
 
-#if GCC_VERSION >= 40400
-# define __HAVE_BUILTIN_BSWAP32__
-# define __HAVE_BUILTIN_BSWAP64__
-#endif
-
-#ifdef __HAVE_BUILTIN_BSWAP64__
-# define _swap64(x) (uint64_t)__builtin_bswap64((uint64_t)(x))
-#else
 # define _swap64(x) _bswap64(x)
 #endif
 

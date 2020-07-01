@@ -719,6 +719,99 @@ out:
 	return ret;
 }
 
+/* Return true if extension version is greater or equal to provided number. */
+static bool acvp_so_version_ge(const struct dirent *dentry,
+			       unsigned int maj, unsigned int minor,
+			       unsigned int patchlevel)
+{
+	size_t filenamelen, i, end = 0;
+	unsigned long f_maj = 0, f_minor = 0, f_patchlevel = 0;
+	bool maj_done = false, minor_done = false, patchlevel_done = false;
+	char tmp[4];
+
+	/* Check that entry is neither ".", "..", or a hidden file */
+	if (dentry->d_name[0] == '.')
+		return false;
+
+	/* Check that it is a regular file or a symlink */
+	if (dentry->d_type != DT_REG && dentry->d_type != DT_LNK)
+		return false;
+
+	filenamelen = strlen(dentry->d_name);
+	if (!filenamelen)
+		return false;
+
+	memset(tmp, 0, sizeof(tmp));
+	for (i = filenamelen - 1; i > 0; i--) {
+		size_t diff;
+
+		/* Version numbers are bullet-separated. */
+		if (dentry->d_name[i] != '.')
+			continue;
+
+		/* Skip the extension of the file name. */
+		if (!end) {
+			end = i;
+			continue;
+		}
+
+		diff = end - i - 1;
+
+		/* Ensure that there are no two dots next to each other. */
+		if (diff == 0) {
+			end = i;
+			continue;
+		}
+
+		/* Number shall have at most 4 digits. */
+		if (diff > sizeof(tmp))
+			diff = sizeof(tmp);
+
+		/* Copy the version into tmp variable. */
+		memcpy(tmp, dentry->d_name + i + 1, diff);
+
+		end = i;
+
+		/* Convert data into integer. */
+		if (!patchlevel_done) {
+			f_patchlevel = strtoul(tmp, NULL, 10);
+			patchlevel_done = true;
+			memset(tmp, 0, sizeof(tmp));
+			if (f_patchlevel == ULONG_MAX)
+				return false;
+			continue;
+		} else if (!minor_done) {
+			f_minor = strtoul(tmp, NULL, 10);
+			minor_done = true;
+			memset(tmp, 0, sizeof(tmp));
+			if (f_minor == ULONG_MAX)
+				return false;
+			continue;
+		} else if (!maj_done) {
+			f_maj = strtoul(tmp, NULL, 10);
+			maj_done = true;
+			memset(tmp, 0, sizeof(tmp));
+			if (f_maj == ULONG_MAX)
+				return false;
+		}
+
+		/* Perform matching of version information. */
+		if (maj < f_maj)
+			return true;
+		if (maj == f_maj) {
+			if (minor < f_minor)
+				return true;
+			if (minor == f_minor) {
+				if (patchlevel <= f_patchlevel)
+					return true;
+			}
+		}
+		return false;
+	}
+
+	return false;
+}
+
 DSO_PUBLIC
 int acvp_load_extension_directory(const char *dir)
 {
@@ -737,6 +830,21 @@ int acvp_load_extension_directory(const char *dir)
 		if (!acvp_usable_dirent(dentry, "so") &&
 		    !acvp_usable_dirent(dentry, "dylib"))
 			continue;
+
+		/*
+		 * Require the file version to be at least 1.4.0 - the first
+		 * version that has extension support.
+		 *
+		 * We only enforce versioning when loading an entire directory
+		 * since loading individual shared object files are used
+		 * when creating out-of-tree extensions.
+		 */
+		if (!acvp_so_version_ge(dentry, 1, 4, 0)) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Extension %s too old\n", dentry->d_name);
+			ret = -EINVAL;
+			goto out;
+		}
 
 		snprintf(filename, sizeof(filename), "%s/%s", dir,
 			 dentry->d_name);

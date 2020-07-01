@@ -64,6 +64,9 @@ struct opt_data {
 	const char *tlscabundle;
 	const char *tlscakeychainref;
 	const char *seedfile;
+	const char *cert_details_niap_req_file;
+	const char *acvp_server_db_search;
+	enum acvp_server_db_search_type search_type;
 	char *basedir;
 	char *secure_basedir;
 	char *definition_basedir;
@@ -332,9 +335,8 @@ static void usage(void)
 	fprintf(stderr, "Upload test responses and (continue to) fetch verdict:\n");
 	fprintf(stderr, "  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] [--testid|--vsid ID]\n\n");
 
-	//TODO issue #518: remove caveat once issue is cleared
-	fprintf(stderr, "Download samples after vectors are obtained (CURRENTLY NOT SUPPORTED BY ACVP SERVER):\n");
-	fprintf(stderr, "  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] --request [--testid|--vsid ID] --sample\n\n");
+	fprintf(stderr, "Download samples after vectors are obtained:\n");
+	fprintf(stderr, "  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] [--testid|--vsid ID] --sample\n\n");
 	fprintf(stderr, "Usage:\n");
 	fprintf(stderr, "\tModule search criteria limiting the scope of processed modules:\n");
 	fprintf(stderr, "\t-m --module <NAME>\t\tDefinition search criteria: Name of\n");
@@ -422,9 +424,19 @@ static void usage(void)
 	fprintf(stderr, "\t   --list-certificates\t\tList all certificates\n");
 	fprintf(stderr, "\t   --list-cert-details\t\tList all certificate details for\n");
 	fprintf(stderr, "\t\t\t\t\tTE.01.12.01\n");
+	fprintf(stderr, "\t   --list-cert-niap <FILE>\tList all certificate details for\n");
+	fprintf(stderr, "\t\t\t\t\ta NIAP CC eval\n");
 	fprintf(stderr, "\t   --list-cipher-options\tList all cipher options\n");
 	fprintf(stderr, "\t   --list-cipher-options-deps\tList all cipher options with\n");
-	fprintf(stderr, "\t\t\t\t\tcipher dependencies\n\n");
+	fprintf(stderr, "\t\t\t\t\tcipher dependencies\n");
+	fprintf(stderr, "\t   --list-server-db <TYPE>\tList entries in ACVP server database\n");
+	fprintf(stderr, "\t\t\t\t\tTYPE: [oe|vendor|module|person]\n");
+	fprintf(stderr, "\t   --search-server-db <SEARCH>\tSearch ACVP server database\n");
+	fprintf(stderr, "\t\t\t\t\tSEARCH: <TYPE>:<QUERY>\n");
+	fprintf(stderr, "\t\t\t\t\tTYPE:\t[oe|vendor|module|person|\n");
+	fprintf(stderr, "\t\t\t\t\t\taddress|dependency]\n");
+	fprintf(stderr, "\t\t\t\t\tQUERY: string as defined in ACVP spec\n");
+	fprintf(stderr, "\t\t\t\t\tsection 11.6 \n\n");
 
 	fprintf(stderr, "\tGathering cipher definitions from ACVP server:\n");
 	fprintf(stderr, "\t   --cipher-list\t\tList all ciphers supported by ACVP\n");
@@ -560,6 +572,56 @@ static int convert_update_delete_type(const char *string, unsigned int *option)
 	return 0;
 }
 
+static int convert_show_type(const char *string, unsigned int *option)
+{
+	if (!strncmp(string, "oe", 2)) {
+		*option |= ACVP_OPTS_SHOW_OE;
+	} else if (!strncmp(string, "vendor", 6)) {
+		*option |= ACVP_OPTS_SHOW_VENDOR;
+	} else if (!strncmp(string, "person", 6)) {
+		*option |= ACVP_OPTS_SHOW_PERSON;
+	} else if (!strncmp(string, "module", 6)) {
+		*option |= ACVP_OPTS_SHOW_MODULE;
+	} else {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		"Unknown show type %s\n", string);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int convert_search_type(const char *string,
+			       const char **searchstr,
+			       enum acvp_server_db_search_type *type)
+{
+	if (!strncmp(string, "oe:", 3)) {
+		*type = NIST_SERVER_DB_SEARCH_OE;
+		*searchstr = string + 3;
+	} else if (!strncmp(string, "vendor:", 7)) {
+		*type = NIST_SERVER_DB_SEARCH_VENDOR;
+		*searchstr = string + 7;
+	} else if (!strncmp(string, "person:", 7)) {
+		*type = NIST_SERVER_DB_SEARCH_PERSONS;
+		*searchstr = string + 7;
+	} else if (!strncmp(string, "module:", 7)) {
+		*type = NIST_SERVER_DB_SEARCH_MODULE;
+		*searchstr = string + 7;
+	} else if (!strncmp(string, "dependency:", 11)) {
+		*type = NIST_SERVER_DB_SEARCH_DEPENDENCY;
+		*searchstr = string + 11;
+	} else if (!strncmp(string, "address:", 8)) {
+		*type = NIST_SERVER_DB_SEARCH_ADDRESSES;
+		*searchstr = string + 8;
+	} else {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		"Unknown search type %s\n", string);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int parse_fuzzy_flag(bool *fuzzy_search_flag, char **dst,
 			    const char *src)
 {
@@ -656,8 +718,11 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"list-verdicts",	no_argument,		0, 0},
 			{"list-certificates",	no_argument,		0, 0},
 			{"list-cert-details",	no_argument,		0, 0},
+			{"list-cert-niap",	required_argument,	0, 0},
 			{"list-cipher-options",	no_argument,		0, 0},
 			{"list-cipher-options-deps",no_argument,	0, 0},
+			{"list-server-db",	required_argument,	0, 0},
+			{"search-server-db",	required_argument,	0, 0},
 
 			{"cipher-options",	required_argument,	0, 0},
 			{"cipher-algo",		required_argument,	0, 0},
@@ -948,22 +1013,39 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
 			case 40:
+				/* list-cert-niap */
+				opts->list_certificates_detailed = true;
+				opts->acvp_ctx_options.threading_disabled = true;
+				opts->cert_details_niap_req_file = optarg;
+				break;
+			case 41:
 				/* list-cipher-options */
 				opts->list_cipher_options = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 41:
+			case 42:
 				/* list-cipher-options-deps */
 				opts->list_cipher_options_deps = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
+			case 43:
+				/* list-server-db */
+				CKINT(convert_show_type(optarg,
+				      &opts->acvp_ctx_options.show_db_entries));
+				break;
+			case 44:
+				/* search-server-db */
+				CKINT(convert_search_type(optarg,
+						&opts->acvp_server_db_search,
+						&opts->search_type));
+				break;
 
-			case 42:
+			case 45:
 				/* cipher-options */
 				CKINT(duplicate_string(&opts->cipher_options_file,
 						       optarg));
 				break;
-			case 43:
+			case 46:
 				/* cipher-algo */
 				CKINT(duplicate_string(&opts->cipher_options_algo[opts->cipher_options_algo_idx],
 						       optarg));
@@ -974,57 +1056,57 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					goto out;
 				}
 				break;
-			case 44:
+			case 47:
 				/* cipher-list */
 				opts->cipher_list = true;
 				break;
 
-			case 45:
+			case 48:
 				/* proxy-extension */
 				CKINT(acvp_load_extension(optarg));
 				break;
-			case 46:
+			case 49:
 				/* proxy-extension-dir */
 				CKINT(acvp_load_extension_directory(optarg));
 				break;
-			case 47:
+			case 50:
 				/* rename-version */
 				rename->moduleversion_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 48:
+			case 51:
 				/* rename-name */
 				rename->modulename_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 49:
+			case 52:
 				/* rename-oename */
 				rename->oe_env_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 50:
+			case 53:
 				/* rename-procname */
 				rename->proc_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 51:
+			case 54:
 				/* rename-procseries */
 				rename->proc_series_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 52:
+			case 55:
 				/* rename-procfamily */
 				rename->proc_family_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
 
-			case 53:
+			case 56:
 				/* register-only */
 				opts->acvp_ctx_options.register_only = true;
 				break;
@@ -1487,7 +1569,8 @@ static int list_certificates_detailed(struct opt_data *opts)
 
 	CKINT(initialize_ctx(&ctx, opts, false));
 
-	CKINT(acvp_list_certificates_detailed(ctx));
+	CKINT(acvp_list_certificates_detailed(ctx,
+					opts->cert_details_niap_req_file));
 
 out:
 	acvp_ctx_release(ctx);
@@ -1526,6 +1609,35 @@ out:
 	return ret;
 }
 
+static int do_list_server_db(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	CKINT(acvp_server_db_list(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int do_search_server_db(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	CKINT(acvp_server_db_search(ctx, opts->search_type,
+				    opts->acvp_server_db_search));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	struct opt_data opts;
@@ -1540,7 +1652,11 @@ int main(int argc, char *argv[])
 
 	CKINT(parse_opts(argc, argv, &opts));
 
-	if (opts.cipher_list || opts.cipher_options_algo_idx ||
+	if (opts.acvp_server_db_search && opts.search_type) {
+		CKINT(do_search_server_db(&opts));
+	} else if (opts.acvp_ctx_options.show_db_entries) {
+		CKINT(do_list_server_db(&opts));
+	} else if (opts.cipher_list || opts.cipher_options_algo_idx ||
 	    opts.cipher_options_file) {
 		CKINT(do_fetch_cipher_options(&opts));
 	} else if (opts.rename) {

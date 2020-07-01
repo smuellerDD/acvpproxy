@@ -665,6 +665,175 @@ static const struct def_algo_prereqs generic_pbkdf_prereqs[] = {
 		},							\
 	}
 
+/**************************************************************************
+ * KAS ECC Shared Secret Computation Definitions
+ **************************************************************************/
+static const struct def_algo_prereqs generic_ecdh_ssc_r3_prereqs[] = {
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+static const struct def_algo_prereqs generic_ecdh_ssc_r3_hash_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+static const struct
+def_algo_kas_ecc_r3_schema generic_ecc_ssc_r3_ephem_unified[] = { {
+	.schema = DEF_ALG_KAS_ECC_R3_EPHEMERAL_UNIFIED,
+	.kas_ecc_role = DEF_ALG_KAS_ECC_R3_INITIATOR |
+			DEF_ALG_KAS_ECC_R3_RESPONDER,
+} };
+
+/**
+ * @brief ECC Shared Secret Computation
+ *
+ * Cipher definition properties
+ * 	* initiator and responder
+ *	* ephemeral unitified schema
+ *	* no hashing of shared secret
+ *
+ * @param curve One or more ECC curves combined with an OR
+ */
+#define GENERIC_KAS_ECC_SSC_R3(curve)					\
+	{								\
+	.type = DEF_ALG_TYPE_KAS_ECC_R3,				\
+	.algo.kas_ecc_r3 = {						\
+		DEF_PREREQS(generic_ecdh_ssc_r3_prereqs),		\
+		.kas_ecc_function = DEF_ALG_KAS_ECC_R3_SSC,		\
+		.schema = generic_ecc_ssc_r3_ephem_unified,		\
+		.schema_num = ARRAY_SIZE(generic_ecc_ssc_r3_ephem_unified),\
+		.domain_parameter = curve,				\
+		},							\
+	}
+
+/**
+ * @brief ECC Shared Secret Computation
+ *
+ * Cipher definition properties
+ * 	* initiator and responder
+ *	* ephemeral unitified schema
+ *	* hashing of shared secret
+ *
+ * @param curve One or more ECC curves combined with an OR
+ * @param hash One and only one hash definition
+ */
+#define GENERIC_KAS_ECC_SSC_R3_HASH(curve, hash)			\
+	{								\
+	.type = DEF_ALG_TYPE_KAS_ECC_R3,				\
+	.algo.kas_ecc_r3 = {						\
+		DEF_PREREQS(generic_ecdh_ssc_r3_hash_prereqs),		\
+		.kas_ecc_function = DEF_ALG_KAS_ECC_R3_SSC,		\
+		.schema = generic_ecc_ssc_r3_ephem_unified,		\
+		.schema_num = ARRAY_SIZE(generic_ecc_ssc_r3_ephem_unified),\
+		.domain_parameter = curve,				\
+		.hash_z = hash,						\
+		},							\
+	}
+
+
+/**************************************************************************
+ * KAS FFC Shared Secret Computation Definitions
+ **************************************************************************/
+static const struct def_algo_prereqs generic_dh_ssc_r3_prereqs[] = {
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+static const struct def_algo_prereqs generic_dh_ssc_r3_hash_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+static const struct
+def_algo_kas_ffc_r3_schema generic_ffc_ssc_r3_ephem_unified[] = { {
+	.schema = DEF_ALG_KAS_FFC_R3_DH_EPHEM,
+	.kas_ffc_role = DEF_ALG_KAS_FFC_R3_INITIATOR |
+			DEF_ALG_KAS_FFC_R3_RESPONDER,
+} };
+
+/**
+ * @brief FFC Shared Secret Computation
+ *
+ * Cipher definition properties
+ * 	* initiator and responder
+ *	* ephemeral unitified schema
+ *	* no hashing of shared secret
+ *
+ * @param groups One or more combined with an OR
+ *		 ACVP_DH_MODP_2048
+ *		 ACVP_DH_MODP_3072
+ *		 ACVP_DH_MODP_4096
+ *		 ACVP_DH_MODP_6144
+ *		 ACVP_DH_MODP_8192
+ *		 ACVP_DH_FFDHE_2048
+ *		 ACVP_DH_FFDHE_3072
+ *		 ACVP_DH_FFDHE_4096
+ *		 ACVP_DH_FFDHE_6144
+ *		 ACVP_DH_FFDHE_8192
+ */
+#define GENERIC_KAS_FFC_SSC_R3(groups)					\
+	{								\
+	.type = DEF_ALG_TYPE_KAS_FFC_R3,				\
+	.algo.kas_ffc_r3 = {						\
+		DEF_PREREQS(generic_dh_ssc_r3_prereqs),			\
+		.kas_ffc_function = DEF_ALG_KAS_FFC_R3_SSC,		\
+		.schema = generic_ffc_ssc_r3_ephem_unified,		\
+		.schema_num = ARRAY_SIZE(generic_ffc_ssc_r3_ephem_unified),\
+		.domain_parameter = groups,				\
+		},							\
+	}
+
+/**
+ * @brief FFC Shared Secret Computation
+ *
+ * Cipher definition properties
+ * 	* initiator and responder
+ *	* ephemeral unitified schema
+ *	* hashing of shared secret
+ *
+ * @param groups One or more combined with an OR
+ *		 ACVP_DH_MODP_2048
+ *		 ACVP_DH_MODP_3072
+ *		 ACVP_DH_MODP_4096
+ *		 ACVP_DH_MODP_6144
+ *		 ACVP_DH_MODP_8192
+ *		 ACVP_DH_FFDHE_2048
+ *		 ACVP_DH_FFDHE_3072
+ *		 ACVP_DH_FFDHE_4096
+ *		 ACVP_DH_FFDHE_6144
+ *		 ACVP_DH_FFDHE_8192
+ * @param hash One and only one hash definition
+ */
+#define GENERIC_KAS_FFC_SSC_R3_HASH(groups, hash)			\
+	{								\
+	.type = DEF_ALG_TYPE_KAS_FFC_R3,				\
+	.algo.kas_ffc_r3 = {						\
+		DEF_PREREQS(generic_dh_ssc_r3_hash_prereqs),		\
+		.kas_ffc_function = DEF_ALG_KAS_FFC_R3_SSC,		\
+		.schema = generic_ffc_ssc_r3_ephem_unified,		\
+		.schema_num = ARRAY_SIZE(generic_ffc_ssc_r3_ephem_unified),\
+		.domain_parameter = groups,				\
+		.hash_z = hash,						\
+		},							\
+	}
+
 #ifdef __cplusplus
 }
 #endif

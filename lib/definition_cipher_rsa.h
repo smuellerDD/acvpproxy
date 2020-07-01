@@ -59,6 +59,7 @@ enum saltlen {
 	DEF_ALG_RSA_PSS_SALT_IGNORE,
 	DEF_ALG_RSA_PSS_SALT_ZERO,
 	DEF_ALG_RSA_PSS_SALT_HASHLEN,
+	DEF_ALG_RSA_PSS_SALT_VALUE,
 };
 
 enum keyformat {
@@ -205,6 +206,15 @@ struct def_algo_rsa_siggen_caps {
 	 * required: only for PSS
 	 */
 	enum saltlen saltlen;
+
+	/*
+	 * Length of the PSS salt in bytes.
+	 *
+	 * This field is only evaluated if saltlen is set to
+	 * DEF_ALG_RSA_PSS_SALT_VALUE.
+	 * required: optional, only for PSS
+	 */
+	int saltlen_bytes;
 };
 
 struct def_algo_rsa_siggen {
@@ -264,6 +274,14 @@ struct def_algo_rsa_sigver_caps {
 	 */
 	enum saltlen saltlen;
 
+	/*
+	 * Length of the PSS salt in bytes.
+	 *
+	 * This field is only evaluated if saltlen is set to
+	 * DEF_ALG_RSA_PSS_SALT_VALUE.
+	 * required: optional, only for PSS
+	 */
+	int saltlen_bytes;
 };
 
 struct def_algo_rsa_sigver_gen {

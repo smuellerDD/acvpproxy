@@ -28,28 +28,51 @@
 #include "logger.h"
 #include "request_helper.h"
 
+static int acvp_module_type_enum_to_name(enum def_mod_type env_type,
+					 const char **out_string)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(def_mod_type_conversion); i++) {
+		if (env_type == def_mod_type_conversion[i].type) {
+			*out_string = def_mod_type_conversion[i].type_name;
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
+int acvp_module_type_name_to_enum(const char *str, enum def_mod_type *env_type)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(def_mod_type_conversion); i++) {
+		if (acvp_find_match(str, def_mod_type_conversion[i].type_name,
+				    false)) {
+			*env_type = def_mod_type_conversion[i].type;
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
 int acvp_module_oe_type(enum def_mod_type env_type, const char **out_string)
 {
-	const char *type_string;
-
 	switch (env_type) {
 	case MOD_TYPE_SOFTWARE:
-		type_string = "Software";
-		break;
 	case MOD_TYPE_HARDWARE:
-		type_string = "Hardware";
-		break;
 	case MOD_TYPE_FIRMWARE:
-		type_string = "Firmware";
 		break;
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY, "Wrong OE type provided\n");
 		return -EINVAL;
-	};
+	}
 
-	if (out_string)
-		*out_string = type_string;
-
+	if (out_string) {
+		return acvp_module_type_enum_to_name(env_type, out_string);
+	}
 	return 0;
 }
 
@@ -233,9 +256,10 @@ out:
 
 /* GET /modules/<moduleId> */
 static int acvp_module_get_match(const struct acvp_testid_ctx *testid_ctx,
-				 struct def_info *def_info)
+				 struct def_info *def_info,
+				 struct json_object **resp,
+				 struct json_object **data)
 {
-	struct json_object *resp = NULL, *data = NULL;
 	ACVP_BUFFER_INIT(buf);
 	int ret, ret2;
 	char url[ACVP_NET_URL_MAXLEN];
@@ -253,11 +277,10 @@ static int acvp_module_get_match(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-	CKINT(acvp_req_strip_version(&buf, &resp, &data));
-	CKINT(acvp_module_match(def_info, data));
+	CKINT(acvp_req_strip_version(&buf, resp, data));
+	CKINT(acvp_module_match(def_info, *data));
 
 out:
-	ACVP_JSON_PUT_NULL(resp);
 	acvp_free_buf(&buf);
 	return ret;
 }
@@ -266,7 +289,7 @@ out:
 static int acvp_module_register(const struct acvp_testid_ctx *testid_ctx,
 				struct def_info *def_info,
 				char *url, unsigned int urllen,
-				enum acvp_http_type type)
+				enum acvp_http_type type, bool asked)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
@@ -279,7 +302,9 @@ static int acvp_module_register(const struct acvp_testid_ctx *testid_ctx,
 		CKINT(acvp_module_build(def_info, &json_info));
 	}
 
-	if (!req_details->dump_register && !ctx_opts->register_new_module) {
+	if (!req_details->dump_register &&
+	    !ctx_opts->register_new_module &&
+	    !asked) {
 		if (json_info) {
 			logger_status(LOGGER_C_ANY,
 				      "Data to be registered: %s\n",
@@ -307,14 +332,16 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	struct json_object *json_info = NULL;
+	struct json_object *resp = NULL, *found_data = NULL;
 	int ret;
 	enum acvp_http_type http_type;
 	char url[ACVP_NET_URL_MAXLEN];
+	bool asked = false;
 
 	logger_status(LOGGER_C_ANY, "Validating module reference %u\n",
 		      def_info->acvp_module_id);
 
-	ret = acvp_module_get_match(testid_ctx, def_info);
+	ret = acvp_module_get_match(testid_ctx, def_info,  &resp, &found_data);
 
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_MODULE,
 				       ctx_opts, def_info->acvp_module_id,
@@ -329,19 +356,68 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 					JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
+		if (found_data) {
+			logger_status(LOGGER_C_ANY,
+				      "Data currently on ACVP server: %s\n",
+				      json_object_to_json_string_ext(found_data,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
 		if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
 			http_type = acvp_http_put;
-		} else if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be DELETED")) {
+		} else if (!ask_yes("Shall the entry be DELETED from the ACVP server data base")) {
 			http_type = acvp_http_delete;
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Registering operation interrupted\n");
 			goto out;
 		}
+
+		asked = true;
 	} else if (ret) {
 		  logger(LOGGER_ERR, LOGGER_C_ANY,
 			 "Conversion from search type to HTTP request type failed for module\n");
 		  goto out;
+	} else if (http_type == acvp_http_put) {
+		/* Update requested */
+		CKINT(acvp_module_build(def_info, &json_info));
+		if (json_info) {
+			logger_status(LOGGER_C_ANY,
+				      "Data to be registered: %s\n",
+				      json_object_to_json_string_ext(json_info,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
+		if (found_data) {
+			logger_status(LOGGER_C_ANY,
+				      "Data currently on ACVP server: %s\n",
+				      json_object_to_json_string_ext(found_data,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
+		if (ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
+			ret = -ENOENT;
+			goto out;
+		}
+		asked = true;
+	} else if (http_type == acvp_http_delete) {
+		/* Delete requested */
+		if (found_data) {
+			logger_status(LOGGER_C_ANY,
+				      "Data currently on ACVP server: %s\n",
+				      json_object_to_json_string_ext(found_data,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
+		if (ask_yes("Shall the entry be DELETED from the ACVP server data base")) {
+			ret = -ENOENT;
+			goto out;
+		}
+		asked = true;
 	}
 
 	if (http_type == acvp_http_none)
@@ -349,9 +425,10 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
 	CKINT(acvp_module_register(testid_ctx, def_info, url, sizeof(url),
-				   http_type));
+				   http_type, asked));
 
 out:
+	ACVP_JSON_PUT_NULL(resp);
 	ACVP_JSON_PUT_NULL(json_info);
 	return ret;
 }
@@ -378,6 +455,8 @@ static int acvp_module_match_cb(void *private, struct json_object *json_vendor)
 static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 				    struct def_info *def_info)
 {
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *opts = &ctx->options;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN], queryoptions[256], modulestr[128];
 
@@ -394,18 +473,18 @@ static int acvp_module_validate_all(const struct acvp_testid_ctx *testid_ctx,
 		 modulestr);
 	CKINT(acvp_append_urloptions(queryoptions, url, sizeof(url)));
 
-	CKINT(acvp_paging_get(testid_ctx, url, def_info,
+	CKINT(acvp_paging_get(testid_ctx, url, ACVP_OPTS_SHOW_MODULE, def_info,
 			      &acvp_module_match_cb));
 
 	/* We found an entry and do not need to do anything */
-	if (ret > 0) {
+	if (ret > 0 || opts->show_db_entries) {
 		ret = 0;
 		goto out;
 	}
 
 	CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
 	CKINT(acvp_module_register(testid_ctx, def_info, url,
-				   sizeof(url), acvp_http_post));
+				   sizeof(url), acvp_http_post, false));
 
 out:
 	return ret;
@@ -442,6 +521,7 @@ int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details;
+	const struct acvp_opts_ctx *opts;
 	const struct definition *def;
 	struct def_info *def_info;
 	struct def_vendor *def_vendor;
@@ -461,6 +541,7 @@ int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx)
 		   "Module handling: vendor definitions missing\n");
 	CKNULL_LOG(ctx, -EINVAL, "Vendor validation: ACVP context missing\n");
 	req_details = &ctx->req_details;
+	opts = &ctx->options;
 
 	def_info->acvp_vendor_id = def_vendor->acvp_vendor_id;
 	def_info->acvp_person_id = def_vendor->acvp_person_id;
@@ -484,7 +565,7 @@ int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx)
 
 		CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
 		acvp_module_register(testid_ctx, def_info, url, sizeof(url),
-				     acvp_http_post);
+				     acvp_http_post, false);
 		goto unlock;
 	}
 
@@ -492,7 +573,7 @@ int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx)
 	CKINT_ULCK(acvp_meta_obtain_request_result(testid_ctx,
 						   &def_info->acvp_module_id));
 
-	if (def_info->acvp_module_id) {
+	if (def_info->acvp_module_id && !(opts->show_db_entries)) {
 		CKINT_ULCK(acvp_module_validate_one(testid_ctx, def_info));
 	} else {
 		CKINT_ULCK(acvp_module_validate_all(testid_ctx, def_info));

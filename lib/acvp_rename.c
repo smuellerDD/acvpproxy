@@ -71,6 +71,7 @@ static int acvp_rename_execenv(const struct acvp_testid_ctx *testid_ctx,
 	CKNULL(newname, 0);
 
 	CKINT(acvp_rename_generic(testid_ctx, &oe->oe_env_name, newname));
+	CKINT(acvp_def_update_oe_config(oe));
 
 out:
 	return ret;
@@ -86,6 +87,7 @@ static int acvp_rename_procname(const struct acvp_testid_ctx *testid_ctx,
 	CKNULL(newname, 0);
 
 	CKINT(acvp_rename_generic(testid_ctx, &oe->proc_name, newname));
+	CKINT(acvp_def_update_oe_config(oe));
 
 out:
 	return ret;
@@ -101,6 +103,7 @@ static int acvp_rename_procfamily(const struct acvp_testid_ctx *testid_ctx,
 	CKNULL(newname, 0);
 
 	CKINT(acvp_rename_generic(testid_ctx, &oe->proc_family, newname));
+	CKINT(acvp_def_update_oe_config(oe));
 
 out:
 	return ret;
@@ -116,6 +119,7 @@ static int acvp_rename_procseries(const struct acvp_testid_ctx *testid_ctx,
 	CKNULL(newname, 0);
 
 	CKINT(acvp_rename_generic(testid_ctx, &oe->proc_series, newname));
+	CKINT(acvp_def_update_oe_config(oe));
 
 out:
 	return ret;
@@ -129,8 +133,10 @@ static int acvp_rename_name(const struct acvp_testid_ctx *testid_ctx,
 	struct def_info *info = def->info;
 	char *newname_modify = NULL;
 	char *newname_unmodify = NULL;
+	char *newname_orig = NULL;
 	char *curr_name = info->module_name;
 	char *curr_name_filesafe = info->module_name_filesafe;
+	char *curr_name_orig = info->orig_module_name;
 	int ret;
 
 	CKNULL(newname, 0);
@@ -139,6 +145,7 @@ static int acvp_rename_name(const struct acvp_testid_ctx *testid_ctx,
 	/* Create the new module name string */
 	CKINT(acvp_def_module_name(&newname_modify, newname, map->impl_name));
 	CKINT(acvp_def_module_name(&newname_unmodify, newname, map->impl_name));
+	CKINT(acvp_def_module_name(&newname_orig, newname, NULL));
 
 	/* Rename directories */
 	CKINT(ds->acvp_datastore_rename_name(testid_ctx, newname_modify));
@@ -146,9 +153,11 @@ static int acvp_rename_name(const struct acvp_testid_ctx *testid_ctx,
 	/* Update names */
 	info->module_name_filesafe = newname_modify;
 	info->module_name = newname_unmodify;
+	info->orig_module_name = newname_orig;
 
 	/* Update definition */
 	CKINT(acvp_export_def_search(testid_ctx));
+	CKINT(acvp_def_update_module_config(info));
 
 	logger_status(LOGGER_C_ANY,
 		      "Rename of name for testID %u from %s to %s completed\n",
@@ -165,14 +174,19 @@ out:
 			free(newname_modify);
 		if (newname_unmodify)
 			free(newname_unmodify);
+		if (newname_orig)
+			free(newname_orig);
 
 		info->module_name = curr_name;
 		info->module_name_filesafe = curr_name_filesafe;
+		info->orig_module_name = curr_name_orig;
 	} else {
 		if (curr_name != info->module_name)
 			free(curr_name);
 		if (curr_name_filesafe != info->module_name_filesafe)
 			free(curr_name_filesafe);
+		if (curr_name_orig != info->orig_module_name)
+			free(curr_name_orig);
 	}
 
 	return ret;
@@ -204,6 +218,7 @@ static int acvp_rename_version(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Update definition */
 	CKINT(acvp_export_def_search(testid_ctx));
+	CKINT(acvp_def_update_module_config(info));
 
 	logger_status(LOGGER_C_ANY,
 		      "Rename of version for testID %u from %s to %s completed\n",
@@ -264,9 +279,6 @@ int acvp_rename_module(const struct acvp_ctx *ctx)
 	int ret;
 
 	CKINT(acvp_process_testids(ctx, &acvp_rename_module_cb));
-
-	logger_status(LOGGER_C_ANY,
-		      "Do not forget to manually update the module definition JSON file with the new information!\n");
 
 out:
 	return ret;

@@ -19,17 +19,14 @@
 
 #include "internal.h"
 
-int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
-		const char *url, const struct acvp_buf *submit,
-		struct acvp_buf *response, enum acvp_http_type nettype)
+static int _acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
+			const char *url, const struct acvp_buf *submit,
+			struct acvp_buf *response, enum acvp_http_type nettype)
 {
 	const struct acvp_net_ctx *net;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_na_ex netinfo;
 	int ret;
-
-	CKNULL_LOG(na, -EFAULT, "No network backend registered\n");
-	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
 
 	/* Refresh the ACVP JWT token by re-logging in. */
 	CKINT(acvp_login(testid_ctx));
@@ -69,6 +66,12 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 	}
 	mutex_reader_unlock(&auth->mutex);
 
+	if (!ret || ret < -200) {
+		logger(LOGGER_DEBUG, LOGGER_C_CURL, "HTTP return code: %d\n",
+		       ret ? -ret : 200);
+	}
+
+
 	if (nettype != acvp_http_delete) {
 		if (!response->buf || !response->len)
 			goto out;
@@ -76,6 +79,34 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 		logger(ret ? LOGGER_VERBOSE : LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Process following server response: %s\n",
 		       response->buf);
+	}
+
+out:
+	return ret;
+}
+
+int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
+		const char *url, const struct acvp_buf *submit,
+		struct acvp_buf *response, enum acvp_http_type nettype)
+{
+	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
+	int ret;
+
+	CKNULL_LOG(na, -EFAULT, "No network backend registered\n");
+	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
+
+	ret = _acvp_net_op(testid_ctx, url, submit, response, nettype);
+
+	/*
+	 * We got an authentication error - invalidate the JWT and try
+	 * to log in once again. The invalidation implies that acvp_login
+	 * will definitely refresh the JWT.
+	 */
+	if (ret == -403 || ret == -401) {
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "Authentication error received - force refresh of auth token and retry network operation\n");
+		CKINT(acvp_jwt_invalidate(testid_ctx));
+		CKINT(_acvp_net_op(testid_ctx, url, submit, response, nettype));
 	}
 
 out:

@@ -191,7 +191,8 @@ static int _bin2hex_html(const unsigned char *str, uint32_t strlen,
 	const char unreserved[] = "abcdefghijklmnopqrstuvwxyz"
 				  "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 				  "0123456789"
-				  "-._~";
+				  "-._~"
+				  ":=[]"; /* Do not convert search helper */
 
 	while (strlen) {
 		unsigned int charbytes;

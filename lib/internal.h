@@ -41,7 +41,7 @@ extern "C"
 			* zero, the API is not considered stable
 			* and can change without a bump of the
 			* major version). */
-#define MINVERSION 4   /* API compatible, ABI may change,
+#define MINVERSION 5   /* API compatible, ABI may change,
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
@@ -531,6 +531,11 @@ int acvp_vsid_url(const struct acvp_vsid_ctx *vsid_ctx, char *url,
 		  uint32_t urllen, bool urlpath);
 
 /**
+ * @brief Convert an environment string to an ID
+ */
+int acvp_module_type_name_to_enum(const char *str, enum def_mod_type *env_type);
+
+/**
  * @brief Convert environment ID to string.
  */
 int acvp_module_oe_type(enum def_mod_type env_type, const char **out_string);
@@ -583,6 +588,7 @@ int acvp_process_retry_testid(const struct acvp_testid_ctx *testid_ctx,
  *
  * @param testid_ctx TestID context with set credentials
  * @param url URL to use for request
+ * @param show_type type of the caller
  * @param private Private buffer pointer handed to callback without inspection
  *		  by this function.
  * @param cb Callback function to invoke for each found data entry
@@ -590,7 +596,7 @@ int acvp_process_retry_testid(const struct acvp_testid_ctx *testid_ctx,
  * @return 0 on success (no match), < 0 on error, EINTR (match found)
  */
 int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
-		    void *private,
+		    unsigned int show_type, void *private,
 		    int (*cb)(void *private, struct json_object *dataentry));
 
 /************************************************************************
@@ -653,6 +659,13 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 			 int (*cb)(const struct acvp_ctx *ctx,
 				   const struct definition *def,
 				   uint32_t testid));
+
+/**
+ * @brief Check the JWT for all test sessions in scope. For all JWTs that need
+ * a refresh, perform one login and refresh all of them with one login
+ * operation.
+ */
+int acvp_testids_refresh(const struct acvp_ctx *ctx);
 
 /**
  * @brief Match two strings
@@ -730,15 +743,16 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
  ************************************************************************/
 
 /**
- * @brief Initialize an authtoken. The memory must already be allocated by
- * the caller.
+ * @brief Initialize an authtoken. This includes allocation of the memory
+ * for the authentcation token and all preparation tasks necessary.
  */
 int acvp_init_auth(struct acvp_testid_ctx *testid_ctx);
 int acvp_init_auth_ctx(struct acvp_ctx *ctx);
 
 /**
  * @brief Release the information associated with the authentication token.
- * The caller must release the memory of the pointer.
+ * This includes the secure disposal of all data and the release of all memory
+ * allocated by the corresponding acvp_init_auth* functions.
  */
 void acvp_release_auth(struct acvp_testid_ctx *testid_ctx);
 void acvp_release_auth_ctx(struct acvp_ctx *ctx);
@@ -758,9 +772,28 @@ int acvp_get_accesstoken(const struct acvp_testid_ctx *testid_ctx,
  * token.
  *
  * The testid_ctx->server_auth and the testid_ctx->ctx->ctx_auth must have
- * been initialized already.
+ * been initialized already with the acvp_init_auth* functions.
  */
 int acvp_login(const struct acvp_testid_ctx *testid_ctx);
+
+/**
+ * @brief Perform the refresh operation of JWT of multiple test sessions
+ * that were provided with the linked list of testid_ctx
+ */
+int acvp_login_refresh(const struct acvp_testid_ctx *testid_ctx_head);
+
+/**
+ * @brief Check whether auth token needs a refresh by the ACVP server
+ *
+ * @return 0 if no refresh is needed, -EAGAIN if refresh is needed.
+ */
+int acvp_login_need_refresh(const struct acvp_testid_ctx *testid_ctx);
+
+/**
+ * @brief Invalidate JWT auth token which implies that next time an
+ * acvp_login is called, a refresh of the auth token will be performed.
+ */
+int acvp_jwt_invalidate(const struct acvp_testid_ctx *testid_ctx);
 
 /**
  * @brief Set the authtoken in the ctx data structure as needed for subsequent

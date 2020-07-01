@@ -43,6 +43,7 @@ extern "C"
 
 /* acvp_protocol.txt: section 5.2 */
 #define NIST_VAL_OP_LOGIN		"login"
+#define NIST_VAL_OP_LOGIN_REFRESH	"login/refresh"
 #define NIST_VAL_OP_REG			"testSessions"
 #define NIST_VAL_OP_VECTORSET		"vectorSets"
 #define NIST_VAL_OP_RESULTS		"results"
@@ -293,6 +294,12 @@ struct acvp_opts_ctx {
 #define ACVP_OPTS_DELUP_PERSON	(1<<3)	/** Delete / update person entry */
 #define ACVP_OPTS_DELUP_FORCE	(1<<30)	/** Force a deletion operation */
 	unsigned int delete_db_entry;
+
+#define ACVP_OPTS_SHOW_OE	(1<<0)	/** Show OE entries */
+#define ACVP_OPTS_SHOW_VENDOR	(1<<1)	/** Show vendor entries */
+#define ACVP_OPTS_SHOW_MODULE	(1<<2)	/** Show module entries */
+#define ACVP_OPTS_SHOW_PERSON	(1<<3)	/** Show person entries */
+	unsigned int show_db_entries;
 
 	/*
 	 * Update an entry with the ACVP database. The ID is taken from the
@@ -564,9 +571,29 @@ int acvp_list_certificates(const struct acvp_ctx *ctx);
  * @brief List all certificates with their tested ciphers
  *
  * @param ctx [in] ACVP Proxy library context
+ * @param req_ciphers_file [in] JSON file that contains search definitions
+ *				to limit the output of the ciphers. The JSON
+ *				file must be an array of cipher name as key
+ *				and implementation as value. This parameter
+ *				may be NULL if no search limit is requested.
+ *				For example:
+ * {
+ *	"ECDSA": {
+ *		"implementation": "vng_ltc",
+ *		"mode": [ "sigVer", "sigGen" ]
+ *	},
+ *	"ACVP-AES-CBC": {
+ *		"implementation": "c_ltc"
+ *	},
+ *	"SHA2-256": {
+ *		"implementation": "vng_ltc"
+ *	}
+ * }
+ *
  * @return 0 on success, < 0 on error
  */
-int acvp_list_certificates_detailed(const struct acvp_ctx *ctx);
+int acvp_list_certificates_detailed(const struct acvp_ctx *ctx,
+				    const char *req_ciphers_file);
 
 /**
  * @brief Refresh JWT authentication token for all already obtained test vectors
@@ -735,6 +762,37 @@ int acvp_rename_module(const struct acvp_ctx *ctx);
  * @return 0 on success, < 0 on error
  */
 int acvp_list_cipher_options(const struct acvp_ctx *ctx, bool list_deps);
+
+/**
+ * @brief List the ACVP server database entries matching the local definitions
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int acvp_server_db_list(const struct acvp_ctx *ctx);
+
+enum acvp_server_db_search_type {
+	NIST_SERVER_DB_SEARCH_VENDOR = 1,
+	NIST_SERVER_DB_SEARCH_ADDRESSES,
+	NIST_SERVER_DB_SEARCH_PERSONS,
+	NIST_SERVER_DB_SEARCH_OE,
+	NIST_SERVER_DB_SEARCH_MODULE,
+	NIST_SERVER_DB_SEARCH_DEPENDENCY,
+};
+
+/**
+ * @brief Perform a search query of teh ACVP server database with the
+ *	  provided search string and the object type.
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @param search_type [in] Object type to search
+ * @param searchstr [in] Search string compliant to ACVP search specification
+ *
+ * @return 0 on success, < 0 on error
+ */
+int acvp_server_db_search(struct acvp_ctx *ctx,
+			  enum acvp_server_db_search_type search_type,
+			  const char *searchstr);
 
 #ifdef __cplusplus
 }

@@ -10,6 +10,7 @@ SECUREDATASTORE_ORIG="secure-datastore.orig"
 TESTVECTORS="testvectors"
 SECUREDATASTORE="secure-datastore"
 MODULE_DEF_DIR="nettle_3.4"
+MODULE_DEF_DIR_TMP="${MODULE_DEF_DIR}_tmp"
 MODULE_DEF_DIR_NEWNAME="nettle_3.4_newname"
 MODULE_DEF_DIR_NEWVER="nettle_3.4_newver"
 MODULE_DEF_DIR_NEWOENAME="nettle_3.4_newoename"
@@ -17,16 +18,28 @@ LOGDIR="logs"
 
 LOGFILE=".log"
 
+init_test()
+{
+	cp -r $MODULE_DEF_DIR $MODULE_DEF_DIR_TMP
+}
+
+cleanup_test()
+{
+	rm -rf $MODULE_DEF_DIR_TMP
+}
+
 cleanup()
 {
 	rm -rf $SECUREDATASTORE
 	rm -rf $TESTVECTORS
+	cleanup_test
 }
 
 init_dirs()
 {
 	cp -r $TESTVECTORS_ORIG $TESTVECTORS
 	cp -r $SECUREDATASTORE_ORIG $SECUREDATASTORE
+	cp -r $MODULE_DEF_DIR $MODULE_DEF_DIR_TMP
 }
 
 #
@@ -53,7 +66,7 @@ test_rename_name()
 		return
 	fi
 
-	local result=$($EXEC -vvv -c acvpproxy_conf.json -d $MODULE_DEF_DIR -b $TESTVECTORS -s $SECUREDATASTORE -m Nettle -f --rename-name Nettle-newname > $LOGDIR/rename_name_2${LOGFILE} 2>&1)
+	local result=$($EXEC -vvv -c acvpproxy_conf.json -d $MODULE_DEF_DIR_TMP -b $TESTVECTORS -s $SECUREDATASTORE -m Nettle -f --rename-name Nettle-newname > $LOGDIR/rename_name_2${LOGFILE} 2>&1)
 
 	if [ $? -ne 0 ]
 	then
@@ -62,6 +75,13 @@ test_rename_name()
 	fi
 
 	local result=$($EXEC -vvv -c acvpproxy_conf.json -d $MODULE_DEF_DIR_NEWNAME -b $TESTVECTORS -s $SECUREDATASTORE -m Nettle-newname -f --list-verdicts > $LOGDIR/rename_name_3${LOGFILE} 2>&1)
+	if [ $? -ne 0 ]
+	then
+		echo_fail "Rename name: $result"
+		return
+	fi
+
+	local result=$(diff -urN $MODULE_DEF_DIR_TMP $MODULE_DEF_DIR_NEWNAME > $LOGDIR/rename_name_4${LOGFILE} 2>&1)
 	if [ $? -ne 0 ]
 	then
 		echo_fail "Rename name: $result"
@@ -101,7 +121,7 @@ test_rename_version()
 		return
 	fi
 
-	local result=$($EXEC -vvv -c acvpproxy_conf.json -d $MODULE_DEF_DIR -b $TESTVECTORS -s $SECUREDATASTORE -m Nettle -f --rename-version 3.5 > $LOGDIR/rename_version_2${LOGFILE} 2>&1)
+	local result=$($EXEC -vvv -c acvpproxy_conf.json -d $MODULE_DEF_DIR_TMP -b $TESTVECTORS -s $SECUREDATASTORE -m Nettle -f --rename-version 3.5 > $LOGDIR/rename_version_2${LOGFILE} 2>&1)
 
 	if [ $? -ne 0 ]
 	then
@@ -113,6 +133,13 @@ test_rename_version()
 	if [ $? -ne 0 ]
 	then
 		echo_fail "Rename version: $result"
+		return
+	fi
+
+	local result=$(diff -urN $MODULE_DEF_DIR_TMP $MODULE_DEF_DIR_NEWVER > $LOGDIR/rename_version_4${LOGFILE} 2>&1)
+	if [ $? -ne 0 ]
+	then
+		echo_fail "Rename name: $result"
 		return
 	fi
 
@@ -149,7 +176,7 @@ test_rename_oename()
 		return
 	fi
 
-	local result=$($EXEC -vvv -c acvpproxy_conf.json -d $MODULE_DEF_DIR -b $TESTVECTORS -s $SECUREDATASTORE -m Nettle -f --rename-oename "Fedora 30" > $LOGDIR/rename_oename_2${LOGFILE} 2>&1)
+	local result=$($EXEC -vvv -c acvpproxy_conf.json -d $MODULE_DEF_DIR_TMP -b $TESTVECTORS -s $SECUREDATASTORE -m Nettle -f --rename-oename "Fedora 30" > $LOGDIR/rename_oename_2${LOGFILE} 2>&1)
 
 	if [ $? -ne 0 ]
 	then
@@ -161,6 +188,13 @@ test_rename_oename()
 	if [ $? -ne 0 ]
 	then
 		echo_fail "Rename oename: $result"
+		return
+	fi
+
+	local result=$(diff -urN $MODULE_DEF_DIR_TMP $MODULE_DEF_DIR_NEWOENAME > $LOGDIR/rename_oename_4${LOGFILE} 2>&1)
+	if [ $? -ne 0 ]
+	then
+		echo_fail "Rename name: $result"
 		return
 	fi
 
@@ -188,8 +222,16 @@ init()
 
 init
 
+init_test
 test_rename_name
+cleanup_test
+
+init_test
 test_rename_version
+cleanup_test
+
+init_test
 test_rename_oename
+cleanup_test
 
 exit_test

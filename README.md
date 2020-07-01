@@ -252,7 +252,7 @@ The ACVP proxy needs a configuration file as documented in apps/README.md.
 
 ## Module Instantiation Configuration
 
-The ACVP Proxy contains the module cipher operation as part of its C code.
+The ACVP Proxy contains the module cipher definition as part of its C code.
 
 However, the instantiation of a particular module cipher definition into a
 module is driven by configuration files. With the term instantiation, the
@@ -323,7 +323,8 @@ The JSON files in the `oe` directory must contain the following JSON keywords:
 * `features`: Feature defined by an OR of the `OE_PROC_*` definitions.
 
 * `envType`: Type of the execution environment which is a selection from
-  `enum def_mod_type`.
+  `enum def_mod_type`. Instead of a numeric value, the following values are
+   equally allowed: `Software`, `Hardware`, `Firmware`.
 
 * `dependencies-internal`: This keyword is optional. For details, see section
   about automated dependency handling.
@@ -452,7 +453,7 @@ all implementation references and their dependencies. For example, the following
 
 	"dependencies-internal": {
 		"SP800-38D GCM Implementation": {
-			"AES": "SP800-38A AES Impl",
+			"AES": "SP800-38A AES Implementation with DRBG",
 			"DRBG": "SP800-38A AES Implementation with DRBG"
 		},
 	}
@@ -650,6 +651,35 @@ The ACVP Proxy uses the following cryptographic support:
   check with HMAC SHA-256 is enforced where the HMAC control file is
   searched in the same directory as the ACVP Proxy executable. When the
   HMAC control file does not exist, it is created.
+
+## Search the ACVP Server Database
+
+The ACVP Proxy offers a frontend to search the server database with all
+module meta data. The search is based on the search string defined in
+section 11.6 of the [ACVP specification](https://github.com/usnistgov/ACVP/blob/master/artifacts/draft-fussell-acvp-spec-00.txt).
+
+To indicate which object to search for, the search type must be specified
+with one of the following:
+
+* `vendor`
+
+* `address`
+
+* `persons`
+
+* `oe`
+
+* `module`
+
+* `dependency`
+
+The search type must be followed by the query string compliant to the ACVP
+specification 11.6 delimited with a colon.
+
+For example, the following string searches the ACVP server meta data base
+for the person called "John Doe".	
+
+  `acvp-proxy --search-server-db "person:fullName[0]=contains:John Doe"`
 
 # Architecture of ACVP Proxy
 

@@ -207,7 +207,8 @@ out:
 }
 
 static int acvp_req_rsa_hashalg(cipher_t hashalg, enum rsa_modulo modulo,
-				struct json_object *entry, enum saltlen saltlen)
+				struct json_object *entry, enum saltlen saltlen,
+				int saltlen_bytes)
 {
 	struct json_object *hash_array;
 	unsigned int i;
@@ -265,6 +266,9 @@ static int acvp_req_rsa_hashalg(cipher_t hashalg, enum rsa_modulo modulo,
 
 				CKINT(json_object_object_add(tmp, "saltLen",
 						json_object_new_int(hashlen)));
+			} else if (saltlen == DEF_ALG_RSA_PSS_SALT_VALUE) {
+				CKINT(json_object_object_add(tmp, "saltLen",
+					json_object_new_int(saltlen_bytes)));
 			}
 		}
 	}
@@ -449,13 +453,14 @@ out:
 static int acvp_req_rsa_siggen_caps(enum rsa_mode rsa_mode,
 				    const struct def_algo_rsa_siggen_caps *caps,
 				    struct json_object *caps_entry,
-				    enum saltlen saltlen)
+				    enum saltlen saltlen,
+				    int saltlen_bytes)
 {
 	int ret = 0;
 
 	CKINT(acvp_req_rsa_modulo(rsa_mode, caps->rsa_modulo, caps_entry));
 	CKINT(acvp_req_rsa_hashalg(caps->hashalg, caps->rsa_modulo, caps_entry,
-				   saltlen));
+				   saltlen, saltlen_bytes));
 
 out:
 	return ret;
@@ -493,10 +498,11 @@ static int _acvp_req_rsa_siggen(enum rsa_mode rsa_mode,
 
 		if (siggen->sigtype == DEF_ALG_RSA_SIGTYPE_PSS) {
 			CKINT(acvp_req_rsa_siggen_caps(rsa_mode, caps,
-				caps_entry, caps->saltlen));
+				caps_entry, caps->saltlen,
+				caps->saltlen_bytes));
 		} else {
 			CKINT(acvp_req_rsa_siggen_caps(rsa_mode, caps,
-				caps_entry, DEF_ALG_RSA_PSS_SALT_IGNORE));
+				caps_entry, DEF_ALG_RSA_PSS_SALT_IGNORE, 0));
 		}
 	}
 
@@ -532,13 +538,14 @@ out:
 static int acvp_req_rsa_sigver_caps(enum rsa_mode rsa_mode,
 				    const struct def_algo_rsa_sigver_caps *caps,
 				    struct json_object *caps_entry,
-				    enum saltlen saltlen)
+				    enum saltlen saltlen,
+				    int saltlen_bytes)
 {
 	int ret = 0;
 
 	CKINT(acvp_req_rsa_modulo(rsa_mode, caps->rsa_modulo, caps_entry));
 	CKINT(acvp_req_rsa_hashalg(caps->hashalg, caps->rsa_modulo, caps_entry,
-				   saltlen));
+				   saltlen, saltlen_bytes));
 
 out:
 	return ret;
@@ -567,7 +574,8 @@ static int _acvp_req_rsa_sigver(enum rsa_mode rsa_mode,
 		CKNULL(caps_entry, -ENOMEM);
 		CKINT(json_object_array_add(caps_array, caps_entry));
 		CKINT(acvp_req_rsa_sigver_caps(rsa_mode, caps, caps_entry,
-					       caps->saltlen));
+					       caps->saltlen,
+					       caps->saltlen_bytes));
 	}
 
 out:

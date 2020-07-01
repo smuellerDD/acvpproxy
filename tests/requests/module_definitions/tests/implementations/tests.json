@@ -2,6 +2,7 @@
 	"implementations": [
 		"SHA",
 		"HMAC",
+		"CMAC",
 		"SHAKE",
 		"AES-SYM",
 		"AES-AEAD",
@@ -13,6 +14,12 @@
 		"KAS-ECC",
 		"KAS-FFC",
 		"KDF",
-		"EDDSA"
+		"EDDSA",
+		"KAS-ECC-R3",
+		"KAS-ECC-SSC-R3",
+		"KAS-FFC-R3",
+		"KAS-FFC-SSC-R3",
+		"SAFEPRIMES",
+		"KAS-IFC"
 	]
 }

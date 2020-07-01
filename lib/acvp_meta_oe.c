@@ -307,10 +307,11 @@ out:
 static int _acvp_oe_validate_one(const struct acvp_testid_ctx *testid_ctx,
 				 struct def_oe *def_oe,
 				 const char *url,
+				 struct json_object **resp,
+				 struct json_object **data,
 	int(*matcher)(const struct acvp_testid_ctx *testid_ctx,
 		      struct def_oe *def_oe, struct json_object *json_oe))
 {
-	struct json_object *resp = NULL, *data = NULL;
 	ACVP_BUFFER_INIT(buf);
 	int ret, ret2;
 
@@ -324,11 +325,10 @@ static int _acvp_oe_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	/* Strip the version array entry and get the verdict data. */
-	CKINT(acvp_req_strip_version(&buf, &resp, &data));
-	CKINT(matcher(testid_ctx, def_oe, data));
+	CKINT(acvp_req_strip_version(&buf, resp, data));
+	CKINT(matcher(testid_ctx, def_oe, *data));
 
 out:
-	ACVP_JSON_PUT_NULL(resp);
 	acvp_free_buf(&buf);
 	return ret;
 }
@@ -369,7 +369,7 @@ out:
 static int acvp_oe_register_dep(const struct acvp_testid_ctx *testid_ctx,
 				struct def_oe *def_oe,
 				enum acvp_oe_dep_types type,
-				enum acvp_http_type submit_type)
+				enum acvp_http_type submit_type, bool asked)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
@@ -384,7 +384,9 @@ static int acvp_oe_register_dep(const struct acvp_testid_ctx *testid_ctx,
 	if (!json_oe)
 		goto out;
 
-	if (!req_details->dump_register && !ctx_opts->register_new_oe) {
+	if (!req_details->dump_register &&
+	    !ctx_opts->register_new_oe &&
+	    !asked) {
 		logger_status(LOGGER_C_ANY, "Data to be registered: %s\n",
 			json_object_to_json_string_ext(json_oe,
 					JSON_C_TO_STRING_PRETTY |
@@ -407,7 +409,9 @@ out:
 /* GET /dependencies/<dependencyId> */
 static int _acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 				     struct def_oe *def_oe,
-				     uint32_t depid)
+				     uint32_t depid,
+				     struct json_object **resp,
+				     struct json_object **data)
 {
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
@@ -419,7 +423,7 @@ static int _acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u", depid));
 
-	CKINT(_acvp_oe_validate_one(testid_ctx, def_oe, url,
+	CKINT(_acvp_oe_validate_one(testid_ctx, def_oe, url, resp, data,
 				    acvp_oe_match_dep));
 
 out:
@@ -434,10 +438,13 @@ static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	struct json_object *json_oe = NULL;
+	struct json_object *resp = NULL, *found_data = NULL;
 	int ret;
 	unsigned int http_type = 0;
+	bool asked = false;
 
-	ret = _acvp_oe_validate_one_dep(testid_ctx, def_oe, depid);
+	ret = _acvp_oe_validate_one_dep(testid_ctx, def_oe, depid, &resp,
+					&found_data);
 
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_OE, ctx_opts, 0,
 				       &http_type);
@@ -453,32 +460,84 @@ static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 					JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
+		if (found_data) {
+			logger_status(LOGGER_C_ANY,
+				      "Data currently on ACVP server: %s\n",
+				      json_object_to_json_string_ext(found_data,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
 		if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
 			http_type = acvp_http_put;
-		} else if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be DELETED")) {
+		} else if (!ask_yes("Shall the entry be DELETED from the ACVP server data base")) {
 			http_type = acvp_http_delete;
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Registering operation interrupted\n");
 			goto out;
 		}
+
+		asked = true;
 	} else if (ret) {
 		  logger(LOGGER_ERR, LOGGER_C_ANY,
 			 "Conversion from search type to HTTP request type failed for OE dependencies %u/%u\n",
 		  def_oe->acvp_oe_dep_proc_id, def_oe->acvp_oe_dep_sw_id);
 		  goto out;
+	} else if (http_type == acvp_http_put) {
+		uint32_t *id;
+
+		/* Update requested */
+		CKINT(acvp_oe_register_dep_build(def_oe, type, &json_oe, &id));
+		if (json_oe) {
+			logger_status(LOGGER_C_ANY,
+				      "Data to be registered: %s\n",
+				      json_object_to_json_string_ext(json_oe,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
+		if (found_data) {
+			logger_status(LOGGER_C_ANY,
+				      "Data currently on ACVP server: %s\n",
+				      json_object_to_json_string_ext(found_data,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
+		if (ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
+			ret = -ENOENT;
+			goto out;
+		}
+		asked = true;
+	} else if (http_type == acvp_http_delete) {
+		/* Delete requested */
+		if (found_data) {
+			logger_status(LOGGER_C_ANY,
+				      "Data currently on ACVP server: %s\n",
+				      json_object_to_json_string_ext(found_data,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
+		if (ask_yes("Shall the entry be DELETED from the ACVP server data base")) {
+			ret = -ENOENT;
+			goto out;
+		}
+		asked = true;
 	}
 
 	if (http_type == acvp_http_none)
 		goto out;
 
-	CKINT(acvp_oe_register_dep(testid_ctx, def_oe, type, http_type));
+	CKINT(acvp_oe_register_dep(testid_ctx, def_oe, type, http_type, asked));
 
 	if ((http_type == acvp_http_put) && (type == ACVP_OE_DEP_TYPE_PROC))
 		logger_status(LOGGER_C_ANY,
 			      "OE dependency for processor updated - repeat the operation for the operational environment after the processor update was approved to update the name of the OE on the certificate which is automatically created based on the processor information\n");
 
 out:
+	ACVP_JSON_PUT_NULL(resp);
 	ACVP_JSON_PUT_NULL(json_oe);
 	return ret;
 }
@@ -536,11 +595,121 @@ out:
 	return ret;
 }
 
-static int acvp_oe_match_oe(const struct acvp_testid_ctx *testid_ctx,
-			    struct def_oe *def_oe, struct json_object *json_oe)
+static int acvp_oe_match_oe_deps_matcher(struct json_object *dep,
+					 struct def_oe *def_oe)
+{
+	int ret;
+	const char *str;
+
+	CKINT(json_get_string(dep, "type", &str));
+
+	/*
+	 * Software is only matched if we have an oeEnvName as
+	 * this reference specifies the underlying software.
+	 */
+	if (def_oe->oe_env_name && !strncmp(str, "software", 8)) {
+		ret = acvp_oe_match_dep_sw(def_oe, dep);
+		if (ret == -ENOENT)
+			def_oe->acvp_oe_id = 0;
+		if (ret)
+			goto out;
+	} else if (!strncmp(str, "processor", 9)) {
+		ret = acvp_oe_match_dep_proc(def_oe, dep);
+		if (ret == -ENOENT)
+			def_oe->acvp_oe_id = 0;
+		if (ret)
+			goto out;
+	} else {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+			"Dependency type %s unknown\n", str);
+		ret = -ENOENT;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
+/* Process an array of dependency URLs */
+static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
+				    struct def_oe *def_oe,
+				    struct json_object *json_oe)
+{
+	struct json_object *tmp, *resp = NULL, *data;
+	ACVP_BUFFER_INIT(buf);
+	unsigned int i;
+	int ret, ret2;
+	char url[ACVP_NET_URL_MAXLEN];
+
+	ret = json_find_key(json_oe, "dependencyUrls", &tmp, json_type_array);
+	/* We only check the dependencyUrls if they are present */
+	if (ret)
+		return 0;
+
+	for (i = 0; i < json_object_array_length(tmp); i++) {
+		uint32_t id = 0;
+		struct json_object *dep =
+				json_object_array_get_idx(tmp, i);
+
+		/* Get the dependency ID */
+		CKINT(json_object_is_type(dep, json_type_string));
+		CKINT(acvp_get_trailing_number(json_object_get_string(dep),
+					       &id));
+
+		/* Download the dependency */
+		CKINT(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
+		CKINT(acvp_extend_string(url, sizeof(url), "/%u", id));
+
+		ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);
+		CKINT(acvp_store_oe_debug(testid_ctx, &buf, ret2));
+		if (ret2) {
+			ret = ret2;
+			goto out;
+		}
+
+		/* Strip the version array entry and get the verdict data. */
+		CKINT(acvp_req_strip_version(&buf, &resp, &data));
+
+		/* Analyze the dependency */
+		CKINT(acvp_oe_match_oe_deps_matcher(data, def_oe));
+
+		ACVP_JSON_PUT_NULL(resp);
+		acvp_free_buf(&buf);
+	}
+
+out:
+	ACVP_JSON_PUT_NULL(resp);
+	acvp_free_buf(&buf);
+	return ret;
+}
+
+/* Process an array of fully exploded dependencies */
+static int acvp_oe_match_oe_deps(struct def_oe *def_oe,
+				 struct json_object *json_oe)
 {
 	struct json_object *tmp;
 	unsigned int i;
+	int ret;
+
+	ret = json_find_key(json_oe, "dependencies", &tmp, json_type_array);
+	/* We only check the dependencies if they are present */
+	if (ret)
+		return 0;
+
+	for (i = 0; i < json_object_array_length(tmp); i++) {
+		struct json_object *dep =
+				json_object_array_get_idx(tmp, i);
+
+		CKINT(acvp_oe_match_oe_deps_matcher(dep, def_oe));
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_oe_match_oe(const struct acvp_testid_ctx *testid_ctx,
+			    struct def_oe *def_oe, struct json_object *json_oe)
+{
 	int ret;
 	char oe_name[FILENAME_MAX];
 	const char *str;
@@ -554,36 +723,8 @@ static int acvp_oe_match_oe(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(json_get_string(json_oe, "url", &str));
 	CKINT(acvp_get_trailing_number(str, &def_oe->acvp_oe_id));
 
-	CKINT(json_find_key(json_oe, "dependencies", &tmp, json_type_array));
-	for (i = 0; i < json_object_array_length(tmp); i++) {
-		struct json_object *dep =
-				json_object_array_get_idx(tmp, i);
-
-		CKINT(json_get_string(dep, "type", &str));
-
-		/*
-		 * Software is only matched if we have an oeEnvName as
-		 * this reference specifies the underlying software.
-		 */
-		if (def_oe->oe_env_name && !strncmp(str, "software", 8)) {
-			ret = acvp_oe_match_dep_sw(def_oe, dep);
-			if (ret == -ENOENT)
-				def_oe->acvp_oe_id = 0;
-			if (ret)
-				goto out;
-		} else if (!strncmp(str, "processor", 9)) {
-			ret = acvp_oe_match_dep_proc(def_oe, dep);
-			if (ret == -ENOENT)
-				def_oe->acvp_oe_id = 0;
-			if (ret)
-				goto out;
-		} else {
-			logger(LOGGER_DEBUG, LOGGER_C_ANY,
-			       "Dependency type %s unknown\n", str);
-			ret = -ENOENT;
-			goto out;
-		}
-	}
+	CKINT(acvp_oe_match_oe_deps(def_oe, json_oe));
+	CKINT(acvp_oe_match_oe_depurls(testid_ctx, def_oe, json_oe));
 
 out:
 	return ret;
@@ -620,7 +761,8 @@ static int _acvp_oe_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	match_def.def_oe = def_oe;
 	match_def.matcher = matcher;
 
-	CKINT(acvp_paging_get(testid_ctx, url, &match_def, &acvp_oe_match_cb));
+	CKINT(acvp_paging_get(testid_ctx, url, ACVP_OPTS_SHOW_OE,
+			      &match_def, &acvp_oe_match_cb));
 
 out:
 	return ret;
@@ -630,7 +772,8 @@ static int acvp_oe_register_dep_type(const struct acvp_testid_ctx *testid_ctx,
 				     struct def_oe *def_oe,
 				     enum acvp_oe_dep_types type)
 {
-	return acvp_oe_register_dep(testid_ctx, def_oe, type, acvp_http_post);
+	return acvp_oe_register_dep(testid_ctx, def_oe, type, acvp_http_post,
+				    false);
 }
 
 static int acvp_oe_validate_add_searchopts(const char *searchstr,
@@ -685,6 +828,9 @@ static int acvp_oe_validate_all_dep(const struct acvp_testid_ctx *testid_ctx,
 					    acvp_oe_match_dep));
 	}
 
+	if (ctx_opts->show_db_entries)
+		goto out;
+
 	/* Our vendor data does not match any vendor on ACVP server */
 	if (!def_oe->acvp_oe_dep_proc_id) {
 		ret = acvp_oe_register_dep_type(testid_ctx, def_oe,
@@ -692,7 +838,7 @@ static int acvp_oe_validate_all_dep(const struct acvp_testid_ctx *testid_ctx,
 	} else if (ctx_opts->delete_db_entry & ACVP_OPTS_DELUP_OE) {
 		ret = acvp_oe_register_dep(testid_ctx, def_oe,
 					   ACVP_OE_DEP_TYPE_PROC,
-					   acvp_http_delete);
+					   acvp_http_delete, false);
 		if (ret && ret != -EAGAIN)
 			goto out;
 	}
@@ -704,7 +850,7 @@ static int acvp_oe_validate_all_dep(const struct acvp_testid_ctx *testid_ctx,
 		} else if (ctx_opts->delete_db_entry & ACVP_OPTS_DELUP_OE) {
 			ret |= acvp_oe_register_dep(testid_ctx, def_oe,
 						    ACVP_OE_DEP_TYPE_SW,
-						    acvp_http_delete);
+						    acvp_http_delete, false);
 		}
 	}
 
@@ -830,7 +976,8 @@ out:
 static int acvp_oe_register_oe(const struct acvp_testid_ctx *testid_ctx,
 			       struct def_oe *def_oe,
 			       char *url, unsigned int urllen,
-			       enum acvp_http_type type)
+			       enum acvp_http_type type,
+			       bool asked)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
@@ -843,7 +990,9 @@ static int acvp_oe_register_oe(const struct acvp_testid_ctx *testid_ctx,
 		CKINT(acvp_oe_build_oe(testid_ctx, def_oe, &json_oe));
 	}
 
-	if (!req_details->dump_register && !ctx_opts->register_new_oe) {
+	if (!req_details->dump_register &&
+	    !ctx_opts->register_new_oe &&
+	    !asked) {
 		if (json_oe) {
 			logger_status(LOGGER_C_ANY,
 				      "Data to be registered: %s\n",
@@ -872,9 +1021,11 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	struct json_object *json_oe = NULL;
+	struct json_object *resp = NULL, *found_data = NULL;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 	enum acvp_http_type http_type;
+	bool asked = false;
 
 	CKNULL_LOG(ctx, -EINVAL,
 		   "Vendor validation: authentication context missing\n");
@@ -887,7 +1038,7 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
 				 def_oe->acvp_oe_id));
 
-	ret = _acvp_oe_validate_one(testid_ctx, def_oe, url,
+	ret = _acvp_oe_validate_one(testid_ctx, def_oe, url, &resp, &found_data,
 				    acvp_oe_match_oe);
 
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_OE, ctx_opts,
@@ -902,6 +1053,14 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 					JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
+		if (found_data) {
+			logger_status(LOGGER_C_ANY,
+				      "Data currently on ACVP server: %s\n",
+				      json_object_to_json_string_ext(found_data,
+					JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE));
+		}
+
 		if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
 			http_type = acvp_http_put;
 		} else if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be DELETED")) {
@@ -911,6 +1070,8 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 			       "Registering operation interrupted\n");
 			goto out;
 		}
+
+		asked = true;
 	} else if (ret) {
 		  logger(LOGGER_ERR, LOGGER_C_ANY,
 			 "Conversion from search type to HTTP request type failed for OE\n");
@@ -922,9 +1083,10 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
 	CKINT(acvp_oe_register_oe(testid_ctx, def_oe, url, sizeof(url),
-				  http_type));
+				  http_type, asked));
 
 out:
+	ACVP_JSON_PUT_NULL(resp);
 	ACVP_JSON_PUT_NULL(json_oe);
 	return ret;
 }
@@ -933,6 +1095,8 @@ out:
 static int acvp_oe_validate_all_oe(const struct acvp_testid_ctx *testid_ctx,
 				   struct def_oe *def_oe)
 {
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *opts = &ctx->options;
 	int ret;
 	char oe_name[FILENAME_MAX - 500], url[ACVP_NET_URL_MAXLEN],
 	     queryoptions[FILENAME_MAX], oestr[FILENAME_MAX - 400];
@@ -952,12 +1116,16 @@ static int acvp_oe_validate_all_oe(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(_acvp_oe_validate_all(testid_ctx, def_oe, url, acvp_oe_match_oe));
 
-	/* Our vendor data does not match any vendor on ACVP server */
-	if (!ret) {
-		CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
-		CKINT(acvp_oe_register_oe(testid_ctx, def_oe, url,
-					  sizeof(url), acvp_http_post));
+	/* We found an entry and do not need to do anything */
+	if (ret > 0 || opts->show_db_entries) {
+		ret = 0;
+		goto out;
 	}
+
+	/* Our vendor data does not match any vendor on ACVP server */
+	CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
+	CKINT(acvp_oe_register_oe(testid_ctx, def_oe, url,
+				  sizeof(url), acvp_http_post, false));
 
 out:
 	return ret;
@@ -1001,6 +1169,7 @@ int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details;
+	const struct acvp_opts_ctx *opts;
 	const struct definition *def;
 	struct def_oe *def_oe;
 	struct json_object *json_oe = NULL;
@@ -1016,6 +1185,7 @@ int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx)
 		   "Vendor handling: oe definitions missing\n");
 	CKNULL_LOG(ctx, -EINVAL, "Vendor validation: ACVP context missing\n");
 	req_details = &ctx->req_details;
+	opts = &ctx->options;
 
 	/* Lock def_oe */
 	CKINT(acvp_def_get_oe_id(def_oe));
@@ -1026,11 +1196,11 @@ int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx)
 		CKINT_ULCK(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url,
 					   sizeof(url)));
 		acvp_oe_register_dep(testid_ctx, def_oe, ACVP_OE_DEP_TYPE_PROC,
-				     acvp_http_post);
+				     acvp_http_post, false);
 		acvp_oe_register_dep(testid_ctx, def_oe, ACVP_OE_DEP_TYPE_SW,
-				     acvp_http_post);
+				     acvp_http_post, false);
 		acvp_oe_register_oe(testid_ctx, def_oe, url, sizeof(url),
-				    acvp_http_post);
+				    acvp_http_post, false);
 		goto unlock;
 	}
 
@@ -1067,7 +1237,7 @@ int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx)
 	if (ret)
 		goto unlock;
 
-	if (def_oe->acvp_oe_id) {
+	if (def_oe->acvp_oe_id && !(opts->show_db_entries)) {
 		/* Validate OE definition. */
 		CKINT_ULCK(acvp_oe_validate_one_oe(testid_ctx, def_oe));
 
@@ -1077,7 +1247,7 @@ int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx)
 							    def_oe));
 		}
 	} else {
-		if (!def_oe->acvp_oe_dep_proc_id ||
+		if (opts->show_db_entries || !def_oe->acvp_oe_dep_proc_id ||
 		    (def_oe->oe_env_name &&!def_oe->acvp_oe_dep_sw_id)) {
 			CKINT_ULCK(acvp_oe_validate_all_dep(testid_ctx,
 							    def_oe));

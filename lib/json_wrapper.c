@@ -264,7 +264,7 @@ int json_read_data(const char *filename, struct json_object **inobj)
 
 	if (!json_object_is_type(o, json_type_array)) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "JSON input data is are not expected ACVP array\n");
+		       "JSON input data is not expected ACVP array\n");
 		ret = -EINVAL;
 		goto out;
 	}
