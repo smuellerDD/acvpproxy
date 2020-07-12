@@ -1,3 +1,9 @@
+v1.5.1
+- fix: allow NULL phoneNumber
+- fix: keyword for next pointer in the paging searches changed on the server
+- fix: convert server-provided paging URLs to HTML-clean URLs
+- fix: locking bug that bites when automated certificate handling is employed
+
 v1.5.0
 - enhancement: envType can hold a numeric environment ID reference from enum def_mod_type or one of the strings Hardware, Software, Firmware
 - enhancement: add logic for tracking and enforcing versioning of extensions

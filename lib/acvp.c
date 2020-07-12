@@ -789,7 +789,6 @@ static bool acvp_so_version_ge(const struct dirent *dentry,
 			continue;
 		} else if (!maj_done) {
 			f_maj = strtoul(tmp, NULL, 10);
-			maj_done = true;
 			memset(tmp, 0, sizeof(tmp));
 			if (f_maj == ULONG_MAX)
 				return false;

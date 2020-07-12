@@ -2,5 +2,115 @@
   "moduleName":"OpenSSL (32 bit)",
   "moduleVersion":"1.1.0",
   "moduleDescription":"OpenSSL library implementation providing cryptographic services to Linux user space software components. The module was tested with 32 bit word size.",
-  "moduleType":0
+  "moduleType":0,
+  "acvpModuleIds":[
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (KBKDF)",
+      "acvpModuleId":11962
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SSH_AVX2)",
+      "acvpModuleId":11963
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SSH_AVX)",
+      "acvpModuleId":11964
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SSH_SSSE3)",
+      "acvpModuleId":11965
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SSH_ASM)",
+      "acvpModuleId":11966
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SHA3_AVX2)",
+      "acvpModuleId":11967
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SHA3_AVX512)",
+      "acvpModuleId":11968
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SHA3_ASM)",
+      "acvpModuleId":11969
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (FFC_DH)",
+      "acvpModuleId":11970
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (TDES_C)",
+      "acvpModuleId":11971
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESNI)",
+      "acvpModuleId":11972
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESNI_AVX)",
+      "acvpModuleId":11973
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESNI_CLMULNI)",
+      "acvpModuleId":11974
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESNI_ASM)",
+      "acvpModuleId":11975
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESASM)",
+      "acvpModuleId":11976
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESASM_AVX)",
+      "acvpModuleId":11977
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESASM_CLMULNI)",
+      "acvpModuleId":11978
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (AESASM_ASM)",
+      "acvpModuleId":11979
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM)",
+      "acvpModuleId":11980
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM_AVX)",
+      "acvpModuleId":11981
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM_CLMULNI)",
+      "acvpModuleId":11982
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (BAES_CTASM_ASM)",
+      "acvpModuleId":11983
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SHA_AVX2)",
+      "acvpModuleId":11984
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SHA_AVX)",
+      "acvpModuleId":11985
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SHA_SSSE3)",
+      "acvpModuleId":11986
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (SHA_ASM)",
+      "acvpModuleId":11987
+    },
+    {
+      "acvpModuleName":"OpenSSL (32 bit) (DRBG_10X)",
+      "acvpModuleId":11988
+    }
+  ]
 }

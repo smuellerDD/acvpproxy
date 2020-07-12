@@ -24,38 +24,35 @@
 #include <request_helper.h>
 #include <ret_checkers.h>
 
-#define ACVP_ERR_CODE(name)	{ .error_str = #name, .error_code = name }
-
-struct acvp_error_code_convert {
-	const char *error_str;
-	enum acvp_error_code error_code;
-} acvp_error_code_converter[] = {
-	ACVP_ERR_CODE(ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING),
-	ACVP_ERR_CODE(ACVP_ERR_RESPONSE_REJECTED)
-};
-
 int acvp_error_convert(const struct acvp_buf *response_buf,
 		       int http_ret,
 		       enum acvp_error_code *code)
 {
 	struct json_object *response = NULL, *entry = NULL;
 	const char *error_str;
-	unsigned int i;
-	int ret;
-
-	(void)http_ret;
+	int ret = 0;
 
 	/* Ensure we have a valid error code in any case */
 	*code = ACVP_ERR_NO_ERR;
 
-	if (!response_buf->buf || !response_buf->len)
+	switch (http_ret) {
+	case -401:
+	case -403:
+		logger(LOGGER_VERBOSE, LOGGER_C_CURL,
+		       "ACVP server return code: JWT expired\n");
+		*code = ACVP_ERR_AUTH_JWT_EXPIRED;
 		return 0;
+	default:
+		break;
+	}
 
-	//TODO add more return code checks
+	if (!response_buf->buf || !response_buf->len || !http_ret)
+		return http_ret;
 
 	//TODO: fix after issue #863 is cleared
+	logger(LOGGER_VERBOSE, LOGGER_C_CURL,
+	       "ACVP server return code: test response received, verdict pending\n");
 	*code = ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING;
-	ret = 0;
 	goto out;
 
 	CKINT(acvp_req_strip_version(response_buf, &response, &entry));
@@ -63,22 +60,9 @@ int acvp_error_convert(const struct acvp_buf *response_buf,
 	if (json_get_string(entry, "error", &error_str))
 		goto out;
 
-	for (i = 0; i < ARRAY_SIZE(acvp_error_code_converter); i++) {
-		if (acvp_find_match(error_str,
-				    acvp_error_code_converter[i].error_str,
-				    false)) {
-			*code = acvp_error_code_converter[i].error_code;
-			logger(LOGGER_DEBUG, LOGGER_C_ANY,
-			       "ACVP error code %s converted into internal representation %u\n",
-			       error_str,
-			       acvp_error_code_converter[i].error_str);
-			goto out;
-		}
-	}
-
 	logger(LOGGER_ERR, LOGGER_C_ANY,
 	       "ACVP error code %s unknown and unhandled\n", error_str);
-	ret = -EOPNOTSUPP;
+	ret = http_ret;
 
 out:
 	ACVP_JSON_PUT_NULL(response);

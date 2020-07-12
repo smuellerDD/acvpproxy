@@ -224,47 +224,31 @@ out:
 }
 
 /* Process any return code from the ACVP server */
-static int acvp_response_error_handler(const struct acvp_buf *response_buf,
-				       int http_ret)
+static int acvp_response_error_handler(int request_ret)
 {
-	enum acvp_error_code error_code;
-	int ret;
+	enum acvp_error_code code;
 
-	if (http_ret >= 0)
-		return 0;
+	if (request_ret <= 0)
+		return request_ret;
 
-	if (!response_buf->buf || !response_buf->len)
-		return http_ret;
+	code = (enum acvp_error_code)request_ret;
 
-	CKINT(acvp_error_convert(response_buf, http_ret, &error_code));
-
-	/*
-	 * Vectors were uploaded, we clear the error to allow downloading of
-	 * verdict.
-	 */
-	if (error_code == ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING) {
+	switch (code) {
+	case ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING:
+		/*
+		 * Vectors were uploaded, we clear the error to allow
+		 * downloading of verdict.
+		 */
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "ACVP server already received responses, continuing to obtain verdict\n");
-		ret = 0;
-		goto out;
-	}
+		return 0;
 
-	if (error_code == ACVP_ERR_RESPONSE_REJECTED) {
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "ACVP server rejected response\n");
-		ret = -ACVP_ERR_RESPONSE_REJECTED;
-		goto out;
+	case ACVP_ERR_NO_ERR:
+	case ACVP_ERR_RESPONSE_REJECTED:
+	case ACVP_ERR_AUTH_JWT_EXPIRED:
+	default:
+		return -request_ret;
 	}
-
-	ret = http_ret;
-
-out:
-	if (ret) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Received following ACVP server error response: %s\n",
-		       response_buf->buf);
-	}
-	return ret;
 }
 
 /* POST, PUT /testSessions/<testSessionId>/vectorSets/<vectorSetId>/results */
@@ -287,7 +271,7 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 
 	CKINT(acvp_store_submit_debug(vsid_ctx, &result, ret2));
 
-	CKINT(acvp_response_error_handler(&result, ret2));
+	CKINT(acvp_response_error_handler(ret2));
 
 out:
 	if (ret)

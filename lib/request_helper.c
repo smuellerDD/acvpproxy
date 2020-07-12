@@ -23,6 +23,7 @@
 #include <stdarg.h>
 
 #include "acvpproxy.h"
+#include "binhexbin.h"
 #include "build_bug_on.h"
 #include "internal.h"
 #include "logger.h"
@@ -594,6 +595,8 @@ out:
 int acvp_replace_urloptions(const char *options, char *url, uint32_t urllen)
 {
 	int ret = 0;
+	size_t optionlen = strlen(options);
+	char clean_url[FILENAME_MAX];
 	char *url_p = url;
 
 	CKNULL_LOG(options, -EINVAL,
@@ -601,12 +604,22 @@ int acvp_replace_urloptions(const char *options, char *url, uint32_t urllen)
 	CKNULL_LOG(url, -EINVAL,
 		   "No destination buffer for URL creation provided\n");
 
+	if (optionlen > sizeof(clean_url)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Provided options string is too long\n");
+		return -EFAULT;
+	}
+
+	/* Enforce a HTML-clean URL */
+	CKINT(bin2hex_html_from_url(options, (uint32_t)optionlen,
+				    clean_url, sizeof(clean_url)));
+
 	url_p = strstr(url, "?");
 	if (url_p) {
 		snprintf(url_p, (size_t)(urllen - (url - url_p)),
-			 "%s", options);
+			 "%s", clean_url);
 	} else {
-		CKINT(acvp_extend_string(url, urllen, "%s", options));
+		CKINT(acvp_extend_string(url, urllen, "%s", clean_url));
 	}
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "ACVP URL with options: %s\n",

@@ -71,7 +71,6 @@ static int _acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 		       ret ? -ret : 200);
 	}
 
-
 	if (nettype != acvp_http_delete) {
 		if (!response->buf || !response->len)
 			goto out;
@@ -90,24 +89,30 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 		struct acvp_buf *response, enum acvp_http_type nettype)
 {
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
+	enum acvp_error_code code = ACVP_ERR_NO_ERR;
 	int ret;
 
 	CKNULL_LOG(na, -EFAULT, "No network backend registered\n");
 	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
 
 	ret = _acvp_net_op(testid_ctx, url, submit, response, nettype);
+	CKINT(acvp_error_convert(response, ret, &code));
 
 	/*
 	 * We got an authentication error - invalidate the JWT and try
 	 * to log in once again. The invalidation implies that acvp_login
 	 * will definitely refresh the JWT.
 	 */
-	if (ret == -403 || ret == -401) {
+	if (code == ACVP_ERR_AUTH_JWT_EXPIRED) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
 		       "Authentication error received - force refresh of auth token and retry network operation\n");
 		CKINT(acvp_jwt_invalidate(testid_ctx));
 		CKINT(_acvp_net_op(testid_ctx, url, submit, response, nettype));
+		CKINT(acvp_error_convert(response, ret, &code));
 	}
+
+	if (code != ACVP_ERR_NO_ERR)
+		ret = (int)code;
 
 out:
 	return ret;

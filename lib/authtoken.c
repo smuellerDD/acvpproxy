@@ -90,10 +90,11 @@ void acvp_release_auth(struct acvp_testid_ctx *testid_ctx)
 {
 	struct acvp_auth_ctx *auth;
 
-	if (!testid_ctx)
+	if (!testid_ctx || !testid_ctx->server_auth)
 		return;
 
 	auth = testid_ctx->server_auth;
+
 	_acvp_release_auth(auth);
 	mutex_destroy(&auth->mutex);
 
@@ -324,10 +325,15 @@ acvp_login_need_refresh_nonnull(const struct acvp_testid_ctx *testid_ctx)
 	return -EAGAIN;
 }
 
-
 int acvp_login_need_refresh(const struct acvp_testid_ctx *testid_ctx)
 {
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
+
+	if (!auth) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Authentication context missing");
+		return -EINVAL;
+	}
 
 	if (!acvp_login_need_refresh_nonnull(testid_ctx))
 		return 0;
@@ -442,13 +448,13 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	char url[ACVP_NET_URL_MAXLEN];
 	bool dump_register = (ctx) ? ctx->req_details.dump_register : false;
 
+	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
+
 	mutex_lock(&auth->mutex);
 	mutex_lock(&ctx_auth->mutex);
 
 	if (!acvp_login_need_refresh_nonnull(testid_ctx))
 		goto out;
-
-	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
 
 	login = json_object_new_array();
 	CKNULL(login, -ENOMEM);

@@ -22,6 +22,7 @@
 
 #include <json-c/json.h>
 
+#include "acvp_error_handler.h"
 #include "atomic_bool.h"
 #include "atomic.h"
 #include "buffer.h"
@@ -45,7 +46,7 @@ extern "C"
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 0   /* API / ABI compatible, no functional
+#define PATCHLEVEL 1   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -686,6 +687,19 @@ int acvp_get_algoinfo_json(const struct acvp_buf *buf,
 
 /**
  * @brief Helper to perform HTTP operation
+ *
+ * @param testid_ctx [in] TestID context with set credentials
+ * @param url [in] URL to access
+ * @param submit [in] Buffer to send, may be NULL
+ * @param response [out] Buffer to hold response (buffer will be allocated by
+ *			 acvp_net_op and must be freed by caller, response may
+ *			 be set to NULL if caller is not interested in response.
+ * @param nettype [in] HTTP request type
+ *
+ * @return: 0 on success,
+ *	    < -200 -> HTTP error code,
+ *	    > 0 -> ACVP error of type enum acvp_error_code,
+ *	    -200 < ret < 0 -> processing error
  */
 int acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 		const char *url, const struct acvp_buf *submit,

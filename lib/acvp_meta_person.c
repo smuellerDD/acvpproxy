@@ -77,18 +77,20 @@ static int acvp_person_build(const struct def_vendor *def_vendor,
 	array = NULL;
 
 	/* Phone numbers */
-	phone = json_object_new_object();
-	CKNULL(phone, -ENOMEM);
-	CKINT(json_object_object_add(phone, "number",
+	if (def_vendor->contact_phone) {
+		phone = json_object_new_object();
+		CKNULL(phone, -ENOMEM);
+		CKINT(json_object_object_add(phone, "number",
 			json_object_new_string(def_vendor->contact_phone)));
-	CKINT(json_object_object_add(phone, "type",
-			json_object_new_string("voice")));
-	array = json_object_new_array();
-	CKNULL(array, -ENOMEM);
-	CKINT(json_object_array_add(array, phone));
-	phone = NULL;
-	CKINT(json_object_object_add(person, "phoneNumbers", array));
-	array = NULL;
+		CKINT(json_object_object_add(phone, "type",
+					     json_object_new_string("voice")));
+		array = json_object_new_array();
+		CKNULL(array, -ENOMEM);
+		CKINT(json_object_array_add(array, phone));
+		phone = NULL;
+		CKINT(json_object_object_add(person, "phoneNumbers", array));
+		array = NULL;
+	}
 
 	json_logger(LOGGER_DEBUG2, LOGGER_C_ANY, person, "Vendor JSON object");
 
@@ -155,8 +157,22 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 		goto out;
 	}
 
-	CKINT(json_find_key(json_vendor, "phoneNumbers", &tmp,
-			    json_type_array));
+	ret = json_find_key(json_vendor, "phoneNumbers", &tmp,
+			    json_type_array);
+	if (ret) {
+		/* if we did not find a phone number and we have none, match */
+		if (!def_vendor->contact_phone) {
+			ret = 0;
+			goto found;
+		} else {
+			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+			       "Person phone number not found for person ID %u\n",
+			       def_vendor->acvp_person_id);
+			ret = -ENOENT;
+			goto out;
+		}
+	}
+
 	for (i = 0; i < json_object_array_length(tmp); i++) {
 		struct json_object *number_def =
 				json_object_array_get_idx(tmp, i);
@@ -181,6 +197,7 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 		goto out;
 	}
 
+found:
 	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Person found\n");
 	def_vendor->acvp_person_id = person_id;
 

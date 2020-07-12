@@ -120,6 +120,7 @@ out:
 	return ret;
 }
 
+/* GET /requests/<id> */
 int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
 				    uint32_t *id)
 {

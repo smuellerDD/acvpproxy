@@ -150,8 +150,8 @@ int acvp_server_db_search(struct acvp_ctx *ctx,
 	}
 
 	/* Set a query option consisting of vendor_name */
-	CKINT(bin2hex_html(searchstr, (uint32_t)strlen(searchstr),
-			   searchstr_html, sizeof(searchstr_html)));
+	CKINT(bin2hex_html_from_url(searchstr, (uint32_t)strlen(searchstr),
+				    searchstr_html, sizeof(searchstr_html)));
 	CKINT(acvp_append_urloptions(searchstr_html, url, sizeof(url)));
 
 	testid_ctx = calloc(1, sizeof(*testid_ctx));

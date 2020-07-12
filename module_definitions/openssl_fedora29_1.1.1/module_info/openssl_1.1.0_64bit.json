@@ -79,6 +79,58 @@
     {
       "acvpModuleName":"OpenSSL (64 bit) (SHA3_AVX2)",
       "acvpModuleId":11948
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (KBKDF)",
+      "acvpModuleId":11989
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SSH_AVX2)",
+      "acvpModuleId":11990
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SSH_AVX)",
+      "acvpModuleId":11991
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SSH_SSSE3)",
+      "acvpModuleId":11992
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SSH_ASM)",
+      "acvpModuleId":11993
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SHA3_ASM)",
+      "acvpModuleId":11994
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (FFC_DH)",
+      "acvpModuleId":11995
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (TDES_C)",
+      "acvpModuleId":11996
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (AESNI_AVX)",
+      "acvpModuleId":11997
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (AESNI_CLMULNI)",
+      "acvpModuleId":11998
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SHA_SSSE3)",
+      "acvpModuleId":11999
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (SHA_ASM)",
+      "acvpModuleId":12000
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (DRBG_10X)",
+      "acvpModuleId":12001
     }
   ]
 }

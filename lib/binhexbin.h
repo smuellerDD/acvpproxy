@@ -41,6 +41,8 @@ void bin2hex(const uint8_t *bin, uint32_t binlen,
 
 int bin2hex_html(const char *str, uint32_t strlen,
 		 char *html, uint32_t htmllen);
+int bin2hex_html_from_url(const char *str, uint32_t strlen,
+			  char *html, uint32_t htmllen);
 int bin2hex_html_alloc(const char *str, uint32_t strlen,
 		       char **html, uint32_t *htmllen);
 

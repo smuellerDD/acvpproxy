@@ -182,18 +182,9 @@ void bin2print(const unsigned char *bin, uint32_t binlen,
 }
 
 static int _bin2hex_html(const unsigned char *str, uint32_t strlen,
-			 char *html, uint32_t htmllen, uint32_t *reqlen)
+			 char *html, uint32_t htmllen, uint32_t *reqlen,
+			 const char *unreserved, size_t unreservedlen)
 {
-	/*
-	 * Characters that do not need to be converted as per RFC 3986
-	 * section 2.3
-	 */
-	const char unreserved[] = "abcdefghijklmnopqrstuvwxyz"
-				  "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-				  "0123456789"
-				  "-._~"
-				  ":=[]"; /* Do not convert search helper */
-
 	while (strlen) {
 		unsigned int charbytes;
 		unsigned int hexbytes;
@@ -212,7 +203,7 @@ static int _bin2hex_html(const unsigned char *str, uint32_t strlen,
 			return -EINVAL;
 
 		if (charbytes == 1) {
-			for (i = 0; i < sizeof(unreserved) - 1; i++) {
+			for (i = 0; i < unreservedlen; i++) {
 				if (*str == unreserved[i]) {
 					is_unreserved = 1;
 					break;
@@ -279,11 +270,34 @@ static int _bin2hex_html(const unsigned char *str, uint32_t strlen,
 	return 0;
 }
 
+/*
+ * Characters that do not need to be converted as per RFC 3986
+ * section 2.3
+ */
+static const char unreserved[] = "abcdefghijklmnopqrstuvwxyz"
+				 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+				 "0123456789"
+				 "-._~";
+
+/* Keep URL key characters */
+static const char unreserved_url[] = "abcdefghijklmnopqrstuvwxyz"
+				     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+				     "0123456789"
+				     "-._~"
+				     ":=[]?&%"; /* Do not convert search helper */
+
 int bin2hex_html(const char *str, uint32_t strlen,
 		 char *html, uint32_t htmllen)
 {
 	return _bin2hex_html((const unsigned char *)str, strlen, html, htmllen,
-			     NULL);
+			     NULL, unreserved, sizeof(unreserved) - 1);
+}
+
+int bin2hex_html_from_url(const char *str, uint32_t strlen,
+			  char *html, uint32_t htmllen)
+{
+	return _bin2hex_html((const unsigned char *)str, strlen, html, htmllen,
+			     NULL, unreserved_url, sizeof(unreserved_url) - 1);
 }
 
 int bin2hex_html_alloc(const char *str, uint32_t strlen,
@@ -297,7 +311,7 @@ int bin2hex_html_alloc(const char *str, uint32_t strlen,
 		return -EINVAL;
 
 	ret = _bin2hex_html((const unsigned char *)str, strlen, NULL, 0,
-			    &outlen);
+			    &outlen, unreserved, sizeof(unreserved) - 1);
 	if (ret)
 		return ret;
 
@@ -306,7 +320,7 @@ int bin2hex_html_alloc(const char *str, uint32_t strlen,
 		return -errno;
 
 	ret = _bin2hex_html((const unsigned char *)str, strlen, out, outlen,
-			    NULL);
+			    NULL, unreserved, sizeof(unreserved) - 1);
 	if (ret) {
 		free(out);
 		return ret;

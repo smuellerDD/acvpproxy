@@ -394,6 +394,8 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 			    const struct acvp_buf *buf, int err))
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
+	const struct definition *def = testid_ctx->def;
+	const struct def_info *info = def->info;
 	struct json_object *resp = NULL, *data = NULL;
 	uint32_t sleep_time = 0;
 	int ret, ret2;
@@ -461,8 +463,9 @@ out:
 				      testid_ctx->testid, vsid_ctx->vsid, ret);
 		else
 			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "Failure in processing testID %u with vsID %u (%d)\n",
-			       testid_ctx->testid, vsid_ctx->vsid, ret);
+			       "Failure in processing testID %u with vsID %u (%d) for module %s (%s)\n",
+			       testid_ctx->testid, vsid_ctx->vsid, ret,
+			       info->module_name, info->impl_name);
 	}
 
 	ACVP_JSON_PUT_NULL(resp);
@@ -927,11 +930,33 @@ out:
 	return ret;
 }
 
+/* Process any return code from the ACVP server */
+static int acvp_request_error_handler(int request_ret)
+{
+	enum acvp_error_code code;
+
+	if (request_ret <= 0)
+		return request_ret;
+
+	code = (enum acvp_error_code)request_ret;
+
+	switch (code) {
+	case ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING:
+	case ACVP_ERR_NO_ERR:
+	case ACVP_ERR_RESPONSE_REJECTED:
+	case ACVP_ERR_AUTH_JWT_EXPIRED:
+	default:
+		return -request_ret;
+	}
+}
+
 /* POST /testSessions */
 static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
+	const struct definition *def = testid_ctx->def;
+	const struct def_info *info = def->info;
 	struct json_object *request = NULL;
 	ACVP_BUFFER_INIT(register_buf);
 	ACVP_BUFFER_INIT(response_buf);
@@ -983,10 +1008,7 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_store_register_debug(testid_ctx, &response_buf,
 					ret2));
 
-	if (ret2 < 0) {
-		ret = ret2;
-		goto out;
-	}
+	CKINT(acvp_request_error_handler(ret2));
 
 	/* Process the response and download the vectors. */
 	CKINT(acvp_process_req(testid_ctx, request, &response_buf));
@@ -997,8 +1019,8 @@ out:
 
 	if (ret && testid_ctx)
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Failure to request testID %u\n",
-		       testid_ctx->testid);
+		       "Failure to request testID %u - module %s (%s)\n",
+		       testid_ctx->testid, info->module_name, info->impl_name);
 
 	acvp_release_auth(testid_ctx);
 	testid_ctx->server_auth = NULL;

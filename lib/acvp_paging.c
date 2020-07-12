@@ -113,7 +113,7 @@ int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
 					    json_type_object));
 
 			/* The next keyword may contain a string or NULL */
-			ret = json_get_string(links, "next", &next);
+			ret = json_get_string(links, "nextPage", &next);
 			if (!ret) {
 				/*
 				* Defensive programming: we only honor the HTTP
@@ -130,8 +130,6 @@ int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
 			CKINT(json_get_uint(pagingdata, "totalCount",
 					    &totalcount));
 
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Paging: %u entries to process\n", totalcount);
 		logger_status(LOGGER_C_ANY,
 			      "Paging: %u entries to process\n", totalcount);
 

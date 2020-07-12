@@ -278,7 +278,7 @@ static int acvp_nsurl_http_common(const struct acvp_na_ex *netinfo,
 		logger(LOGGER_WARN, LOGGER_C_CURL,
 		       "HTTP operation failed with code %ld\n", rc);
 		if (rc < 0) {
-			ret = rc;
+			ret = (int)rc;
 			goto out;
 		}
 
@@ -306,8 +306,8 @@ static int acvp_nsurl_http_common(const struct acvp_na_ex *netinfo,
 	} else {
 		logger(LOGGER_WARN, LOGGER_C_CURL,
 		       "Unable to HTTP %s data for URL %s\n",
-		       http_type_str, url);
-		ret = -rc;
+		       http_type_str, url.absoluteString.UTF8String);
+		ret = -(int)rc;
 	}
 
 out:

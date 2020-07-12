@@ -20,7 +20,7 @@
 #ifndef ACVP_ERROR_HANDLER_H
 #define ACVP_ERROR_HANDLER_H
 
-#include <buffer.h>
+#include "buffer.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -36,6 +36,7 @@ enum acvp_error_code {
 	 */
 	ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING = 1000,
 	ACVP_ERR_RESPONSE_REJECTED,
+	ACVP_ERR_AUTH_JWT_EXPIRED,
 };
 
 /**
