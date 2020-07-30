@@ -1,3 +1,9 @@
+v1.5.2
+- fix segfault with --cipher-list
+- fix format string usage as indicated with __attribute__((format()))
+- fix race in creating a database
+- fix HMAC SHA2-512/224 and /256
+
 v1.5.1
 - fix: allow NULL phoneNumber
 - fix: keyword for next pointer in the paging searches changed on the server

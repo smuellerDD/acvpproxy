@@ -196,7 +196,20 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 
 	CKINT(acvp_req_sym_keylen(entry, sym->keylen));
 
-	if (!acvp_match_cipher(sym->algorithm, ACVP_GMAC)) {
+	if (acvp_match_cipher(sym->algorithm, ACVP_CBC_CS1) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_CBC_CS2) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_CBC_CS3) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_CTR) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_XTS) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_KW) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_KWP) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_GCM) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_GCMSIV) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_CCM) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_XPN) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_TDESCTR) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_FF1) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_FF3_1)) {
 		CKINT(acvp_req_algo_int_array_always(entry, sym->ptlen,
 						     "payloadLen"));
 	}
@@ -301,7 +314,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	     acvp_match_cipher(sym->algorithm, ACVP_TDESKW)) &&
 	    !sym->kwcipher) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "KW mode definition: kwcipher setting missing %lu\n",
+		       "KW mode definition: kwcipher setting missing %" PRIu64 "\n",
 		       sym->algorithm);
 		ret = -EINVAL;
 		goto out;

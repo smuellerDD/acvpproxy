@@ -121,7 +121,7 @@ int thread_init(uint32_t groups)
 
 	if (groups > (THREADING_MAX_THREADS)) {
 		logger(LOGGER_ERR, LOGGER_C_THREADING,
-		       "Number of threads (%lu) is less than the number of requested thread groups (%u)\n",
+		       "Number of threads (%u) is less than the number of requested thread groups (%u)\n",
 		       THREADING_MAX_THREADS, groups);
 		return -EINVAL;
 	}

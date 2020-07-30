@@ -77,7 +77,7 @@ int sleep_interruptible2(unsigned int sleep_time, atomic_bool_t *interrupted1,
 
 	if (sleep_time < (uint64_t)hibernate.tv_sec) {
 		logger(LOGGER_ERR, LOGGER_C_SLEEP,
-		       "Requested sleep time too small (minimum required sleep time is %u seconds + %u nanoseconds)\n",
+		       "Requested sleep time too small (minimum required sleep time is %ld seconds + %ld nanoseconds)\n",
 		       hibernate.tv_sec, hibernate.tv_nsec);
 		return -EINVAL;
 	}
@@ -88,7 +88,7 @@ int sleep_interruptible2(unsigned int sleep_time, atomic_bool_t *interrupted1,
 		if ((interrupted1 && atomic_bool_read(interrupted1)) ||
 		    (interrupted2 && atomic_bool_read(interrupted2))) {
 			logger(LOGGER_VERBOSE, LOGGER_C_SLEEP,
-			       "Sleep interrupted (time slept: %lu nsec)\n",
+			       "Sleep interrupted (time slept: %" PRIu64 " nsec)\n",
 			       sleep_sec2nsec(sleep_time) - sleep_time_ns);
 			return -EINTR;
 		}

@@ -100,9 +100,9 @@ acvp_curl_write_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
 
 	if (!response_buf) {
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,
-		       "Retrieved data size : %u\n", bufsize);
+		       "Retrieved data size : %zu\n", bufsize);
 		logger(LOGGER_DEBUG, LOGGER_C_CURL, "Retrieved data: %s\n",
-		       ptr);
+		       (char *)ptr);
 		return bufsize;
 	}
 
@@ -112,7 +112,7 @@ acvp_curl_write_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
 	totalsize = bufsize + response_buf->len;
 	if (totalsize > ACVP_RESPONSE_MAXLEN || totalsize < response_buf->len) {
 		logger(LOGGER_WARN, LOGGER_C_CURL,
-		       "Received data is too big: %u\n", totalsize);
+		       "Received data is too big: %zu\n", totalsize);
 		return 0;
 	}
 

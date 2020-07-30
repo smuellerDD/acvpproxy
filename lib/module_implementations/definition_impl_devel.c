@@ -293,7 +293,7 @@ const struct def_algo_kas_ecc_r3_schema devel_ecc_r3_schema[] = { {
 /**************************************************************************
  * SP800-56A rev3 ECC SSC
  **************************************************************************/
-#if 1
+#if 0
 #define DEVEL_KAS_ECC_SSC_R3						\
  	GENERIC_KAS_ECC_SSC_R3(ACVP_NISTP256 | ACVP_NISTP384 | ACVP_NISTP521),\
  	GENERIC_KAS_ECC_SSC_R3_HASH(ACVP_NISTP256 | ACVP_NISTP384 |	\
@@ -487,6 +487,100 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 #endif
 
 /**************************************************************************
+ * SP800-56B rev2 OAEP
+ **************************************************************************/
+#if 1
+static const struct def_algo_prereqs devel_kas_ifc_prereqs[] = {
+	{
+		.algorithm = "RSA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "HMAC",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+const struct def_algo_kas_ifc_keygen devel_kas_ifc_keygen[] = { {
+	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_BASIC,
+	.rsa_modulo = { DEF_ALG_RSA_MODULO_6144,
+		        DEF_ALG_RSA_MODULO_8192, DEF_ALG_RSA_MODULO_2048 },
+	.fixedpubexp = "010001",
+}, {
+	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,
+	.rsa_modulo = { DEF_ALG_RSA_MODULO_8192, },
+	.fixedpubexp = "010001",
+}, {
+	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_CRT,
+	.rsa_modulo = { DEF_ALG_RSA_MODULO_6144, },
+	.fixedpubexp = "010001",
+}, {
+	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_CRT,
+	.rsa_modulo = { DEF_ALG_RSA_MODULO_4096, },
+	.fixedpubexp = "010001",
+}, {
+	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG2_BASIC,
+	.rsa_modulo = { DEF_ALG_RSA_MODULO_3072, }
+}, {
+	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG2_PRIME_FACTOR,
+	.rsa_modulo = { DEF_ALG_RSA_MODULO_2048, }
+}, {
+	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG2_CRT,
+	.rsa_modulo = { DEF_ALG_RSA_MODULO_2048, }
+} };
+
+const struct def_algo_kas_mac_method devel_kas_ifc_mac[] = { {
+	.mac = ACVP_HMACSHA2_256,
+	.key_length = 128,
+	.mac_length = 128,
+}, {
+	.mac = ACVP_HMACSHA2_512,
+	.key_length = 128,
+	.mac_length = 128,
+} };
+
+const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
+	.schema = DEF_ALG_KAS_IFC_KTS_OAEP_BASIC,
+	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
+			DEF_ALG_KAS_IFC_RESPONDER,
+	.keygen = devel_kas_ifc_keygen,
+	.keygen_num = ARRAY_SIZE(devel_kas_ifc_keygen),
+	.kts_method = {
+		.hashalg = ACVP_SHA256 | ACVP_SHA3_384,
+		.supports_null_association_data = true,
+		.associated_data_pattern_type = {
+			DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,
+			DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO,
+			DEF_ALG_KAS_KDF_FI_PATTERN_LITERAL
+			},
+		.literal = "affeaffeaffe",
+		.associated_data_pattern_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,
+		},
+	.mac = devel_kas_ifc_mac,
+	.mac_entries = ARRAY_SIZE(devel_kas_ifc_mac),
+	.length = 1024,
+} };
+
+#define DEVEL_RSA_OAEP							\
+	{								\
+	.type = DEF_ALG_TYPE_KAS_IFC,					\
+	.algo.kas_ifc = {						\
+		DEF_PREREQS(devel_kas_ifc_prereqs),			\
+		.function = DEF_ALG_KAS_IFC_PARITALVAL,			\
+		.iut_identifier = "0123456789abcdef",			\
+		.schema = devel_kas_ifc_schema_kts,			\
+		.schema_num = ARRAY_SIZE(devel_kas_ifc_schema_kts),	\
+		},							\
+	}
+#else
+#define DEVEL_RSA_OAEP
+#endif
+
+/**************************************************************************
  * Nettle Implementation Definitions
  **************************************************************************/
 static const struct def_algo devel[] = {
@@ -494,6 +588,7 @@ static const struct def_algo devel[] = {
 	DEVEL_KAS_ECC_R3
 	DEVEL_KAS_ECC_SSC_R3
 	DEVEL_KAS_IFC
+	DEVEL_RSA_OAEP
 
 	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYGENERATION,
 			 ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |

@@ -822,8 +822,7 @@ int acvp_load_extension_directory(const char *dir)
 	CKNULL_LOG(dir, -EINVAL, "Configuration directory missing\n");
 
 	extension_dir = opendir(dir);
-	CKNULL_LOG(extension_dir, -errno, "Failed to open directory %s\n",
-		   extension_dir);
+	CKNULL_LOG(extension_dir, -errno, "Failed to open directory %s\n", dir);
 
 	while ((dentry = readdir(extension_dir)) != NULL) {
 		if (!acvp_usable_dirent(dentry, "so") &&

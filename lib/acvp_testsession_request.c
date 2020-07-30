@@ -395,7 +395,7 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct definition *def = testid_ctx->def;
-	const struct def_info *info = def->info;
+	const struct def_info *info = def ? def->info : NULL;
 	struct json_object *resp = NULL, *data = NULL;
 	uint32_t sleep_time = 0;
 	int ret, ret2;
@@ -457,15 +457,19 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 
 out:
 	if (ret) {
-		if (ret == -EINTR || ret == -ESHUTDOWN)
+		if (ret == -EINTR || ret == -ESHUTDOWN) {
 			logger_status(LOGGER_C_ANY,
 				      "Interrupted processing testID %u with vsID %u (%d)\n",
 				      testid_ctx->testid, vsid_ctx->vsid, ret);
-		else
+		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Failure in processing testID %u with vsID %u (%d) for module %s (%s)\n",
 			       testid_ctx->testid, vsid_ctx->vsid, ret,
-			       info->module_name, info->impl_name);
+			       (info && info->module_name) ? info->module_name :
+							     "<undefined>",
+			       (info && info->impl_name) ? info->impl_name :
+							   "<undefined>");
+		}
 	}
 
 	ACVP_JSON_PUT_NULL(resp);
@@ -587,6 +591,9 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 		      testid_ctx->testid, vsid_ctx->vsid,
 		      atomic_read(&glob_vsids_processed),
 		      atomic_read(&glob_vsids_to_process));
+	//logger_spinner((unsigned int)(atomic_read(&glob_vsids_processed) * 100 /
+	//			      atomic_read(&glob_vsids_to_process)),
+	//	       "Tests obtained");
 
 	/* Store the time the download took */
 	acvp_record_vsid_duration(vsid_ctx, ACVP_DS_DOWNLOADDURATION);
@@ -689,7 +696,11 @@ static int acvp_process_vectors(struct acvp_testid_ctx *testid_ctx,
 	}
 
 	/* Get an array of vsIDs that are ready for download */
-	CKINT(acvp_get_vsid_array(entry, &vsid_array));
+	CKINT_LOG(acvp_get_vsid_array(entry, &vsid_array),
+		  "Failure in getting vsIDs from ACVP server response\n");
+
+	CKNULL_LOG(vsid_array.entries, -EINVAL,
+		   "Server returned no vector set ID\n");
 
 	/* Iterate over all vsIDs and store status in the data store */
 	for (i = 0; i < vsid_array.entries; i++) {
@@ -705,6 +716,8 @@ static int acvp_process_vectors(struct acvp_testid_ctx *testid_ctx,
 		atomic_inc(&testid_ctx->vsids_to_process);
 		atomic_inc(&glob_vsids_to_process);
 	}
+
+	//logger_spinner(0, "Tests obtained");
 
 	/*
 	 * Caller requested the registering of the tests vector definition
@@ -853,8 +866,9 @@ static int acvp_register_dump_request(struct acvp_testid_ctx *testid_ctx,
 
 	register_buf.buf = (uint8_t *)json_request;
 	register_buf.len = (uint32_t)strlen(json_request);
-	CKINT(ds->acvp_datastore_write_testid(testid_ctx, filename,
-					      true, &register_buf));
+	CKINT_LOG(ds->acvp_datastore_write_testid(testid_ctx, filename,
+						  true, &register_buf),
+		  "Cannot write file (%d) %s\n", ret, filename);
 
 out:
 	return ret;
@@ -868,11 +882,14 @@ static int acvp_get_testid(struct acvp_testid_ctx *testid_ctx,
 	char *str;
 
 	/* We know we are not modifying str, so constify is ok here */
-	CKINT(json_get_string(register_response, "url", (const char **)&str));
+	CKINT_LOG(json_get_string(register_response, "url",
+				  (const char **)&str),
+		  "URL string not found in ACVP server response\n");
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Received testID URL: %s\n", str);
 
-	CKINT(acvp_get_trailing_number(str, &testid_ctx->testid));
+	CKINT_LOG(acvp_get_trailing_number(str, &testid_ctx->testid),
+		  "Failure to obtain test ID from %s\n", str);
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Received testID: %u\n",
 	       testid_ctx->testid);
@@ -903,29 +920,41 @@ static int acvp_process_req(struct acvp_testid_ctx *testid_ctx,
 	 * Strip the version from the received array and return the array
 	 * entry containing the answer.
 	 */
-	CKINT(acvp_req_strip_version(response, &req, &entry));
+	CKINT_LOG(acvp_req_strip_version(response, &req, &entry),
+		  "Cannot find ACVP response\n");
 
 	/* Extract testID URL and ID number */
-	CKINT(acvp_get_testid(testid_ctx, request, entry));
+	CKINT_LOG(acvp_get_testid(testid_ctx, request, entry),
+		  "Cannot get testID from ACVP server response\n");
 
 	/* Store the testID meta data */
 	CKINT(ds->acvp_datastore_write_testid(testid_ctx, ACVP_DS_TESTIDMETA,
 					      true, response));
 
 	/* Store the definition search criteria */
-	CKINT(acvp_export_def_search(testid_ctx));
+	CKINT_LOG(acvp_export_def_search(testid_ctx),
+		  "Cannot store the search criteria\n");
 
 	/* Get access token */
-	CKINT(json_get_string(entry, "accessToken", &jwt));
+	CKINT_LOG(json_get_string(entry, "accessToken", &jwt),
+		  "ACVP server response does not contain expected JWT\n");
 
 	/* Store access token in ctx */
-	CKINT(acvp_set_authtoken(testid_ctx, jwt));
+	CKINT_LOG(acvp_set_authtoken(testid_ctx, jwt),
+		  "Cannot set the new JWT token\n");
 
 	/* Download the testvectors */
-	CKINT(acvp_process_vectors(testid_ctx, entry));
+	CKINT_LOG(acvp_process_vectors(testid_ctx, entry),
+		  "Cannot obtain test vectors\n");
 
 out:
 	ACVP_JSON_PUT_NULL(req);
+
+	if (ret < 0 && ret != -EINTR && ret != -ESHUTDOWN) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Cannot process server request %d:\n %s\n", ret,
+		       response->buf);
+	}
 
 	return ret;
 }
@@ -964,13 +993,15 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	char url[ACVP_NET_URL_MAXLEN];
 	int ret = 0, ret2;
 
-	CKINT(acvp_init_auth(testid_ctx));
+	CKINT_LOG(acvp_init_auth(testid_ctx),
+		  "Failure to initialize authtoken\n");
 
 	request = json_object_new_array();
 	CKNULL(request, -ENOMEM);
 
 	/* Construct the registration message. */
-	CKINT(acvp_req_build(testid_ctx, request));
+	CKINT_LOG(acvp_req_build(testid_ctx, request),
+		  "Failure to create registration message\n");
 
 	if (!req_details->dump_register)
 		sig_enqueue_ctx(testid_ctx);
@@ -998,7 +1029,8 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	register_buf.buf = (uint8_t *)json_request;
 	register_buf.len = (uint32_t)strlen(json_request);
 
-	CKINT(acvp_create_url(NIST_VAL_OP_REG, url, sizeof(url)));
+	CKINT_LOG(acvp_create_url(NIST_VAL_OP_REG, url, sizeof(url)),
+		  "Creation of request URL failed\n");
 
 	/* Send the capabilities to the ACVP server. */
 	ret2 = acvp_net_op(testid_ctx, url, &register_buf, &response_buf,
@@ -1181,7 +1213,8 @@ int acvp_register(const struct acvp_ctx *ctx)
 			int ret_ancestor;
 
 			tdata = calloc(1, sizeof(*tdata));
-			CKNULL(tdata, -ENOMEM);
+			CKNULL_LOG(tdata, -ENOMEM,
+				   "Failed to allocate memory\n");
 			tdata->ctx = ctx;
 			tdata->def = def;
 			ret = thread_start(acvp_register_thread, tdata, 0,

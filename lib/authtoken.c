@@ -379,7 +379,8 @@ static int acvp_login_submit(struct json_object *login,
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "Process following server response for HTTP return code %d: %s\n",
 		       -ret,
-		       response_buf->buf ? (char *)response_buf->buf : "null");
+		       response_buf->buf ? (char *)response_buf->buf :
+					   "<zero data>");
 		goto out;
 	}
 
@@ -502,6 +503,16 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 	if (response_buf.buf && response_buf.len) {
 		/* Store the debug version of the result unconditionally. */
 		ret |= acvp_store_login_debug(testid_ctx, &response_buf, ret);
+	}
+
+	if (ret == -403 && !response_buf.buf) {
+		if (acvp_jwt_exist(auth)) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "ACVP server rejected OTP password and/or client certificate and/or existing JWT auth token\n");
+		} else {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "ACVP server rejected OTP password and/or client certificate\n");
+		}
 	}
 
 	if (ret)

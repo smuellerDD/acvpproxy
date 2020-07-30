@@ -340,7 +340,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 	.algo.sym.direction = DEF_ALG_SYM_DIRECTION_ENCRYPTION |	\
 			      DEF_ALG_SYM_DIRECTION_DECRYPTION,		\
 	.algo.sym.keylen = DEF_ALG_SYM_KEYLEN_256,			\
-	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 0, 256, 8),			\
 	.algo.sym.ivlen = { 104, },					\
 	.algo.sym.aadlen = { 176, 224, 240 },				\
 	.algo.sym.taglen = { 128 },					\
@@ -373,6 +373,13 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 	.algo.sym.ivlen = { 64, },					\
 	}
 
+#define GENERIC_TDES_CBCI						\
+	{								\
+	GENERIC_TDES_GEN(ACVP_TDESCBCI),				\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
+	.algo.sym.ivlen = { 64, },					\
+	}
+
 /**
  * @brief Triple-DES CFB1 definition.
  *
@@ -384,6 +391,13 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_TDES_CFB1						\
 	{								\
 	GENERIC_TDES_GEN(ACVP_TDESCFB1),				\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
+	.algo.sym.ivlen = { 64, },					\
+	}
+
+#define GENERIC_TDES_CFBP1						\
+	{								\
+	GENERIC_TDES_GEN(ACVP_TDESCFBP1),				\
 	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
 	.algo.sym.ivlen = { 64, },					\
 	}
@@ -403,6 +417,13 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 	.algo.sym.ivlen = { 64, },					\
 	}
 
+#define GENERIC_TDES_CFBP8						\
+	{								\
+	GENERIC_TDES_GEN(ACVP_TDESCFBP8),				\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
+	.algo.sym.ivlen = { 64, },					\
+	}
+
 /**
  * @brief Triple-DES CFB64 definition.
  *
@@ -414,6 +435,13 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_TDES_CFB64						\
 	{								\
 	GENERIC_TDES_GEN(ACVP_TDESCFB64),				\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
+	.algo.sym.ivlen = { 64, },					\
+	}
+
+#define GENERIC_TDES_CFBP64						\
+	{								\
+	GENERIC_TDES_GEN(ACVP_TDESCFBP64),				\
 	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
 	.algo.sym.ivlen = { 64, },					\
 	}
@@ -443,6 +471,13 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 #define GENERIC_TDES_OFB						\
 	{								\
 	GENERIC_TDES_GEN(ACVP_TDESOFB),					\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
+	.algo.sym.ivlen = { 64, },					\
+	}
+
+#define GENERIC_TDES_OFBI						\
+	{								\
+	GENERIC_TDES_GEN(ACVP_TDESOFBI),				\
 	DEF_ALG_DOMAIN(.algo.sym.ptlen, 64, 65536, 64),			\
 	.algo.sym.ivlen = { 64, },					\
 	}

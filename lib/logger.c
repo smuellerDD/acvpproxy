@@ -195,7 +195,7 @@ void logger_status(enum logger_class class, const char *fmt, ...)
 
 	if (logger_verbosity_level != LOGGER_WARN &&
 	    logger_verbosity_level != LOGGER_ERR) {
-		logger(LOGGER_VERBOSE, class, msg);
+		logger(LOGGER_VERBOSE, class, "%s", msg);
 		return;
 	}
 
@@ -240,6 +240,44 @@ void logger_binary(enum logger_verbosity severity, enum logger_class class,
 		 now_detail.tm_hour, now_detail.tm_min, now_detail.tm_sec,
 		 sev, c, str);
 	bin2print(bin, binlen, logger_stream, msg);
+}
+
+DSO_PUBLIC
+void logger_spinner(unsigned int percentage, const char *fmt, ...)
+{
+	static unsigned int start = 0;
+
+	if (logger_verbosity_level > LOGGER_ERR)
+		return;
+
+	if (percentage >= 100) {
+		if (start < 2) {
+			fprintf(stderr, "\n");
+			start = 2;
+		}
+		return;
+	}
+
+	if (start) {
+		unsigned int i;
+
+		for (i = 0; i < 4; i++)
+                        fprintf(stderr, "\b");
+	} else {
+		va_list args;
+		char msg[4096];
+
+		va_start(args, fmt);
+		vsnprintf(msg, sizeof(msg), fmt, args);
+		va_end(args);
+
+		fprintf(stderr, "ACVPProxy progress: %s ", msg);
+		start = 1;
+	}
+
+	fprintf(stderr, "%.3u%%", percentage);
+
+	fflush(stderr);
 }
 
 static void logger_destructor(void)

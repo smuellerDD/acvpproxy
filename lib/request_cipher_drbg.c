@@ -94,7 +94,8 @@ static int acvp_req_drbg_check(const struct def_algo_drbg_caps *caps)
 		found = true;
 
 		CKINT(acvp_req_cipher_to_name(caps->mode,
-			(ACVP_CIPHERTYPE_AES | ACVP_CIPHERTYPE_HASH), &algo));
+			(ACVP_CIPHERTYPE_AES | ACVP_CIPHERTYPE_HASH |
+			 ACVP_CIPHERTYPE_TDES), &algo));
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "DRBG checking DRBG definition %s\n", algo);
 
@@ -281,7 +282,8 @@ int acvp_req_set_algo_drbg(const struct def_algo_drbg *drbg,
 
 		CKINT(acvp_req_cipher_to_string(cap_entry, caps->mode,
 						ACVP_CIPHERTYPE_HASH |
-						ACVP_CIPHERTYPE_AES,
+						ACVP_CIPHERTYPE_AES |
+						ACVP_CIPHERTYPE_TDES,
 						"mode"));
 
 		CKINT(json_object_object_add(cap_entry, "derFuncEnabled",

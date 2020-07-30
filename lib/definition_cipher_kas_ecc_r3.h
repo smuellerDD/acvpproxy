@@ -154,7 +154,7 @@ struct def_algo_kas_ecc_r3 {
 	/*
 	 * Array of supported key agrement schemes each having their own
 	 * capabilities
-	 * required: at least one
+	 * required: at least one except when DEF_ALG_KAS_ECC_R3_SSC is selected
 	 */
 	const struct def_algo_kas_ecc_r3_schema *schema;
 	/* Number of schemas */

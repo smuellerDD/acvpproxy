@@ -170,9 +170,9 @@
         ],
         "payloadLen":[
           {
-            "min":128,
-            "max":65536,
-            "increment":128
+            "min":0,
+            "max":256,
+            "increment":8
           }
         ],
         "ivLen":[

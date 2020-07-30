@@ -227,7 +227,7 @@ int acvp_req_cipher_to_name(cipher_t cipher, cipher_t cipher_type_mask,
 	}
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-	       "No ciphers found for cipher mask (ciphers %lu, mask %lu)\n",
+	       "No ciphers found for cipher mask (ciphers %" PRIu64 ", mask %" PRIu64 ")\n",
 	       cipher, cipher_type_mask);
 
 	return -EINVAL;

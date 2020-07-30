@@ -59,14 +59,15 @@ enum logger_class {
  * @param fmt format string as defined by fprintf(3)
  */
 void logger(enum logger_verbosity severity, enum logger_class class,
-	    const char *fmt, ...);
+	    const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 
 /**
  * logger - log status if LOGGER_WARN or LOGGER_ERR is found
  * @param class logging class
  * @param fmt format string as defined by fprintf(3)
  */
-void logger_status(enum logger_class class, const char *fmt, ...);
+void logger_status(enum logger_class class, const char *fmt, ...)
+__attribute__((format(printf, 2, 3)));
 
 /**
  * logger_binary - log binary string as hex
@@ -78,6 +79,14 @@ void logger_status(enum logger_class class, const char *fmt, ...);
  */
 void logger_binary(enum logger_verbosity severity, enum logger_class class,
 		   const unsigned char *bin, uint32_t binlen, const char *str);
+
+/**
+ * logger - log a percentage only if LOG_NONE is given
+ * @param percentage Integer indicating a percentage value
+ * @param fmt format string printed during first call
+ */
+void logger_spinner(unsigned int percentage, const char *fmt, ...)
+__attribute__((format(printf, 2, 3)));
 
 /**
  * logger_set_verbosity - set verbosity level

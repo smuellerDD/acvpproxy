@@ -65,7 +65,7 @@ acvp_datastore_write_data(const struct acvp_buf *data, const char *filename)
 	written = fwrite(data->buf, 1, data->len, file);
 	if (written != data->len)
 		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
-		       "data written (%u) mismatch with data available (%u)\n",
+		       "data written (%zu) mismatch with data available (%u)\n",
 		       written, data->len);
 	fclose(file);
 
@@ -92,7 +92,7 @@ acvp_datastore_read_data(uint8_t **buf, size_t *buflen, const char *filename)
 
 	if (!statbuf.st_size || statbuf.st_size > ACVP_JWT_TOKEN_MAX) {
 		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
-		       "File %s is too large for reading (%lu bytes)",
+		       "File %s is too large for reading (%" PRIu64 "bytes)",
 		       filename, statbuf.st_size);
 		return -ERANGE;
 	}
@@ -103,7 +103,7 @@ acvp_datastore_read_data(uint8_t **buf, size_t *buflen, const char *filename)
 	CKNULL(l_buf, -ENOMEM);
 
 	file = fopen(filename, "r");
-	CKNULL_C_LOG(file, -ENOMEM, LOGGER_C_DS_FILE, "Cannot open file\n");
+	CKNULL_C_LOG(file, -EINVAL, LOGGER_C_DS_FILE, "Cannot open file\n");
 
 	ptr = l_buf;
 	len = l_buflen;
@@ -143,8 +143,15 @@ static int acvp_datastore_file_dir(char *dirname, bool createdir)
 		int errsv = errno;
 
 		if (errsv == ENOENT && createdir) {
-			if (mkdir(dirname, 0777))
-				return -errno;
+			if (mkdir(dirname, 0777)) {
+				errsv = errno;
+
+				/* Catch the race to create a directory */
+				if (errsv == EEXIST)
+					return 0;
+				else
+					return -errsv;
+			}
 			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
 			       "directory %s created\n", dirname);
 		} else {
@@ -184,7 +191,11 @@ static int acvp_datastore_check_version(char *basedir, bool createdir)
 		snprintf(version, sizeof(version), "%d", ACVP_DS_VERSION);
 		writebuf.buf = (uint8_t *)version;
 		writebuf.len = (uint32_t)strlen(version);
-		CKINT(acvp_datastore_write_data(&writebuf, verfile));
+		ret = acvp_datastore_write_data(&writebuf, verfile);
+
+		/* Handle the possible race condition */
+		if (ret != -EEXIST)
+			return ret;
 
 		return 0;
 	}
@@ -405,7 +416,6 @@ acvp_datastore_file_rename_name(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-
 out:
 	info->module_name_filesafe = currname;
 	return ret;
@@ -469,7 +479,7 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	tmp.buf = (uint8_t *)auth->jwt_token;
 	tmp.len = (uint32_t)auth->jwt_token_len;
 	ret = acvp_datastore_write_data(&tmp, file);
-	if (ret) {
+	if (ret && ret != -EEXIST) {
 		/*
 		 * As a safety-measure, unlink the file to avoid somebody
 		 * seeing or using a stale auth token.
@@ -509,7 +519,11 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	snprintf(msgsize, sizeof(msgsize), "%u", auth->max_reg_msg_size);
 	tmp.buf = (uint8_t *)msgsize;
 	tmp.len = (uint32_t)strlen(msgsize);
-	CKINT(acvp_datastore_write_data(&tmp, file));
+	ret = acvp_datastore_write_data(&tmp, file);
+
+	/* Handle the possible race condition */
+	if (ret == -EEXIST)
+		ret = 0;
 
 out:
 	return ret;
@@ -810,7 +824,7 @@ acvp_datastore_file_compare(const struct acvp_vsid_ctx *vsid_ctx,
 
 	if ((size_t)data->len != buflen) {
 		logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-		       "Datastore compare: string lengths do not match (requested length %u, found length %u)\n",
+		       "Datastore compare: string lengths do not match (requested length %u, found length %zu)\n",
 		       data->len, buflen);
 
 		ret = 0;
@@ -930,7 +944,7 @@ acvp_datastore_find_modinfo(const struct acvp_datastore_ctx *datastore,
 			       MAP_SHARED, fd, 0);
 		if (buf.buf == MAP_FAILED) {
 			logger(LOGGER_WARN, LOGGER_C_DS_FILE,
-			       "Cannot mmap file %s\n", buf);
+			       "Cannot mmap file %s\n", dir);
 			ret = -ENOMEM;
 			goto out;
 		}
@@ -1537,7 +1551,7 @@ acvp_datastore_file_find_responses(const struct acvp_testid_ctx *testid_ctx,
 
 			if (!found) {
 				logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-				       "Skipping test results dir %u\n",
+				       "Skipping test results dir %lu\n",
 				       vsid_val);
 				continue;
 			}
@@ -1721,7 +1735,7 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 
 			if (!found) {
 				logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-				       "Skipping test session dir %u\n",
+				       "Skipping test session dir %lu\n",
 				       testid);
 				continue;
 			}
@@ -1751,7 +1765,7 @@ acvp_datastore_file_find_testsession(const struct definition *def,
 
 			if (!found) {
 				logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-				       "Skipping test session dir %u\n",
+				       "Skipping test session dir %lu\n",
 				       testid);
 				continue;
 			}

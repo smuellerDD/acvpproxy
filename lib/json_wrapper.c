@@ -237,7 +237,7 @@ int acvp_req_strip_version(const struct acvp_buf *buf,
 	resp = json_tokener_parse_ex(tok, (const char*)buf->buf, (int)buf->len);
 	json_tokener_free(tok);
 
-	CKNULL(resp, -EINVAL);
+	CKNULL_LOG(resp, -EINVAL, "JSON tokener cannot parse ASCII data\n");
 	json_logger(LOGGER_DEBUG2, LOGGER_C_ANY, resp,
 		    "Parsed ACVP response\n");
 

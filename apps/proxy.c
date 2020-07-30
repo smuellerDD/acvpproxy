@@ -135,7 +135,8 @@ static int json_get_uint64(struct json_object *obj, const char *name,
 
 	*integer = (uint64_t)tmp;
 
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Found integer %s with value %lu\n",
+	logger(LOGGER_DEBUG, LOGGER_C_ANY,
+	       "Found integer %s with value %" PRIu64 "\n",
 	       name, *integer);
 
 	return 0;

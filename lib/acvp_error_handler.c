@@ -35,6 +35,11 @@ int acvp_error_convert(const struct acvp_buf *response_buf,
 	/* Ensure we have a valid error code in any case */
 	*code = ACVP_ERR_NO_ERR;
 
+	/* If we have no error, return successfully */
+	if (!http_ret)
+		return 0;
+
+	/* HTTP error codes */
 	switch (http_ret) {
 	case -401:
 	case -403:
@@ -46,8 +51,11 @@ int acvp_error_convert(const struct acvp_buf *response_buf,
 		break;
 	}
 
-	if (!response_buf->buf || !response_buf->len || !http_ret)
+	if (!response_buf || !response_buf->buf || !response_buf->len ||
+	    !http_ret)
 		return http_ret;
+
+	/* Error codes from the ACVP data */
 
 	//TODO: fix after issue #863 is cleared
 	logger(LOGGER_VERBOSE, LOGGER_C_CURL,

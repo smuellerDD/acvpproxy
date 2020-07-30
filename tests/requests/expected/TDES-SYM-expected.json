@@ -20,13 +20,6 @@
         "keyLen":[
           168
         ],
-        "payloadLen":[
-          {
-            "min":64,
-            "max":65536,
-            "increment":64
-          }
-        ],
         "keyingOption":[
           1
         ]
@@ -40,13 +33,6 @@
         ],
         "keyLen":[
           168
-        ],
-        "payloadLen":[
-          {
-            "min":64,
-            "max":65536,
-            "increment":64
-          }
         ],
         "ivLen":[
           64
@@ -92,13 +78,6 @@
         "keyLen":[
           168
         ],
-        "payloadLen":[
-          {
-            "min":64,
-            "max":65536,
-            "increment":64
-          }
-        ],
         "ivLen":[
           64
         ],
@@ -115,13 +94,6 @@
         ],
         "keyLen":[
           168
-        ],
-        "payloadLen":[
-          {
-            "min":64,
-            "max":65536,
-            "increment":64
-          }
         ],
         "ivLen":[
           64
@@ -140,13 +112,6 @@
         "keyLen":[
           168
         ],
-        "payloadLen":[
-          {
-            "min":64,
-            "max":65536,
-            "increment":64
-          }
-        ],
         "ivLen":[
           64
         ],
@@ -163,13 +128,6 @@
         ],
         "keyLen":[
           168
-        ],
-        "payloadLen":[
-          {
-            "min":64,
-            "max":65536,
-            "increment":64
-          }
         ],
         "ivLen":[
           64

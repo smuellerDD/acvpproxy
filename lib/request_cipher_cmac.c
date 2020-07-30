@@ -117,7 +117,7 @@ int acvp_req_set_algo_cmac(const struct def_algo_cmac *cmac,
 			maclen = 128;
 		else {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "CMAC: Cannot determine mac length for keyed message digest %s\n",
+			       "CMAC: Cannot determine mac length for keyed message digest %" PRIu64 "\n",
 			       cmac->algorithm);
 			ret = -EINVAL;
 			goto out;

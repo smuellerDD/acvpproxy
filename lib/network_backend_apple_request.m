@@ -95,7 +95,7 @@ totalBytesExpectedToSend:(int64_t)totalBytesExpectedToSend
 	(void)task;
 	
 	logger(LOGGER_DEBUG, LOGGER_C_CURL,
-	       "Sending progress - data sent: %ld, total data sent: %ld, message size: %ld bytes\n",
+	       "Sending progress - data sent: %" PRId64 ", total data sent: %" PRId64 ", message size: %" PRId64 " bytes\n",
 	       bytesSent, totalBytesSent,
 	       totalBytesExpectedToSend);
 	
@@ -153,9 +153,9 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
 {
 	(void)session;
 	logger(LOGGER_DEBUG, LOGGER_C_CURL,
-	       "Session authentication challenge received of type %s (previous error code %d)\n",
+	       "Session authentication challenge received of type %s (previous error code %ld)\n",
 	       challenge.protectionSpace.authenticationMethod.UTF8String,
-	       challenge.error.code);
+	       (long)challenge.error.code);
 	
 	/* Return client certificate for authentication */
 	if ([challenge.protectionSpace.authenticationMethod
@@ -284,7 +284,7 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
 	}
 	
 	logger(LOGGER_DEBUG, LOGGER_C_CURL,
-	       "HTTP task completed - total data sent: %ld, total data received: %ld bytes\n",
+	       "HTTP task completed - total data sent: %" PRId64 ", total data received: %" PRId64 " bytes\n",
 	       task.countOfBytesSent, task.countOfBytesReceived);
 	
 	if (task.error != nil && task.error.code) {

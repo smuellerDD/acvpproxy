@@ -111,7 +111,7 @@ int acvp_req_set_algo_hmac(const struct def_algo_hmac *hmac,
 			maclen = 512;
 		else {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "HMAC: Cannot determine mac length for keyed message digest %s\n",
+			       "HMAC: Cannot determine mac length for keyed message digest %" PRIu64 "\n",
 			       hmac->algorithm);
 			ret = -EINVAL;
 			goto out;

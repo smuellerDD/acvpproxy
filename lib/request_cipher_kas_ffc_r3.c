@@ -314,6 +314,22 @@ int acvp_list_algo_kas_ffc_r3(const struct def_algo_kas_ffc_r3 *kas_ffc_r3,
 		CKINT(acvp_duplicate(&tmp->cipher_mode, "fullVal"));
 		found = true;
 	}
+	if (kas_ffc_r3->kas_ffc_function & DEF_ALG_KAS_FFC_R3_SSC) {
+		prev = tmp;
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		*new = tmp;
+		tmp->next = prev;
+
+		CKINT(acvp_duplicate(&tmp->cipher_name, "KAS-FFC Sp800-56Ar3"));
+		CKINT(acvp_req_cipher_to_intarray(kas_ffc_r3->domain_parameter,
+						  ACVP_CIPHERTYPE_DOMAIN,
+						  tmp->keylen));
+
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "SSC"));
+		found = true;
+	}
+
 	CKNULL_LOG(found, -EINVAL,
 		   "KAS FFC r3: No applicable entry for kas_ffc_function found\n");
 

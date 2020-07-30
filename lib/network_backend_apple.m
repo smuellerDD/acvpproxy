@@ -66,8 +66,8 @@ static void acvp_nsurl_write_cb(struct acvp_buf *response_buf,
 	if (http_response.statusCode < 200 ||
 	    http_response.statusCode >= 300) {
 		logger(LOGGER_ERR, LOGGER_C_CURL,
-		       "HTTP error status code: %u\n",
-		       http_response.statusCode);
+		       "HTTP error status code: %lu\n",
+		       (unsigned long)http_response.statusCode);
 		/*
 		 * We do not goto out here because we want the response data
 		 * from the server (if there is any) to be send to the caller.
@@ -84,7 +84,7 @@ static void acvp_nsurl_write_cb(struct acvp_buf *response_buf,
 
 	if (!response_buf) {
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,
-		       "Retrieved data size : %u\n", bufsize);
+		       "Retrieved data size : %zu\n", bufsize);
 		logger(LOGGER_DEBUG, LOGGER_C_CURL, "Retrieved data: %s\n",
 		       ptr);
 		goto out;
@@ -96,7 +96,7 @@ static void acvp_nsurl_write_cb(struct acvp_buf *response_buf,
 	totalsize = bufsize + response_buf->len;
 	if (totalsize > ACVP_RESPONSE_MAXLEN || totalsize < response_buf->len) {
 		logger(LOGGER_WARN, LOGGER_C_CURL,
-		       "Received data is too big: %u\n", totalsize);
+		       "Received data is too big: %zu\n", totalsize);
 		goto out;
 	}
 
