@@ -30,7 +30,7 @@ LNS		:= $(LN) -sf
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	:= .
+INCLUDE_DIRS	:= . ./acvp
 LIBRARY_DIRS	:=
 LIBRARIES	:= curl pthread
 
@@ -43,9 +43,9 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 # Get version name and cross check
 #
 ###############################################################################
-LIBMAJOR   := $(shell grep '^\#define.*MAJVERSION' internal.h | awk '{print $$3}')
-LIBMINOR   := $(shell grep '^\#define.*MINVERSION' internal.h | awk '{print $$3}')
-LIBPATCH   := $(shell grep '^\#define.*PATCHLEVEL' internal.h | awk '{print $$3}')
+LIBMAJOR   := $(shell grep '^\#define.*MAJVERSION' acvp/internal.h | awk '{print $$3}')
+LIBMINOR   := $(shell grep '^\#define.*MINVERSION' acvp/internal.h | awk '{print $$3}')
+LIBPATCH   := $(shell grep '^\#define.*PATCHLEVEL' acvp/internal.h | awk '{print $$3}')
 LIBVERSION := $(LIBMAJOR).$(LIBMINOR).$(LIBPATCH)
 
 ###############################################################################
@@ -90,7 +90,9 @@ LIBNAME		:= lib$(NAME).so.$(LIBVERSION)
 ###############################################################################
 C_SRCS := $(wildcard *.c)
 C_SRCS := $(wildcard json-c/*.c)
+C_SRCS += $(wildcard acvp/*.c)
 C_SRCS += $(wildcard hash/*.c)
+C_SRCS += $(wildcard requests/*.c)
 C_SRCS += $(wildcard module_implementations/*.c)
 C_OBJS := ${C_SRCS:.c=.o}
 OBJS := $(C_OBJS)

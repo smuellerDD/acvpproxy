@@ -141,7 +141,7 @@ struct def_algo_kas_ecc_kdfnokc {
 	 * Input as bits mod 8. Minimum must conform to parameter set
 	 * requirements.
 	 *
-	 * required: only for AES-CCM
+	 * required: only for AES-CCM, otherwise optional
 	 */
 	int maclen;
 

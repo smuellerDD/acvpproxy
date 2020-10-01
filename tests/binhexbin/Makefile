@@ -36,7 +36,7 @@ LNS		:= $(LN) -sf
 ###############################################################################
 ACVP_DIR	:= ../../
 
-INCLUDE_DIRS	:= $(ACVP_DIR) $(ACVP_DIR)/lib
+INCLUDE_DIRS	:= $(ACVP_DIR) $(ACVP_DIR)/lib $(ACVP_DIR)/lib/acvp
 LIBRARY_DIRS	:=
 LIBRARIES	:= pthread
 
@@ -51,7 +51,7 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 ###############################################################################
 C_SRCS := $(wildcard *.c)
 
-C_SRCS += $(ACVP_DIR)/lib/binhexbin.c
+C_SRCS += $(ACVP_DIR)/lib/acvp/binhexbin.c
 C_OBJS := ${C_SRCS:.c=.o}
 C_GCOV := ${C_SRCS:.c=.gcda}
 C_GCOV += ${C_SRCS:.c=.gcno}

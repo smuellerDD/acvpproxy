@@ -20,6 +20,9 @@
 		"KAS-FFC-R3",
 		"KAS-FFC-SSC-R3",
 		"SAFEPRIMES",
-		"KAS-IFC"
+		"KAS-IFC",
+		"TLS v1.3",
+		"Onestep",
+		"Twostep"
 	]
 }

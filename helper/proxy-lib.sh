@@ -21,6 +21,11 @@ EXTENSION_DIR="module_implementations"
 GLOBAL_EXTENSION_DIR="extensions"
 # ACVP Proxy log file
 LOGFILE="acvp-proxy"
+# ACVP Proxy test vector files
+REQFILE="testvector-request.json"
+# proxy-lib.sh status file
+SCRIPT=${0//[.\/]/_}
+PROXYLIBSTATUS=".proxy-lib-status-$SCRIPT.txt"
 
 # File that will contain a general cipher options overview
 CIPHER_OPTION_OVERVIEW="cipher_options_overview.txt"
@@ -97,6 +102,31 @@ usage() {
 	echo -e "\t--log\t\tCreate log file with detailed logging"
 }
 
+color()
+{
+	bg=0
+	echo -ne "\033[0m"
+	while [[ $# -gt 0 ]]; do
+		code=0
+		case $1 in
+			black) code=30 ;;
+			red) code=31 ;;
+			green) code=32 ;;
+			yellow) code=33 ;;
+			blue) code=34 ;;
+			magenta) code=35 ;;
+			cyan) code=36 ;;
+			white) code=37 ;;
+			background|bg) bg=10 ;;
+			foreground|fg) bg=0 ;;
+			reset|off|default) code=0 ;;
+			bold|bright) code=1 ;;
+		esac
+		[[ $code == 0 ]] || echo -ne "\033[$(printf "%02d" $((code+bg)))m"
+		shift
+	done
+}
+
 # Invoke command
 invoke() {
 	if [ -n "$SHOW_CMD" ]
@@ -124,9 +154,12 @@ checkArgLen() {
 
 checkProxyVersion() {
 	# check proxy version
-	if [ $($PROXYBIN --version-numeric 2>&1) -ne $PROXYVERSION ]
+	PROXYBINARYVERSION=$($PROXYBIN --version-numeric 2>&1)
+	if [ $PROXYBINARYVERSION -ne $PROXYVERSION ]
 	then
-		echo "Proxy versions do match. Aborting."
+		echo "Proxy versions do not match. Aborting."
+		echo "proxy.sh version: $PROXYVERSION"
+		echo "Proxy binary version: $PROXYBINARYVERSION"
 		exit 1
 	fi
 }
@@ -161,12 +194,19 @@ compileExtension() {
 				fi
 			fi
 		fi
-		CFLAGS="-I${dir}/lib -I${dir}/lib/module_implementations" make -s -C "$TARGETDIR/$EXTENSION_DIR"
-		if [ $? -ne 0 ]
-		then
-			echo "Compilation of extension failed"
-			exit 1
-		fi
+
+		for file in $TARGETDIR/$EXTENSION_DIR/*.c
+		do
+			local libfile=$(basename $file)
+			libfile_noext=${libfile%%.c}
+			#CFLAGS="-I${dir}/lib -I${dir}/lib/module_implementations" C_SRCS=$libfile SONAME=${libfile_noext}.so LIBNAME=${libfile_noext}.so make -s -C "$TARGETDIR/$EXTENSION_DIR" show_vars
+			CFLAGS="-I${dir}/lib -I${dir}/lib/module_implementations" C_SRCS=$libfile SONAME=${libfile_noext}.so LIBNAME=${libfile_noext}.so make -s -C "$TARGETDIR/$EXTENSION_DIR"
+			if [ $? -ne 0 ]
+			then
+				echo "Compilation of extension failed"
+				exit 1
+			fi
+		done
 	fi
 }
 
@@ -223,7 +263,7 @@ setParams() {
 	if [ -d "$TARGETDIR/$EXTENSION_DIR" ]
 	then
 		compileExtension
-		for i in "$TARGETDIR/$EXTENSION_DIR/*.$LIBEXT"
+		for i in $TARGETDIR/$EXTENSION_DIR/*.$LIBEXT
 		do
 			PARAMS="$PARAMS --proxy-extension $i"
 		done
@@ -330,11 +370,63 @@ getVendorApprovalPackage()
 	rm -f $TARGETDIR/$CIPHER_OPTION_OVERVIEW
 }
 
+checkvectors() {
+	local ret=0
+
+	for reqfile in $(find $TARGETDIR/${TESTVECTORS_DIR}${PRODUCTION} -name ${REQFILE})
+	do
+
+		if (grep -q status $reqfile)
+		then
+			echo $(color "yellow")[INVALID]$(color off) "Test vector $reqfile contains status information"
+			ret=1
+		fi
+	done
+
+	return $ret
+}
+
 getvectors() {
 	local log="${LOGFILE}-post-${DATE}.log"
-	invoke $PROXYBIN $PARAMS --request $(addlogging "$log")
+
+	if [ -e $TARGETDIR/$PROXYLIBSTATUS ]
+	then
+		local libstatus=$(cat $TARGETDIR/$PROXYLIBSTATUS)
+		rm -f $TARGETDIR/$PROXYLIBSTATUS
+
+		if [ x"$libstatus" = x"register success" ]
+		then
+			invoke $PROXYBIN $PARAMS --request --testid -1 $(addlogging "$log")
+		else
+			invoke $PROXYBIN $PARAMS --request $(addlogging "$log")
+		fi
+	else
+		invoke $PROXYBIN $PARAMS --request --register-only $(addlogging "$log")
+
+		local ret=$?
+		if [ $ret -eq 0 ]
+		then
+			echo "register success" > $TARGETDIR/$PROXYLIBSTATUS
+
+			echo "Now go out and sip some coffee and re-invoke command at a later time of your choice."
+			echo "There is no network operation happening until you re-invoke the command allowing you to go about your business without considering at the ACVP connection"
+		else
+			echo "register error: $ret" > $TARGETDIR/$PROXYLIBSTATUS
+			echo "Error occurred during register operation, re-invoke command"
+		fi
+
+		exit $ret
+	fi
 
 	echo
+
+	checkvectors
+	if [ $? -ne 0 ]
+	then
+		echo "Re-obtain test vectors by removing the listed status files and invoke 'proxy.sh anyop --request --testid -1'"
+		exit 1
+	fi
+
 	echo "Archive $TARGETDIR/${TESTVECTORS_DIR}${PRODUCTION} and send this archive to vendor to process it with the ACVP Parser."
 	echo -e "\ttar -C $TARGETDIR/ -czf testvectors${PRODUCTION}.tar.gz ${TESTVECTORS_DIR}${PRODUCTION}/"
 	echo

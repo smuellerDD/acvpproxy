@@ -130,8 +130,8 @@ const struct def_algo_kas_ffc_r3_schema devel_ffc_r3_schema[] = { {
 			.literal = "affedeadbeef",
 			.fixed_info_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,
 		},
-	.twostekdf = devel_kas_ffc_twostepkdf,
-	.twostekdf_num = ARRAY_SIZE(devel_kas_ffc_twostepkdf),
+	.twostepkdf = devel_kas_ffc_twostepkdf,
+	.twostepkdf_num = ARRAY_SIZE(devel_kas_ffc_twostepkdf),
 	.key_confirmation_method = {
 		.kc_direction = DEF_ALG_KAS_R3_UNILATERAL |
 				DEF_ALG_KAS_R3_BILATERAL,
@@ -258,8 +258,8 @@ const struct def_algo_kas_ecc_r3_schema devel_ecc_r3_schema[] = { {
 			.literal = "affedeadbeef",
 			.fixed_info_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,
 		},
-	.twostekdf = devel_kas_ecc_twostepkdf,
-	.twostekdf_num = ARRAY_SIZE(devel_kas_ecc_twostepkdf),
+	.twostepkdf = devel_kas_ecc_twostepkdf,
+	.twostepkdf_num = ARRAY_SIZE(devel_kas_ecc_twostepkdf),
 	.key_confirmation_method = {
 		.kc_direction = DEF_ALG_KAS_R3_UNILATERAL |
 				DEF_ALG_KAS_R3_BILATERAL,
@@ -327,34 +327,6 @@ static const struct def_algo_prereqs devel_kas_ifc_prereqs[] = {
 	},
 };
 
-const struct def_algo_kas_ifc_keygen devel_kas_ifc_keygen[] = { {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_BASIC,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_6144,
-		        DEF_ALG_RSA_MODULO_8192, DEF_ALG_RSA_MODULO_2048 },
-	.fixedpubexp = "010001",
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_8192, },
-	.fixedpubexp = "010001",
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_CRT,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_6144, },
-	.fixedpubexp = "010001",
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_CRT,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_4096, },
-	.fixedpubexp = "010001",
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG2_BASIC,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_3072, }
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG2_PRIME_FACTOR,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_2048, }
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG2_CRT,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_2048, }
-} };
-
 const struct def_algo_kas_kdf_onestepkdf_aux devel_kas_ifc_onestepkdf_aux[] = { {
 	.auxfunc = ACVP_HMACSHA2_256,
 	.mac_salt_method = DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT |
@@ -417,8 +389,6 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kas[] = { {
 	.schema = DEF_ALG_KAS_IFC_KAS1_PARTY_V,
 	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
 			DEF_ALG_KAS_IFC_RESPONDER,
-	.keygen = devel_kas_ifc_keygen,
-	.keygen_num = ARRAY_SIZE(devel_kas_ifc_keygen),
 	.onestekdf = {
 		.aux_function = devel_kas_ifc_onestepkdf_aux,
 		.aux_function_num = ARRAY_SIZE(devel_kas_ifc_onestepkdf_aux),
@@ -430,8 +400,8 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kas[] = { {
 		.literal = "affedeadbeef",
 		.fixed_info_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,
 		},
-	.twostekdf = devel_kas_ifc_twostepkdf,
-	.twostekdf_num = ARRAY_SIZE(devel_kas_ifc_twostepkdf),
+	.twostepkdf = devel_kas_ifc_twostepkdf,
+	.twostepkdf_num = ARRAY_SIZE(devel_kas_ifc_twostepkdf),
 	.mac = devel_kas_ifc_mac,
 	.mac_entries = ARRAY_SIZE(devel_kas_ifc_mac),
 	.length = 1024,
@@ -441,8 +411,6 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 	.schema = DEF_ALG_KAS_IFC_KTS_OAEP_BASIC,
 	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
 			DEF_ALG_KAS_IFC_RESPONDER,
-	.keygen = devel_kas_ifc_keygen,
-	.keygen_num = ARRAY_SIZE(devel_kas_ifc_keygen),
 	.kts_method = {
 		.hashalg = ACVP_SHA256 | ACVP_SHA3_384,
 		.supports_null_association_data = true,
@@ -467,6 +435,13 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 		.function = DEF_ALG_KAS_IFC_KEYPAIRGEN |		\
 			    DEF_ALG_KAS_IFC_PARITALVAL,			\
 		.iut_identifier = "0123456789abcdef",			\
+		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC,\
+				DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,	\
+				DEF_ALG_KAS_IFC_RSAKPG1_CRT },		\
+		.keygen.rsa_modulo = { DEF_ALG_RSA_MODULO_6144,		\
+				DEF_ALG_RSA_MODULO_8192,		\
+				DEF_ALG_RSA_MODULO_2048 },		\
+		.keygen.fixedpubexp = "010001",				\
 		.schema = devel_kas_ifc_schema_kas,			\
 		.schema_num = ARRAY_SIZE(devel_kas_ifc_schema_kas),	\
 		},							\
@@ -478,6 +453,13 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 		.function = DEF_ALG_KAS_IFC_KEYPAIRGEN |		\
 			    DEF_ALG_KAS_IFC_PARITALVAL,			\
 		.iut_identifier = "0123456789abcdef",			\
+		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC,\
+				DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,	\
+				DEF_ALG_KAS_IFC_RSAKPG1_CRT },		\
+		.keygen.rsa_modulo = { DEF_ALG_RSA_MODULO_6144,		\
+				DEF_ALG_RSA_MODULO_8192,		\
+				DEF_ALG_RSA_MODULO_2048 },		\
+		.keygen.fixedpubexp = "010001",				\
 		.schema = devel_kas_ifc_schema_kts,			\
 		.schema_num = ARRAY_SIZE(devel_kas_ifc_schema_kts),	\
 		},							\
@@ -489,7 +471,7 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 /**************************************************************************
  * SP800-56B rev2 OAEP
  **************************************************************************/
-#if 1
+#if 0
 static const struct def_algo_prereqs devel_kas_ifc_prereqs[] = {
 	{
 		.algorithm = "RSA",
@@ -505,34 +487,6 @@ static const struct def_algo_prereqs devel_kas_ifc_prereqs[] = {
 	},
 };
 
-const struct def_algo_kas_ifc_keygen devel_kas_ifc_keygen[] = { {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_BASIC,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_6144,
-		        DEF_ALG_RSA_MODULO_8192, DEF_ALG_RSA_MODULO_2048 },
-	.fixedpubexp = "010001",
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_8192, },
-	.fixedpubexp = "010001",
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_CRT,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_6144, },
-	.fixedpubexp = "010001",
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG1_CRT,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_4096, },
-	.fixedpubexp = "010001",
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG2_BASIC,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_3072, }
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG2_PRIME_FACTOR,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_2048, }
-}, {
-	.keygen_method = DEF_ALG_KAS_IFC_RSAKPG2_CRT,
-	.rsa_modulo = { DEF_ALG_RSA_MODULO_2048, }
-} };
-
 const struct def_algo_kas_mac_method devel_kas_ifc_mac[] = { {
 	.mac = ACVP_HMACSHA2_256,
 	.key_length = 128,
@@ -547,8 +501,6 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 	.schema = DEF_ALG_KAS_IFC_KTS_OAEP_BASIC,
 	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
 			DEF_ALG_KAS_IFC_RESPONDER,
-	.keygen = devel_kas_ifc_keygen,
-	.keygen_num = ARRAY_SIZE(devel_kas_ifc_keygen),
 	.kts_method = {
 		.hashalg = ACVP_SHA256 | ACVP_SHA3_384,
 		.supports_null_association_data = true,
@@ -572,6 +524,13 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 		DEF_PREREQS(devel_kas_ifc_prereqs),			\
 		.function = DEF_ALG_KAS_IFC_PARITALVAL,			\
 		.iut_identifier = "0123456789abcdef",			\
+		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC,\
+				DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,	\
+				DEF_ALG_KAS_IFC_RSAKPG1_CRT },		\
+		.keygen.rsa_modulo = { DEF_ALG_RSA_MODULO_6144,		\
+				DEF_ALG_RSA_MODULO_8192,		\
+				DEF_ALG_RSA_MODULO_2048 },		\
+		.keygen.fixedpubexp = "010001",				\
 		.schema = devel_kas_ifc_schema_kts,			\
 		.schema_num = ARRAY_SIZE(devel_kas_ifc_schema_kts),	\
 		},							\
@@ -581,7 +540,173 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 #endif
 
 /**************************************************************************
- * Nettle Implementation Definitions
+ * SP800-56B rev2 SSC
+ **************************************************************************/
+#if 0
+static const struct def_algo_prereqs devel_kas_ifc_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+};
+
+const struct def_algo_kas_ifc_ssc_schema devel_kas_ifc_ssc_schema_kas[] = { {
+	.schema = DEF_ALG_KAS_IFC_SSC_KAS1,
+	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
+			DEF_ALG_KAS_IFC_RESPONDER,
+} };
+
+#define DEVEL_KAS_IFC_SSC						\
+	{								\
+	.type = DEF_ALG_TYPE_KAS_IFC,					\
+	.algo.kas_ifc = {						\
+		DEF_PREREQS(devel_kas_ifc_prereqs),			\
+		.function = DEF_ALG_KAS_IFC_SSC,			\
+		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC,\
+				DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,	\
+				DEF_ALG_KAS_IFC_RSAKPG1_CRT },		\
+		.keygen.rsa_modulo = { DEF_ALG_RSA_MODULO_6144,		\
+				DEF_ALG_RSA_MODULO_8192,		\
+				DEF_ALG_RSA_MODULO_2048 },		\
+		.keygen.fixedpubexp = "010001",				\
+		.ssc_schema = devel_kas_ifc_ssc_schema_kas,		\
+		.ssc_schema_num = ARRAY_SIZE(devel_kas_ifc_ssc_schema_kas),\
+		},							\
+	}
+#else
+#define DEVEL_KAS_IFC_SSC
+#endif
+
+/**************************************************************************
+ * SP800-56C rev 1 Onestep KDF
+ **************************************************************************/
+#if 0
+static const struct def_algo_prereqs devel_kdf_onestep_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "HMAC",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+const struct def_algo_kas_kdf_onestepkdf_aux devel_kas_kdf_onestepkdf_aux[] = { {
+	.auxfunc = ACVP_HMACSHA2_256,
+	.mac_salt_method = DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT |
+			   DEF_ALG_KAS_KDF_MAC_SALT_RANDOM
+}, {
+	.auxfunc = ACVP_SHA256,
+	.mac_salt_method = DEF_ALG_KAS_KDF_MAC_SALT_RANDOM
+} };
+
+
+#define DEVEL_KAS_KDF_ONESTEP						\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_ONESTEP,				\
+	.algo.kdf_onestep = {						\
+		DEF_PREREQS(devel_kdf_onestep_prereqs),			\
+		.onestep = 	{					\
+			.aux_function = devel_kas_kdf_onestepkdf_aux,	\
+			.aux_function_num = ARRAY_SIZE(devel_kas_kdf_onestepkdf_aux),\
+			.fixed_info_pattern_type = {			\
+				DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,\
+				DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO,\
+				DEF_ALG_KAS_KDF_FI_PATTERN_LITERAL	\
+				},					\
+			.literal = "affedeadbeef",			\
+			.fixed_info_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,\
+			},						\
+		.length = 1024,						\
+		DEF_ALG_DOMAIN(.zlen, 256, 512, 128),			\
+		}							\
+	}
+#else
+#define DEVEL_KAS_KDF_ONESTEP
+#endif
+
+/**************************************************************************
+ * SP800-56C rev 1 Twostep KDF
+ **************************************************************************/
+#if 1
+static const struct def_algo_prereqs devel_kdf_twostep_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "HMAC",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+const struct def_algo_kas_kdf_twostepkdf devel_kdf_twostepkdf[] = { {
+	.mac_salt_method = DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT |
+			   DEF_ALG_KAS_KDF_MAC_SALT_RANDOM,
+	.fixed_info_pattern_type = { DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,
+				     DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO,
+				     DEF_ALG_KAS_KDF_FI_PATTERN_LITERAL },
+	.literal = "0123456789abcdef",
+	.fixed_info_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,
+	.kdf_108 = {
+		.kdf_108_type = DEF_ALG_KDF_108_COUNTER,
+		.macalg = ACVP_HMACSHA1 | ACVP_HMACSHA2_224 |
+			  ACVP_HMACSHA2_256 | ACVP_HMACSHA2_384 |
+			  ACVP_HMACSHA2_512,
+		DEF_ALG_DOMAIN(.supported_lengths, 8, 4096, 8),
+		.fixed_data_order = DEF_ALG_KDF_108_COUNTER_ORDER_BEFORE_FIXED_DATA,
+		.counter_lengths = DEF_ALG_KDF_108_COUNTER_LENGTH_32,
+		.supports_empty_iv = false,
+		.requires_empty_iv = false
+		}
+}, {
+	.mac_salt_method = DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT,
+	.fixed_info_pattern_type = { DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,
+				     DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO,
+				     DEF_ALG_KAS_KDF_FI_PATTERN_LITERAL,
+				     DEF_ALG_KAS_KDF_FI_PATTERN_CONTEXT,
+				     DEF_ALG_KAS_KDF_FI_PATTERN_ALGORITHM_ID },
+	.literal = "fedcba9876543210",
+	.fixed_info_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,
+	.kdf_108 = {
+		.kdf_108_type = DEF_ALG_KDF_108_FEEDBACK,
+		.macalg = ACVP_HMACSHA1 | ACVP_HMACSHA2_224 |
+			  ACVP_HMACSHA2_256 | ACVP_HMACSHA2_384 |
+			  ACVP_HMACSHA2_512,
+		DEF_ALG_DOMAIN(.supported_lengths, 8, 4096, 8),
+		.fixed_data_order = DEF_ALG_KDF_108_COUNTER_ORDER_BEFORE_FIXED_DATA,
+		.counter_lengths = DEF_ALG_KDF_108_COUNTER_LENGTH_32,
+		.supports_empty_iv = false,
+		.requires_empty_iv = false
+		}
+} };
+
+#define DEVEL_KAS_KDF_TWOSTEP						\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_TWOSTEP,				\
+	.algo.kdf_twostep = {						\
+		DEF_PREREQS(devel_kdf_twostep_prereqs),			\
+		.twostep = devel_kdf_twostepkdf,			\
+		.twostep_num = ARRAY_SIZE(devel_kdf_twostepkdf),	\
+		.length = 1024,						\
+		DEF_ALG_DOMAIN(.zlen, 256, 512, 128),			\
+		},							\
+	}
+#else
+#define DEVEL_KAS_KDF_TWOSTEP
+#endif
+
+/**************************************************************************
+ * Devel Implementation Definitions
  **************************************************************************/
 static const struct def_algo devel[] = {
 	DEVEL_KAS_FFC_R3
@@ -598,6 +723,11 @@ static const struct def_algo devel[] = {
 			 ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |
 			 ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |
 			 ACVP_DH_MODP_8192)
+
+	DEVEL_KAS_IFC_SSC
+
+	DEVEL_KAS_KDF_ONESTEP
+	DEVEL_KAS_KDF_TWOSTEP
 };
 
 /**************************************************************************

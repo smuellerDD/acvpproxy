@@ -17,7 +17,7 @@
  * DAMAGE.
  */
 
-#include "../../lib/totp.c"
+#include "../../lib/acvp/totp.c"
 
 /*
  * SHA-256 TOTP test vectors.

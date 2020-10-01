@@ -11,7 +11,7 @@
     "encryptAtRest":"yes",
     "algorithms":[
       {
-        "revision":"1.0",
+        "revision":"FIPS186-4",
         "algorithm":"RSA",
         "mode":"keyGen",
         "infoGeneratedByServer":false,
@@ -48,7 +48,7 @@
         ]
       },
       {
-        "revision":"1.0",
+        "revision":"FIPS186-4",
         "algorithm":"RSA",
         "mode":"sigGen",
         "capabilities":[
@@ -110,7 +110,7 @@
         ]
       },
       {
-        "revision":"1.0",
+        "revision":"FIPS186-4",
         "algorithm":"RSA",
         "mode":"sigVer",
         "pubExpMode":"random",

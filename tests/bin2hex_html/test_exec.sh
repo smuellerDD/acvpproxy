@@ -35,7 +35,7 @@ test1()
 		echo_pass "Test $NAME: $result"
 	fi
 
-	gcov_analyze "../../lib/binhexbin.c" "test1"
+	gcov_analyze "../../lib/acvp/binhexbin.c" "test1"
 }
 
 init_common

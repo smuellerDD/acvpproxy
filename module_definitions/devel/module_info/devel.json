@@ -2,5 +2,11 @@
   "moduleName":"Devel",
   "moduleVersion":"1.0",
   "moduleDescription":"Devel library implementation providing cryptographic services to Linux user space software components in general.",
-  "moduleType":0
+  "moduleType":0,
+  "acvpModuleIds":[
+    {
+      "acvpModuleName":"Devel (Generic C)",
+      "acvpModuleId":0
+    }
+  ]
 }

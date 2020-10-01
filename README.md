@@ -797,6 +797,182 @@ CFLAGS: `-DACVPPROXY_EXTENSION`.
 Once the shared library is compiled, it can to be referenced with the
 ACVP Proxy command line option `--proxy-extension`.
 
+# Supported Ciphers
+
+The following ciphers are supported by the ACVP Proxy to obtain test vectors
+and relay responses.
+
+## Block Cipher Modes
+* AES-CBC
+* AES-CFB1
+* AES-CFB8
+* AES-CFB128
+* AES-CTR
+* AES-ECB
+* AES-GCM
+* AES-GCM-SIV
+* AES-KW
+* AES-KWP
+* AES-OFB
+* AES-XPN
+* AES-XTS
+* AES-FF1
+* AES-FF3-1
+* TDES-CBC
+* TDES-CBCI
+* TDES-CFBP1
+* TDES-CFBP8
+* TDES-CFBP64
+* TDES-CTR
+* TDES-ECB
+* TDES-KW
+* TDES-OFB
+* TDES-OFBI
+
+## Secure Hash
+* SHA-1
+* SHA-224
+* SHA-256
+* SHA-384
+* SHA-512
+* SHA-512/224
+* SHA-512/256
+* SHA3-224
+* SHA3-256
+* SHA3-384
+* SHA3-512
+* SHAKE-128
+* SHAKE-256
+
+## Message Authentication
+* AES-GMAC
+* AES-CCM
+* CMAC-AES
+* CMAC-TDES
+* HMAC-SHA-1
+* HMAC-SHA2-224
+* HMAC-SHA2-256
+* HMAC-SHA2-384
+* HMAC-SHA2-512
+* HMAC-SHA2-512/224
+* HMAC-SHA2-512/256
+* HMAC-SHA3-224
+* HMAC-SHA3-256
+* HMAC-SHA3-384
+* HMAC-SHA3-512
+
+## DRBG
+* ctrDRBG-AES-128
+* ctrDRBG-AES-192
+* ctrDRBG-AES-256
+* ctrDRBG-TDES
+* HASH DRBG
+* HMAC DRBG
+
+## Digital Signature
+* RSA mode: keyGen
+* RSA mode: sigGen
+* RSA mode: sigVer
+* RSA mode: signaturePrimitive
+* RSA mode: decryptionPrimitive
+* RSA mode: legacySigVer
+* ECDSA mode: sigGenComponent
+* ECDSA mode: keyGen
+* ECDSA mode: keyVer
+* ECDSA mode: sigGen
+* ECDSA mode: sigVer
+* DSA mode: keyGen
+* DSA mode: sigVer
+* DSA mode: sigGen
+* DSA mode: pqgGen
+* DSA mode: pqgVer
+* EDDSA mode: keyGen
+* EDDSA mode: keyVer
+* EDDSA mode: sigGen
+* EDDSA mode: sigVer
+
+## Key Agreement
+### Full KAS Testing
+* KAS ECC ephemeralUnified
+* KAS ECC fullUnified
+* KAS ECC onePassDh
+* KAS ECC OnePassUnified
+* KAS ECC staticUnified
+* KAS FFC dhHybrid1
+* KAS FFC dhEphem
+* KAS FFC dhHybridOneFlow
+* KAS FFC dhOneFlow
+* KAS FFC dhStatic
+* KAS ECC ephemeralUnified Sp800-56Ar3
+* KAS ECC fullUnified Sp800-56Ar3
+* KAS ECC onePassDh Sp800-56Ar3
+* KAS ECC OnePassUnified Sp800-56Ar3
+* KAS ECC staticUnified Sp800-56Ar3
+* KAS FFC dhHybrid1 Sp800-56Ar3
+* KAS FFC dhEphem Sp800-56Ar3
+* KAS FFC dhHybridOneFlow Sp800-56Ar3
+* KAS FFC dhOneFlow Sp800-56Ar3
+* KAS FFC dhStatic Sp800-56Ar3
+* KAS IFC KAS1-basic
+* KAS IFC KAS1-Party_V-confirmation
+* KAS IFC KAS2-basic
+* KAS IFC KAS2-bilateral-confirmation
+* KAS IFC KAS2-Party_U-confirmation
+* KAS IFC KAS2-Party_V-confirmation
+* KTS IFC KTS-OAEP-basic
+* KTS IFC KTS-OAEP-Party_V-confirmation
+
+### KAS SSC Testing
+* KAS ECC ephemeralUnified
+* KAS ECC fullUnified
+* KAS ECC onePassDh
+* KAS ECC OnePassUnified
+* KAS ECC staticUnified
+* KAS ECC CDH-Component
+* KAS FFC dhHybrid1
+* KAS FFC dhEphem
+* KAS FFC dhHybridOneFlow
+* KAS FFC dhOneFlow
+* KAS FFC dhStatic
+* KAS ECC SSC ephemeralUnified Sp800-56Ar3
+* KAS ECC SSC fullUnified Sp800-56Ar3
+* KAS ECC SSC onePassDh Sp800-56Ar3
+* KAS ECC SSC OnePassUnified Sp800-56Ar3
+* KAS ECC SSC staticUnified Sp800-56Ar3
+* KAS FFC SSC dhHybrid1 Sp800-56Ar3
+* KAS FFC SSC dhEphem Sp800-56Ar3
+* KAS FFC SSC dhHybridOneFlow Sp800-56Ar3
+* KAS FFC SSC dhOneFlow Sp800-56Ar3
+* KAS FFC SSC dhStatic Sp800-56Ar3
+* KAS IFC SSC KAS1 Sp800-56Br2
+* KAS IFC SSC KAS2 Sp800-56Br2
+
+### KAS KDF Testing SP800-56Cr1
+
+* KAS KDF HKDF Sp800-56Cr1
+* KAS KDF OneStep Sp800-56Cr1
+* KAS KDF TwoStep Sp800-56Cr1
+
+## KDFs
+* Counter KDF
+* Feedback KDF
+* Double Pipeline Iterator KDF
+* IKEv1
+* IKEv2
+* SSH
+* TLS
+* TLS v1.3
+* PBKDF
+
+## Safe Primes
+* SafePrimes KeyGen
+* SafePrimes KeyVer
+
+## Conditioning Components
+* ConditioningComponent AES-CBC-MAC
+* ConditioningComponent BlockCipher_DF
+* ConditioningComponent Hash_DF
+
 # Author
 
 Stephan Mueller <smueller@chronox.de>

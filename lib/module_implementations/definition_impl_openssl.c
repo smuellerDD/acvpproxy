@@ -653,12 +653,19 @@ static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
 		}							\
 	}
 
-//TODO wire up
 #define OPENSSL_SAFEPRIMES						\
 	GENERIC_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYGENERATION,		\
 			   ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |	\
 			   ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |	\
-			   ACVP_DH_MODP_8192)
+			   ACVP_DH_MODP_8192 | ACVP_DH_FFDHE_2048 |	\
+			   ACVP_DH_FFDHE_3072 | ACVP_DH_FFDHE_4096 |	\
+			   ACVP_DH_FFDHE_6144 | ACVP_DH_FFDHE_8192),	\
+	GENERIC_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYVERIFICATION,		\
+			   ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |	\
+			   ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |	\
+			   ACVP_DH_MODP_8192 | ACVP_DH_FFDHE_2048 |	\
+			   ACVP_DH_FFDHE_3072 | ACVP_DH_FFDHE_4096 |	\
+			   ACVP_DH_FFDHE_6144 | ACVP_DH_FFDHE_8192)
 
 /**************************************************************************
  * ECDH Definitions
@@ -785,6 +792,20 @@ static const struct def_algo_kas_ffc_nokdfnokc openssl_kas_ffc_nokdfnokc_fc = {
 	__OPENSSL_KAS_FFC(&openssl_kas_ffc_nokdfnokc_fc)
 
 /**************************************************************************
+ * SP800-56A REV3
+ **************************************************************************/
+#define OPENSSL_KAS_ECC_SSC_R3						\
+	GENERIC_KAS_ECC_SSC_R3(ACVP_NISTP224 | ACVP_NISTP256 |		\
+		       	       ACVP_NISTP384 | ACVP_NISTP521)
+
+#define OPENSSL_KAS_FFC_SSC_R3						\
+	GENERIC_KAS_FFC_SSC_R3(ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |	\
+			       ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |	\
+			       ACVP_DH_MODP_8192 | ACVP_DH_FFDHE_2048 |	\
+			       ACVP_DH_FFDHE_3072 | ACVP_DH_FFDHE_4096 |\
+			       ACVP_DH_FFDHE_6144 | ACVP_DH_FFDHE_8192)
+
+/**************************************************************************
  * TLS Definitions
  **************************************************************************/
 static const struct def_algo_prereqs openssl_kdf_prereqs[] = {
@@ -806,6 +827,16 @@ static const struct def_algo_prereqs openssl_kdf_prereqs[] = {
 		.tls_version = DEF_ALG_KDF_TLS_1_0_1_1 |		\
 			       DEF_ALG_KDF_TLS_1_2,			\
 		.hashalg = ACVP_SHA256 | ACVP_SHA384			\
+		}							\
+	}
+
+#define OPENSSL_TLS13_KDF						\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_TLS13,					\
+	.algo.kdf_tls13 = {						\
+		DEF_PREREQS(openssl_kdf_prereqs),			\
+		.hashalg = ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512,	\
+		.running_mode = DEF_ALG_KDF_TLS13_MODE_DHE		\
 		}							\
 	}
 
@@ -997,6 +1028,8 @@ static const struct def_algo openssl_gcm [] = {
 
 static const struct def_algo openssl_ffcdh [] = {
 	OPENSSL_KAS_FFC,
+	OPENSSL_KAS_FFC_SSC_R3,
+	OPENSSL_SAFEPRIMES,
 };
 
 static const struct def_algo openssl_sha [] = {
@@ -1066,6 +1099,7 @@ static const struct def_algo openssl_sha [] = {
 	OPENSSL_KDF,
 	OPENSSL_KAS_ECC,
 	OPENSSL_KAS_ECC_CDH,
+	OPENSSL_KAS_ECC_SSC_R3,
 
 	OPENSSL_PBKDF(ACVP_SHA1 |
 		      ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512),
@@ -1113,6 +1147,10 @@ static const struct def_algo openssl_neon [] = {
 	OPENSSL_HMAC(ACVP_HMACSHA2_256),
 };
 
+static const struct def_algo openssl_tls13 [] = {
+	OPENSSL_TLS13_KDF
+};
+
 /**************************************************************************
  * Register operation
  **************************************************************************/
@@ -1132,6 +1170,13 @@ static struct def_algo_map openssl_algo_map [] = {
 		.processor = "",
 		.impl_name = "KBKDF",
 		.impl_description = "Generic C non-optimized KBKDF implementation"
+	}, {
+	/* OpenSSL TLS 1.3 implementation **********************/
+		SET_IMPLEMENTATION(openssl_tls13),
+		.algo_name = "OpenSSL",
+		.processor = "",
+		.impl_name = "TLS v1.3",
+		.impl_description = "TLS v1.3 implementation"
 	}, {
 	/* OpenSSL AESNI implementation ***************************************/
 		SET_IMPLEMENTATION(openssl_aes),

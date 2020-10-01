@@ -1,3 +1,18 @@
+v1.6.0
+- enhancement: add DEF_ALG_SYM_CTRINCREMENT_DISABLE
+- enhancement: add check to verify appropriateness of test vectors to proxy-lib.sh
+- enhancement: proxy.sh get now is asynchronous
+- enhancement: add --sync-meta to just synchronize the local and server meta data without pending test sessions
+- enhancement: add HKDF testing support
+- enhancement: add KAS-IFC-SSC support
+- fix: update KAS-IFC definition to match the ACVP server
+- enhancement: add SP800-90B Conditioning Component request capability
+- enhancement: add SP800-56A rev 3 to OpenSSL
+- fix: DRBG definition only supports max 4096 bits request size
+- enhancement: add onestep and twostep KDF standalone tests
+- enhancement: replace HMAC/Hash implementation with self-written code
+- enhancement: add TLS v1.3
+
 v1.5.2
 - fix segfault with --cipher-list
 - fix format string usage as indicated with __attribute__((format()))

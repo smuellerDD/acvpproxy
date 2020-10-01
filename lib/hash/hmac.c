@@ -1,89 +1,71 @@
-/*
- * FreeOTP
+/* Generic HMAC implementation
  *
- * Authors: Nathaniel McCallum <npmccallum@redhat.com>
+ * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
  *
- * Copyright (C) 2014  Nathaniel McCallum, Red Hat
+ * License: see LICENSE file in root directory
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, ALL OF
+ * WHICH ARE HEREBY DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+ * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
  */
 
-#include "hmac.h"
-
-#include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
-bool
-hmac(hash_type type,
-     const void *key, size_t  keylen,
-     const void *msg, size_t  msglen,
-     uint8_t   **out, size_t *outlen)
+#include "hmac.h"
+#include "memset_secure.h"
+
+#define IPAD	0x36
+#define OPAD	0x5c
+
+void hmac(const struct hash *hash, const uint8_t *key, size_t keylen,
+	  const uint8_t *in, size_t inlen, uint8_t *mac)
 {
-  const hash_spec *spec;
-  uint8_t *block;
-  uint8_t *hash;
-  hash_ctx *ctx;
-  size_t unused;
+	HASH_CTX_ON_STACK(ctx);
+	uint8_t k0[SHA_MAX_SIZE_BLOCK], k0_ipad[SHA_MAX_SIZE_BLOCK];
+	unsigned int i;
 
-  spec = hash_spec_get(type);
-  if (!spec)
-    return false;
+	if (hash->ctxsize > SHA_MAX_CTX_SIZE ||
+	    hash->blocksize > SHA_MAX_SIZE_BLOCK ||
+	    hash->digestsize > SHA_MAX_SIZE_DIGEST)
+		return;
 
-  block = malloc(spec->block);
-  hash = malloc(spec->hash);
-  ctx = malloc(spec->ctx);
-  *out = malloc(spec->hash);
-  *outlen = spec->hash;
-  unused = spec->block;
-  if (!block || !hash || !ctx || !*out) {
-    free(block);
-    free(hash);
-    free(ctx);
-    free(*out);
-    return false;
-  }
+	if (keylen > hash->blocksize) {
+		hash->init(ctx);
+		hash->update(ctx, key, keylen);
+		hash->final(ctx, k0);
+		memset(k0 + hash->digestsize, 0,
+		       hash->blocksize - hash->digestsize);
+	} else {
+		memcpy(k0, key, keylen);
+		memset(k0 + keylen, 0, hash->blocksize - keylen);
+	}
 
-  if (keylen > spec->block) {
-    spec->init(ctx);
-    spec->update(ctx, key, keylen);
-    spec->finish(ctx, block);
-    unused -= spec->hash;
-  } else {
-    memcpy(block, key, keylen);
-    unused -= keylen;
-  }
+	for (i = 0; i < hash->blocksize; i++)
+		k0_ipad[i] = k0[i] ^ IPAD;
 
-  if (unused > 0)
-    memset(&block[spec->block - unused], 0, unused);
+	hash->init(ctx);
+	hash->update(ctx, k0_ipad, hash->blocksize);
+	hash->update(ctx, in, inlen);
+	hash->final(ctx, mac);
 
-  spec->init(ctx);
-  for (size_t i = 0; i < spec->block; i++) {
-    uint8_t b = block[i] ^ 0x36;
-    spec->update(ctx, &b, 1);
-  }
-  spec->update(ctx, msg, msglen);
-  spec->finish(ctx, hash);
+	for (i = 0; i < hash->blocksize; i++)
+		k0[i] ^= OPAD;
 
-  spec->init(ctx);
-  for (size_t i = 0; i < spec->block; i++) {
-    uint8_t b = block[i] ^ 0x5c;
-    spec->update(ctx, &b, 1);
-  }
-  spec->update(ctx, hash, spec->hash);
-  spec->finish(ctx, *out);
+	hash->init(ctx);
+	hash->update(ctx, k0, hash->blocksize);
+	hash->update(ctx, mac, hash->digestsize);
+	hash->final(ctx, mac);
 
-  free(block);
-  free(hash);
-  free(ctx);
-  return true;
+	memset_secure(k0, 0, hash->blocksize);
+	memset_secure(k0_ipad, 0, hash->blocksize);
 }

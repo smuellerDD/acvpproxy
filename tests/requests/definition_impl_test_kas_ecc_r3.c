@@ -116,8 +116,8 @@ const struct def_algo_kas_ecc_r3_schema tests_ecc_r3_schema[] = { {
 			.literal = "affedeadbeef",
 			.fixed_info_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,
 		},
-	.twostekdf = tests_kas_ecc_twostepkdf,
-	.twostekdf_num = ARRAY_SIZE(tests_kas_ecc_twostepkdf),
+	.twostepkdf = tests_kas_ecc_twostepkdf,
+	.twostepkdf_num = ARRAY_SIZE(tests_kas_ecc_twostepkdf),
 	.key_confirmation_method = {
 		.kc_direction = DEF_ALG_KAS_R3_UNILATERAL |
 				DEF_ALG_KAS_R3_BILATERAL,

@@ -1,14 +1,10 @@
 {
-  "oeEnvName":"macOS Mojave 10.14",
-  "cpe":"cpe:2.3:o:apple:mac_os_x:10.14:*:*:*:*:*:*:*",
-  "oe_description":"macOS developed and sponsored by Apple Inc.",
+  "oeEnvName":"macOS Catalina 10.15",
+  "cpe":"cpe:2.3:o:apple:macOS:10.15:*:*:*:*:*:x86:*",
   "manufacturer":"Intel",
   "procFamily":"X86",
-  "procName":"i7",
+  "procName":"i7-5557U",
   "procSeries":"Broadwell",
   "features":7,
   "envType":0,
-  "acvpOeDepProcIdProduction":23611,
-  "acvpOeDepSwIdProduction":23727,
-  "acvpOeIdProduction":21698
 }

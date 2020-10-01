@@ -75,6 +75,18 @@ struct def_algo_sha {
 	 * required: always
 	 */
 	bool inempty;
+
+	/*
+	 * Implementation shall be tested with large messages.
+	 * Note, the test data must be processed with a single hash
+	 * operation or single hash update operation!
+	 *
+	 * The supported message sizes in multiples of GiBytes (2^30 bytes or
+	 * 2^33 bits) must be specified.
+	 *
+	 * required: optional
+	 */
+	int largetest[DEF_ALG_MAX_INT];
 };
 
 /*

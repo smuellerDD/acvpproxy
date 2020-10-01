@@ -40,15 +40,15 @@ EXCLUDED	?=
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations
+INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp
 LIBRARY_DIRS	+=
 LIBRARIES	+= pthread dl
 
 ifeq ($(UNAME_S),Darwin)
 LDFLAGS		+= -framework Foundation -framework Security
-EXCLUDED	+= $(SRCDIR)lib/network_backend_curl.c $(SRCDIR)lib/openssl_thread_support.c
+EXCLUDED	+= $(SRCDIR)lib/acvp/network_backend_curl.c $(SRCDIR)lib/acvp/openssl_thread_support.c
 M_SRCS		:= $(wildcard $(SRCDIR)apps/*.m)
-M_SRCS		+= $(wildcard $(SRCDIR)lib/*.m)
+M_SRCS		+= $(wildcard $(SRCDIR)lib/acvp/*.m)
 M_OBJS		:= ${M_SRCS:.m=.o}
 else
 LIBRARIES	+= curl
@@ -67,7 +67,9 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 #C_SRCS += $(wildcard $(SRCDIR)apps/*.c)
 C_SRCS += $(wildcard *.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/acvp/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/hash/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/requests/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/module_implementations/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/json-c/*.c)
 
@@ -79,7 +81,7 @@ C_GCOV += ${C_SRCS:.c=.gcno}
 C_GCOV += ${C_SRCS:.c=.gcov}
 OBJS := $(M_OBJS) $(C_OBJS)
 
-CRYPTOVERSION := $(shell cat $(SRCDIR)lib/hash/hash.c $(SRCDIR)lib/hash/hash.h $(SRCDIR)lib/hash/hmac.c $(SRCDIR)lib/hash/hmac.h $(SRCDIR)lib/hash/sha1.c $(SRCDIR)lib/hash/sha1.h $(SRCDIR)lib/hash/sha224.c $(SRCDIR)lib/hash/sha224.h $(SRCDIR)lib/hash/sha256.c $(SRCDIR)lib/hash/sha256.h $(SRCDIR)lib/hash/sha384.c $(SRCDIR)lib/hash/sha384.h $(SRCDIR)lib/hash/sha512.c $(SRCDIR)lib/hash/sha512.h | openssl sha1 | cut -f 2 -d " ")
+CRYPTOVERSION := $(shell cat $(SRCDIR)lib/hash/bitshift_be.h $(SRCDIR)lib/hash/bitshift_le.h $(SRCDIR)lib/hash/hash.h $(SRCDIR)lib/hash/hmac.c $(SRCDIR)lib/hash/hmac.h $(SRCDIR)lib/hash/memset_secure.h $(SRCDIR)lib/hash/sha256.c $(SRCDIR)lib/hash/sha256.h $(SRCDIR)lib/hash/sha3.c $(SRCDIR)lib/hash/sha3.h $(SRCDIR)lib/hash/sha512.c $(SRCDIR)lib/hash/sha512.h | openssl sha1 | cut -f 2 -d " ")
 CFLAGS += -DCRYPTOVERSION=\"$(CRYPTOVERSION)\"
 
 analyze_srcs = $(filter %.c, $(sort $(C_SRCS)))

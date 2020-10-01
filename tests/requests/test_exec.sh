@@ -126,6 +126,9 @@ test_common "KAS-FFC-R3"
 test_common "KAS-FFC-SSC-R3"
 test_common "SAFEPRIMES"
 test_common "KAS-IFC"
+test_common "TLS v1.3"
+test_common "Onestep"
+test_common "Twostep"
 
 gcov_analysis
 

@@ -53,7 +53,9 @@ struct def_algo_kas_ifc_keygen {
 	 *
 	 * required: always
 	 */
+#define DEF_ALG_KAS_IFC_KEYGEN_METHOD_MAX_NUM	10
 	enum kas_ifc_keygen_method {
+		DEF_ALG_KAS_IFC_KEYGEN_METHOD_UNKNOWN,
 		DEF_ALG_KAS_IFC_RSAKPG1_BASIC,
 		DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,
 		DEF_ALG_KAS_IFC_RSAKPG1_CRT,
@@ -61,7 +63,7 @@ struct def_algo_kas_ifc_keygen {
 		DEF_ALG_KAS_IFC_RSAKPG2_BASIC,
 		DEF_ALG_KAS_IFC_RSAKPG2_PRIME_FACTOR,
 		DEF_ALG_KAS_IFC_RSAKPG2_CRT,
-	} keygen_method;
+	} keygen_method[DEF_ALG_KAS_IFC_KEYGEN_METHOD_MAX_NUM];
 
 	/*
 	 * Supported RSA modulo
@@ -162,28 +164,14 @@ struct def_algo_kas_ifc_schema {
 	unsigned int kas_ifc_role;
 
 	/*
-	 * Supported Key Generation Methods
-	 * Note that AT LEAST one Key Generation Method is required.
-	 */
-	const struct def_algo_kas_ifc_keygen *keygen;
-
-	/*
-	 * Number of key generation definitions. There must be one or more
-	 * key generation definitions.
-	 * Note, the keygen pointer above must point to the first
-	 * entry of an array of key generation definitions!
-	 */
-	unsigned int keygen_num;
-
-	/*
 	 * Supported KDF Methods for KAS
 	 *
 	 * required: For KAS methods, at least one KDF method is required
 	 */
 	const struct def_algo_kas_kdf_onestepkdf onestekdf;
 
-	const struct def_algo_kas_kdf_twostepkdf *twostekdf;
-	unsigned int twostekdf_num;
+	const struct def_algo_kas_kdf_twostepkdf *twostepkdf;
+	unsigned int twostepkdf_num;
 
 	/*
 	 * The KTS method to use when testing KTS schemes.
@@ -220,6 +208,30 @@ struct def_algo_kas_ifc_schema {
 	 * required: always
 	 */
 	unsigned int length;
+};
+
+struct def_algo_kas_ifc_ssc_schema {
+	/*
+	 * Key agreement schema defined with this structure instance
+	 *
+	 * KAS Schemes
+	 *
+	 *  * KAS1
+	 *  * KAS2
+	 *
+	 * required: always
+	 */
+	enum kas_ifc_ssc_schema {
+		DEF_ALG_KAS_IFC_SSC_KAS1,
+		DEF_ALG_KAS_IFC_SSC_KAS2,
+	} schema;
+
+	/*
+	 * KAS IFC role
+	 */
+#define DEF_ALG_KAS_IFC_INITIATOR		(1<<0)
+#define DEF_ALG_KAS_IFC_RESPONDER		(1<<1)
+	unsigned int kas_ifc_role;
 };
 
 /****************************************************************************
@@ -266,11 +278,12 @@ struct def_algo_kas_ifc {
 #define DEF_ALG_KAS_IFC_UNDEFINED	(1<<0)
 #define DEF_ALG_KAS_IFC_KEYPAIRGEN	(1<<1)
 #define DEF_ALG_KAS_IFC_PARITALVAL	(1<<2)
+#define DEF_ALG_KAS_IFC_SSC		(1<<3)
 	unsigned int function;
 
 	/*
 	 * The identifier of the IUT - this is a hex string
-	 * required: always
+	 * required: always except for DEF_ALG_KAS_IFC_SSC
 	 */
 	const char *iut_identifier;
 
@@ -279,11 +292,40 @@ struct def_algo_kas_ifc {
 	 * agreement schemes can be defined. There must be one definition
 	 * per requested scheme.
 	 *
-	 * required: always
+	 * required: always except for DEF_ALG_KAS_IFC_SSC
 	 */
 	const struct def_algo_kas_ifc_schema *schema;
 	/* Number of schemas */
 	unsigned int schema_num;
+
+	/*
+	 * Supported key agreement schemes. An array of one or more key
+	 * agreement schemes can be defined. There must be one definition
+	 * per requested scheme.
+	 *
+	 * required: always for DEF_ALG_KAS_IFC_SSC
+	 */
+	const struct def_algo_kas_ifc_ssc_schema *ssc_schema;
+	/* Number of schemas */
+	unsigned int ssc_schema_num;
+
+	/*
+	 * Supported Key Generation Methods
+	 * Note that AT LEAST one Key Generation Method is required.
+	 */
+	const struct def_algo_kas_ifc_keygen keygen;
+
+	/*
+	 * IUT supported hash of the shared secret. This is optional
+	 * to accommodate clients with the inability to return `z` in clear.
+	 *
+	 * Any hash (SHA-1 through SHA-3) may be specified. Note, the strength
+	 * of the hash operation must be at least as strong as the selected
+	 * curve. E.g. NIST P-521 will not work with SHA-256.
+	 *
+	 * required: optional, only applicable to DEF_ALG_KAS_IFC_SSC
+	 */
+	cipher_t hash_z;
 };
 
 #ifdef __cplusplus

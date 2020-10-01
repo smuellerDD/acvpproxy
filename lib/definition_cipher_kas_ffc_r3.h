@@ -77,8 +77,8 @@ struct def_algo_kas_ffc_r3_schema {
 	 */
 	const struct def_algo_kas_kdf_onestepkdf onestekdf;
 
-	const struct def_algo_kas_kdf_twostepkdf *twostekdf;
-	unsigned int twostekdf_num;
+	const struct def_algo_kas_kdf_twostepkdf *twostepkdf;
+	unsigned int twostepkdf_num;
 
 	/*
 	 * The key confirmation capabilities when supported for the schema.

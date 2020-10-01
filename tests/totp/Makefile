@@ -36,7 +36,7 @@ LNS		:= $(LN) -sf
 ###############################################################################
 ACVP_DIR	:= ../../
 
-INCLUDE_DIRS	:= $(ACVP_DIR)
+INCLUDE_DIRS	:= $(ACVP_DIR) $(ACVP_DIR)/lib
 LIBRARY_DIRS	:=
 LIBRARIES	:= pthread
 
@@ -51,7 +51,7 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 ###############################################################################
 C_SRCS := $(wildcard *.c)
 
-C_SRCS += $(ACVP_DIR)/lib/totp_mq_server.c $(ACVP_DIR)/lib/logger.c $(ACVP_DIR)/lib/threading_support.c $(ACVP_DIR)/lib/sleep.c $(wildcard $(ACVP_DIR)/lib/hash/*.c) $(ACVP_DIR)/lib/binhexbin.c
+C_SRCS += $(ACVP_DIR)/lib/acvp/totp_mq_server.c $(ACVP_DIR)/lib/acvp/logger.c $(ACVP_DIR)/lib/acvp/threading_support.c $(ACVP_DIR)/lib/acvp/sleep.c $(wildcard $(ACVP_DIR)/lib/hash/*.c) $(ACVP_DIR)/lib/acvp/binhexbin.c
 C_OBJS := ${C_SRCS:.c=.o}
 C_GCOV := ${C_SRCS:.c=.gcda}
 C_GCOV += ${C_SRCS:.c=.gcno}

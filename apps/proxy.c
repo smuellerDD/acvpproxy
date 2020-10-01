@@ -89,6 +89,7 @@ struct opt_data {
 	bool dump_register;
 	bool request_sample;
 	bool official_testing;
+	bool sync_meta;
 };
 
 /*
@@ -97,7 +98,7 @@ struct opt_data {
  */
 static struct opt_data *global_opts = NULL;
 
-static int json_find_key(struct json_object *inobj, const char *name,
+static int json_find_key(const struct json_object *inobj, const char *name,
 			 struct json_object **out, enum json_type type)
 {
 	if (!json_object_object_get_ex(inobj, name, out)) {
@@ -414,7 +415,8 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\t      the ACVP server and the local\n");
 	fprintf(stderr, "\t\t\t\t\t      definition selected with the TYPE,\n");
 	fprintf(stderr, "\t\t\t\t\t      it is deleted from the ACVP\n");
-	fprintf(stderr, "\t\t\t\t\t      server.\n\n");
+	fprintf(stderr, "\t\t\t\t\t      server.\n");
+	fprintf(stderr, "\t   --sync-meta\t\t\tSynchronize meta data with server\n\n");
 
 	fprintf(stderr, "\tList of IDs and verdicts:\n");
 	fprintf(stderr, "\t   --list-request-ids\t\tList all pending request IDs\n");
@@ -712,6 +714,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"delete-definition",	required_argument,	0, 0},
 			{"update-definition",	required_argument,	0, 0},
 			{"nopublish-prereqs",	required_argument,	0, 0},
+			{"sync-meta",		no_argument,		0, 0},
 
 			{"list-request-ids",	no_argument,		0, 0},
 			{"list-request-ids-sparse",no_argument,		0, 0},
@@ -982,71 +985,75 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				/* nopublish-prereqs */
 				opts->acvp_ctx_options.no_publish_prereqs = true;
 				break;
-
 			case 34:
+				/* sync-meta */
+				opts->sync_meta = true;
+				break;
+
+			case 35:
 				/* list-request-ids */
 				opts->list_pending_request_ids = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 35:
+			case 36:
 				/* list-request-ids-sparse */
 				opts->list_pending_request_ids_sparse = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 36:
+			case 37:
 				/* list-available-ids */
 				opts->list_available_ids = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 37:
+			case 38:
 				/* list-verdicts */
 				opts->list_verdicts = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 38:
+			case 39:
 				/* list-certificates */
 				opts->list_certificates = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 39:
+			case 40:
 				/* list-cert-details */
 				opts->list_certificates_detailed = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 40:
+			case 41:
 				/* list-cert-niap */
 				opts->list_certificates_detailed = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->cert_details_niap_req_file = optarg;
 				break;
-			case 41:
+			case 42:
 				/* list-cipher-options */
 				opts->list_cipher_options = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 42:
+			case 43:
 				/* list-cipher-options-deps */
 				opts->list_cipher_options_deps = true;
 				opts->acvp_ctx_options.threading_disabled = true;
 				break;
-			case 43:
+			case 44:
 				/* list-server-db */
 				CKINT(convert_show_type(optarg,
 				      &opts->acvp_ctx_options.show_db_entries));
 				break;
-			case 44:
+			case 45:
 				/* search-server-db */
 				CKINT(convert_search_type(optarg,
 						&opts->acvp_server_db_search,
 						&opts->search_type));
 				break;
 
-			case 45:
+			case 46:
 				/* cipher-options */
 				CKINT(duplicate_string(&opts->cipher_options_file,
 						       optarg));
 				break;
-			case 46:
+			case 47:
 				/* cipher-algo */
 				CKINT(duplicate_string(&opts->cipher_options_algo[opts->cipher_options_algo_idx],
 						       optarg));
@@ -1057,57 +1064,57 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					goto out;
 				}
 				break;
-			case 47:
+			case 48:
 				/* cipher-list */
 				opts->cipher_list = true;
 				break;
 
-			case 48:
+			case 49:
 				/* proxy-extension */
 				CKINT(acvp_load_extension(optarg));
 				break;
-			case 49:
+			case 50:
 				/* proxy-extension-dir */
 				CKINT(acvp_load_extension_directory(optarg));
 				break;
-			case 50:
+			case 51:
 				/* rename-version */
 				rename->moduleversion_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 51:
+			case 52:
 				/* rename-name */
 				rename->modulename_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 52:
+			case 53:
 				/* rename-oename */
 				rename->oe_env_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 53:
+			case 54:
 				/* rename-procname */
 				rename->proc_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 54:
+			case 55:
 				/* rename-procseries */
 				rename->proc_series_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
-			case 55:
+			case 56:
 				/* rename-procfamily */
 				rename->proc_family_new = optarg;
 				opts->acvp_ctx_options.threading_disabled = true;
 				opts->rename = true;
 				break;
 
-			case 56:
+			case 57:
 				/* register-only */
 				opts->acvp_ctx_options.register_only = true;
 				break;
@@ -1256,13 +1263,13 @@ out:
 	exit(-ret);
 }
 
-static void memset_secure(void *s, int c, uint32_t n)
+static void memset_secure(void *s, const int c, const uint32_t n)
 {
 	memset(s, c, n);
 	__asm__ __volatile__("" : : "r" (s) : "memory");
 }
 
-static void last_gen_cb(time_t now)
+static void last_gen_cb(const time_t now)
 {
 	struct json_object *totp_val;
 	struct flock lock;
@@ -1305,13 +1312,13 @@ static void last_gen_cb(time_t now)
 	return;
 }
 
-static int set_totp_seed(struct opt_data *opts, bool enable_net)
+static int set_totp_seed(struct opt_data *opts, const bool enable_net)
 {
 	int ret;
 	char *seed_base64 = NULL;
 	uint32_t seed_base64_len = 0;
 	uint8_t *seed = NULL;
-	uint32_t seed_len;
+	uint32_t seed_len = 0;
 	uint64_t totp_last_gen;
 
 	if (!enable_net) {
@@ -1349,7 +1356,7 @@ out:
 }
 
 static int initialize_ctx(struct acvp_ctx **ctx, struct opt_data *opts,
-			  bool enable_net)
+			  const bool enable_net)
 {
 	int ret;
 
@@ -1406,6 +1413,15 @@ static int do_register(struct opt_data *opts)
 		CKINT(acvp_respond(ctx));
 	} else {
 		CKINT(acvp_register(ctx));
+	}
+
+	if (opts->acvp_ctx_options.register_only) {
+		if (!ret) {
+			fprintf(stderr, "Test definitions registered successfully, do not forget to download them at a later time.\n");
+		} else if (ret == -ENOENT)
+			ret = 0;
+
+		goto out;
 	}
 
 	/* Fetch testID whose download failed */
@@ -1585,7 +1601,7 @@ static int do_fetch_cipher_options(struct opt_data *opts)
 
 	CKINT(initialize_ctx(&ctx, opts, true));
 
-	CKINT(acvp_cipher_get(ctx, opts->cipher_options_algo,
+	CKINT(acvp_cipher_get(ctx, (const char **)opts->cipher_options_algo,
 			      opts->cipher_options_algo_idx,
 			      opts->cipher_options_file));
 
@@ -1639,6 +1655,20 @@ out:
 	return ret;
 }
 
+static int do_sync_meta(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	CKINT(acvp_synchronize_metadata(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	struct opt_data opts;
@@ -1653,7 +1683,9 @@ int main(int argc, char *argv[])
 
 	CKINT(parse_opts(argc, argv, &opts));
 
-	if (opts.acvp_server_db_search && opts.search_type) {
+	if (opts.sync_meta) {
+		CKINT(do_sync_meta(&opts));
+	} else if (opts.acvp_server_db_search && opts.search_type) {
 		CKINT(do_search_server_db(&opts));
 	} else if (opts.acvp_ctx_options.show_db_entries) {
 		CKINT(do_list_server_db(&opts));

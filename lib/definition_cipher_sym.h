@@ -294,12 +294,18 @@ struct def_algo_sym {
 
 	/*
 	 * Is the counter incremented or decremented.
+	 *
+	 * Note, if the CTR testing is disabled (e.g. when using an LFSR for
+	 * the counter update), the validation report must provide an argument
+	 * why there is no reuse of a counter value.
+	 *
 	 * required: only for AES-CTR mode
 	 */
 	enum ctrincrement {
 		DEF_ALG_SYM_CTRINCREMENT_UNDEF = 0,
 		DEF_ALG_SYM_CTRINCREMENT_INCREMENT,
-		DEF_ALG_SYM_CTRINCREMENT_DECREMENT
+		DEF_ALG_SYM_CTRINCREMENT_DECREMENT,
+		DEF_ALG_SYM_CTRINCREMENT_DISABLE, /** Disable of CTR tests */
 	} ctrincrement;
 
 	/*

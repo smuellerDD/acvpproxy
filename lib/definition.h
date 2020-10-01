@@ -39,10 +39,15 @@
 #include "definition_cipher_kdf_ikev1.h"
 #include "definition_cipher_kdf_ikev2.h"
 #include "definition_cipher_kdf_tls.h"
+#include "definition_cipher_kdf_tls13.h"
 #include "definition_cipher_kdf_108.h"
+#include "definition_cipher_hkdf.h"
 #include "definition_cipher_pbkdf.h"
 #include "definition_cipher_kas_ifc.h"
 #include "definition_cipher_safeprimes.h"
+#include "definition_cipher_conditioning_components.h"
+#include "definition_cipher_kdf_onestep.h"
+#include "definition_cipher_kdf_twostep.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -91,6 +96,8 @@ struct def_algo {
 		DEF_ALG_TYPE_KDF_IKEV2,
 		/** SP800-135 KDF: TLS */
 		DEF_ALG_TYPE_KDF_TLS,
+		/** RFC8446 KDF: TLS 1.3 */
+		DEF_ALG_TYPE_KDF_TLS13,
 		/** SP800-108 KDF */
 		DEF_ALG_TYPE_KDF_108,
 		/** SP800-132 PBKDF */
@@ -103,6 +110,14 @@ struct def_algo {
 		DEF_ALG_TYPE_SAFEPRIMES,
 		/** SP800-56B rev2 KAS IFC (RSA) */
 		DEF_ALG_TYPE_KAS_IFC,
+		/** SP800-56C rev 1 HKDF (RFC 5869) */
+		DEF_ALG_TYPE_HKDF,
+		/** SP800-90B conditioning components */
+		DEF_ALG_TYPE_COND_COMP,
+		/** SP800-56C rev 1 onestep KDF */
+		DEF_ALG_TYPE_KDF_ONESTEP,
+		/** SP800-56C rev 1 twostep KDF */
+		DEF_ALG_TYPE_KDF_TWOSTEP,
 	} type;
 	union {
 		/** DEF_ALG_TYPE_SYM */
@@ -137,6 +152,8 @@ struct def_algo {
 		struct def_algo_kdf_ikev2 kdf_ikev2;
 		/** DEF_ALG_TYPE_KDF_TLS */
 		struct def_algo_kdf_tls kdf_tls;
+		/** DEF_ALG_TYPE_KDF_TLS 1.3 */
+		struct def_algo_kdf_tls13 kdf_tls13;
 		/** DEF_ALG_TYPE_KDF_108 */
 		struct def_algo_kdf_108 kdf_108;
 		/** DEF_ALG_TYPE_PBKDF */
@@ -149,6 +166,14 @@ struct def_algo {
 		struct def_algo_safeprimes safeprimes;
 		/** DEF_ALG_TYPE_KAS_IFC */
 		struct def_algo_kas_ifc kas_ifc;
+		/** DEF_ALG_TYPE_HKDF */
+		struct def_algo_hkdf hkdf;
+		/** DEF_ALG_TYPE_COND_COMP */
+		struct def_algo_cond_comp cond_comp;
+		/** DEF_ALG_TYPE_KDF_ONESTEP */
+		struct def_algo_kdf_onestep kdf_onestep;
+		/** DEF_ALG_TYPE_KDF_TWOSTEP */
+		struct def_algo_kdf_twostep kdf_twostep;
 	} algo;
 };
 
@@ -192,7 +217,8 @@ struct acvp_extension {
  * @param curr_map Pointer to the uninstantiated algorithm definition.
  * @param nrmaps Number of map definitions pointed to by curr_map
  */
-void acvp_register_algo_map(struct def_algo_map *curr_map, unsigned int nrmaps);
+void acvp_register_algo_map(struct def_algo_map *curr_map,
+			    const unsigned int nrmaps);
 
 #ifdef __cplusplus
 }

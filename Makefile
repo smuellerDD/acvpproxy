@@ -49,7 +49,7 @@ EXCLUDED	?=
 # Get version name and cross check
 #
 ###############################################################################
-VERFILE		:= lib/internal.h
+VERFILE		:= lib/acvp/internal.h
 
 APPMAJOR	:= $(shell grep '^\#define.*MAJVERSION' $(VERFILE) | awk '{print $$3}')
 APPMINOR	:= $(shell grep '^\#define.*MINVERSION' $(VERFILE) | awk '{print $$3}')
@@ -61,16 +61,16 @@ APPVERSION	:= $(APPMAJOR).$(APPMINOR).$(APPPATCH)
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations
+INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp
 LIBRARY_DIRS	+=
 LIBRARIES	+= pthread dl
 
 ifeq ($(UNAME_S),Darwin)
 CFLAGS		+= -mmacosx-version-min=10.14 -Wno-gnu-zero-variadic-macro-arguments
 LDFLAGS		+= -framework Foundation -framework Security
-EXCLUDED	+= $(SRCDIR)lib/network_backend_curl.c $(SRCDIR)lib/openssl_thread_support.c
+EXCLUDED	+= $(SRCDIR)lib/acvp/network_backend_curl.c $(SRCDIR)lib/acvp/openssl_thread_support.c
 M_SRCS		:= $(wildcard $(SRCDIR)apps/*.m)
-M_SRCS		+= $(wildcard $(SRCDIR)lib/*.m)
+M_SRCS		+= $(wildcard $(SRCDIR)lib/acvp/*.m)
 M_OBJS		:= ${M_SRCS:.m=.o}
 else
 LIBRARIES	+= curl
@@ -105,7 +105,9 @@ endif
 ###############################################################################
 C_SRCS += $(wildcard $(SRCDIR)apps/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/acvp/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/hash/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/requests/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/json-c/*.c)
 
 EX_SRCS += $(wildcard $(SRCDIR)lib/module_implementations/*.c)
@@ -123,7 +125,7 @@ C_GCOV := ${GCOV_OBJS:.o=.gcda}
 C_GCOV += ${GCOV_OBJS:.o=.gcno}
 C_GCOV += ${GCOV_OBJS:.o=.gcov}
 
-CRYPTOVERSION := $(shell cat $(SRCDIR)lib/hash/hash.c $(SRCDIR)lib/hash/hash.h $(SRCDIR)lib/hash/hmac.c $(SRCDIR)lib/hash/hmac.h $(SRCDIR)lib/hash/sha1.c $(SRCDIR)lib/hash/sha1.h $(SRCDIR)lib/hash/sha224.c $(SRCDIR)lib/hash/sha224.h $(SRCDIR)lib/hash/sha256.c $(SRCDIR)lib/hash/sha256.h $(SRCDIR)lib/hash/sha384.c $(SRCDIR)lib/hash/sha384.h $(SRCDIR)lib/hash/sha512.c $(SRCDIR)lib/hash/sha512.h | openssl sha1 | cut -f 2 -d " ")
+CRYPTOVERSION := $(shell cat $(SRCDIR)lib/hash/bitshift_be.h $(SRCDIR)lib/hash/bitshift_le.h $(SRCDIR)lib/hash/hash.h $(SRCDIR)lib/hash/hmac.c $(SRCDIR)lib/hash/hmac.h $(SRCDIR)lib/hash/memset_secure.h $(SRCDIR)lib/hash/sha256.c $(SRCDIR)lib/hash/sha256.h $(SRCDIR)lib/hash/sha3.c $(SRCDIR)lib/hash/sha3.h $(SRCDIR)lib/hash/sha512.c $(SRCDIR)lib/hash/sha512.h | openssl sha1 | cut -f 2 -d " ")
 CFLAGS += -DCRYPTOVERSION=\"$(CRYPTOVERSION)\"
 
 analyze_srcs = $(filter %.c, $(sort $(C_SRCS)))

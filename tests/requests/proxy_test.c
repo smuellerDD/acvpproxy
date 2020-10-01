@@ -715,7 +715,7 @@ static int do_fetch_cipher_options(struct opt_data *opts)
 
 	CKINT(initialize_ctx(&ctx, opts));
 
-	CKINT(acvp_cipher_get(ctx, opts->cipher_options_algo,
+	CKINT(acvp_cipher_get(ctx, (const char **)opts->cipher_options_algo,
 			      opts->cipher_options_algo_idx,
 			      opts->cipher_options_file));
 
