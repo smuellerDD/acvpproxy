@@ -708,6 +708,9 @@ static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 		if (full)
 			CKINT(acvp_req_rsa_keyformat(component_sig->keyformat,
 						     entry));
+		CKINT(acvp_req_rsa_pubexpmode(component_sig->pubexpmode,
+					      component_sig->fixedpubexp,
+					      entry));
 		break;
 	case DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE:
 		CKINT(json_object_object_add(entry, "mode",

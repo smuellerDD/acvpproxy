@@ -16,8 +16,9 @@ cipher is testable with ACVP, the following steps must be taken:
 	b. enhance union algo by referring to the root data structure for your
 	   new algorithm definition in definition_cipher_<cipher_name>.h
 
-4. Create a new request_cipher_<cipher_name>.c that creates the registration
-   JSON structure. This C file must contain function implementations following these prototypes:
+4. Create a new requests/<cipher_name>.c that creates the registration
+   JSON structure. This C file must contain function implementations following
+   these prototypes:
 
 	a. Generate the JSON structure:
 

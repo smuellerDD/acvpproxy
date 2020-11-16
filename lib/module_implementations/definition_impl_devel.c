@@ -24,7 +24,7 @@
 /**************************************************************************
  * Safeprimes
  **************************************************************************/
-#if 0
+#if 1
 #define DEVEL_SAFEPRIMES(mode, groups) GENERIC_SAFEPRIMES(mode, groups)
 #else
 #define DEVEL_SAFEPRIMES(mode, groups)
@@ -119,7 +119,7 @@ const struct def_algo_kas_ffc_r3_schema devel_ffc_r3_schema[] = { {
 	.schema = DEF_ALG_KAS_FFC_DH_EPHEM,
 	.kas_ffc_role = DEF_ALG_KAS_FFC_R3_INITIATOR |
 			DEF_ALG_KAS_FFC_R3_RESPONDER,
-	.onestekdf = {
+	.onestepkdf = {
 			.aux_function = devel_kas_ffc_onestepkdf_aux,
 			.aux_function_num = ARRAY_SIZE(devel_kas_ffc_onestepkdf_aux),
 			.fixed_info_pattern_type = {
@@ -247,7 +247,7 @@ const struct def_algo_kas_ecc_r3_schema devel_ecc_r3_schema[] = { {
 	.schema = DEF_ALG_KAS_ECC_R3_FULL_UNIFIED,
 	.kas_ecc_role = DEF_ALG_KAS_ECC_R3_INITIATOR |
 			DEF_ALG_KAS_ECC_R3_RESPONDER,
-	.onestekdf = {
+	.onestepkdf = {
 			.aux_function = devel_kas_ecc_onestepkdf_aux,
 			.aux_function_num = ARRAY_SIZE(devel_kas_ecc_onestepkdf_aux),
 			.fixed_info_pattern_type = {
@@ -389,7 +389,7 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kas[] = { {
 	.schema = DEF_ALG_KAS_IFC_KAS1_PARTY_V,
 	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
 			DEF_ALG_KAS_IFC_RESPONDER,
-	.onestekdf = {
+	.onestepkdf = {
 		.aux_function = devel_kas_ifc_onestepkdf_aux,
 		.aux_function_num = ARRAY_SIZE(devel_kas_ifc_onestepkdf_aux),
 		.fixed_info_pattern_type = {
@@ -633,7 +633,7 @@ const struct def_algo_kas_kdf_onestepkdf_aux devel_kas_kdf_onestepkdf_aux[] = { 
 /**************************************************************************
  * SP800-56C rev 1 Twostep KDF
  **************************************************************************/
-#if 1
+#if 0
 static const struct def_algo_prereqs devel_kdf_twostep_prereqs[] = {
 	{
 		.algorithm = "SHA",
@@ -706,6 +706,50 @@ const struct def_algo_kas_kdf_twostepkdf devel_kdf_twostepkdf[] = { {
 #endif
 
 /**************************************************************************
+ * RSA decryption primtiive
+ **************************************************************************/
+#if 0
+
+static const struct def_algo_prereqs devel_rsa_prereqs[] = {
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+static const struct def_algo_rsa_component_dec devel_rsa_component_dec_alg[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+// }, {
+// 	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+// }, {
+// 	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+} };
+
+static const struct def_algo_rsa_component_sig_gen devel_rsa_component_dec = {
+	.keyformat = DEF_ALG_RSA_KEYFORMAT_STANDARD,
+	.pubexpmode = DEF_ALG_RSA_PUBEXTMODE_FIXED,
+	.fixedpubexp = "010001",
+};
+
+#define DEVEL_RSA_DEC_PRIMITIVE					\
+	{								\
+	.type = DEF_ALG_TYPE_RSA,					\
+	.algo = {							\
+		.rsa = {						\
+			.rsa_mode = DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE,\
+			DEF_PREREQS(devel_rsa_prereqs),			\
+			.gen_info.component_sig = &devel_rsa_component_dec,\
+			.algspecs.component_dec = devel_rsa_component_dec_alg,\
+			.algspecs_num = ARRAY_SIZE(devel_rsa_component_dec_alg),\
+			}						\
+		}							\
+	}
+
+#else
+#define DEVEL_RSA_DEC_PRIMITIVE
+#endif
+
+/**************************************************************************
  * Devel Implementation Definitions
  **************************************************************************/
 static const struct def_algo devel[] = {
@@ -718,7 +762,7 @@ static const struct def_algo devel[] = {
 	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYGENERATION,
 			 ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |
 			 ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |
-			 ACVP_DH_MODP_8192)
+			 ACVP_DH_MODP_8192),
 	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYVERIFICATION,
 			 ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |
 			 ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |
@@ -728,6 +772,8 @@ static const struct def_algo devel[] = {
 
 	DEVEL_KAS_KDF_ONESTEP
 	DEVEL_KAS_KDF_TWOSTEP
+
+	DEVEL_RSA_DEC_PRIMITIVE
 };
 
 /**************************************************************************

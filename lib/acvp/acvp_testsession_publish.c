@@ -800,7 +800,15 @@ int acvp_synchronize_metadata(const struct acvp_ctx *ctx)
 		 * No threading as this is a synchronous request -
 		 * see comment in acvp_publish.
 		 */
-		CKINT(acvp_sync_metadata(testid_ctx));
+		ret = acvp_sync_metadata(testid_ctx);
+		/*
+		 * -EAGAIN means that something was registered - this is an
+		 * expected return code and does not indicate an error here.
+		 */
+		if (ret == -EAGAIN)
+			ret = 0;
+		else if (ret < 0)
+			goto out;
 
 		acvp_release_auth(testid_ctx);
 		ACVP_PTR_FREE_NULL(testid_ctx);

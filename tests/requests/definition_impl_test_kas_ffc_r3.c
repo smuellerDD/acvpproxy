@@ -109,7 +109,7 @@ const struct def_algo_kas_ffc_r3_schema tests_ffc_r3_schema[] = { {
 	.schema = DEF_ALG_KAS_FFC_DH_EPHEM,
 	.kas_ffc_role = DEF_ALG_KAS_FFC_R3_INITIATOR |
 			DEF_ALG_KAS_FFC_R3_RESPONDER,
-	.onestekdf = {
+	.onestepkdf = {
 			.aux_function = tests_kas_ffc_onestepkdf_aux,
 			.aux_function_num = ARRAY_SIZE(tests_kas_ffc_onestepkdf_aux),
 			.fixed_info_pattern_type = {

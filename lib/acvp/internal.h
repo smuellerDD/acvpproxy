@@ -46,7 +46,7 @@ extern "C"
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 0   /* API / ABI compatible, no functional
+#define PATCHLEVEL 1   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -1014,6 +1014,8 @@ acvp_req_kas_r3_kc_method(const struct def_algo_kas_r3_kc *kcm,
 #define ACVP_DS_PROCESSED			"processed.txt"
 /* File holding the URL of the ACVP server provided the test vector */
 #define ACVP_DS_SRCSERVER			"acvp_server.txt"
+/* File holding the used certificate for the authentication */
+#define ACVP_DS_SIGNER				"acvp_signer.txt"
 /* File holding the expected test results */
 #define ACVP_DS_EXPECTED			"testvector-expected.json"
 /* File holding the metadata about the test session provided by ACVP server */

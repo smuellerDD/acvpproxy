@@ -337,6 +337,20 @@ struct def_algo_rsa_component_sig_gen {
 	 * required: always
 	 */
 	enum keyformat keyformat;
+
+	/*
+	 * Supports fixed or random public key exponent e
+	 * required: always
+	 */
+	enum pubexpmode pubexpmode;
+
+	/*
+	 * The value of the public key exponent e in hex
+	 *
+	 * required: only if DEF_ALG_RSA_PUBEXTMODE_FIXED is selected in
+	 * pubexpmode.
+	 */
+	const char *fixedpubexp;
 };
 
 /****************************************************************************

@@ -512,7 +512,7 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 	ret = ds->acvp_datastore_compare(vsid_ctx, datastore->srcserver, true,
 					 &tmp);
 	if (ret < 0) {
-		logger(LOGGER_WARN, LOGGER_C_ANY,
+		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "Could not match the upload server for vsID %u with the download server\n",
 		       vsid_ctx->vsid);
 		goto out;
@@ -527,12 +527,52 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 	 * the production ACVP server and vice versa.
 	 */
 	if (!ret) {
-		logger(LOGGER_WARN, LOGGER_C_ANY,
+		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "vsID %u was downloaded from a different server than it shall be uploaded to (%s)\n",
 		       vsid_ctx->vsid, net->server_name);
 		ret = -EOPNOTSUPP;
 		goto out;
 	}
+
+	/*
+	 * TODO: we cannot enforce the following so far as we have common
+	 * production certificate credentials used by different users.
+	 * As each user may have the credential somewhere else, we cannot
+	 * have a global check
+	 */
+#if 0
+	/* macOS key chain has precedence as defined in getClientCredential */
+	if (net->certs_clnt_macos_keychain_ref)
+		tmp.buf = (uint8_t *)net->certs_clnt_macos_keychain_ref;
+	else if (net->certs_clnt_file)
+		tmp.buf = (uint8_t *)net->certs_clnt_file;
+	else
+		tmp.buf = NULL;
+
+	CKNULL_LOG(tmp.buf, -EINVAL, "Client certificate reference missing\n");
+
+	tmp.len = (uint32_t)strlen((char *)tmp.buf);
+	ret = ds->acvp_datastore_compare(vsid_ctx, datastore->srcserver, true,
+					 &tmp);
+	if (ret < 0) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Could not match the signer for vsID %u with the download server\n",
+		       vsid_ctx->vsid);
+		goto out;
+	}
+
+	/*
+	 * The user's signing certificate which we used for downloading the
+	 * vector is not the same as for uploading.
+	 */
+	if (!ret) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "vsID %u was downloaded with a different user than it shall be uploaded with (see %s)\n",
+		       vsid_ctx->vsid, datastore->signer);
+		ret = -EOPNOTSUPP;
+		goto out;
+	}
+#endif
 
 	/*
 	 * Only upload test results if not already done so or explicitly

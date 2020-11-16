@@ -105,7 +105,7 @@ const struct def_algo_kas_ecc_r3_schema tests_ecc_r3_schema[] = { {
 	.schema = DEF_ALG_KAS_ECC_R3_FULL_UNIFIED,
 	.kas_ecc_role = DEF_ALG_KAS_ECC_R3_INITIATOR |
 			DEF_ALG_KAS_ECC_R3_RESPONDER,
-	.onestekdf = {
+	.onestepkdf = {
 			.aux_function = tests_kas_ecc_onestepkdf_aux,
 			.aux_function_num = ARRAY_SIZE(tests_kas_ecc_onestepkdf_aux),
 			.fixed_info_pattern_type = {

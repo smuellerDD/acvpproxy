@@ -291,7 +291,7 @@ acvp_req_kas_ifc_schema(const struct def_algo_kas_ifc_schema *schema,
 		tmp = json_object_new_object();
 		CKNULL(tmp, -ENOMEM);
 		CKINT(json_object_object_add(schema_entry, "kdfMethods", tmp));
-		CKINT(acvp_req_kas_kdf_onestep_impl(&schema->onestekdf, tmp));
+		CKINT(acvp_req_kas_kdf_onestep_impl(&schema->onestepkdf, tmp));
 		CKINT(acvp_req_kas_kdf_twostep_impl(schema->twostepkdf,
 						    schema->twostepkdf_num,
 						    schema->length, tmp));

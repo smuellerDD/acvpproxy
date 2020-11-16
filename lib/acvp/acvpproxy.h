@@ -182,6 +182,7 @@ struct acvp_datastore_ctx {
 	char *verdictfile;
 	char *processedfile;
 	char *srcserver;
+	char *signer;
 	char *expectedfile;
 };
 

@@ -99,6 +99,7 @@ static void acvp_release_datastore(struct acvp_datastore_ctx *datastore)
 	ACVP_PTR_FREE_NULL(datastore->verdictfile);
 	ACVP_PTR_FREE_NULL(datastore->processedfile);
 	ACVP_PTR_FREE_NULL(datastore->srcserver);
+	ACVP_PTR_FREE_NULL(datastore->signer);
 	ACVP_PTR_FREE_NULL(datastore->expectedfile);
 }
 
@@ -630,6 +631,7 @@ int acvp_ctx_init(struct acvp_ctx **ctx,
 	CKINT(acvp_duplicate(&datastore->verdictfile, ACVP_DS_VERDICT));
 	CKINT(acvp_duplicate(&datastore->processedfile, ACVP_DS_PROCESSED));
 	CKINT(acvp_duplicate(&datastore->srcserver, ACVP_DS_SRCSERVER));
+	CKINT(acvp_duplicate(&datastore->signer, ACVP_DS_SIGNER));
 	CKINT(acvp_duplicate(&datastore->expectedfile, ACVP_DS_EXPECTED));
 
 	CKINT(acvp_init_auth_ctx(*ctx));

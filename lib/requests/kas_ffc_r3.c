@@ -95,7 +95,7 @@ acvp_req_kas_ffc_r3_schema(const struct def_algo_kas_ffc_r3_schema *r3_schema,
 	tmp = json_object_new_object();
 	CKNULL(tmp, -ENOMEM);
 	CKINT(json_object_object_add(schema_entry, "kdfMethods", tmp));
-	CKINT(acvp_req_kas_kdf_onestep_impl(&r3_schema->onestekdf, tmp));
+	CKINT(acvp_req_kas_kdf_onestep_impl(&r3_schema->onestepkdf, tmp));
 	CKINT(acvp_req_kas_kdf_twostep_impl(r3_schema->twostepkdf,
 					    r3_schema->twostepkdf_num,
 					    r3_schema->length, tmp));

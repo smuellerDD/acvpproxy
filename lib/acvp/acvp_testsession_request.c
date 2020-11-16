@@ -599,6 +599,20 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 	CKINT(ds->acvp_datastore_write_vsid(vsid_ctx, datastore->srcserver,
 					    true, &tmp));
 
+	/* macOS key chain has precedence as defined in getClientCredential */
+	if (net->certs_clnt_macos_keychain_ref)
+		tmp.buf = (uint8_t *)net->certs_clnt_macos_keychain_ref;
+	else if (net->certs_clnt_file)
+		tmp.buf = (uint8_t *)net->certs_clnt_file;
+	else
+		tmp.buf = NULL;
+
+	CKNULL_LOG(tmp.buf, -EINVAL, "Client certificate reference missing\n");
+
+	tmp.len = (uint32_t)strlen((char *)tmp.buf);
+	CKINT(ds->acvp_datastore_write_vsid(vsid_ctx, datastore->signer,
+					    true, &tmp));
+
 	CKINT(acvp_get_testvectors_expected(vsid_ctx));
 
 	/* Unconstify allowed as we operate on an atomic primitive. */

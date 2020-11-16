@@ -131,6 +131,10 @@
     {
       "acvpModuleName":"OpenSSL (64 bit) (DRBG_10X)",
       "acvpModuleId":12001
+    },
+    {
+      "acvpModuleName":"OpenSSL (64 bit) (TLS v1.3)",
+      "acvpModuleId":0
     }
   ]
 }

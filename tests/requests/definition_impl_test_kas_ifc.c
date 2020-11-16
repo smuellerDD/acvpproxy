@@ -101,7 +101,7 @@ const struct def_algo_kas_ifc_schema tests_kas_ifc_schema_kas[] = { {
 	.schema = DEF_ALG_KAS_IFC_KAS1_PARTY_V,
 	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
 			DEF_ALG_KAS_IFC_RESPONDER,
-	.onestekdf = {
+	.onestepkdf = {
 		.aux_function = tests_kas_ifc_onestepkdf_aux,
 		.aux_function_num = ARRAY_SIZE(tests_kas_ifc_onestepkdf_aux),
 		.fixed_info_pattern_type = {

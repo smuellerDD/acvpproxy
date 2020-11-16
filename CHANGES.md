@@ -1,3 +1,6 @@
+v1.6.1
+- fix: add specification of public exponent definition for RSA signature primitive
+
 v1.6.0
 - enhancement: add DEF_ALG_SYM_CTRINCREMENT_DISABLE
 - enhancement: add check to verify appropriateness of test vectors to proxy-lib.sh

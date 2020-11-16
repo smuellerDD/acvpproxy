@@ -75,7 +75,7 @@ struct def_algo_kas_ffc_r3_schema {
 	 * required: For KAS methods, at least one KDF method is required
 	 *	     except for DEF_ALG_KAS_FFC_R3_SSC
 	 */
-	const struct def_algo_kas_kdf_onestepkdf onestekdf;
+	const struct def_algo_kas_kdf_onestepkdf onestepkdf;
 
 	const struct def_algo_kas_kdf_twostepkdf *twostepkdf;
 	unsigned int twostepkdf_num;

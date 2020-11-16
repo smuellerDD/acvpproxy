@@ -31,7 +31,7 @@
 # Example:
 #	TARGETDIR="/my/specific/IUT/path/acvpproxy"
 #
-TARGETDIR="."
+TARGETDIR=${TARGETDIR:-"."}
 
 #
 # Development environment of ACVP Proxy: point to the directory where either
@@ -43,7 +43,7 @@ TARGETDIR="."
 # Example:
 #	PROXYCODEPATH="$HOME/my/ACVP/source/code/directory"
 #
-PROXYCODEPATH=""
+PROXYCODEPATH=${PROXYCODEPATH:-""}
 
 #
 # Specify the ACVP Proxy version. This is used as a sanity check in case the
@@ -55,7 +55,7 @@ PROXYCODEPATH=""
 # Example:
 #	PROXYVERSION="1020000"
 #
-PROXYVERSION="1050300"
+PROXYVERSION=${PROXYVERSION:-"1060000"}
 
 #
 # Specify the ACVP search parameters if needed. As documented with the ACVP
@@ -73,7 +73,7 @@ PROXYVERSION="1050300"
 # Example:
 #	PROXYSEARCH="-m 'My IUT(R) Name (64bit)' -e 'Specific CPU'"
 #
-PROXYSEARCH=""
+PROXYSEARCH=${PROXYSEARCH:-""}
 
 #
 # Directory where the ACVP Proxy is located. Commonly the ACVP Proxy is
@@ -97,7 +97,7 @@ PROXYSEARCH=""
 # Example:
 #	PROXYBINPATH="$HOME/bin"
 #
-PROXYBINPATH="$HOME/bin"
+PROXYBINPATH=${PROXYBINPATH:-"$HOME/bin"}
 
 ##########################################
 # DO NOT CHANGE THE CODE AFTER THIS LINE #

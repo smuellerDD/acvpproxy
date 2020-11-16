@@ -840,6 +840,25 @@ static const struct def_algo_prereqs openssl_kdf_prereqs[] = {
 		}							\
 	}
 
+#define OPENSSL_HKDF							\
+	{								\
+	.type = DEF_ALG_TYPE_HKDF,					\
+	.algo.hkdf = {							\
+		DEF_PREREQS(openssl_kdf_prereqs),			\
+		.mac_salt_method = DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT |	\
+				   DEF_ALG_KAS_KDF_MAC_SALT_RANDOM,	\
+		.fixed_info_pattern_type = {				\
+				DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,\
+				DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO },\
+		.cipher_spec = {					\
+			.macalg = ACVP_SHA224 | ACVP_SHA256 |		\
+				  ACVP_SHA384 | ACVP_SHA512,		\
+			DEF_ALG_DOMAIN(.z, 224, 65336, 8),		\
+			.l = 2048,					\
+			}						\
+		}							\
+	}
+
 /**************************************************************************
  * SSH Definitions
  **************************************************************************/
@@ -1148,7 +1167,8 @@ static const struct def_algo openssl_neon [] = {
 };
 
 static const struct def_algo openssl_tls13 [] = {
-	OPENSSL_TLS13_KDF
+	//OPENSSL_TLS13_KDF,
+	OPENSSL_HKDF
 };
 
 /**************************************************************************
@@ -1510,13 +1530,13 @@ static struct def_algo_map openssl_algo_map [] = {
 		.algo_name = "OpenSSL",
 		.processor = "S390",
 		.impl_name = "AESASM",
-		.impl_description = "CPACF AES implementation"
+		.impl_description = "Assembler AES implementation"
 	}, {
 		SET_IMPLEMENTATION(openssl_gcm),
 		.algo_name = "OpenSSL",
 		.processor = "S390",
 		.impl_name = "AESASM_ASM",
-		.impl_description = "CPACF AES using assembler GCM implementation"
+		.impl_description = "Assembler AES using GCM with assembler GHASH implementation"
 
 	},
 };
