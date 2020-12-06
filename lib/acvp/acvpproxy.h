@@ -58,6 +58,10 @@ extern "C"
 #define NIST_VAL_OP_LARGE		"large"
 #define NIST_VAL_OP_REQUESTS		"requests"
 #define NIST_VAL_OP_VALIDATIONS		"validations"
+#define NIST_VAL_OP_PURCHASE		"purchase"
+#define NIST_VAL_OP_PURCHASE_OPTIONS	NIST_VAL_OP_PURCHASE "/options"
+#define NIST_VAL_OP_LAB			"lab"
+#define NIST_VAL_OP_AVAIL_VSIDS		NIST_VAL_OP_LAB "/availablevectorsets"
 
 /* acvp_protocol.txt: section 11.1 */
 #define ACVP_JWT_TOKEN_MAX      	16384
@@ -802,6 +806,36 @@ enum acvp_server_db_search_type {
 int acvp_server_db_search(struct acvp_ctx *ctx,
 			  const enum acvp_server_db_search_type search_type,
 			  const char *searchstr);
+
+/**
+ * @brief List all available purchase options offered by the server
+ *
+ * @param ctx [in] ACVP Proxy library context
+ *
+ * @return 0 on success, < 0 on error
+ */
+int acvp_purchase_get_options(const struct acvp_ctx *ctx);
+
+/**
+ * @brief List number of purchased but yet unused vector sets.
+ *
+ * @param ctx [in] ACVP Proxy library context
+ *
+ * @return 0 on success, < 0 on error
+ */
+int acvp_purchase_list_available_vsids(const struct acvp_ctx *ctx);
+
+/**
+ * @brief Initiate purchase of purchase option with given quantity
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @param opt [in] ACVP purchase option number that is returned by
+ *		   acvp_get_purchase_options
+ * @param qty [in] Amount how many the purchase option shall be bought
+ *
+ * @return 0 on success, < 0 on error
+ */
+int acvp_purchase(const struct acvp_ctx *ctx, uint32_t opt, uint32_t qty);
 
 #ifdef __cplusplus
 }

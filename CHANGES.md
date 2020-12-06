@@ -1,3 +1,7 @@
+v1.6.2
+- enhancement: add payment options --list-purchased-vs, --list-purchase-opts, --purchase
+- enhancement: add LRNG and Jitter RNG definitions
+
 v1.6.1
 - fix: add specification of public exponent definition for RSA signature primitive
 

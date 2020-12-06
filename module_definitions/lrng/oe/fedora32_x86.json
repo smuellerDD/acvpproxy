@@ -1,0 +1,17 @@
+{
+  "oeEnvName":"Fedora 32",
+  "_swid_COMMENT":"from /etc/swid/swidtags.d/fedoraproject.org/org.fedoraproject.Fedora-29.swidtag",
+  "swid":"org.fedoraproject.Fedora-32",
+  "_oe_description_COMMENT":"from /etc/swid/swidtags.d/fedoraproject.org/org.fedoraproject.Fedora-29.swidtag",
+  "oe_description":"Linux distribution developed by the community-supported Fedora Project and sponsored by Red Hat, Inc.",
+  "manufacturer":"Intel",
+  "procFamily":"X86",
+  "procName":"i7",
+  "procSeries":"Broadwell",
+  "features":7,
+  "envType":0,
+  "acvpOeDepProcId":20094,
+  "acvpOeDepProcIdProduction":23611,
+  "acvpOeId":0,
+  "acvpOeDepSwId":0
+}

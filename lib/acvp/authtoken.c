@@ -702,6 +702,7 @@ int acvp_login_refresh(const struct acvp_testid_ctx *testid_ctx_head)
 		      counter);
 
 	CKINT(acvp_create_url(NIST_VAL_OP_LOGIN_REFRESH, url, sizeof(url)));
+	json_logger(LOGGER_DEBUG, LOGGER_C_TOTP, login, "Register with");
 	CKINT(acvp_login_submit(login, url, &response_buf));
 
 	/* Process the response and set the authentication token. */

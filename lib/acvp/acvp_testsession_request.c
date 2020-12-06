@@ -1069,6 +1069,8 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	/* Send the capabilities to the ACVP server. */
 	ret2 = acvp_net_op(testid_ctx, url, &register_buf, &response_buf,
 			   acvp_http_post);
+	if (ret2)
+		testid_ctx->sig_cancel_send_delete = false;
 
 	/* Store the debug version of the result unconditionally. */
 	CKINT(acvp_store_register_debug(testid_ctx, &response_buf,
@@ -1132,16 +1134,8 @@ static int _acvp_register(const struct acvp_ctx *ctx,
 	if (!testid_ctx)
 		return -ENOMEM;
 
-	testid_ctx->def = def;
-	testid_ctx->ctx = ctx;
+	CKINT(acvp_init_testid_ctx(testid_ctx, ctx, def, 0));
 	testid_ctx->sig_cancel_send_delete = true;
-	atomic_set(0, &testid_ctx->vsids_to_process);
-	atomic_set(0, &testid_ctx->vsids_processed);
-
-	if (clock_gettime(CLOCK_REALTIME, &testid_ctx->start)) {
-		ret = -errno;
-		goto out;
-	}
 
 	logger_status(LOGGER_C_ANY, "Register module %s\n",
 		      def->info->module_name);

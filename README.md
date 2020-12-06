@@ -952,6 +952,7 @@ and relay responses.
 * KAS KDF HKDF Sp800-56Cr1
 * KAS KDF OneStep Sp800-56Cr1
 * KAS KDF TwoStep Sp800-56Cr1
+* KAS KDF HKDF Sp800-56Cr1
 
 ## KDFs
 * Counter KDF

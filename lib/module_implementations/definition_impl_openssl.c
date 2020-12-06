@@ -748,30 +748,30 @@ static const struct def_algo_kas_ecc_cdh_component openssl_kas_ecc_cdh = {
 /**************************************************************************
  * FFC DH Definitions
  **************************************************************************/
-static const struct def_algo_prereqs openssl_ffc_prereqs[] = {
-	{
-		.algorithm = "SHA",
-		.valvalue = "same"
-	},
-	{
-		.algorithm = "DRBG",
-		.valvalue = "same"
-	},
-	{
-		.algorithm = "DSA",
-		.valvalue = "same"
-	},
-};
-
-static const struct def_algo_kas_ffc_nokdfnokc openssl_kas_ffc_nokdfnokc_fb = {
-	.kas_ffc_paramset = DEF_ALG_KAS_FFC_FB,
-	.hashalg = ACVP_SHA224
-};
-
-static const struct def_algo_kas_ffc_nokdfnokc openssl_kas_ffc_nokdfnokc_fc = {
-	.kas_ffc_paramset = DEF_ALG_KAS_FFC_FC,
-	.hashalg = ACVP_SHA256
-};
+// static const struct def_algo_prereqs openssl_ffc_prereqs[] = {
+// 	{
+// 		.algorithm = "SHA",
+// 		.valvalue = "same"
+// 	},
+// 	{
+// 		.algorithm = "DRBG",
+// 		.valvalue = "same"
+// 	},
+// 	{
+// 		.algorithm = "DSA",
+// 		.valvalue = "same"
+// 	},
+// };
+//
+// static const struct def_algo_kas_ffc_nokdfnokc openssl_kas_ffc_nokdfnokc_fb = {
+// 	.kas_ffc_paramset = DEF_ALG_KAS_FFC_FB,
+// 	.hashalg = ACVP_SHA224
+// };
+//
+// static const struct def_algo_kas_ffc_nokdfnokc openssl_kas_ffc_nokdfnokc_fc = {
+// 	.kas_ffc_paramset = DEF_ALG_KAS_FFC_FC,
+// 	.hashalg = ACVP_SHA256
+// };
 
 #define __OPENSSL_KAS_FFC(paramset)					\
 	{								\
@@ -1046,7 +1046,9 @@ static const struct def_algo openssl_gcm [] = {
 };
 
 static const struct def_algo openssl_ffcdh [] = {
-	OPENSSL_KAS_FFC,
+	//SP800-56A rev 1 is not supported any more (arbitrary primes are
+	//rejected)
+	//OPENSSL_KAS_FFC,
 	OPENSSL_KAS_FFC_SSC_R3,
 	OPENSSL_SAFEPRIMES,
 };

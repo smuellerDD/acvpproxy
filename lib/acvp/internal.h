@@ -46,7 +46,7 @@ extern "C"
 			* functional enhancements only, consumer
 			* can be left unchanged if enhancements are
 			* not considered. */
-#define PATCHLEVEL 1   /* API / ABI compatible, no functional
+#define PATCHLEVEL 2   /* API / ABI compatible, no functional
 			* changes, no enhancements, bug fixes
 			* only. */
 
@@ -648,6 +648,14 @@ int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
 /************************************************************************
  * ACVP fetching of test vectors
  ************************************************************************/
+
+/**
+ * @brief properly initialize a testid context with the minimum settings
+ */
+int acvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
+			 const struct acvp_ctx *ctx,
+			 const struct definition *def,
+			 const uint32_t testid);
 
 /**
  * @brief Properly dispose of the testid_ctx

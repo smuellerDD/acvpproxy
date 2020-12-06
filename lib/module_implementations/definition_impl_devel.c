@@ -24,7 +24,7 @@
 /**************************************************************************
  * Safeprimes
  **************************************************************************/
-#if 1
+#if 0
 #define DEVEL_SAFEPRIMES(mode, groups) GENERIC_SAFEPRIMES(mode, groups)
 #else
 #define DEVEL_SAFEPRIMES(mode, groups)
@@ -471,7 +471,7 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 /**************************************************************************
  * SP800-56B rev2 OAEP
  **************************************************************************/
-#if 0
+#if 1
 static const struct def_algo_prereqs devel_kas_ifc_prereqs[] = {
 	{
 		.algorithm = "RSA",
@@ -512,8 +512,8 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 		.literal = "affeaffeaffe",
 		.associated_data_pattern_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,
 		},
-	.mac = devel_kas_ifc_mac,
-	.mac_entries = ARRAY_SIZE(devel_kas_ifc_mac),
+//	.mac = devel_kas_ifc_mac,
+//	.mac_entries = ARRAY_SIZE(devel_kas_ifc_mac),
 	.length = 1024,
 } };
 
@@ -537,6 +537,51 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 	}
 #else
 #define DEVEL_RSA_OAEP
+#endif
+
+#if 0
+static const struct def_algo_prereqs devel_kas_ifc_ssc_prereqs[] = {
+	{
+		.algorithm = "RSA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "HMAC",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+const struct def_algo_kas_ifc_ssc_schema devel_kas_ifc_ssc_schema_kts[] = { {
+	.schema = DEF_ALG_KAS_IFC_SSC_KAS1,
+	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
+			DEF_ALG_KAS_IFC_RESPONDER
+} };
+
+#define DEVEL_RSA_SSC						\
+	{								\
+	.type = DEF_ALG_TYPE_KAS_IFC,					\
+	.algo.kas_ifc = {						\
+		DEF_PREREQS(devel_kas_ifc_ssc_prereqs),			\
+		.function = DEF_ALG_KAS_IFC_SSC,			\
+		.iut_identifier = "0123456789abcdef",			\
+		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC },\
+		.keygen.rsa_modulo = { DEF_ALG_RSA_MODULO_2048,		\
+				       DEF_ALG_RSA_MODULO_3072,		\
+				       DEF_ALG_RSA_MODULO_4096,		\
+				       DEF_ALG_RSA_MODULO_6144,		\
+				       DEF_ALG_RSA_MODULO_8192,	},	\
+		.keygen.fixedpubexp = "010001",				\
+		.ssc_schema = devel_kas_ifc_ssc_schema_kts,		\
+		.ssc_schema_num = ARRAY_SIZE(devel_kas_ifc_ssc_schema_kts),\
+		.hash_z = ACVP_SHA512					\
+		},							\
+	}
+#else
+#define DEVEL_RSA_SSC
 #endif
 
 /**************************************************************************
@@ -758,6 +803,8 @@ static const struct def_algo devel[] = {
 	DEVEL_KAS_ECC_SSC_R3
 	DEVEL_KAS_IFC
 	DEVEL_RSA_OAEP
+
+	DEVEL_RSA_SSC
 
 	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYGENERATION,
 			 ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |

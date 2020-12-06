@@ -65,10 +65,10 @@ out:
 	return ret;
 }
 
-static int acvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
-				const struct acvp_ctx *ctx,
-				const struct definition *def,
-				const uint32_t testid)
+int acvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
+			 const struct acvp_ctx *ctx,
+			 const struct definition *def,
+			 const uint32_t testid)
 {
 	int ret = 0;
 
@@ -773,6 +773,7 @@ static int _acvp_respond(const struct acvp_ctx *ctx,
 			 const struct definition *def, const uint32_t testid)
 {
 	const struct acvp_opts_ctx *opts = &ctx->options;
+	struct acvp_test_verdict_status *verdict;
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	int ret;
 
@@ -790,7 +791,10 @@ static int _acvp_respond(const struct acvp_ctx *ctx,
 	 *
 	 * Force re-download of verdict if we deleted something.
 	 */
-	if ((ret != EEXIST && ret != EINTR) || opts->delete_vsid) {
+	verdict = &testid_ctx->verdict;
+	if ((ret != EEXIST && ret != EINTR) ||
+	    verdict->verdict != acvp_verdict_pass ||
+	    opts->delete_vsid) {
 		CKINT(acvp_get_testid_verdict(testid_ctx));
 	}
 

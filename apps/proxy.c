@@ -55,6 +55,9 @@ struct opt_data {
 	struct acvp_rename_ctx rename_ctx;
 	char *specific_modversion;
 
+	uint32_t purchase_opt;
+	uint32_t purchase_qty;
+
 	char *configfile;
 	struct json_object *config;
 	const char *tlskey;
@@ -90,6 +93,8 @@ struct opt_data {
 	bool request_sample;
 	bool official_testing;
 	bool sync_meta;
+	bool list_purchased_vs;
+	bool list_available_purchase_opts;
 };
 
 /*
@@ -448,6 +453,14 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\tand store them in <DIR>\n");
 	fprintf(stderr, "\t   --cipher-algo <ALGO>\t\tGet cipher options particular cipher\n\n");
 
+	fprintf(stderr, "\tPayment options:\n");
+	fprintf(stderr, "\t   --list-purchased-vs\t\tList number of yet unused and thus\n");
+	fprintf(stderr, "\t\t\t\t\tavailable vector sets\n");
+	fprintf(stderr, "\t   --list-purchase-opts\t\tList purchase options offered by ACVP\n");
+	fprintf(stderr, "\t\t\t\t\tserver\n");
+	fprintf(stderr, "\t   --purchase <OPTION>\t\tPurchase option <OPTION>\n");
+	fprintf(stderr, "\t\t\t\t\t- see output of --list-purchase-opts\n\n");
+
 	fprintf(stderr, "\tAuxiliary options:\n");
 	fprintf(stderr, "\t   --proxy-extension <SO-FILE>\tShared library of ACVP Proxy extension\n");
 	fprintf(stderr, "\t\t\t\t\tZero or more extensions can be provided.\n");
@@ -742,6 +755,10 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{"rename-procfamily",	required_argument,	0, 0},
 
 			{"register-only",	no_argument,		0, 0},
+
+			{"list-purchased-vs",	no_argument,		0, 0},
+			{"list-purchase-opts",	no_argument,		0, 0},
+			{"purchase",		required_argument,	0, 0},
 
 			{0, 0, 0, 0}
 		};
@@ -1117,6 +1134,30 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			case 57:
 				/* register-only */
 				opts->acvp_ctx_options.register_only = true;
+				break;
+
+				/* list-purchased-vs */
+			case 58:
+				opts->list_purchased_vs = true;
+				break;
+				/* list-purchase-opts */
+			case 59:
+				opts->list_available_purchase_opts = true;
+				break;
+				/* purchase */
+			case 60:
+				lval = strtol(optarg, NULL, 10);
+				if (lval == UINT32_MAX || lval <= 0) {
+					logger(LOGGER_ERR, LOGGER_C_ANY,
+					       "undefined purchase option\n");
+					usage();
+					ret = -EINVAL;
+					goto out;
+				}
+
+				opts->purchase_opt = (uint32_t)lval;
+				// TODO
+				opts->purchase_qty = 1;
 				break;
 
 			default:
@@ -1669,6 +1710,49 @@ out:
 	return ret;
 }
 
+static int do_list_purchased_vsids(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	CKINT(acvp_purchase_list_available_vsids(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int do_list_available_purchased_opts(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	CKINT(acvp_purchase_get_options(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int do_purchase(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	ctx->req_details.dump_register = opts->dump_register;
+	CKINT(acvp_purchase(ctx, opts->purchase_opt, opts->purchase_qty));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	struct opt_data opts;
@@ -1683,7 +1767,13 @@ int main(int argc, char *argv[])
 
 	CKINT(parse_opts(argc, argv, &opts));
 
-	if (opts.sync_meta) {
+	if (opts.list_purchased_vs) {
+		CKINT(do_list_purchased_vsids(&opts));
+	} else if (opts.list_available_purchase_opts) {
+		CKINT(do_list_available_purchased_opts(&opts));
+	} else if (opts.purchase_opt) {
+		CKINT(do_purchase(&opts));
+	} else if (opts.sync_meta) {
 		CKINT(do_sync_meta(&opts));
 	} else if (opts.acvp_server_db_search && opts.search_type) {
 		CKINT(do_search_server_db(&opts));
