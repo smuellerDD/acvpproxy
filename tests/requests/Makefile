@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+# Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
 #
 
 CC		?= gcc
@@ -40,15 +40,15 @@ EXCLUDED	?=
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp
+INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp
 LIBRARY_DIRS	+=
 LIBRARIES	+= pthread dl
 
 ifeq ($(UNAME_S),Darwin)
 LDFLAGS		+= -framework Foundation -framework Security
-EXCLUDED	+= $(SRCDIR)lib/acvp/network_backend_curl.c $(SRCDIR)lib/acvp/openssl_thread_support.c
+EXCLUDED	+= $(SRCDIR)lib/common/network_backend_curl.c $(SRCDIR)lib/common/openssl_thread_support.c
 M_SRCS		:= $(wildcard $(SRCDIR)apps/*.m)
-M_SRCS		+= $(wildcard $(SRCDIR)lib/acvp/*.m)
+M_SRCS		+= $(wildcard $(SRCDIR)lib/common/*.m)
 M_OBJS		:= ${M_SRCS:.m=.o}
 else
 LIBRARIES	+= curl
@@ -68,6 +68,8 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 C_SRCS += $(wildcard *.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/acvp/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/common/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/esvp/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/hash/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/requests/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/module_implementations/*.c)

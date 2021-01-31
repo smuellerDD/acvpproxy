@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -29,10 +29,10 @@
 #include "atomic.h"
 #include "constructor.h"
 #include "definition.h"
+#include "esvp_definition.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /* Operational environment type */
@@ -45,23 +45,20 @@ enum def_mod_type {
 static const struct def_mod_type_conversion {
 	enum def_mod_type type;
 	char *type_name;
-} def_mod_type_conversion[] = {
-	{ MOD_TYPE_SOFTWARE, "Software" },
-	{ MOD_TYPE_HARDWARE, "Hardware" },
-	{ MOD_TYPE_FIRMWARE, "Firmware" }
-};
+} def_mod_type_conversion[] = { { MOD_TYPE_SOFTWARE, "Software" },
+				{ MOD_TYPE_HARDWARE, "Hardware" },
+				{ MOD_TYPE_FIRMWARE, "Firmware" } };
 
 /* Warning, we operate with a signed int, so leave the highest bit untouched */
-#define ACVP_REQUEST_INITIAL	(1<<30)
-#define ACVP_REQUEST_PROCESSING	(1<<29)
-#define ACVP_REQUEST_REJECTED	(1<<28)
-#define ACVP_REQUEST_MASK	(ACVP_REQUEST_INITIAL |			\
-				 ACVP_REQUEST_PROCESSING |		\
-				 ACVP_REQUEST_REJECTED)
+#define ACVP_REQUEST_INITIAL (1 << 30)
+#define ACVP_REQUEST_PROCESSING (1 << 29)
+#define ACVP_REQUEST_REJECTED (1 << 28)
+#define ACVP_REQUEST_MASK                                                      \
+	(ACVP_REQUEST_INITIAL | ACVP_REQUEST_PROCESSING | ACVP_REQUEST_REJECTED)
 
 static inline uint32_t acvp_id(uint32_t id)
 {
-	return (id &~ (uint32_t)ACVP_REQUEST_MASK);
+	return (id & ~(uint32_t)ACVP_REQUEST_MASK);
 }
 
 static inline bool acvp_valid_id(uint32_t id)
@@ -189,15 +186,34 @@ struct def_vendor {
 	struct def_lock *def_lock;
 };
 
+enum def_dependency_type {
+	def_dependency_os,
+	def_dependency_hardware,
+	def_dependency_software,
+	def_dependency_firmware,
+};
+
+/* Operational environment processor features */
+#define OE_PROC_X86_RDRAND (1 << 0)
+#define OE_PROC_X86_AESNI (1 << 1)
+#define OE_PROC_X86_CLMULNI (1 << 2)
+#define OE_PROC_S390_CPACF (1 << 3)
+#define OE_PROC_ARM_AES (1 << 4)
+
 /**
- * @brief Specify operational environment information of the hosting execution
- *	 environment where the module is tested
+ * @brief Specify one dependency
  *
- * @var env_type Environment type
- * @var oe_env_name Name of the execution environment (e.g. operating
- *		    system or SoC)
+ * @var acvp_dep_id Identifier assigned by the ACVP server to dependency
+ *		    information, if there is any.
+ * @var def_dependency_type Type of the dependency
+ *
+ * The following are usually for all types of dependencies (except CPU)
+ * @var name Name of the dependency (e.g. operating system or SoC)
+ * @var description Description of the dependency (e.g. operating system or SoC)
  * @var cpe CPE string of module (may be NULL)
  * @var swid SWID string of module (may be NULL)
+ *
+ * The following are usually for CPUs
  * @var manufacturer Processor manufacturer (e.g. "Intel")
  * @var proc_family Processor family (e.g. "X86")
  * @var proc_family_internal Processor family used for internal definition
@@ -205,26 +221,18 @@ struct def_vendor {
  * @var proc_name Processor name (e.g. "Intel(R) Core(TM) i7-5557U")
  * @var proc_series Processor series (e.g. "Broadwell")
  * @var features Specify features of the CPU that are used by the module
- * @var def_oe_file Configuration file holding the information
- * @var acvp_oe_id Identifier assigned by the ACVP server to OE information.
- * @var acvp_oe_dep_sw_id Identifier assigned by the ACVP server to software
- *			  dependency information, if there is any.
- * @var acvp_oe_dep_proc_id Identifier assigned by the ACVP server to
- *			    processor dependency information, if there is any.
  */
-/* Operational environment processor features */
-#define OE_PROC_X86_RDRAND	(1<<0)
-#define OE_PROC_X86_AESNI	(1<<1)
-#define OE_PROC_X86_CLMULNI	(1<<2)
-#define OE_PROC_S390_CPACF	(1<<3)
-#define OE_PROC_ARM_AES		(1<<4)
-struct def_oe {
-	enum def_mod_type env_type;
-	char *oe_env_name;
+struct def_dependency {
+	uint32_t acvp_dep_id;
+	enum def_dependency_type def_dependency_type;
+
+	/* software */
+	char *name;
+	char *description;
 	char *cpe;
 	char *swid;
-	char *oe_description;
 
+	/* cpu */
 	char *manufacturer;
 	char *proc_family;
 	char *proc_family_internal;
@@ -232,10 +240,29 @@ struct def_oe {
 	char *proc_series;
 	uint64_t features;
 
+	struct def_dependency *next;
+};
+
+/**
+ * @brief Specify operational environment information of the hosting execution
+ *	  environment where the module is tested
+ *
+ * @var def_oe_file Configuration file holding the information
+ * @var acvp_oe_id Identifier assigned by the ACVP server to OE information.
+ * @var config_file_version Version of configuration file:
+ *	v0 == v1: one processor ID and one SW dependency defined in flat JSON
+ *	structure
+ *	v2: dependencies are defined array of separate objects - each array
+ *	member will internally be represented with one struct def_dependency
+ *	representation in the same order as found in the JSON file
+ * @var def_dep reference to all dependencies applicable to this OE.
+ */
+struct def_oe {
 	char *def_oe_file;
 	uint32_t acvp_oe_id;
-	uint32_t acvp_oe_dep_sw_id;
-	uint32_t acvp_oe_dep_proc_id;
+
+	uint32_t config_file_version;
+	struct def_dependency *def_dep;
 
 	struct def_lock *def_lock;
 };
@@ -244,12 +271,13 @@ static const struct acvp_feature {
 	uint64_t feature;
 	const char *name;
 } acvp_features[] = {
-	{ OE_PROC_X86_RDRAND,	"rdrand" },
-	{ OE_PROC_X86_AESNI,	"aes-ni" },
-	{ OE_PROC_X86_CLMULNI,	"clmulni" },
-	{ OE_PROC_S390_CPACF,	"cpacf" },
-	{ OE_PROC_ARM_AES,	"aes" },
+	{ OE_PROC_X86_RDRAND, "rdrand" },   { OE_PROC_X86_AESNI, "aes-ni" },
+	{ OE_PROC_X86_CLMULNI, "clmulni" }, { OE_PROC_S390_CPACF, "cpacf" },
+	{ OE_PROC_ARM_AES, "aes" },
 };
+
+#define ACVP_DEF_PRODUCTION_ID(x)                                              \
+	(acvp_req_is_production() ? x "Production" : x)
 
 enum acvp_deps_type {
 	acvp_deps_automated_resolution,
@@ -292,6 +320,7 @@ struct def_deps {
  *	      iterating over it.
  * @var num_algos The number of algorithm definitions is specified here.
  *		  Commonly ARRAY_SIZE(algos) would be used here.
+ * @var es The entropy source definitions
  * @var uninstantiated_def Reference to uninstantiated algorithm definition
  * @var deps Dependencies - if NULL then no dependencies
  * @var next This pointer is internal to the library and MUST NOT be used.
@@ -302,6 +331,7 @@ struct definition {
 	unsigned int num_algos;
 	struct def_vendor *vendor;
 	struct def_oe *oe;
+	struct esvp_es_def *es;
 	struct def_algo_map *uninstantiated_def;
 	struct def_deps *deps;
 	struct definition *next;
@@ -320,8 +350,8 @@ struct definition {
  *
  * @return Found definition or NULL if no entry found.
  */
-struct definition *acvp_find_def(const struct acvp_search_ctx *search,
-				 struct definition *processed_ptr);
+const struct definition *acvp_find_def(const struct acvp_search_ctx *search,
+				       const struct definition *processed_ptr);
 
 struct acvp_testid_ctx;
 /**
@@ -340,7 +370,7 @@ struct acvp_testid_ctx;
  * @return: 0 on success, < 0 on errors
  */
 int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
-		   struct json_object *def_config);
+		   const struct json_object *def_config);
 
 /**
  * @brief Convert the provided definition into an unambiguous search criteria
@@ -363,6 +393,9 @@ int acvp_export_def_search(const struct acvp_testid_ctx *testid_ctx);
 int acvp_def_module_name(char **newname, const char *module_name,
 			 const char *impl_name);
 
+int acvp_dep_name2type(const char *name, enum def_dependency_type *type);
+int acvp_dep_type2name(enum def_dependency_type type, const char **name);
+
 /**
  * @brief Update the vendor / OE / module ID in the configuration files
  *
@@ -374,18 +407,22 @@ int acvp_def_module_name(char **newname, const char *module_name,
  *	    error, the lock is not taken).
  */
 int acvp_def_get_vendor_id(struct def_vendor *def_vendor);
-int acvp_def_put_vendor_id(struct def_vendor *def_vendor);
+int acvp_def_put_vendor_id(const struct def_vendor *def_vendor);
 
 int acvp_def_get_person_id(struct def_vendor *def_vendor);
-int acvp_def_put_person_id(struct def_vendor *def_vendor);
+int acvp_def_put_person_id(const struct def_vendor *def_vendor);
 
 int acvp_def_get_oe_id(struct def_oe *def_oe);
-int acvp_def_put_oe_id(struct def_oe *def_oe);
+int acvp_def_put_oe_id(const struct def_oe *def_oe);
 
 int acvp_def_get_module_id(struct def_info *def_info);
 int acvp_def_put_module_id(struct def_info *def_info);
 
 void acvp_def_release_all(void);
+void acvp_def_free_info(struct def_info *info);
+void acvp_def_free_vendor(struct def_vendor *vendor);
+void acvp_def_free_oe(struct def_oe *oe);
+int acvp_def_alloc_lock(struct def_lock **lock);
 
 /**
  * @brief write any updates of the definitions to the corresponding JSON

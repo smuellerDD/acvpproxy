@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -31,15 +31,13 @@
 #include "definition_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /****************************************************************************
  * DSA common data data
  ****************************************************************************/
 struct def_algo_dsa {
-
 	/*
 	 * DSA mode type
 	 * required: always
@@ -113,8 +111,8 @@ struct def_algo_dsa {
 	 *
 	 * required: PQG generation and verification
 	 */
-#define DEF_ALG_DSA_PROBABLE_PQ_GEN	(1<<0)
-#define DEF_ALG_DSA_PROVABLE_PQ_GEN	(1<<1)
+#define DEF_ALG_DSA_PROBABLE_PQ_GEN (1 << 0)
+#define DEF_ALG_DSA_PROVABLE_PQ_GEN (1 << 1)
 	unsigned int dsa_pq_gen_method;
 
 	/*
@@ -122,8 +120,8 @@ struct def_algo_dsa {
 	 *
 	 * required: PQG generation and verification
 	 */
-#define DEF_ALG_DSA_UNVERIFIABLE_G_GEN	(1<<0)
-#define DEF_ALG_DSA_CANONICAL_G_GEN	(1<<1)
+#define DEF_ALG_DSA_UNVERIFIABLE_G_GEN (1 << 0)
+#define DEF_ALG_DSA_CANONICAL_G_GEN (1 << 1)
 	unsigned int dsa_g_gen_method;
 };
 

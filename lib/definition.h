@@ -1,6 +1,6 @@
 /* API for ACVP Proxy definition implementations
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -50,8 +50,7 @@
 #include "definition_cipher_kdf_twostep.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
@@ -198,15 +197,16 @@ struct acvp_extension {
 };
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#define SET_IMPLEMENTATION(impl)					\
-	.algos = impl, .num_algos = ARRAY_SIZE(impl)
+#define SET_IMPLEMENTATION(impl) .algos = impl, .num_algos = ARRAY_SIZE(impl)
 
 #if defined(ACVPPROXY_EXTENSION)
-# define ACVP_EXTENSION(map)						\
-	__attribute__ ((visibility ("default")))			\
-	struct acvp_extension acvp_extension = { map, ARRAY_SIZE(map) };
+#define ACVP_EXTENSION(map)                                                    \
+	__attribute__((visibility(                                             \
+		"default"))) struct acvp_extension acvp_extension = {          \
+		map, ARRAY_SIZE(map)                                           \
+	};
 #else
-# define ACVP_EXTENSION(map)
+#define ACVP_EXTENSION(map)
 #endif
 
 /**

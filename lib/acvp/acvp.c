@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -30,6 +30,8 @@
 #include <unistd.h>
 
 #include "acvpproxy.h"
+#include "acv_protocol.h"
+#include "esv_proto.h"
 #include "fips.h"
 #include "internal.h"
 #include "json_wrapper.h"
@@ -73,7 +75,6 @@ static void acvp_release_net(struct acvp_net_ctx *net)
 	ACVP_PTR_FREE_NULL(net->certs_clnt_passcode);
 	ACVP_PTR_FREE_NULL(net->certs_ca_macos_keychain_ref);
 	ACVP_PTR_FREE_NULL(net->certs_clnt_macos_keychain_ref);
-	memset(net, 0, sizeof(*net));
 }
 
 static void acvp_release_modinfo(struct acvp_modinfo_ctx *modinfo)
@@ -129,7 +130,16 @@ static void acvp_constructor(void)
 ACVP_DEFINE_DESTRUCTOR(acvp_destructor)
 static void acvp_destructor(void)
 {
- 	acvp_release_net(&net_global);
+	acvp_release_net(&net_global);
+}
+
+int acvp_get_proto(const struct acvp_net_proto **proto)
+{
+	if (!net_global.proto)
+		return -EFAULT;
+
+	*proto = net_global.proto;
+	return 0;
 }
 
 int acvp_get_net(const struct acvp_net_ctx **net)
@@ -234,7 +244,8 @@ static int acvp_cert_type(const char *file, char *curl_type,
 	}
 
 	logger(LOGGER_ERR, LOGGER_C_CURL,
-	       "Cannot identify certificate type based on suffix -- use .pem (PEM file), .cer (PEM file), .crt (DER file), .der (DER file), .p12 (P12 file) or .pfx (P12 file) - found %s\n", suffix);
+	       "Cannot identify certificate type based on suffix -- use .pem (PEM file), .cer (PEM file), .crt (DER file), .der (DER file), .p12 (P12 file) or .pfx (P12 file) - found %s\n",
+	       suffix);
 
 	return -EINVAL;
 }
@@ -268,15 +279,37 @@ static int acvp_check_file_presence(const char *file, const char *loginfo)
  * API calls
  *****************************************************************************/
 DSO_PUBLIC
-int acvp_set_net(const char *server_name, unsigned int port,
-		 const char *ca, const char *ca_keychain_ref,
-		 const char *client_cert, const char *client_cert_keychain_ref,
-		 const char *client_key, const char *passcode)
+int acvp_set_proto(enum acvp_protocol_type proto)
+{
+	struct acvp_net_ctx *net = &net_global;
+
+	switch (proto) {
+	case acv_protocol:
+		net->proto = &acv_proto_def;
+		break;
+	case esv_protocol:
+		net->proto = &esv_proto_def;
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Unknown protocol type\n");
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+DSO_PUBLIC
+int acvp_set_net(const char *server_name, unsigned int port, const char *ca,
+		 const char *ca_keychain_ref, const char *client_cert,
+		 const char *client_cert_keychain_ref, const char *client_key,
+		 const char *passcode)
 {
 	struct acvp_net_ctx *net = &net_global;
 	int ret = 0;
 
 	CKNULL_LOG(server_name, -EINVAL, "Server name missing\n");
+
+	acvp_release_net(net);
 
 	if (!client_cert && !client_cert_keychain_ref) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -290,15 +323,11 @@ int acvp_set_net(const char *server_name, unsigned int port,
 		return -EOPNOTSUPP;
 	}
 
-	acvp_release_net(net);
-
 	CKINT(acvp_duplicate(&net->server_name, server_name));
-
 	net->server_port = port;
 
-	logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-	       "ACVP request server: %s:%u\n", net->server_name,
-	       net->server_port);
+	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "ACVP request server: %s:%u\n",
+	       net->server_name, net->server_port);
 
 	if (ca) {
 		CKINT(acvp_duplicate(&net->certs_ca_file, ca));
@@ -418,15 +447,15 @@ int acvp_set_module(struct acvp_ctx *ctx,
 	CKINT(acvp_duplicate(&ctx_search->processor, caller_search->processor));
 
 	ctx_search->modulename_fuzzy_search =
-				caller_search->modulename_fuzzy_search;
+		caller_search->modulename_fuzzy_search;
 	ctx_search->moduleversion_fuzzy_search =
-				caller_search->moduleversion_fuzzy_search;
+		caller_search->moduleversion_fuzzy_search;
 	ctx_search->vendorname_fuzzy_search =
-				caller_search->vendorname_fuzzy_search;
-	ctx_search->execenv_fuzzy_search =
-				caller_search->execenv_fuzzy_search;
+		caller_search->vendorname_fuzzy_search;
+	ctx_search->execenv_fuzzy_search = caller_search->execenv_fuzzy_search;
 	ctx_search->processor_fuzzy_search =
-				caller_search->processor_fuzzy_search;
+		caller_search->processor_fuzzy_search;
+	ctx_search->with_es_def = caller_search->with_es_def;
 
 	for (i = 0; i < caller_search->nr_submit_testid; i++)
 		ctx_search->submit_testid[i] = caller_search->submit_testid[i];
@@ -489,8 +518,8 @@ out:
 
 int acvp_versionstring_short(char *buf, const size_t buflen)
 {
-	return snprintf(buf, buflen, "ACVPProxy/%d.%d.%d",
-			MAJVERSION, MINVERSION, PATCHLEVEL);
+	return snprintf(buf, buflen, "ACVPProxy/%d.%d.%d", MAJVERSION,
+			MINVERSION, PATCHLEVEL);
 }
 
 DSO_PUBLIC
@@ -498,7 +527,7 @@ uint32_t acvp_versionstring_numeric(void)
 {
 	uint32_t version = 0;
 
-	version =  MAJVERSION * 1000000;
+	version = MAJVERSION * 1000000;
 	version += MINVERSION * 10000;
 	version += PATCHLEVEL * 100;
 
@@ -514,10 +543,11 @@ uint32_t acvp_versionstring_numeric(void)
 DSO_PUBLIC
 int acvp_versionstring(char *buf, const size_t buflen)
 {
-	return snprintf(buf, buflen,
-			"ACVPProxy/%d.%d.%d\nDatastore version %d\nCrypto version: %s",
-			MAJVERSION, MINVERSION, PATCHLEVEL, ACVP_DS_VERSION,
-			_CRYPTOVERSION ? _CRYPTOVERSION : "undefined");
+	return snprintf(
+		buf, buflen,
+		"ACVPProxy/%d.%d.%d\nDatastore version %d\nCrypto version: %s",
+		MAJVERSION, MINVERSION, PATCHLEVEL, ACVP_DS_VERSION,
+		_CRYPTOVERSION ? _CRYPTOVERSION : "undefined");
 }
 
 DSO_PUBLIC
@@ -569,8 +599,7 @@ out:
 }
 
 DSO_PUBLIC
-int acvp_ctx_init(struct acvp_ctx **ctx,
-		  const char *datastore_basedir,
+int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 		  const char *secure_basedir)
 {
 	struct acvp_req_ctx *req_details;
@@ -601,8 +630,7 @@ int acvp_ctx_init(struct acvp_ctx **ctx,
 
 	datastore = &(*ctx)->datastore;
 	if (datastore_basedir) {
-		CKINT(acvp_duplicate(&datastore->basedir,
-				     datastore_basedir));
+		CKINT(acvp_duplicate(&datastore->basedir, datastore_basedir));
 	} else {
 		CKINT(acvp_duplicate(&datastore->basedir, ACVP_DS_DATADIR));
 	}
@@ -658,7 +686,7 @@ void acvp_release(void)
 }
 
 DSO_PUBLIC
-int acvp_init(const uint8_t *seed, uint32_t seed_len, time_t last_gen,
+int acvp_init(const uint8_t *seed, size_t seed_len, time_t last_gen,
 	      bool production, void (*last_gen_cb)(const time_t now))
 {
 	int ret;

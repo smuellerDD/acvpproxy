@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -23,8 +23,7 @@
 #include "buffer.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 enum acvp_error_code {
@@ -48,9 +47,18 @@ enum acvp_error_code {
  *
  * @return 0 on successful conversion, < 0 on error
  */
-int acvp_error_convert(const struct acvp_buf *response_buf,
-		       const int http_ret,
+int acvp_error_convert(const struct acvp_buf *response_buf, const int http_ret,
 		       enum acvp_error_code *code);
+
+/**
+ * @brief Convert the error return code of the TLS stack into an internal
+ * representation
+ *
+ * @param request_ret return code of the TLS stack
+ *
+ * @return internal error code
+ */
+int acvp_request_error_handler(const int request_ret);
 
 #ifdef __cplusplus
 }

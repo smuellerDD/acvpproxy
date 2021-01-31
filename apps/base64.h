@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -21,8 +21,7 @@
 #define BASE64_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
@@ -36,8 +35,8 @@ extern "C"
  *
  * @return 0 on success, < 0 on error
  */
-int base64_encode(const uint8_t *idata, uint32_t ilen,
-		  char **odata, uint32_t *olen);
+int base64_encode(const uint8_t *idata, size_t ilen, char **odata,
+		  size_t *olen);
 
 /**
  * @brief base64 encode of arbitrary data with a URL/filename-safe output
@@ -51,8 +50,8 @@ int base64_encode(const uint8_t *idata, uint32_t ilen,
  *
  * @return 0 on success, < 0 on error
  */
-int base64_encode_safe(const uint8_t *idata, uint32_t ilen,
-		       char **odata, uint32_t *olen);
+int base64_encode_safe(const uint8_t *idata, size_t ilen, char **odata,
+		       size_t *olen);
 
 /**
  * @brief base64 decoding of arbitrary data
@@ -65,8 +64,8 @@ int base64_encode_safe(const uint8_t *idata, uint32_t ilen,
  *
  * @return 0 on success, < 0 on error
  */
-int base64_decode(const char *idata, uint32_t ilen,
-		  uint8_t **odata, uint32_t *olen);
+int base64_decode(const char *idata, size_t ilen, uint8_t **odata,
+		  size_t *olen);
 
 /**
  * @brief base64 decoding of arbitrary data with a URL/filename-safe input
@@ -80,8 +79,8 @@ int base64_decode(const char *idata, uint32_t ilen,
  *
  * @return 0 on success, < 0 on error
  */
-int base64_decode_safe(const char *idata, uint32_t ilen,
-		       uint8_t **odata, uint32_t *olen);
+int base64_decode_safe(const char *idata, size_t ilen, uint8_t **odata,
+		       size_t *olen);
 
 #ifdef __cplusplus
 }

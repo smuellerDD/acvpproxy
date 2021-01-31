@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -29,47 +29,43 @@
 #include "mutex.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-#define ACVP_VERSION			"1.0"
-
 /* acvp_protocol.txt: section 5.1 */
-#define NIST_DEFAULT_SERVER		"acvts.nist.gov"
-#define NIST_TEST_SERVER		"demo.acvts.nist.gov"
-#define NIST_DEFAULT_SERVER_PORT	443
-#define NIST_VAL_CTX			"acvp/v1"
+#define NIST_DEFAULT_SERVER "acvts.nist.gov"
+#define NIST_TEST_SERVER "demo.acvts.nist.gov"
+#define NIST_DEFAULT_SERVER_PORT 443
 
 /* acvp_protocol.txt: section 5.2 */
-#define NIST_VAL_OP_LOGIN		"login"
-#define NIST_VAL_OP_LOGIN_REFRESH	"login/refresh"
-#define NIST_VAL_OP_REG			"testSessions"
-#define NIST_VAL_OP_VECTORSET		"vectorSets"
-#define NIST_VAL_OP_RESULTS		"results"
-#define NIST_VAL_OP_EXPECTED_RESULTS	"expected"
-#define NIST_VAL_OP_VENDOR		"vendors"
-#define NIST_VAL_OP_ADDRESSES		"addresses"
-#define NIST_VAL_OP_PERSONS		"persons"
-#define NIST_VAL_OP_OE			"oes"
-#define NIST_VAL_OP_MODULE		"modules"
-#define NIST_VAL_OP_DEPENDENCY		"dependencies"
-#define NIST_VAL_OP_ALGORITHMS		"algorithms"
-#define NIST_VAL_OP_LARGE		"large"
-#define NIST_VAL_OP_REQUESTS		"requests"
-#define NIST_VAL_OP_VALIDATIONS		"validations"
-#define NIST_VAL_OP_PURCHASE		"purchase"
-#define NIST_VAL_OP_PURCHASE_OPTIONS	NIST_VAL_OP_PURCHASE "/options"
-#define NIST_VAL_OP_LAB			"lab"
-#define NIST_VAL_OP_AVAIL_VSIDS		NIST_VAL_OP_LAB "/availablevectorsets"
+#define NIST_VAL_OP_LOGIN "login"
+#define NIST_VAL_OP_LOGIN_REFRESH "login/refresh"
+#define NIST_VAL_OP_REG "testSessions"
+#define NIST_VAL_OP_VECTORSET "vectorSets"
+#define NIST_VAL_OP_RESULTS "results"
+#define NIST_VAL_OP_EXPECTED_RESULTS "expected"
+#define NIST_VAL_OP_VENDOR "vendors"
+#define NIST_VAL_OP_ADDRESSES "addresses"
+#define NIST_VAL_OP_PERSONS "persons"
+#define NIST_VAL_OP_OE "oes"
+#define NIST_VAL_OP_MODULE "modules"
+#define NIST_VAL_OP_DEPENDENCY "dependencies"
+#define NIST_VAL_OP_ALGORITHMS "algorithms"
+#define NIST_VAL_OP_LARGE "large"
+#define NIST_VAL_OP_REQUESTS "requests"
+#define NIST_VAL_OP_VALIDATIONS "validations"
+#define NIST_VAL_OP_PURCHASE "purchase"
+#define NIST_VAL_OP_PURCHASE_OPTIONS NIST_VAL_OP_PURCHASE "/options"
+#define NIST_VAL_OP_LAB "lab"
+#define NIST_VAL_OP_AVAIL_VSIDS NIST_VAL_OP_LAB "/availablevectorsets"
 
 /* acvp_protocol.txt: section 11.1 */
-#define ACVP_JWT_TOKEN_MAX      	16384
+#define ACVP_JWT_TOKEN_MAX 16384
 /* lifetime of token in seconds - we subtract some grace time */
-#define ACVP_JWT_TOKEN_LIFETIME		(1800 - 300)
+#define ACVP_JWT_TOKEN_LIFETIME (1800 - 300)
 
 struct acvp_auth_ctx {
-	char *jwt_token;	/* JWT token provided by server */
+	char *jwt_token; /* JWT token provided by server */
 	size_t jwt_token_len;
 	time_t jwt_token_generated; /* generation time in seconds since Epoch */
 
@@ -97,21 +93,6 @@ struct acvp_auth_ctx {
 	 * we must lock if we want to change it.
 	 */
 	mutex_t mutex;
-};
-
-struct acvp_net_ctx {
-	char *server_name;
-	unsigned int server_port;
-#define ACVP_NET_URL_MAXLEN		1024
-	char *certs_ca_file;	/* CA certificates used to verify peer */
-	char certs_ca_file_type[4]; /* File type of CA certificate */
-	char *certs_clnt_file;	/* Client cert for TLS client auth */
-	char certs_clnt_file_type[4]; /* File type of certificate */
-	char *certs_clnt_key_file; /* Client key for TLS client auth */
-	char certs_clnt_key_file_type[4]; /* File type of certificate */
-	char *certs_clnt_passcode; /* Passcode */
-	char *certs_ca_macos_keychain_ref;
-	char *certs_clnt_macos_keychain_ref;
 };
 
 struct acvp_modinfo_ctx {
@@ -144,6 +125,8 @@ struct acvp_modinfo_ctx {
  *			       (i.e. use strstr to search the name and not
  *			       strncmp) for processor
  *
+ * @var only return when entropy source definition present
+ *
  * @var submit_vsids Array of vsIds to be processed (if empty, all vsIDs are
  *		     in scope).
  * @var nr_submit_vsids Number of vsIDs that are to be searched.
@@ -163,6 +146,8 @@ struct acvp_search_ctx {
 	bool vendorname_fuzzy_search;
 	bool execenv_fuzzy_search;
 	bool processor_fuzzy_search;
+
+	bool with_es_def;
 
 	unsigned int submit_vsid[MAX_SUBMIT_ID];
 	unsigned int nr_submit_vsid;
@@ -290,20 +275,28 @@ struct acvp_opts_ctx {
 	bool register_only;
 
 	/*
+	 * Only upload test responses without fetching the verdict. To
+	 * fetch the verdict, simply invoke the operation to re-post the data
+	 * without this flag set.
+	 */
+	bool upload_only;
+
+	/*
 	 * Delete an entry in the ACVP database. The ID is taken from the
 	 * module's JSON configuration file.
 	 */
-#define ACVP_OPTS_DELUP_OE	(1<<0)	/** Delete / update OE entry */
-#define ACVP_OPTS_DELUP_VENDOR	(1<<1)	/** Delete / update vendor entry */
-#define ACVP_OPTS_DELUP_MODULE	(1<<2)	/** Delete / update module entry */
-#define ACVP_OPTS_DELUP_PERSON	(1<<3)	/** Delete / update person entry */
-#define ACVP_OPTS_DELUP_FORCE	(1<<30)	/** Force a deletion operation */
+#define ACVP_OPTS_DELUP_OE (1 << 0) /** Delete / update OE entry */
+#define ACVP_OPTS_DELUP_VENDOR (1 << 1) /** Delete / update vendor entry */
+#define ACVP_OPTS_DELUP_MODULE (1 << 2) /** Delete / update module entry */
+#define ACVP_OPTS_DELUP_PERSON (1 << 3) /** Delete / update person entry */
+#define ACVP_OPTS_DELUP_FORCE (1 << 30) /** Force a deletion operation */
 	unsigned int delete_db_entry;
 
-#define ACVP_OPTS_SHOW_OE	(1<<0)	/** Show OE entries */
-#define ACVP_OPTS_SHOW_VENDOR	(1<<1)	/** Show vendor entries */
-#define ACVP_OPTS_SHOW_MODULE	(1<<2)	/** Show module entries */
-#define ACVP_OPTS_SHOW_PERSON	(1<<3)	/** Show person entries */
+#define ACVP_OPTS_SHOW_OE (1 << 0) /** Show OE entries */
+#define ACVP_OPTS_SHOW_VENDOR (1 << 1) /** Show vendor entries */
+#define ACVP_OPTS_SHOW_MODULE (1 << 2) /** Show module entries */
+#define ACVP_OPTS_SHOW_PERSON (1 << 3) /** Show person entries */
+#define ACVP_OPTS_SHOW_VALIDATION (1 << 4) /** Show person entries */
 	unsigned int show_db_entries;
 
 	/*
@@ -343,6 +336,11 @@ struct acvp_ctx {
 	struct acvp_auth_ctx *ctx_auth; /* initial login auth token */
 };
 
+enum acvp_protocol_type {
+	acv_protocol,
+	esv_protocol,
+};
+
 /**
  * @brief Initialize ACVP Proxy library
  *
@@ -364,7 +362,7 @@ struct acvp_ctx {
  *
  * @return 0 on success, < 0 on error
  */
-int acvp_init(const uint8_t *seed, uint32_t seed_len, time_t last_gen,
+int acvp_init(const uint8_t *seed, size_t seed_len, time_t last_gen,
 	      bool production, void (*last_gen_cb)(const time_t now));
 
 /**
@@ -435,6 +433,15 @@ int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 void acvp_ctx_release(struct acvp_ctx *ctx);
 
 /**
+ * @brief Set networking protocol definition
+ *
+ * @param proto [in] Definition of protocol
+ *
+ * @return 0 on success, < 0 on error
+ */
+int acvp_set_proto(enum acvp_protocol_type proto);
+
+/**
  * @brief Set networking information to reach CAVP server
  *
  * @param server_name [in] CAVP server name
@@ -450,13 +457,14 @@ void acvp_ctx_release(struct acvp_ctx *ctx);
  *			  is used which contains the private key).
  * @param passcode [in] Passcode applicable to the private key (may be NULL
  *			if no passcode is required).
+ * @param proto [in] Definition of protocol
  *
  * @return 0 on success, < 0 on error
  */
-int acvp_set_net(const char *server_name, unsigned int port,
-		 const char *ca, const char *ca_keychain_ref,
-		 const char *client_cert, const char *client_cert_keychain_ref,
-		 const char *client_key, const char *passcode);
+int acvp_set_net(const char *server_name, unsigned int port, const char *ca,
+		 const char *ca_keychain_ref, const char *client_cert,
+		 const char *client_cert_keychain_ref, const char *client_key,
+		 const char *passcode);
 
 /**
  * @brief Define the module specification for which test vectors are to be
@@ -475,8 +483,8 @@ int acvp_set_net(const char *server_name, unsigned int port,
  * @return 0 on success, < 0 on error
  */
 int acvp_set_module(struct acvp_ctx *ctx,
-			const struct acvp_search_ctx *caller_search,
-			const char *specific_ver);
+		    const struct acvp_search_ctx *caller_search,
+		    const char *specific_ver);
 
 /**
  * @brief Mark a CAVP register request as a production CAVS test /
@@ -502,7 +510,7 @@ int acvp_register(const struct acvp_ctx *ctx);
  *	  the verdict from CAVP. The source of the test results is defined by
  *	  the datastore backend.
  *
- * Note: When the option of ctx.req_details.download_pending_vsid is set to
+ * NOTE: When the option of ctx.req_details.download_pending_vsid is set to
  * true, this function will not submit test results, but try to download
  * yet not downloaded test vectors! This allows the restart of a download if
  * the download somehow failed before.
@@ -511,6 +519,19 @@ int acvp_register(const struct acvp_ctx *ctx);
  * @return 0 on success, < 0 on error
  */
 int acvp_respond(const struct acvp_ctx *ctx);
+
+/**
+ * @brief Fetch verdicts for all vsIDs in scope. The verdict held by the
+ *	  ACVP server is downloaded irrespective whether test results
+ *	  have been sent or not.
+ *
+ * NOTE: This operation can also be used to "refresh" a vsID to guard it
+ *	 against deletion after the 30 window.
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int acvp_fetch_verdicts(const struct acvp_ctx *ctx);
 
 /**
  * @brief Before this call, all test vector communication with the ACVP is
@@ -752,9 +773,8 @@ int acvp_list_verdict_vsid(int *idx_ptr, uint32_t *vsid, const bool passed);
  *
  * @return 0 on success, < 0 on error
  */
-int acvp_cipher_get(const struct acvp_ctx *ctx,
-		    const char *ciphername[], const size_t ciphername_arraylen,
-		    const char *pathname);
+int acvp_cipher_get(const struct acvp_ctx *ctx, const char *ciphername[],
+		    const size_t ciphername_arraylen, const char *pathname);
 
 /**
  * @brief Rename the module information
@@ -791,10 +811,11 @@ enum acvp_server_db_search_type {
 	NIST_SERVER_DB_SEARCH_OE,
 	NIST_SERVER_DB_SEARCH_MODULE,
 	NIST_SERVER_DB_SEARCH_DEPENDENCY,
+	NIST_SERVER_DB_SEARCH_VALIDATION,
 };
 
 /**
- * @brief Perform a search query of teh ACVP server database with the
+ * @brief Perform a search query of the ACVP server database with the
  *	  provided search string and the object type.
  *
  * @param ctx [in] ACVP Proxy library context
@@ -806,6 +827,30 @@ enum acvp_server_db_search_type {
 int acvp_server_db_search(struct acvp_ctx *ctx,
 			  const enum acvp_server_db_search_type search_type,
 			  const char *searchstr);
+
+/**
+ * @brief Fetch the ACVP DB entry for the given ID of the given ID type.
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @param search_type [in] Object type to search
+ * @param id [in] ID to search for
+ *
+ * @return 0 on success, < 0 on error
+ */
+int acvp_server_db_fetch_id(struct acvp_ctx *ctx,
+			    const enum acvp_server_db_search_type search_type,
+			    const uint32_t id);
+
+/**
+ * @brief Fetch the ACVP DB entries to populate a new module_definitions
+ *	  specification based on the given validation ID.
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @param id [in] validation ID
+ *
+ * @return 0 on success, < 0 on error
+ */
+int acvp_server_db_fetch_validation(struct acvp_ctx *ctx, const uint32_t id);
 
 /**
  * @brief List all available purchase options offered by the server

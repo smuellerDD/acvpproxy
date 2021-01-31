@@ -1,6 +1,6 @@
 /* OpenSSL module definition
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -387,12 +387,10 @@ static const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
 	}
 
 #define OPENSSL_RSA_SIGGEN_CAPS_COMMON					\
-	.hashalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |\
-		   ACVP_SHA512
+	.hashalg = ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512
 
 #define OPENSSL_RSA_SIGGEN_CAPS_X931					\
-	.hashalg = ACVP_SHA1 | ACVP_SHA256 | ACVP_SHA384 |		\
-		   ACVP_SHA512
+	.hashalg = ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512
 
 static const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
@@ -420,8 +418,7 @@ static const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps_pss[] = { {
 } };
 
 #define OPENSSL_RSA_SIGGEN_CAPS_X931					\
-	.hashalg = ACVP_SHA1 | ACVP_SHA256 | ACVP_SHA384 |		\
-		   ACVP_SHA512
+	.hashalg = ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512
 
 static const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps_x931[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
@@ -527,6 +524,43 @@ static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
 			.algspecs_num = ARRAY_SIZE(openssl_rsa_sigver),	\
 			}						\
 		}							\
+	}
+
+const struct def_algo_kas_ifc_schema openssl_kas_ifc_schema_kts[] = { {
+	.schema = DEF_ALG_KAS_IFC_KTS_OAEP_BASIC,
+	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
+			DEF_ALG_KAS_IFC_RESPONDER,
+	.kts_method = {
+		.hashalg = ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |
+			   ACVP_SHA512 | ACVP_SHA3_224 | ACVP_SHA3_256 |
+			   ACVP_SHA3_384 | ACVP_SHA3_512,
+		.supports_null_association_data = true,
+		.associated_data_pattern_type = {
+			DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,
+			DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO
+			},
+		.associated_data_pattern_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,
+		},
+	.length = 768,
+} };
+
+#define OPENSSL_RSA_OAEP						\
+	{								\
+	.type = DEF_ALG_TYPE_KAS_IFC,					\
+	.algo.kas_ifc = {						\
+		DEF_PREREQS(openssl_rsa_prereqs),			\
+		.function = DEF_ALG_KAS_IFC_PARITALVAL,			\
+		.iut_identifier = "0123456789abcdef",			\
+		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC },\
+		.keygen.rsa_modulo = { DEF_ALG_RSA_MODULO_2048,		\
+				       DEF_ALG_RSA_MODULO_3072,		\
+				       DEF_ALG_RSA_MODULO_4096,		\
+				       DEF_ALG_RSA_MODULO_6144,		\
+				       DEF_ALG_RSA_MODULO_8192 },	\
+		.keygen.fixedpubexp = "010001",				\
+		.schema = openssl_kas_ifc_schema_kts,			\
+		.schema_num = ARRAY_SIZE(openssl_kas_ifc_schema_kts),	\
+		},							\
 	}
 
 /**************************************************************************
@@ -1069,6 +1103,7 @@ static const struct def_algo openssl_sha [] = {
 	OPENSSL_RSA_KEYGEN,
 	OPENSSL_RSA_SIGGEN,
 	OPENSSL_RSA_SIGVER,
+	OPENSSL_RSA_OAEP,
 
 	OPENSSL_ECDSA_KEYGEN,
 	OPENSSL_ECDSA_KEYVER,
@@ -1539,7 +1574,6 @@ static struct def_algo_map openssl_algo_map [] = {
 		.processor = "S390",
 		.impl_name = "AESASM_ASM",
 		.impl_description = "Assembler AES using GCM with assembler GHASH implementation"
-
 	},
 };
 

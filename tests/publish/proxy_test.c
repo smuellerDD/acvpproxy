@@ -1,6 +1,6 @@
 /* ACVP Proxy application
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -567,7 +567,10 @@ out:
 
 static int initialize_ctx(struct acvp_ctx **ctx, struct opt_data *opts)
 {
+	enum acvp_protocol_type proto = acv_protocol;
 	int ret = 0;
+
+	CKINT(acvp_set_proto(proto));
 
 	CKINT(acvp_ctx_init(ctx, opts->basedir, opts->secure_basedir));
 

@@ -1,6 +1,6 @@
 /* Nettle module definition
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -474,46 +474,26 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 #if 1
 static const struct def_algo_prereqs devel_kas_ifc_prereqs[] = {
 	{
-		.algorithm = "RSA",
-		.valvalue = "same"
-	},
-	{
-		.algorithm = "HMAC",
-		.valvalue = "same"
-	},
-	{
 		.algorithm = "DRBG",
 		.valvalue = "same"
 	},
 };
-
-const struct def_algo_kas_mac_method devel_kas_ifc_mac[] = { {
-	.mac = ACVP_HMACSHA2_256,
-	.key_length = 128,
-	.mac_length = 128,
-}, {
-	.mac = ACVP_HMACSHA2_512,
-	.key_length = 128,
-	.mac_length = 128,
-} };
 
 const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 	.schema = DEF_ALG_KAS_IFC_KTS_OAEP_BASIC,
 	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
 			DEF_ALG_KAS_IFC_RESPONDER,
 	.kts_method = {
-		.hashalg = ACVP_SHA256 | ACVP_SHA3_384,
+		.hashalg = ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |
+			   ACVP_SHA512 | ACVP_SHA3_224 | ACVP_SHA3_256 |
+			   ACVP_SHA3_384 | ACVP_SHA3_512,
 		.supports_null_association_data = true,
 		.associated_data_pattern_type = {
 			DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,
-			DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO,
-			DEF_ALG_KAS_KDF_FI_PATTERN_LITERAL
+			DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO
 			},
-		.literal = "affeaffeaffe",
 		.associated_data_pattern_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,
 		},
-//	.mac = devel_kas_ifc_mac,
-//	.mac_entries = ARRAY_SIZE(devel_kas_ifc_mac),
 	.length = 1024,
 } };
 
@@ -524,12 +504,12 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 		DEF_PREREQS(devel_kas_ifc_prereqs),			\
 		.function = DEF_ALG_KAS_IFC_PARITALVAL,			\
 		.iut_identifier = "0123456789abcdef",			\
-		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC,\
-				DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,	\
-				DEF_ALG_KAS_IFC_RSAKPG1_CRT },		\
-		.keygen.rsa_modulo = { DEF_ALG_RSA_MODULO_6144,		\
-				DEF_ALG_RSA_MODULO_8192,		\
-				DEF_ALG_RSA_MODULO_2048 },		\
+		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC },\
+		.keygen.rsa_modulo = { DEF_ALG_RSA_MODULO_2048,		\
+				       DEF_ALG_RSA_MODULO_3072,		\
+				       DEF_ALG_RSA_MODULO_4096,		\
+				       DEF_ALG_RSA_MODULO_6144,		\
+				       DEF_ALG_RSA_MODULO_8192 },	\
 		.keygen.fixedpubexp = "010001",				\
 		.schema = devel_kas_ifc_schema_kts,			\
 		.schema_num = ARRAY_SIZE(devel_kas_ifc_schema_kts),	\

@@ -1,6 +1,6 @@
 /* Handle the ACVP purchase requests
  *
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -52,8 +52,8 @@ int acvp_purchase_get_options(const struct acvp_ctx *ctx)
 
 	fprintf(stdout, "%-8s | %-15s | %-32s | %-14s\n", "Purchase", "Name",
 		"Description", "Price");
-	fprintf(stdout, "%-8s | %-15s | %-32s | %-14s\n", "Option", " ",
-		" ", " ");
+	fprintf(stdout, "%-8s | %-15s | %-32s | %-14s\n", "Option", " ", " ",
+		" ");
 	fprintf(stdout, "%-8s-+-%-15s-+-%-32s-+-%-14s\n", "--------",
 		"---------------", "--------------------------------",
 		"--------------");
@@ -127,7 +127,7 @@ int acvp_purchase(const struct acvp_ctx *ctx, uint32_t opt, uint32_t qty)
 	struct json_object *request = NULL, *array, *entry, *resp = NULL;
 	struct acvp_testid_ctx testid_ctx;
 	ACVP_BUFFER_INIT(response);
-	struct acvp_buf purchase_buf;
+	struct acvp_ext_buf purchase_buf;
 	const char *json_request, *status;
 	char url[ACVP_NET_URL_MAXLEN];
 	enum acvp_error_code code = ACVP_ERR_NO_ERR;
@@ -166,8 +166,9 @@ int acvp_purchase(const struct acvp_ctx *ctx, uint32_t opt, uint32_t qty)
 
 	if (req_details->dump_register) {
 		fprintf(stdout, "%s\n",
-			json_object_to_json_string_ext(request,
-					JSON_C_TO_STRING_PRETTY |
+			json_object_to_json_string_ext(
+				request,
+				JSON_C_TO_STRING_PRETTY |
 					JSON_C_TO_STRING_NOSLASHESCAPE));
 		ret = 0;
 		goto out;
@@ -184,9 +185,9 @@ int acvp_purchase(const struct acvp_ctx *ctx, uint32_t opt, uint32_t qty)
 	CKINT_LOG(acvp_init_auth(&testid_ctx),
 		  "Failure to initialize authtoken\n");
 
-	json_request = json_object_to_json_string_ext(request,
-					JSON_C_TO_STRING_PLAIN  |
-					JSON_C_TO_STRING_NOSLASHESCAPE);
+	json_request = json_object_to_json_string_ext(
+		request,
+		JSON_C_TO_STRING_PLAIN | JSON_C_TO_STRING_NOSLASHESCAPE);
 	CKNULL_LOG(json_request, -ENOMEM,
 		   "JSON object conversion into string failed\n");
 

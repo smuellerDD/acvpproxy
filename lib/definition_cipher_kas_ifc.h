@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -24,12 +24,10 @@
 #include "definition_cipher_kas_kdf_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 struct def_algo_kas_ifc_keygen {
-
 	/*
 	 * Supported Key Generation Methods
 	 * Note that AT LEAST one Key Generation Method is required.
@@ -53,7 +51,7 @@ struct def_algo_kas_ifc_keygen {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_IFC_KEYGEN_METHOD_MAX_NUM	10
+#define DEF_ALG_KAS_IFC_KEYGEN_METHOD_MAX_NUM 10
 	enum kas_ifc_keygen_method {
 		DEF_ALG_KAS_IFC_KEYGEN_METHOD_UNKNOWN,
 		DEF_ALG_KAS_IFC_RSAKPG1_BASIC,
@@ -70,7 +68,7 @@ struct def_algo_kas_ifc_keygen {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_IFC_MODULO_MAX_NUM	10
+#define DEF_ALG_KAS_IFC_MODULO_MAX_NUM 10
 	enum rsa_modulo rsa_modulo[DEF_ALG_KAS_IFC_MODULO_MAX_NUM];
 
 	/*
@@ -116,7 +114,8 @@ struct def_algo_kts_method {
 	 *
 	 * required: always
 	 */
-	enum kas_kdf_fixedinfo_pattern associated_data_pattern_type[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN];
+	enum kas_kdf_fixedinfo_pattern associated_data_pattern_type
+		[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN];
 	const char *literal;
 	enum kas_kdf_fixedinfo_encoding associated_data_pattern_encoding;
 };
@@ -159,8 +158,8 @@ struct def_algo_kas_ifc_schema {
 	/*
 	 * KAS IFC role
 	 */
-#define DEF_ALG_KAS_IFC_INITIATOR		(1<<0)
-#define DEF_ALG_KAS_IFC_RESPONDER		(1<<1)
+#define DEF_ALG_KAS_IFC_INITIATOR (1 << 0)
+#define DEF_ALG_KAS_IFC_RESPONDER (1 << 1)
 	unsigned int kas_ifc_role;
 
 	/*
@@ -229,8 +228,8 @@ struct def_algo_kas_ifc_ssc_schema {
 	/*
 	 * KAS IFC role
 	 */
-#define DEF_ALG_KAS_IFC_INITIATOR		(1<<0)
-#define DEF_ALG_KAS_IFC_RESPONDER		(1<<1)
+#define DEF_ALG_KAS_IFC_INITIATOR (1 << 0)
+#define DEF_ALG_KAS_IFC_RESPONDER (1 << 1)
 	unsigned int kas_ifc_role;
 };
 
@@ -263,7 +262,6 @@ struct def_algo_kas_ifc {
 	 */
 	unsigned int prereqvals_num;
 
-
 	/*
 	 * Supported KAS IFC Functions
 	 *
@@ -275,10 +273,10 @@ struct def_algo_kas_ifc {
 	 *
 	 * requred: optional (if not defined, use DEF_ALG_KAS_IFC_UNDEFINED)
 	 */
-#define DEF_ALG_KAS_IFC_UNDEFINED	(1<<0)
-#define DEF_ALG_KAS_IFC_KEYPAIRGEN	(1<<1)
-#define DEF_ALG_KAS_IFC_PARITALVAL	(1<<2)
-#define DEF_ALG_KAS_IFC_SSC		(1<<3)
+#define DEF_ALG_KAS_IFC_UNDEFINED (1 << 0)
+#define DEF_ALG_KAS_IFC_KEYPAIRGEN (1 << 1)
+#define DEF_ALG_KAS_IFC_PARITALVAL (1 << 2)
+#define DEF_ALG_KAS_IFC_SSC (1 << 3)
 	unsigned int function;
 
 	/*

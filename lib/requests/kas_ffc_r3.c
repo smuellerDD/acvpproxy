@@ -1,6 +1,6 @@
 /* JSON request generator for KAS FFC rev 3 (SP800-56A rev. 3)
  *
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

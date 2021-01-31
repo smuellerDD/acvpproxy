@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -31,8 +31,7 @@
 #include "definition_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 struct def_algo_drbg_caps {
@@ -149,8 +148,8 @@ struct def_algo_drbg {
 	 * Is prediction resistance enabled?
 	 * required: always
 	 */
-#define DEF_ALG_DRBG_PR_ENABLED			(1<<0)
-#define DEF_ALG_DRBG_PR_DISABLED		(1<<1)
+#define DEF_ALG_DRBG_PR_ENABLED (1 << 0)
+#define DEF_ALG_DRBG_PR_DISABLED (1 << 1)
 	unsigned int pr;
 
 	/*

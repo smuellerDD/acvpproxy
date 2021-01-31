@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -24,8 +24,7 @@
 #include "definition_cipher_kas_kdf_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 struct def_algo_kas_ffc_r3_schema {
@@ -65,8 +64,8 @@ struct def_algo_kas_ffc_r3_schema {
 	/*
 	 * KAS FFC DH role
 	 */
-#define DEF_ALG_KAS_FFC_R3_INITIATOR		(1<<0)
-#define DEF_ALG_KAS_FFC_R3_RESPONDER		(1<<1)
+#define DEF_ALG_KAS_FFC_R3_INITIATOR (1 << 0)
+#define DEF_ALG_KAS_FFC_R3_RESPONDER (1 << 1)
 	unsigned int kas_ffc_role;
 
 	/*
@@ -141,10 +140,10 @@ struct def_algo_kas_ffc_r3 {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_FFC_R3_KEYPAIRGEN		(1<<0)
-#define DEF_ALG_KAS_FFC_R3_PARTIALVAL		(1<<1)
-#define DEF_ALG_KAS_FFC_R3_FULLVAL		(1<<2)
-#define DEF_ALG_KAS_FFC_R3_SSC			(1<<3)
+#define DEF_ALG_KAS_FFC_R3_KEYPAIRGEN (1 << 0)
+#define DEF_ALG_KAS_FFC_R3_PARTIALVAL (1 << 1)
+#define DEF_ALG_KAS_FFC_R3_FULLVAL (1 << 2)
+#define DEF_ALG_KAS_FFC_R3_SSC (1 << 3)
 	unsigned int kas_ffc_function;
 
 	/*

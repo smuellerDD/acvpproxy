@@ -1,3 +1,15 @@
+v1.7.0
+- enhancement: add --fetch-id-from-server-db to allow fetching the ACVP server DB data for the given ID
+- enhancement: add --fetch-validation-from-server-db allowing to provide a validation ID which is used to query the ACVP server DB to populate a full module_definitions/<dir> directory which can immediately be used for ACVP Proxy operations on the meta data
+- enhancement: OpenSSL - provide a fully working RSA OAEP test definition
+- enhancement: add --fetch-verdicts to get the current verdicts from the ACVP server - this option can be used to refresh a vsID against deletion after 30 day of inactivity
+- enhancement: AES-XTS support for specification version 2.0
+- enhancement: CTR mode: add support for requesting RFC3686 compliant vectors
+- enhancement: add saltLen support to 56Cr1
+- enhancement: Support arbitrary number of CPU/SW definitions (potential ACVP server issue relevant here: issue #65)
+- apply clang-format with Linux kernel formatting
+- enhancement: add --upload-only option and modify proxy.sh post to operate asynchronously: the first invocation simply uploads the test vectors and the second invocation downloads the verdicts.
+
 v1.6.2
 - enhancement: add payment options --list-purchased-vs, --list-purchase-opts, --purchase
 - enhancement: add LRNG and Jitter RNG definitions

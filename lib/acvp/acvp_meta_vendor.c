@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the vendor information
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -65,10 +65,12 @@ static int acvp_vendor_build(const struct def_vendor *def_vendor,
 	CKNULL(vendor, -ENOMEM);
 
 	/* Name, website */
-	CKINT(json_object_object_add(vendor, "name",
-			json_object_new_string(def_vendor->vendor_name)));
-	CKINT(json_object_object_add(vendor, "website",
-			json_object_new_string(def_vendor->vendor_url)));
+	CKINT(json_object_object_add(
+		vendor, "name",
+		json_object_new_string(def_vendor->vendor_name)));
+	CKINT(json_object_object_add(
+		vendor, "website",
+		json_object_new_string(def_vendor->vendor_url)));
 
 	/* Emails not defined */
 
@@ -77,16 +79,21 @@ static int acvp_vendor_build(const struct def_vendor *def_vendor,
 	/* Addresses */
 	address = json_object_new_object();
 	CKNULL(address, -ENOMEM);
-	CKINT(json_object_object_add(address, "street1",
-			json_object_new_string(def_vendor->addr_street)));
-	CKINT(json_object_object_add(address, "locality",
-			json_object_new_string(def_vendor->addr_locality)));
-	CKINT(json_object_object_add(address, "region",
-			json_object_new_string(def_vendor->addr_region)));
-	CKINT(json_object_object_add(address, "country",
-			json_object_new_string(def_vendor->addr_country)));
-	CKINT(json_object_object_add(address, "postalCode",
-			json_object_new_string(def_vendor->addr_zipcode)));
+	CKINT(json_object_object_add(
+		address, "street1",
+		json_object_new_string(def_vendor->addr_street)));
+	CKINT(json_object_object_add(
+		address, "locality",
+		json_object_new_string(def_vendor->addr_locality)));
+	CKINT(json_object_object_add(
+		address, "region",
+		json_object_new_string(def_vendor->addr_region)));
+	CKINT(json_object_object_add(
+		address, "country",
+		json_object_new_string(def_vendor->addr_country)));
+	CKINT(json_object_object_add(
+		address, "postalCode",
+		json_object_new_string(def_vendor->addr_zipcode)));
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);
 	CKINT(json_object_array_add(array, address));
@@ -127,8 +134,7 @@ static int acvp_vendor_match(struct def_vendor *def_vendor,
 
 	CKINT(json_find_key(json_vendor, "addresses", &tmp, json_type_array));
 	for (i = 0; i < json_object_array_length(tmp); i++) {
-		struct json_object *contact =
-				json_object_array_get_idx(tmp, i);
+		struct json_object *contact = json_object_array_get_idx(tmp, i);
 		uint32_t id;
 		const char *postalcode, *addr_street, *addr_locality;
 
@@ -198,8 +204,8 @@ out:
 
 /* POST / PUT / DELETE /vendors */
 static int acvp_vendor_register(const struct acvp_testid_ctx *testid_ctx,
-				struct def_vendor *def_vendor,
-				char *url, const unsigned int urllen,
+				struct def_vendor *def_vendor, char *url,
+				const unsigned int urllen,
 				const enum acvp_http_type type,
 				const bool asked)
 {
@@ -215,15 +221,15 @@ static int acvp_vendor_register(const struct acvp_testid_ctx *testid_ctx,
 		CKINT(acvp_vendor_build(def_vendor, &json_vendor));
 	}
 
-	if (!req_details->dump_register &&
-	    !ctx_opts->register_new_vendor &&
+	if (!req_details->dump_register && !ctx_opts->register_new_vendor &&
 	    !asked) {
 		if (json_vendor) {
-			logger_status(LOGGER_C_ANY,
-				      "Data to be registered: %s\n",
-				      json_object_to_json_string_ext(json_vendor,
+			logger_status(
+				LOGGER_C_ANY, "Data to be registered: %s\n",
+				json_object_to_json_string_ext(
+					json_vendor,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 		if (ask_yes("No module definition found - shall the vendor be registered")) {
 			ret = -ENOENT;
@@ -264,30 +270,35 @@ static int acvp_vendor_validate_one(const struct acvp_testid_ctx *testid_ctx,
 
 	ret = acvp_vendor_get_match(testid_ctx, def_vendor, &resp, &found_data);
 
-	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_VENDOR,
-					   ctx_opts, def_vendor->acvp_vendor_id,
-					   &http_type);
+	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_VENDOR, ctx_opts,
+				       def_vendor->acvp_vendor_id, &http_type);
 	if (ret == -ENOENT) {
 		CKINT(acvp_vendor_build(def_vendor, &json_vendor));
 		if (json_vendor) {
-			logger_status(LOGGER_C_ANY,
-				      "Data to be registered: %s\n",
-				      json_object_to_json_string_ext(json_vendor,
+			logger_status(
+				LOGGER_C_ANY, "Data to be registered: %s\n",
+				json_object_to_json_string_ext(
+					json_vendor,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
 		if (found_data) {
-			logger_status(LOGGER_C_ANY,
-				      "Data currently on ACVP server: %s\n",
-				      json_object_to_json_string_ext(found_data,
+			logger_status(
+				LOGGER_C_ANY,
+				"Data currently on ACVP server: %s\n",
+				json_object_to_json_string_ext(
+					found_data,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
-		if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
+		if (!ask_yes(
+			    "Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
 			http_type = acvp_http_put;
-		} else if (!ask_yes("Shall the entry be DELETED from the ACVP server data base")) {
+		} else if (
+			!ask_yes(
+				"Shall the entry be DELETED from the ACVP server data base")) {
 			http_type = acvp_http_delete;
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -297,26 +308,29 @@ static int acvp_vendor_validate_one(const struct acvp_testid_ctx *testid_ctx,
 
 		asked = true;
 	} else if (ret) {
-		  logger(LOGGER_ERR, LOGGER_C_ANY,
-			 "Conversion from search type to HTTP request type failed for vendor\n");
-		  goto out;
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Conversion from search type to HTTP request type failed for vendor\n");
+		goto out;
 	} else if (http_type == acvp_http_put) {
 		/* Update requested */
 		CKINT(acvp_vendor_build(def_vendor, &json_vendor));
 		if (json_vendor) {
-			logger_status(LOGGER_C_ANY,
-				      "Data to be registered: %s\n",
-				      json_object_to_json_string_ext(json_vendor,
+			logger_status(
+				LOGGER_C_ANY, "Data to be registered: %s\n",
+				json_object_to_json_string_ext(
+					json_vendor,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
 		if (found_data) {
-			logger_status(LOGGER_C_ANY,
-				      "Data currently on ACVP server: %s\n",
-				      json_object_to_json_string_ext(found_data,
+			logger_status(
+				LOGGER_C_ANY,
+				"Data currently on ACVP server: %s\n",
+				json_object_to_json_string_ext(
+					found_data,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
 		if (ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
@@ -327,11 +341,13 @@ static int acvp_vendor_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	} else if (http_type == acvp_http_delete) {
 		/* Delete requested */
 		if (found_data) {
-			logger_status(LOGGER_C_ANY,
-				      "Data currently on ACVP server: %s\n",
-				      json_object_to_json_string_ext(found_data,
+			logger_status(
+				LOGGER_C_ANY,
+				"Data currently on ACVP server: %s\n",
+				json_object_to_json_string_ext(
+					found_data,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
 		if (ask_yes("Shall the entry be DELETED from the ACVP server data base")) {
@@ -388,8 +404,8 @@ static int acvp_vendor_validate_all(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Set a query option consisting of vendor_name */
 	CKINT(bin2hex_html(def_vendor->vendor_name,
-			   (uint32_t)strlen(def_vendor->vendor_name),
-			   vendorstr, sizeof(vendorstr)));
+			   (uint32_t)strlen(def_vendor->vendor_name), vendorstr,
+			   sizeof(vendorstr)));
 	snprintf(queryoptions, sizeof(queryoptions), "name[0]=contains:%s",
 		 vendorstr);
 	CKINT(acvp_append_urloptions(queryoptions, url, sizeof(url)));
@@ -404,8 +420,8 @@ static int acvp_vendor_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	CKINT(acvp_create_url(NIST_VAL_OP_VENDOR, url, sizeof(url)));
-	CKINT(acvp_vendor_register(testid_ctx, def_vendor,
-				   url, sizeof(url), acvp_http_post, false));
+	CKINT(acvp_vendor_register(testid_ctx, def_vendor, url, sizeof(url),
+				   acvp_http_post, false));
 
 out:
 	return ret;
@@ -466,8 +482,8 @@ int acvp_vendor_handle(const struct acvp_testid_ctx *testid_ctx)
 	if (req_details->dump_register) {
 		char url[ACVP_NET_URL_MAXLEN];
 
-		CKINT_ULCK(acvp_create_url(NIST_VAL_OP_VENDOR, url,
-					   sizeof(url)));
+		CKINT_ULCK(
+			acvp_create_url(NIST_VAL_OP_VENDOR, url, sizeof(url)));
 		acvp_vendor_register(testid_ctx, def_vendor, url, sizeof(url),
 				     acvp_http_post, false);
 		goto unlock;
@@ -477,7 +493,7 @@ int acvp_vendor_handle(const struct acvp_testid_ctx *testid_ctx)
 	ret2 = acvp_meta_obtain_request_result(testid_ctx,
 					       &def_vendor->acvp_vendor_id);
 	ret2 |= acvp_meta_obtain_request_result(testid_ctx,
-					        &def_vendor->acvp_addr_id);
+						&def_vendor->acvp_addr_id);
 	if (ret2) {
 		ret = ret2;
 		goto unlock;

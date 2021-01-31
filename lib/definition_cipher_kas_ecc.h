@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -23,8 +23,7 @@
 #include "definition_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /*
@@ -51,8 +50,8 @@ enum kas_ecc_paramset {
 /*
  * Supported KDF options
  */
-#define DEF_ALG_KAS_ECC_CONCATENATION	(1<<0)
-#define DEF_ALG_KAS_ECC_ASN1		(1<<1)
+#define DEF_ALG_KAS_ECC_CONCATENATION (1 << 0)
+#define DEF_ALG_KAS_ECC_ASN1 (1 << 1)
 
 /****************************************************************************
  * KAS ECC data for no KDF and no key confirmation
@@ -326,8 +325,8 @@ struct def_algo_kas_ecc_kdfkc {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_ECC_PROVIDER	(1<<0)
-#define DEF_ALG_KAS_ECC_RECIPIENT	(1<<1)
+#define DEF_ALG_KAS_ECC_PROVIDER (1 << 0)
+#define DEF_ALG_KAS_ECC_RECIPIENT (1 << 1)
 	unsigned int kcrole;
 
 	/*
@@ -335,8 +334,8 @@ struct def_algo_kas_ecc_kdfkc {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_ECC_UNILATERAL	(1<<0)
-#define DEF_ALG_KAS_ECC_BILATERAL	(1<<1)
+#define DEF_ALG_KAS_ECC_UNILATERAL (1 << 0)
+#define DEF_ALG_KAS_ECC_BILATERAL (1 << 1)
 	unsigned int kctype;
 
 	/*
@@ -344,10 +343,10 @@ struct def_algo_kas_ecc_kdfkc {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_ECC_RANDOM_NONCE		(1<<0)
-#define DEF_ALG_KAS_ECC_TIMESTAMP		(1<<1)
-#define DEF_ALG_KAS_ECC_SEQUENCE		(1<<2)
-#define DEF_ALG_KAS_ECC_TIMESTAMP_SEQUENCE	(1<<3)
+#define DEF_ALG_KAS_ECC_RANDOM_NONCE (1 << 0)
+#define DEF_ALG_KAS_ECC_TIMESTAMP (1 << 1)
+#define DEF_ALG_KAS_ECC_SEQUENCE (1 << 2)
+#define DEF_ALG_KAS_ECC_TIMESTAMP_SEQUENCE (1 << 3)
 	unsigned int noncetype;
 };
 
@@ -390,11 +389,11 @@ struct def_algo_kas_ecc {
 	 * KAS ECC function type
 	 * required: always
 	 */
-#define DEF_ALG_KAS_ECC_DPGEN		(1<<0)
-#define DEF_ALG_KAS_ECC_DPVAL		(1<<1)
-#define DEF_ALG_KAS_ECC_KEYPAIRGEN	(1<<2)
-#define DEF_ALG_KAS_ECC_FULLVAL		(1<<3)
-#define DEF_ALG_KAS_ECC_PARTIALVAL	(1<<4)
+#define DEF_ALG_KAS_ECC_DPGEN (1 << 0)
+#define DEF_ALG_KAS_ECC_DPVAL (1 << 1)
+#define DEF_ALG_KAS_ECC_KEYPAIRGEN (1 << 2)
+#define DEF_ALG_KAS_ECC_FULLVAL (1 << 3)
+#define DEF_ALG_KAS_ECC_PARTIALVAL (1 << 4)
 	unsigned int kas_ecc_function;
 
 	/*
@@ -420,21 +419,21 @@ struct def_algo_kas_ecc {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_ECC_EPHEMERAL_UNIFIED	(1<<0)
-#define DEF_ALG_KAS_ECC_FULL_MQV		(1<<1)
-#define DEF_ALG_KAS_ECC_FULL_UNIFIED		(1<<2)
-#define DEF_ALG_KAS_ECC_ONE_PASS_DH		(1<<3)
-#define DEF_ALG_KAS_ECC_ONE_PASS_MQV		(1<<4)
-#define DEF_ALG_KAS_ECC_ONE_PASS_UNIFIED	(1<<5)
-#define DEF_ALG_KAS_ECC_STATIC_UNIFIED		(1<<6)
-#define DEF_ALG_KAS_ECC_CDH_COMPONENT		(1<<7)
+#define DEF_ALG_KAS_ECC_EPHEMERAL_UNIFIED (1 << 0)
+#define DEF_ALG_KAS_ECC_FULL_MQV (1 << 1)
+#define DEF_ALG_KAS_ECC_FULL_UNIFIED (1 << 2)
+#define DEF_ALG_KAS_ECC_ONE_PASS_DH (1 << 3)
+#define DEF_ALG_KAS_ECC_ONE_PASS_MQV (1 << 4)
+#define DEF_ALG_KAS_ECC_ONE_PASS_UNIFIED (1 << 5)
+#define DEF_ALG_KAS_ECC_STATIC_UNIFIED (1 << 6)
+#define DEF_ALG_KAS_ECC_CDH_COMPONENT (1 << 7)
 	unsigned int kas_ecc_schema;
 
 	/*
 	 * KAS ECC DH role
 	 */
-#define DEF_ALG_KAS_ECC_INITIATOR		(1<<0)
-#define DEF_ALG_KAS_ECC_RESPONDER		(1<<1)
+#define DEF_ALG_KAS_ECC_INITIATOR (1 << 0)
+#define DEF_ALG_KAS_ECC_RESPONDER (1 << 1)
 	unsigned int kas_ecc_role;
 
 	/*
@@ -466,7 +465,6 @@ struct def_algo_kas_ecc {
 		const struct def_algo_kas_ecc_kdfkc *kdfkc;
 		const struct def_algo_kas_ecc_cdh_component *cdh_component;
 	} type_info;
-
 };
 
 #ifdef __cplusplus

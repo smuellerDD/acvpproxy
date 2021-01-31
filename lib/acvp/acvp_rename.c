@@ -1,6 +1,6 @@
 /* Rename of module references that occur on different places
  *
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -38,16 +38,19 @@ static int acvp_rename_generic(const struct acvp_testid_ctx *testid_ctx,
 	/* Update definition */
 	CKINT(acvp_export_def_search(testid_ctx));
 
-	logger_status(LOGGER_C_ANY,
-		      "Rename of OE name for testID %u from %s to %s completed\n",
-		      testid_ctx->testid, curr_name, newname_modify);
+	logger_status(
+		LOGGER_C_ANY,
+		"Rename of OE name for testID %u from %s to %s completed\n",
+		testid_ctx->testid, curr_name, newname_modify);
 
 	/*
 	 * We deliberately do not touch the module definition JSON files
 	 * as they are treated as user input to the proxy.
 	 */
 
-	logger_status(LOGGER_C_ANY, "If the name is already registered with the ACVP server and you want to update it with \"--update-definition oe\" remember to perform TWO rounds of update, one for the software dependency and one for the OE name!\n");
+	logger_status(
+		LOGGER_C_ANY,
+		"If the name is already registered with the ACVP server and you want to update it with \"--update-definition oe\" remember to perform TWO rounds of update, one for the software dependency and one for the OE name!\n");
 
 out:
 	if (ret) {
@@ -66,11 +69,25 @@ static int acvp_rename_execenv(const struct acvp_testid_ctx *testid_ctx,
 {
 	const struct definition *def = testid_ctx->def;
 	struct def_oe *oe = def->oe;
+	struct def_dependency *def_dep;
 	int ret;
 
 	CKNULL(newname, 0);
 
-	CKINT(acvp_rename_generic(testid_ctx, &oe->oe_env_name, newname));
+	if (oe->config_file_version > 1) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Rename of OE dependency for complex definitions not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->name) {
+			CKINT(acvp_rename_generic(testid_ctx, &def_dep->name,
+						  newname));
+			break;
+		}
+	}
+
 	CKINT(acvp_def_update_oe_config(oe));
 
 out:
@@ -78,15 +95,29 @@ out:
 }
 
 static int acvp_rename_procname(const struct acvp_testid_ctx *testid_ctx,
-			        const char *newname)
+				const char *newname)
 {
 	const struct definition *def = testid_ctx->def;
 	struct def_oe *oe = def->oe;
+	struct def_dependency *def_dep;
 	int ret;
 
 	CKNULL(newname, 0);
 
-	CKINT(acvp_rename_generic(testid_ctx, &oe->proc_name, newname));
+	if (oe->config_file_version > 1) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Rename of OE dependency for complex definitions not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->name) {
+			CKINT(acvp_rename_generic(
+				testid_ctx, &def_dep->proc_name, newname));
+			break;
+		}
+	}
+
 	CKINT(acvp_def_update_oe_config(oe));
 
 out:
@@ -94,15 +125,29 @@ out:
 }
 
 static int acvp_rename_procfamily(const struct acvp_testid_ctx *testid_ctx,
-			          const char *newname)
+				  const char *newname)
 {
 	const struct definition *def = testid_ctx->def;
 	struct def_oe *oe = def->oe;
+	struct def_dependency *def_dep;
 	int ret;
 
 	CKNULL(newname, 0);
 
-	CKINT(acvp_rename_generic(testid_ctx, &oe->proc_family, newname));
+	if (oe->config_file_version > 1) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Rename of OE dependency for complex definitions not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->name) {
+			CKINT(acvp_rename_generic(
+				testid_ctx, &def_dep->proc_family, newname));
+			break;
+		}
+	}
+
 	CKINT(acvp_def_update_oe_config(oe));
 
 out:
@@ -110,15 +155,29 @@ out:
 }
 
 static int acvp_rename_procseries(const struct acvp_testid_ctx *testid_ctx,
-			          const char *newname)
+				  const char *newname)
 {
 	const struct definition *def = testid_ctx->def;
 	struct def_oe *oe = def->oe;
+	struct def_dependency *def_dep;
 	int ret;
 
 	CKNULL(newname, 0);
 
-	CKINT(acvp_rename_generic(testid_ctx, &oe->proc_series, newname));
+	if (oe->config_file_version > 1) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Rename of OE dependency for complex definitions not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->name) {
+			CKINT(acvp_rename_generic(
+				testid_ctx, &def_dep->proc_series, newname));
+			break;
+		}
+	}
+
 	CKINT(acvp_def_update_oe_config(oe));
 
 out:
@@ -220,9 +279,10 @@ static int acvp_rename_version(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_export_def_search(testid_ctx));
 	CKINT(acvp_def_update_module_config(info));
 
-	logger_status(LOGGER_C_ANY,
-		      "Rename of version for testID %u from %s to %s completed\n",
-		      testid_ctx->testid, curr_version, newversion_modify);
+	logger_status(
+		LOGGER_C_ANY,
+		"Rename of version for testID %u from %s to %s completed\n",
+		testid_ctx->testid, curr_version, newversion_modify);
 
 	/*
 	 * We deliberately do not touch the module definition JSON files

@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for publishing test results
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -28,8 +28,8 @@
 #include "threading_support.h"
 
 /* GET /testSessions/<testSessionId> */
-static int acvp_get_testid_metadata(const struct acvp_testid_ctx *testid_ctx,
-				    struct acvp_buf *response_buf)
+int acvp_get_testid_metadata(const struct acvp_testid_ctx *testid_ctx,
+			     struct acvp_buf *response_buf)
 {
 	int ret, ret2;
 	char url[ACVP_NET_URL_MAXLEN];
@@ -77,8 +77,8 @@ static int acvp_publish_write_id(const struct acvp_testid_ctx *testid_ctx,
 	snprintf(msgid, sizeof(msgid), "%u", validation_id);
 	tmp.buf = (uint8_t *)msgid;
 	tmp.len = (uint32_t)strlen(msgid);
-	CKINT(ds->acvp_datastore_write_testid(testid_ctx,
-			datastore->testsession_certificate_id, true, &tmp));
+	CKINT(ds->acvp_datastore_write_testid(
+		testid_ctx, datastore->testsession_certificate_id, true, &tmp));
 
 out:
 	return ret;
@@ -232,8 +232,8 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 						       deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_RSA:
-			CKINT(acvp_req_set_prereq_rsa(&def_algo->algo.rsa,
-						      deps, entry, true));
+			CKINT(acvp_req_set_prereq_rsa(&def_algo->algo.rsa, deps,
+						      entry, true));
 			break;
 		case DEF_ALG_TYPE_ECDSA:
 			CKINT(acvp_req_set_prereq_ecdsa(&def_algo->algo.ecdsa,
@@ -244,8 +244,8 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 							deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_DSA:
-			CKINT(acvp_req_set_prereq_dsa(&def_algo->algo.dsa,
-						      deps, entry, true));
+			CKINT(acvp_req_set_prereq_dsa(&def_algo->algo.dsa, deps,
+						      entry, true));
 			break;
 		case DEF_ALG_TYPE_KAS_ECC:
 			CKINT(acvp_req_set_prereq_kas_ecc(
@@ -300,8 +300,8 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 				&def_algo->algo.kas_ifc, deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_HKDF:
-			CKINT(acvp_req_set_prereq_hkdf(
-				&def_algo->algo.hkdf, deps, entry, true));
+			CKINT(acvp_req_set_prereq_hkdf(&def_algo->algo.hkdf,
+						       deps, entry, true));
 			break;
 		case DEF_ALG_TYPE_COND_COMP:
 			CKINT(acvp_req_set_prereq_cond_comp(
@@ -319,7 +319,7 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,
-			"Unknown algorithm definition type\n");
+			       "Unknown algorithm definition type\n");
 			ret = -EINVAL;
 			goto out;
 			break;
@@ -405,8 +405,7 @@ static int acvp_publish_build(const struct acvp_testid_ctx *testid_ctx,
 				     json_object_new_string(url)));
 
 	CKINT(acvp_create_urlpath(NIST_VAL_OP_OE, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
-				 def_oe->acvp_oe_id));
+	CKINT(acvp_extend_string(url, sizeof(url), "/%u", def_oe->acvp_oe_id));
 	CKINT(json_object_object_add(pub, "oeUrl",
 				     json_object_new_string(url)));
 
@@ -491,8 +490,7 @@ static int acvp_test_add_deps(struct acvp_testid_ctx *testid_ctx)
 	info = def->info;
 
 	/* Iterate through the configured dependencies */
-	for (def_deps = def->deps;
-	     def_deps != NULL;
+	for (def_deps = def->deps; def_deps != NULL;
 	     def_deps = def_deps->next) {
 		/*
 		 * As we found a new dependency, prepare a new entry in the
@@ -539,9 +537,8 @@ static int acvp_test_add_deps(struct acvp_testid_ctx *testid_ctx)
 		 * requests the processing of a given set of test sessions or
 		 * vector set IDs.
 		 */
-		CKINT(ds->acvp_datastore_find_testsession(def_deps->dependency,
-							  ctx, testids,
-							  &testid_count));
+		CKINT(ds->acvp_datastore_find_testsession(
+			def_deps->dependency, ctx, testids, &testid_count));
 
 		/*
 		 * Iterate through all testids returned by the search and
@@ -557,12 +554,13 @@ static int acvp_test_add_deps(struct acvp_testid_ctx *testid_ctx)
 			CKINT(acvp_init_auth(&tmp_testid_ctx));
 			/* Get authtoken and cert ID if available */
 			CKINT(ds->acvp_datastore_read_authtoken(
-							&tmp_testid_ctx));
+				&tmp_testid_ctx));
 			auth = tmp_testid_ctx.server_auth;
 
 			if (auth->testsession_certificate_number) {
 				/* We found a certificate, store it */
-				CKINT(acvp_duplicate(&test_deps->dep_cert,
+				CKINT(acvp_duplicate(
+					&test_deps->dep_cert,
 					auth->testsession_certificate_number));
 
 				logger(LOGGER_DEBUG, LOGGER_C_ANY,
@@ -579,9 +577,10 @@ static int acvp_test_add_deps(struct acvp_testid_ctx *testid_ctx)
 		}
 
 		if (!test_deps->dep_cert) {
-			logger_status(LOGGER_C_ANY,
-				      "No certificate found for dependency cipher %s for module %s - skipping module implementation (invoke operation again once the certificate is obtained)\n",
-				      test_deps->dep_cipher, info->module_name);
+			logger_status(
+				LOGGER_C_ANY,
+				"No certificate found for dependency cipher %s for module %s - skipping module implementation (invoke operation again once the certificate is obtained)\n",
+				test_deps->dep_cipher, info->module_name);
 			ret = -EAGAIN;
 			goto out;
 		}
@@ -614,8 +613,8 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 
 	/* Check if we have an outstanding test session cert ID requests */
 	auth = testid_ctx->server_auth;
-	ret2 = acvp_meta_obtain_request_result(testid_ctx,
-					       &auth->testsession_certificate_id);
+	ret2 = acvp_meta_obtain_request_result(
+		testid_ctx, &auth->testsession_certificate_id);
 	CKINT(acvp_publish_write_id(testid_ctx,
 				    auth->testsession_certificate_id));
 	if (ret2 < 0) {
@@ -629,27 +628,35 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 	 * If we have an ID and reach here, it is a valid test session
 	 * certificate ID and we stop processing.
 	 */
-	if (!req_details->dump_register &&
-	    !ctx_opts->delete_db_entry &&
-	    !ctx_opts->update_db_entry &&
-	    auth->testsession_certificate_id) {
+	if (!req_details->dump_register && !ctx_opts->delete_db_entry &&
+	    !ctx_opts->update_db_entry && auth->testsession_certificate_id) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Test session certificate ID %u %s obtained\n",
 		       auth->testsession_certificate_id,
 		       acvp_valid_id(auth->testsession_certificate_id) ?
-		       "successfully" : "not yet");
+				     "successfully" :
+				     "not yet");
 		logger_status(LOGGER_C_ANY,
 			      "Test session certificate ID %u %s obtained\n",
 			      auth->testsession_certificate_id,
 			      acvp_valid_id(auth->testsession_certificate_id) ?
-			      "successfully" : "not yet");
+					    "successfully" :
+					    "not yet");
 
 		if (acvp_valid_id(auth->testsession_certificate_id))
-			CKINT(acvp_get_certificate_info(testid_ctx,
-					auth->testsession_certificate_id));
+			CKINT(acvp_get_certificate_info(
+				testid_ctx, auth->testsession_certificate_id));
 
 		ret = 0;
 		goto out;
+	}
+
+	/* Will the ACVP server accept our publication request? */
+	if (!req_details->dump_register) {
+		if (acvp_publish_ready(testid_ctx)) {
+			ret = 0;
+			goto out;
+		}
 	}
 
 	CKINT(acvp_sync_metadata(testid_ctx));
@@ -664,10 +671,6 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 	 * progress during the next round.
 	 */
 	CKINT(acvp_test_add_deps(testid_ctx));
-
-	/* Will the ACVP server accept our publication request? */
-	if (!req_details->dump_register)
-		CKINT(acvp_publish_ready(testid_ctx));
 
 	/* Create publication JSON data */
 	CKINT(acvp_publish_build(testid_ctx, &json_publish));
@@ -749,7 +752,7 @@ int acvp_synchronize_metadata(const struct acvp_ctx *ctx)
 {
 	const struct acvp_datastore_ctx *datastore;
 	const struct acvp_search_ctx *search;
-	struct definition *def;
+	const struct definition *def;
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	int ret = 0;
 

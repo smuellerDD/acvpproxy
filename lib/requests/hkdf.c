@@ -1,6 +1,6 @@
 /* JSON request generator for SP800-56C HKDF
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -93,7 +93,8 @@ static int acvp_req_set_algo_hkdf_details(const struct def_algo_hkdf *hkdf,
 	CKINT(json_object_object_add(entry, "l",
 				     json_object_new_int((int)cipher_spec->l)));
 
-	CKINT(acvp_req_kas_mac_salt(hkdf->mac_salt_method, entry));
+	CKINT(acvp_req_kas_mac_salt(hkdf->mac_salt_method, hkdf->saltlen,
+				    entry));
 
 	CKINT(acvp_req_kas_kdf_fi(hkdf->fixed_info_pattern_type,
 				  hkdf->literal,
@@ -111,6 +112,8 @@ int acvp_req_set_algo_hkdf(const struct def_algo_hkdf *hkdf,
 			   struct json_object *entry)
 {
 	int ret;
+
+	//TODO 56Cr2 with multiExpansion testing missing
 
 	CKINT(acvp_req_add_revision(entry, "Sp800-56Cr1"));
 

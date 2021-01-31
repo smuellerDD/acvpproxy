@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -26,15 +26,14 @@
 #include "cipher_definitions.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /* If an integer has to be set to a zero value, use this definition */
-#define DEF_ALG_ZERO_VALUE	((1<<30) - 1)
+#define DEF_ALG_ZERO_VALUE ((1 << 30) - 1)
 
 /* Maximum number of integer-based entries */
-#define DEF_ALG_MAX_INT		10
+#define DEF_ALG_MAX_INT 10
 
 /*
  * Domain definition
@@ -51,20 +50,17 @@ extern "C"
  */
 
 /* Flag indicating the presence of a domain configuration */
-#define DEF_ALG_RANGE_TYPE	(1<<30)
+#define DEF_ALG_RANGE_TYPE (1 << 30)
 static inline int acvp_range_min_val(const int variable[])
 {
 	return (variable[0] & ~DEF_ALG_RANGE_TYPE);
 }
 
-#define DEF_ALG_DOMAIN(variable, min, max, inc)				\
-	variable[0] = (min | DEF_ALG_RANGE_TYPE),			\
-	variable[1] = max,						\
+#define DEF_ALG_DOMAIN(variable, min, max, inc)                                \
+	variable[0] = (min | DEF_ALG_RANGE_TYPE), variable[1] = max,           \
 	variable[2] = inc
 
-#define DEF_PREREQS(x)					\
-	.prereqvals = x,				\
-	.prereqvals_num = ARRAY_SIZE(x)
+#define DEF_PREREQS(x) .prereqvals = x, .prereqvals_num = ARRAY_SIZE(x)
 
 /**
  * @brief Define a prerequisite for a cipher.

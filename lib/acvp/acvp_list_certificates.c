@@ -1,6 +1,6 @@
 /* Listing of locally stored certificates with various output formats
  *
- * Copyright (C) 2019 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -46,11 +46,14 @@ static int acvp_list_certificates_cb(const struct acvp_ctx *ctx,
 				     const uint32_t testid)
 {
 	const struct def_info *def_info;
+	const struct def_oe *def_oe;
+	const struct def_dependency *def_dep;
 	struct acvp_testid_ctx testid_ctx;
 	struct acvp_auth_ctx *auth;
 	int ret;
 
 	def_info = def->info;
+	def_oe = def->oe;
 
 	memset(&testid_ctx, 0, sizeof(testid_ctx));
 	testid_ctx.def = def;
@@ -67,8 +70,16 @@ static int acvp_list_certificates_cb(const struct acvp_ctx *ctx,
 	if (!auth->testsession_certificate_number)
 		goto out;
 
-	fprintf(stdout, "%-50s | %-8u | %-10s\n",
-		def_info->module_name, testid,
+	fprintf(stdout, "%-44s", def_info->module_name);
+
+	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->name)
+			fprintf(stdout, "- %-10s", def_dep->name);
+		if (def_dep->proc_name)
+			fprintf(stdout, "- %-10s", def_dep->proc_name);
+	}
+
+	fprintf(stdout, " | %-8u | %-10s\n", testid,
 		auth->testsession_certificate_number);
 
 out:
@@ -104,18 +115,15 @@ static int acvp_store_cert_sorted(const struct acvp_vsid_ctx *vsid_ctx)
 			continue;
 		}
 		if (verdict->cipher_mode) {
-			if (!strncmp(list->cipher_name,
-				     verdict->cipher_name,
+			if (!strncmp(list->cipher_name, verdict->cipher_name,
 				     strlen(list->cipher_name)) &&
-			    !strncmp(list->cipher_mode,
-				     verdict->cipher_mode,
+			    !strncmp(list->cipher_mode, verdict->cipher_mode,
 				     strlen(list->cipher_mode))) {
 				ret = -EAGAIN;
 				goto out;
 			}
 		} else {
-			if (!strncmp(list->cipher_name,
-				     verdict->cipher_name,
+			if (!strncmp(list->cipher_name, verdict->cipher_name,
 				     strlen(list->cipher_name))) {
 				ret = -EAGAIN;
 				goto out;
@@ -142,16 +150,14 @@ static int acvp_store_cert_sorted(const struct acvp_vsid_ctx *vsid_ctx)
 			   "Programming bug in acvp_list_cert_unique\n");
 
 		/* Sorting */
-		for (list = acvp_list_cert_uniq;
-		     list != NULL;
+		for (list = acvp_list_cert_uniq; list != NULL;
 		     list = list->next) {
-
 			/*
 			 * Sort the certificate numbers for given certificate
 			 * name in ascending order
 			 */
-			if (acvp_find_match(list->cipher_name,
-					    new->cipher_name, false) &&
+			if (acvp_find_match(list->cipher_name, new->cipher_name,
+					    false) &&
 			    (strncasecmp(list->certificate, new->certificate,
 					 strlen(list->certificate)) > 0)) {
 				if (list == acvp_list_cert_uniq)
@@ -292,8 +298,8 @@ static int acvp_list_cert_match_processed(struct json_object *entry,
 	/* Set or add a marker that this entry was processed. */
 	ret = json_find_key(entry, "processed", &bool_entry, json_type_boolean);
 	if (ret < 0) {
-		ret = json_object_object_add(entry, "processed",
-					json_object_new_boolean(processed));
+		ret = json_object_object_add(
+			entry, "processed", json_object_new_boolean(processed));
 	} else {
 		ret = json_object_set_boolean(bool_entry, processed);
 	}
@@ -316,10 +322,10 @@ static int acvp_list_cert_match_processed(struct json_object *entry,
  *	}
  * }
  */
-static bool
-acvp_list_cert_match_ciphers(struct json_object *req_ciphers,
-			     const char *impl_name,
-			     const char *cipher_name, const char *mode)
+static bool acvp_list_cert_match_ciphers(struct json_object *req_ciphers,
+					 const char *impl_name,
+					 const char *cipher_name,
+					 const char *mode)
 {
 	struct json_object_iter one_cipher;
 	struct json_object *array;
@@ -331,14 +337,15 @@ acvp_list_cert_match_ciphers(struct json_object *req_ciphers,
 		return true;
 
 	/* Iterate over the one or more entries found in the configuration */
-	json_object_object_foreachC(req_ciphers, one_cipher) {
+	json_object_object_foreachC(req_ciphers, one_cipher)
+	{
 		bool found = false;
 
 		if (!json_object_is_type(one_cipher.val, json_type_object)) {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "JSON data type %s does not match expected type %s\n",
-			       json_type_to_name(json_object_get_type(
-							one_cipher.val)),
+			       json_type_to_name(
+				       json_object_get_type(one_cipher.val)),
 			       json_type_to_name(json_type_string));
 			goto out;
 		}
@@ -372,12 +379,13 @@ acvp_list_cert_match_ciphers(struct json_object *req_ciphers,
 				if (!mode_def)
 					break;
 				if (!json_object_is_type(mode_def,
-							json_type_string)) {
+							 json_type_string)) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "Mode definition for %s contains data other than strings: %s\n",
-					       one_cipher.key, json_type_to_name(
+					       one_cipher.key,
+					       json_type_to_name(
 						       json_object_get_type(
-								mode_def)));
+							       mode_def)));
 					break;
 				}
 
@@ -427,8 +435,8 @@ static int acvp_list_cert_match_used(struct json_object *req_ciphers)
 		return 0;
 
 	/* Iterate over the one or more entries found in the configuration */
-	json_object_object_foreachC(req_ciphers, one_cipher) {
-
+	json_object_object_foreachC(req_ciphers, one_cipher)
+	{
 		ret = json_get_bool(one_cipher.val, "processed", &processed);
 		if (ret || !processed) {
 			const char *impl_search;
@@ -440,8 +448,8 @@ static int acvp_list_cert_match_used(struct json_object *req_ciphers)
 			}
 			CKINT(json_get_string(one_cipher.val, "implementation",
 					      &impl_search));
-			fprintf(stdout, "%s - %s\n",
-				one_cipher.key, impl_search);
+			fprintf(stdout, "%s - %s\n", one_cipher.key,
+				impl_search);
 		}
 	}
 
@@ -471,10 +479,9 @@ static int acvp_list_cert_details(struct json_object *req_ciphers)
 			 * Skip cipher definition if not defined in search
 			 * criteria.
 			 */
-			if (!acvp_list_cert_match_ciphers(req_ciphers,
-							  list->impl_name,
-							  list->cipher_name,
-							  list->cipher_mode))
+			if (!acvp_list_cert_match_ciphers(
+				    req_ciphers, list->impl_name,
+				    list->cipher_name, list->cipher_mode))
 				continue;
 
 			cipher_name = list->cipher_name;
@@ -494,25 +501,22 @@ static int acvp_list_cert_details(struct json_object *req_ciphers)
 		 * Skip current certificate if it does not match search
 		 * criteria.
 		 */
-		if (!acvp_list_cert_match_ciphers(req_ciphers,
-						  list->impl_name,
+		if (!acvp_list_cert_match_ciphers(req_ciphers, list->impl_name,
 						  cipher_name, cipher_mode))
 			goto nextloop;
 
 		/* Only process entries with same cipher name / mode */
-		if (!acvp_find_match(cipher_name, list->cipher_name,
-				     false))
+		if (!acvp_find_match(cipher_name, list->cipher_name, false))
 			goto nextloop;
-		if (cipher_mode && !acvp_find_match(cipher_mode,
-						    list->cipher_mode,
-						    false))
+		if (cipher_mode &&
+		    !acvp_find_match(cipher_mode, list->cipher_mode, false))
 			goto nextloop;
 
 		/* Print */
 		fprintf(stdout, ", Cert. #%s", list->certificate);
 		list->listed = true;
 
-nextloop:
+	nextloop:
 		/*
 		 * We reached the end of the list but not all entries
 		 * were processed - rewind.
@@ -537,8 +541,8 @@ nextloop:
 DSO_PUBLIC
 int acvp_list_certificates(const struct acvp_ctx *ctx)
 {
-	fprintf(stdout, "%-50s | %-8s | %-10s\n",
-		"Module Name", "Test ID", "Certificate No");
+	fprintf(stdout, "%-70s | %-8s | %-10s\n", "Module Name", "Test ID",
+		"Certificate No");
 	return acvp_process_testids(ctx, &acvp_list_certificates_cb);
 }
 

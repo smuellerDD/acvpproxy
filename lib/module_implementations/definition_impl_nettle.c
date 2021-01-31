@@ -1,6 +1,6 @@
 /* Nettle module definition
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -40,8 +40,9 @@ static struct def_algo_map nettle_algo_map [] = {
 	{
 		SET_IMPLEMENTATION(nettle),
 		.algo_name = "Nettle",
-		.processor = "X86",
-		.impl_name = "Generic C"
+		.processor = "",
+		.impl_name = "Generic C",
+		.impl_description = "Generic C implementation of AES",
 	}
 };
 
@@ -50,3 +51,5 @@ static void nettle_register(void)
 {
 	acvp_register_algo_map(nettle_algo_map, ARRAY_SIZE(nettle_algo_map));
 }
+
+ACVP_EXTENSION(nettle_algo_map)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -30,8 +30,7 @@
 #include "definition_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /****************************************************************************
@@ -58,8 +57,8 @@ struct def_algo_kdf_tls {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KDF_TLS_1_0_1_1	(1<<0)
-#define DEF_ALG_KDF_TLS_1_2	(1<<1)
+#define DEF_ALG_KDF_TLS_1_0_1_1 (1 << 0)
+#define DEF_ALG_KDF_TLS_1_2 (1 << 1)
 	unsigned int tls_version;
 
 	/*

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -21,14 +21,15 @@
 #define MACOS_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #ifdef __APPLE__
 void macos_disable_nap(void);
 #else
-void macos_disable_nap(void) {}
+void macos_disable_nap(void)
+{
+}
 #endif
 
 #ifdef __cplusplus

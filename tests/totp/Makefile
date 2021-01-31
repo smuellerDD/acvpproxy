@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+# Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
 #
 
 CC		:= gcc
@@ -36,7 +36,7 @@ LNS		:= $(LN) -sf
 ###############################################################################
 ACVP_DIR	:= ../../
 
-INCLUDE_DIRS	:= $(ACVP_DIR) $(ACVP_DIR)/lib
+INCLUDE_DIRS	:= $(ACVP_DIR) $(ACVP_DIR)/lib $(ACVP_DIR)/lib/acvp $(ACVP_DIR)/lib/common $(ACVP_DIR)/lib/esvp
 LIBRARY_DIRS	:=
 LIBRARIES	:= pthread
 
@@ -51,7 +51,7 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 ###############################################################################
 C_SRCS := $(wildcard *.c)
 
-C_SRCS += $(ACVP_DIR)/lib/acvp/totp_mq_server.c $(ACVP_DIR)/lib/acvp/logger.c $(ACVP_DIR)/lib/acvp/threading_support.c $(ACVP_DIR)/lib/acvp/sleep.c $(wildcard $(ACVP_DIR)/lib/hash/*.c) $(ACVP_DIR)/lib/acvp/binhexbin.c
+C_SRCS += $(ACVP_DIR)/lib/common/totp_mq_server.c $(ACVP_DIR)/lib/common/logger.c $(ACVP_DIR)/lib/common/threading_support.c $(ACVP_DIR)/lib/common/sleep.c $(wildcard $(ACVP_DIR)/lib/hash/*.c) $(ACVP_DIR)/lib/common/binhexbin.c
 C_OBJS := ${C_SRCS:.c=.o}
 C_GCOV := ${C_SRCS:.c=.gcda}
 C_GCOV += ${C_SRCS:.c=.gcno}

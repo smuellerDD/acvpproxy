@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for submitting test responses
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -31,6 +31,7 @@
 #include "internal.h"
 #include "request_helper.h"
 #include "sleep.h"
+#include "term_colors.h"
 #include "threading_support.h"
 
 /*
@@ -67,8 +68,7 @@ out:
 
 int acvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
 			 const struct acvp_ctx *ctx,
-			 const struct definition *def,
-			 const uint32_t testid)
+			 const struct definition *def, const uint32_t testid)
 {
 	int ret = 0;
 
@@ -114,7 +114,7 @@ out:
 /*****************************************************************************
  * Remember the test verdicts of the vsIDs
  *****************************************************************************/
-#define ACVP_VERDICT_MAX	512
+#define ACVP_VERDICT_MAX 512
 static uint32_t acvp_verdict[2][ACVP_VERDICT_MAX];
 static atomic_t acvp_verdict_ptr[2] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
 
@@ -125,7 +125,7 @@ static void acvp_record_verdict_vsid(const uint32_t vsid, const bool passed)
 	if (idx < 0 || idx >= ACVP_VERDICT_MAX) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
 		       "Cannot track verdict vsID %u for %s verdicts\n", vsid,
-			passed ? "passed": "failed");
+		       passed ? "passed" : "failed");
 		return;
 	}
 
@@ -155,15 +155,15 @@ int acvp_list_verdict_vsid(int *idx_ptr, uint32_t *vsid, const bool passed)
  * Code for submitting test results and fetching the verdicts
  *****************************************************************************/
 static int acvp_check_verdict(const struct acvp_vsid_ctx *vsid_ctx,
-			      const struct acvp_buf *verdict_buf)
+			      const struct acvp_buf *verdict_buf,
+			      enum acvp_test_verdict *verdict_stat)
 {
-	enum acvp_test_verdict verdict_stat;
 	int ret;
 
-	CKINT(acvp_get_verdict_json(verdict_buf, &verdict_stat));
+	CKINT(acvp_get_verdict_json(verdict_buf, verdict_stat));
 
 	acvp_record_verdict_vsid(vsid_ctx->vsid,
-				 (verdict_stat == acvp_verdict_pass));
+				 (*verdict_stat == acvp_verdict_pass));
 
 out:
 	return ret;
@@ -176,6 +176,7 @@ static int acvp_get_vsid_verdict(const struct acvp_vsid_ctx *vsid_ctx)
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	ACVP_BUFFER_INIT(result);
+	enum acvp_test_verdict verdict_stat;
 	char url[ACVP_NET_URL_MAXLEN];
 	int ret;
 
@@ -193,30 +194,34 @@ static int acvp_get_vsid_verdict(const struct acvp_vsid_ctx *vsid_ctx)
 
 	/* Store the entire received response. */
 	if (result.buf && result.len)
-		CKINT(ds->acvp_datastore_write_vsid(vsid_ctx,
-						    datastore->verdictfile,
-						    false, &result));
+		CKINT(ds->acvp_datastore_write_vsid(
+			vsid_ctx, datastore->verdictfile, false, &result));
 
 	/* Unconstify allowed as we operate on an atomic primitive. */
 	atomic_inc((atomic_t *)&testid_ctx->vsids_processed);
 	atomic_inc(&glob_vsids_processed);
 
-	logger_status(LOGGER_C_ANY,
-		      "Verdict obtained for testID %u / vsID %u (completed vsIDs %u / %u)\n",
-		      testid_ctx->testid, vsid_ctx->vsid,
-		      atomic_read(&glob_vsids_processed),
-		      atomic_read(&glob_vsids_to_process));
-
 	/*
 	 * Get the global verdict for the vsID to allow it to be listed
 	 * to the user.
 	 */
-	ret = acvp_check_verdict(vsid_ctx, &result);
+	ret = acvp_check_verdict(vsid_ctx, &result, &verdict_stat);
 	if (ret) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
 		       "Verdict verification failed for vsID %u\n",
 		       vsid_ctx->vsid);
 	}
+
+	logger_status(
+		LOGGER_C_ANY,
+		"Verdict obtained for testID %u / vsID %u (completed vsIDs %u / %u) - %s%s%s\n",
+		testid_ctx->testid, vsid_ctx->vsid,
+		atomic_read(&glob_vsids_processed),
+		atomic_read(&glob_vsids_to_process),
+		(verdict_stat == acvp_verdict_pass) ? TERM_COLOR_GREEN :
+							    TERM_COLOR_RED,
+		(verdict_stat == acvp_verdict_pass) ? "PASSED" : "FAILED",
+		TERM_COLOR_NORMAL);
 
 	/* Ensure that testID verdict is re-downloaded */
 	ret = EAGAIN;
@@ -256,8 +261,7 @@ static int acvp_response_error_handler(const int request_ret)
 
 /* POST, PUT /testSessions/<testSessionId>/vectorSets/<vectorSetId>/results */
 static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
-				const struct acvp_buf *buf,
-				const char *url)
+				const struct acvp_ext_buf *buf, const char *url)
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
@@ -288,16 +292,18 @@ out:
 /* DELETE /testSessions/<testSessionId>/vectorSets/<vectorSetId> */
 static int acvp_response_delete(const struct acvp_vsid_ctx *vsid_ctx)
 {
-#define ACVP_RESPONSE_DELETE_SLEEP_TIME	30
+#define ACVP_RESPONSE_DELETE_SLEEP_TIME 30
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	char url[ACVP_NET_URL_MAXLEN];
 	int ret;
 
 	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url), false));
 	CKINT(acvp_net_op(testid_ctx, url, NULL, NULL, acvp_http_delete));
-	logger_status(LOGGER_C_ANY, "VsID %u (test session %u) invalidated - sleeping for %u seconds to allow ACVP server propagation\n",
-		      vsid_ctx->vsid, testid_ctx->testid,
-		      ACVP_RESPONSE_DELETE_SLEEP_TIME);
+	logger_status(
+		LOGGER_C_ANY,
+		"VsID %u (test session %u) invalidated - sleeping for %u seconds to allow ACVP server propagation\n",
+		vsid_ctx->vsid, testid_ctx->testid,
+		ACVP_RESPONSE_DELETE_SLEEP_TIME);
 
 	/*
 	 * As we re-download the testID verdict, we need to sleep
@@ -348,9 +354,8 @@ static int acvp_get_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
 	entry = NULL;
 
 	/* Convert the JSON buffer into a string */
-	json_large = json_object_to_json_string_ext(large,
-					JSON_C_TO_STRING_PLAIN |
-					JSON_C_TO_STRING_NOSLASHESCAPE);
+	json_large = json_object_to_json_string_ext(
+		large, JSON_C_TO_STRING_PLAIN | JSON_C_TO_STRING_NOSLASHESCAPE);
 	CKNULL_LOG(json_large, -EFAULT,
 		   "JSON object conversion into string failed\n");
 
@@ -431,7 +436,7 @@ out:
 #endif
 
 static int acvp_check_large_endpoint(const struct acvp_vsid_ctx *vsid_ctx,
-				     const struct acvp_buf *submit_buf)
+				     const struct acvp_ext_buf *submit_buf)
 {
 	ACVP_BUFFER_INIT(received_buf);
 	int ret;
@@ -467,21 +472,23 @@ out:
 }
 
 static int acvp_request_sample_vsid(const struct acvp_vsid_ctx *vsid_ctx,
-				    const struct acvp_buf *buf)
+				    const struct acvp_ext_buf *buf)
 {
 	struct json_object *full = NULL, *response;
 	const char *new_str;
-	ACVP_BUFFER_INIT(new_buf);
+	ACVP_BUFFER_INIT(tmp_buf);
+	ACVP_EXT_BUFFER_INIT(new_buf);
 	int ret;
 
-	CKINT_LOG(acvp_req_strip_version(buf, &full, &response),
+	tmp_buf.buf = buf->buf;
+	tmp_buf.len = buf->len;
+	CKINT_LOG(acvp_req_strip_version(&tmp_buf, &full, &response),
 		  "Cannot parse response data %s\n", buf->buf);
 	CKINT(json_object_object_add(response, "showExpected",
 				     json_object_new_boolean(true)));
 
-	new_str = json_object_to_json_string_ext(full,
-						 JSON_C_TO_STRING_PRETTY |
-						 JSON_C_TO_STRING_NOSLASHESCAPE);
+	new_str = json_object_to_json_string_ext(
+		full, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
 	CKNULL(new_str, -EFAULT);
 	new_buf.buf = (uint8_t *)new_str;
 	new_buf.len = (uint32_t)strlen(new_str);
@@ -494,7 +501,7 @@ out:
 }
 
 static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
-				    const struct acvp_buf *buf)
+				    const struct acvp_ext_buf *buf)
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
@@ -586,6 +593,21 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 		}
 	}
 
+	if (opts->upload_only) {
+		/* Unconstify allowed as we operate on an atomic primitive. */
+		atomic_inc((atomic_t *)&testid_ctx->vsids_processed);
+		atomic_inc(&glob_vsids_processed);
+
+		logger_status(
+			LOGGER_C_ANY,
+			"Test response uploaded for testID %u / vsID %u (completed vsIDs %u / %u)\n",
+			testid_ctx->testid, vsid_ctx->vsid,
+			atomic_read(&glob_vsids_processed),
+			atomic_read(&glob_vsids_to_process));
+
+		goto out;
+	}
+
 	CKINT(acvp_get_vsid_verdict(vsid_ctx));
 
 out:
@@ -599,6 +621,7 @@ static int acvp_process_one_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 	const struct acvp_ctx *ctx;
 	const struct acvp_req_ctx *req;
 	const struct acvp_opts_ctx *opts;
+	ACVP_EXT_BUFFER_INIT(tmp_buf);
 	int ret;
 
 	CKNULL_LOG(vsid_ctx, -EINVAL, "ACVP vsID request context missing\n");
@@ -629,7 +652,6 @@ static int acvp_process_one_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 	}
 
 	if (!buf) {
-
 		/*
 		 * We are requested to download pending vsIDs.
 		 */
@@ -676,7 +698,9 @@ static int acvp_process_one_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 	atomic_inc((atomic_t *)&testid_ctx->vsids_to_process);
 	atomic_inc(&glob_vsids_to_process);
 
-	ret = acvp_response_submit_one(vsid_ctx, buf);
+	tmp_buf.buf = buf->buf;
+	tmp_buf.len = buf->len;
+	ret = acvp_response_submit_one(vsid_ctx, &tmp_buf);
 
 	/* Store the time the upload took */
 	acvp_record_vsid_duration(vsid_ctx, ACVP_DS_UPLOADDURATION);
@@ -712,18 +736,66 @@ out:
 }
 
 /*
+ * This function performs the network operation assuming testid_ctx is fully
+ * initialized.
+ */
+/* GET /testSessions/<testSessionId>/results */
+static int acvp_get_testid_verdict_request(struct acvp_testid_ctx *testid_ctx)
+{
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
+	ACVP_BUFFER_INIT(result);
+	enum acvp_test_verdict verdict_stat;
+	int ret;
+	char url[ACVP_NET_URL_MAXLEN];
+
+	/*
+	 * Construct the URL to get the server's response
+	 * (i.e. final verdict) for the test session.
+	 */
+	CKINT(acvp_testid_verdict_url(testid_ctx, url, sizeof(url), false));
+	logger(LOGGER_DEBUG, LOGGER_C_ANY,
+	       "Retrieve test session results from URL %s\n", url);
+
+	/* Submit request and prepare for a retry reply. */
+	CKINT(acvp_process_retry_testid(testid_ctx, &result, url));
+
+	/* Store the entire received response. */
+	if (!acvp_op_get_interrupted() && result.buf && result.len) {
+		CKINT(ds->acvp_datastore_write_testid(
+			testid_ctx, datastore->verdictfile, false, &result));
+	}
+
+	logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+	       "All test verdicts successfully obtained for testID %u\n",
+	       testid_ctx->testid);
+
+	/*
+	 * Get the global verdict for the vsID to allow it to be listed
+	 * to the user.
+	 */
+	ret = acvp_get_verdict_json(&result, &verdict_stat);
+	if (ret) {
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "Verdict verification failed for test session ID %u\n",
+		       testid_ctx->testid);
+	}
+
+out:
+	acvp_free_buf(&result);
+	return ret;
+}
+
+/*
  * Obtain the final verdict for the test session if all test results
  * were downloaded.
  */
-/* GET /testSessions/<testSessionId>/results */
 static int acvp_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *opts = &ctx->options;
-	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
-	ACVP_BUFFER_INIT(result);
+	const struct acvp_auth_ctx *auth;
 	int ret;
-	char url[ACVP_NET_URL_MAXLEN];
 
 	if (!testid_ctx->testid)
 		return 0;
@@ -741,30 +813,19 @@ static int acvp_get_testid_verdict(struct acvp_testid_ctx *testid_ctx)
 
 	/* Get auth token for test session */
 	CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
-	/*
-	 * Construct the URL to get the server's response
-	 * (i.e. final verdict) for the test session.
-	 */
-	CKINT(acvp_testid_verdict_url(testid_ctx, url, sizeof(url), false));
-	logger(LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Retrieve test session results from URL %s\n", url);
 
-	/* Submit request and prepare for a retry reply. */
-	CKINT(acvp_process_retry_testid(testid_ctx, &result, url));
-
-	/* Store the entire received response. */
-	if (!acvp_op_get_interrupted() && result.buf && result.len) {
-		ret = ds->acvp_datastore_write_testid(testid_ctx,
-						      datastore->verdictfile,
-						      false, &result);
+	auth = testid_ctx->server_auth;
+	if (auth && auth->testsession_certificate_number) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Skipping (re-)download of verdict for test session with certificate %s\n",
+		       auth->testsession_certificate_number);
+		ret = 0;
+		goto out;
 	}
 
-	logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-	       "All test verdicts successfully obtained for testID %u\n",
-	       testid_ctx->testid);
+	CKINT(acvp_get_testid_verdict_request(testid_ctx));
 
 out:
-	acvp_free_buf(&result);
 	acvp_release_auth(testid_ctx);
 	return ret;
 }
@@ -793,8 +854,7 @@ static int _acvp_respond(const struct acvp_ctx *ctx,
 	 */
 	verdict = &testid_ctx->verdict;
 	if ((ret != EEXIST && ret != EINTR) ||
-	    verdict->verdict != acvp_verdict_pass ||
-	    opts->delete_vsid) {
+	    verdict->verdict != acvp_verdict_pass || opts->delete_vsid) {
 		CKINT(acvp_get_testid_verdict(testid_ctx));
 	}
 
@@ -805,7 +865,7 @@ out:
 		       "Not all test verdicts obtained for testID %u (%u missing) - use options --testid %u to retry fetching them\n",
 		       testid_ctx->testid,
 		       atomic_read(&testid_ctx->vsids_to_process) -
-		       atomic_read(&testid_ctx->vsids_processed),
+			       atomic_read(&testid_ctx->vsids_processed),
 		       testid_ctx->testid);
 	}
 
@@ -852,7 +912,7 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 	const struct acvp_datastore_ctx *datastore;
 	const struct acvp_search_ctx *search;
 	const struct acvp_opts_ctx *opts;
-	struct definition *def;
+	const struct definition *def;
 	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
 	int ret = 0;
 
@@ -898,13 +958,11 @@ int acvp_process_testids(const struct acvp_ctx *ctx,
 		unsigned int i;
 
 		/* Search for all testids for a given module */
-		CKINT(ds->acvp_datastore_find_testsession(def, ctx,
-							  testids,
+		CKINT(ds->acvp_datastore_find_testsession(def, ctx, testids,
 							  &testid_count));
 
 		/* Iterate through all testids */
 		for (i = 0; i < testid_count; i++) {
-
 #ifdef ACVP_USE_PTHREAD
 			/* Disable threading in DEBUG mode */
 			if (opts->threading_disabled) {
@@ -947,8 +1005,8 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx)
 {
 	const struct acvp_datastore_ctx *datastore;
 	const struct acvp_search_ctx *search;
+	const struct definition *def;
 	struct acvp_testid_ctx *testid_ctx_head = NULL;
-	struct definition *def;
 	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
 	int ret = 0;
 
@@ -981,8 +1039,7 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx)
 		unsigned int i;
 
 		/* Search for all testids for a given module */
-		CKINT(ds->acvp_datastore_find_testsession(def, ctx,
-							  testids,
+		CKINT(ds->acvp_datastore_find_testsession(def, ctx, testids,
 							  &testid_count));
 
 		/* Iterate through all testids */
@@ -1046,6 +1103,109 @@ int acvp_respond(const struct acvp_ctx *ctx)
 	CKINT(acvp_testids_refresh(ctx));
 
 	CKINT(acvp_process_testids(ctx, &_acvp_respond));
+
+out:
+	return ret;
+}
+
+static int acvp_fetch_one_verdict_vsid(const struct acvp_vsid_ctx *vsid_ctx,
+				       const struct acvp_buf *buf)
+{
+	const struct acvp_testid_ctx *testid_ctx;
+	int ret;
+
+	(void)buf;
+
+	CKNULL_LOG(vsid_ctx, -EINVAL, "ACVP vsID request context missing\n");
+	testid_ctx = vsid_ctx->testid_ctx;
+
+	CKNULL_LOG(testid_ctx, -EINVAL,
+		   "ACVP testID request context missing\n");
+
+	atomic_inc((atomic_t *)&testid_ctx->vsids_to_process);
+	atomic_inc(&glob_vsids_to_process);
+	CKINT(acvp_get_vsid_verdict(vsid_ctx));
+
+out:
+	return ret;
+}
+
+static int acvp_fetch_verdict_vsid(struct acvp_testid_ctx *testid_ctx)
+{
+	ACVP_BUFFER_INIT(response);
+	int ret;
+	time_t expiry;
+
+	CKNULL_LOG(testid_ctx, -EINVAL,
+		   "ACVP volatile request context missing\n");
+
+	CKINT(acvp_init_auth(testid_ctx));
+
+	/* Get auth token for test session */
+	CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
+
+	CKINT(acvp_handle_open_requests(testid_ctx));
+
+	sig_enqueue_ctx(testid_ctx);
+
+	/* Get verdicts for all vsIDs */
+	CKINT(ds->acvp_datastore_find_responses(testid_ctx,
+						acvp_fetch_one_verdict_vsid));
+
+	/* Get verdicts for test session */
+	CKINT(acvp_get_testid_verdict_request(testid_ctx));
+
+	/* Get test ID meta data including expiry time */
+	CKINT(acvp_get_testid_metadata(testid_ctx, &response));
+
+	/* Store the testID meta data */
+	CKINT(ds->acvp_datastore_write_testid(testid_ctx, ACVP_DS_TESTIDMETA,
+					      true, &response));
+
+	if (!acvp_get_testsession_expiry_epoch(&response, &expiry)) {
+		logger_status(LOGGER_C_ANY,
+			      "Expiry date of testID %u: ", testid_ctx->testid);
+		acvp_print_expiry(stderr, expiry);
+		fprintf(stderr, "\n");
+	}
+
+out:
+	sig_dequeue_ctx(testid_ctx);
+	acvp_release_auth(testid_ctx);
+	acvp_free_buf(&response);
+
+	return ret;
+}
+
+static int _acvp_fetch_verdicts(const struct acvp_ctx *ctx,
+				const struct definition *def,
+				const uint32_t testid)
+{
+	struct acvp_testid_ctx *testid_ctx = NULL;
+	int ret;
+
+	/* Put the context on heap for signal handler */
+	testid_ctx = calloc(1, sizeof(*testid_ctx));
+	CKNULL(testid_ctx, -ENOMEM);
+
+	CKINT(acvp_init_testid_ctx(testid_ctx, ctx, def, testid));
+
+	CKINT(acvp_fetch_verdict_vsid(testid_ctx));
+	CKINT(acvp_get_testid_verdict(testid_ctx));
+
+out:
+	acvp_release_testid(testid_ctx);
+	return ret;
+}
+
+DSO_PUBLIC
+int acvp_fetch_verdicts(const struct acvp_ctx *ctx)
+{
+	int ret;
+
+	CKINT(acvp_testids_refresh(ctx));
+
+	CKINT(acvp_process_testids(ctx, &_acvp_fetch_verdicts));
 
 out:
 	return ret;

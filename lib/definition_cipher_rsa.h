@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -32,8 +32,7 @@
 #include "definition_cipher_rsa_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 enum rsa_randpq {
@@ -103,8 +102,8 @@ struct def_algo_rsa_keygen_caps {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_RSA_PRIMETEST_C2	(1<<0)
-#define DEF_ALG_RSA_PRIMETEST_C3	(1<<1)
+#define DEF_ALG_RSA_PRIMETEST_C2 (1 << 0)
+#define DEF_ALG_RSA_PRIMETEST_C3 (1 << 1)
 	unsigned int rsa_primetest;
 };
 
@@ -369,7 +368,6 @@ struct def_algo_rsa_component_dec {
  * RSA common data data
  ****************************************************************************/
 struct def_algo_rsa {
-
 	/*
 	 * RSA mode type
 	 * required: always

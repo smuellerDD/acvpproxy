@@ -1,6 +1,6 @@
 /* ACVP Error code converter
  *
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -24,8 +24,7 @@
 #include "request_helper.h"
 #include "ret_checkers.h"
 
-int acvp_error_convert(const struct acvp_buf *response_buf,
-		       const int http_ret,
+int acvp_error_convert(const struct acvp_buf *response_buf, const int http_ret,
 		       enum acvp_error_code *code)
 {
 	struct json_object *response = NULL, *entry = NULL;
@@ -75,4 +74,24 @@ int acvp_error_convert(const struct acvp_buf *response_buf,
 out:
 	ACVP_JSON_PUT_NULL(response);
 	return ret;
+}
+
+/* Process any return code from the ACVP server */
+int acvp_request_error_handler(const int request_ret)
+{
+	enum acvp_error_code code;
+
+	if (request_ret <= 0)
+		return request_ret;
+
+	code = (enum acvp_error_code)request_ret;
+
+	switch (code) {
+	case ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING:
+	case ACVP_ERR_NO_ERR:
+	case ACVP_ERR_RESPONSE_REJECTED:
+	case ACVP_ERR_AUTH_JWT_EXPIRED:
+	default:
+		return -request_ret;
+	}
 }

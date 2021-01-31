@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -24,15 +24,13 @@
  * @struct def_algo_kdf_ikev2.
  */
 
-
 #ifndef DEFINITION_CIPHER_KDF_IKEV2_H
 #define DEFINITION_CIPHER_KDF_IKEV2_H
 
 #include "definition_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /****************************************************************************

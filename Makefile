@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+# Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
 #
 
 CC		?= gcc
@@ -23,6 +23,7 @@ LDFLAGS_SO	+= -Wl,-z,relro,-z,now,--as-needed -fpic
 endif
 
 APPNAME		?= acvp-proxy
+ESVPNAME	?= esvp-proxy
 
 DESTDIR		:=
 ETCDIR		:= /etc
@@ -38,6 +39,7 @@ MAN8		:= $(MANDIR)/man8
 INCLUDEDIR	:= /usr/include
 LN		:= ln
 LNS		:= $(LN) -sf
+STRIP		?= strip
 BUILDDIR	:= buildpackage
 SRCDIR		:=
 
@@ -49,7 +51,7 @@ EXCLUDED	?=
 # Get version name and cross check
 #
 ###############################################################################
-VERFILE		:= lib/acvp/internal.h
+VERFILE		:= lib/common/internal.h
 
 APPMAJOR	:= $(shell grep '^\#define.*MAJVERSION' $(VERFILE) | awk '{print $$3}')
 APPMINOR	:= $(shell grep '^\#define.*MINVERSION' $(VERFILE) | awk '{print $$3}')
@@ -61,16 +63,16 @@ APPVERSION	:= $(APPMAJOR).$(APPMINOR).$(APPPATCH)
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp
+INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp
 LIBRARY_DIRS	+=
 LIBRARIES	+= pthread dl
 
 ifeq ($(UNAME_S),Darwin)
 CFLAGS		+= -mmacosx-version-min=10.14 -Wno-gnu-zero-variadic-macro-arguments
 LDFLAGS		+= -framework Foundation -framework Security
-EXCLUDED	+= $(SRCDIR)lib/acvp/network_backend_curl.c $(SRCDIR)lib/acvp/openssl_thread_support.c
+EXCLUDED	+= $(SRCDIR)lib/common/network_backend_curl.c $(SRCDIR)lib/common/openssl_thread_support.c
 M_SRCS		:= $(wildcard $(SRCDIR)apps/*.m)
-M_SRCS		+= $(wildcard $(SRCDIR)lib/acvp/*.m)
+M_SRCS		+= $(wildcard $(SRCDIR)lib/common/*.m)
 M_OBJS		:= ${M_SRCS:.m=.o}
 else
 LIBRARIES	+= curl
@@ -106,6 +108,8 @@ endif
 C_SRCS += $(wildcard $(SRCDIR)apps/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/acvp/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/common/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/esvp/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/hash/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/requests/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/json-c/*.c)
@@ -134,7 +138,7 @@ analyze_plists = $(analyze_srcs:%.c=%.plist)
 
 .PHONY: all scan install clean cppcheck distclean debug asanaddress asanthread gcov binarchive extensions extensionsso
 
-all: $(APPNAME)
+all: $(APPNAME) $(ESVPNAME)
 
 extensionsso: CFLAGS += -DACVPPROXY_EXTENSION
 extensionsso: $(EX_SOOBJS)
@@ -167,6 +171,11 @@ gcov: DBG-$(APPNAME)
 
 $(APPNAME): $(ALL_OBJS)
 	$(CC) -o $(APPNAME) $(OBJS) $(EX_OBJS) $(LDFLAGS)
+	$(STRIP) $(APPNAME)
+
+$(ESVPNAME): $(APPNAME)
+	$(RM) $(ESVPNAME)
+	$(LN) $(APPNAME) $(ESVPNAME)
 
 DBG-$(APPNAME): $(ALL_OBJS)
 	$(CC) -g -DDEBUG -o $(APPNAME) $(OBJS) $(EX_OBJS) $(LDFLAGS)
@@ -176,6 +185,9 @@ $(analyze_plists): %.plist: %.c
 	clang --analyze $(CFLAGS) $< -o $@
 
 scan: $(analyze_plists)
+
+format:
+	clang-format -i apps/*.[ch] lib/common/*.[ch] lib/acvp/*.[ch] lib/esvp/*.[ch]
 
 cppcheck:
 	cppcheck --force -q --enable=performance --enable=warning --enable=portability $(SRCDIR)apps/*.h $(SRCDIR)apps/*.c $(SRCDIR)lib/*.c $(SRCDIR)lib/*.h $(SRCDIR)lib/module_implementations/*.c $(SRCDIR)lib/module_implementations/*.h $(SRCDIR)lib/json-c/*.c $(SRCDIR)lib/json-c/*.h
@@ -188,6 +200,7 @@ $(EX_OBJS):
 
 EX-$(APPNAME): $(OBJS)
 	$(CC) -o $(APPNAME) $(OBJS) $(LDFLAGS)
+	$(LN) $(APPNAME) $(ESVPNAME)
 
 install:
 	install -m 0755 $(APPNAME) -D -t $(DESTDIR)$(BINDIR)/
@@ -199,6 +212,7 @@ binarchive: extensions
 
 ifeq ($(UNAME_S),Linux)
 	install -s -m 0755 $(APPNAME) -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	install -s -m 0755 $(ESVPNAME) -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	install -m 0755 $(SRCDIR)helper/proxy-lib.sh -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	install -m 0755 $(SRCDIR)helper/proxy.sh -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	install -m 0755 $(SRCDIR)helper/Makefile.out-of-tree -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
@@ -241,10 +255,15 @@ clean:
 	@- $(RM) $(APPNAME)
 	@- $(RM) $(APPNAME)-*
 	@- $(RM) .$(APPNAME).hmac
+	@- $(RM) $(ESVPNAME)
+	@- $(RM) $(ESVPNAME)-*
+	@- $(RM) .$(ESVPNAME).hmac
 	@- $(RM) lib/module_implementations/.*.hmac
 	@- $(RM) $(C_GCOV)
 	@- $(RM) *.gcov
 	@- $(RM) $(analyze_plists)
+	@- $(RM) lib/module_implementations/*.so
+	@- $(RM) lib/module_implementations/*.dylib
 	@- $(RM) -rf $(BUILDDIR)
 	@- $(RM) $(APPNAME)-*.tar.xz
 

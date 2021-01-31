@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -31,15 +31,13 @@
 #include "definition_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /****************************************************************************
  * ECDSA common data data
  ****************************************************************************/
 struct def_algo_ecdsa {
-
 	/*
 	 * ECDSA mode type
 	 * required: always
@@ -89,8 +87,8 @@ struct def_algo_ecdsa {
 	 * The method used to generate the randomness incorporated in the key.
 	 * required: always for ECDSA keygen
 	 */
-#define DEF_ALG_ECDSA_EXTRA_BITS		(1<<0)
-#define DEF_ALG_ECDSA_TESTING_CANDIDATES	(1<<1)
+#define DEF_ALG_ECDSA_EXTRA_BITS (1 << 0)
+#define DEF_ALG_ECDSA_TESTING_CANDIDATES (1 << 1)
 	unsigned int secretgenerationmode;
 
 	/*

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -23,8 +23,7 @@
 #include "definition_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /*
@@ -44,8 +43,8 @@ enum kas_ffc_paramset {
 /*
  * Supported KDF options
  */
-#define DEF_ALG_KAS_FFC_CONCATENATION	(1<<0)
-#define DEF_ALG_KAS_FFC_ASN1		(1<<1)
+#define DEF_ALG_KAS_FFC_CONCATENATION (1 << 0)
+#define DEF_ALG_KAS_FFC_ASN1 (1 << 1)
 
 /****************************************************************************
  * KAS FFC data for no KDF and no key confirmation
@@ -293,8 +292,8 @@ struct def_algo_kas_ffc_kdfkc {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_FFC_PROVIDER	(1<<0)
-#define DEF_ALG_KAS_FFC_RECIPIENT	(1<<1)
+#define DEF_ALG_KAS_FFC_PROVIDER (1 << 0)
+#define DEF_ALG_KAS_FFC_RECIPIENT (1 << 1)
 	unsigned int kcrole;
 
 	/*
@@ -302,8 +301,8 @@ struct def_algo_kas_ffc_kdfkc {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_FFC_UNILATERAL	(1<<0)
-#define DEF_ALG_KAS_FFC_BILATERAL	(1<<1)
+#define DEF_ALG_KAS_FFC_UNILATERAL (1 << 0)
+#define DEF_ALG_KAS_FFC_BILATERAL (1 << 1)
 	unsigned int kctype;
 
 	/*
@@ -311,10 +310,10 @@ struct def_algo_kas_ffc_kdfkc {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_FFC_RANDOM_NONCE		(1<<0)
-#define DEF_ALG_KAS_FFC_TIMESTAMP		(1<<1)
-#define DEF_ALG_KAS_FFC_SEQUENCE		(1<<2)
-#define DEF_ALG_KAS_FFC_TIMESTAMP_SEQUENCE	(1<<3)
+#define DEF_ALG_KAS_FFC_RANDOM_NONCE (1 << 0)
+#define DEF_ALG_KAS_FFC_TIMESTAMP (1 << 1)
+#define DEF_ALG_KAS_FFC_SEQUENCE (1 << 2)
+#define DEF_ALG_KAS_FFC_TIMESTAMP_SEQUENCE (1 << 3)
 	unsigned int noncetype;
 };
 
@@ -345,11 +344,11 @@ struct def_algo_kas_ffc {
 	 * KAS FFC function type
 	 * required: always
 	 */
-#define DEF_ALG_KAS_FFC_DPGEN		(1<<0)
-#define DEF_ALG_KAS_FFC_DPVAL		(1<<1)
-#define DEF_ALG_KAS_FFC_KEYPAIRGEN	(1<<2)
-#define DEF_ALG_KAS_FFC_FULLVAL		(1<<3)
-#define DEF_ALG_KAS_FFC_KEYREGEN	(1<<4)
+#define DEF_ALG_KAS_FFC_DPGEN (1 << 0)
+#define DEF_ALG_KAS_FFC_DPVAL (1 << 1)
+#define DEF_ALG_KAS_FFC_KEYPAIRGEN (1 << 2)
+#define DEF_ALG_KAS_FFC_FULLVAL (1 << 3)
+#define DEF_ALG_KAS_FFC_KEYREGEN (1 << 4)
 	unsigned int kas_ffc_function;
 
 	/*
@@ -375,20 +374,20 @@ struct def_algo_kas_ffc {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_FFC_DH_HYBRID_1		(1<<0)
-#define DEF_ALG_KAS_FFC_MQV2			(1<<1)
-#define DEF_ALG_KAS_FFC_DH_EPHEM		(1<<2)
-#define DEF_ALG_KAS_FFC_DH_HYBRID_ONE_FLOW	(1<<3)
-#define DEF_ALG_KAS_FFC_MQV1			(1<<4)
-#define DEF_ALG_KAS_FFC_DH_ONE_FLOW		(1<<5)
-#define DEF_ALG_KAS_FFC_DH_STATIC		(1<<6)
+#define DEF_ALG_KAS_FFC_DH_HYBRID_1 (1 << 0)
+#define DEF_ALG_KAS_FFC_MQV2 (1 << 1)
+#define DEF_ALG_KAS_FFC_DH_EPHEM (1 << 2)
+#define DEF_ALG_KAS_FFC_DH_HYBRID_ONE_FLOW (1 << 3)
+#define DEF_ALG_KAS_FFC_MQV1 (1 << 4)
+#define DEF_ALG_KAS_FFC_DH_ONE_FLOW (1 << 5)
+#define DEF_ALG_KAS_FFC_DH_STATIC (1 << 6)
 	unsigned int kas_ffc_schema;
 
 	/*
 	 * KAS FFC DH role
 	 */
-#define DEF_ALG_KAS_FFC_INITIATOR		(1<<0)
-#define DEF_ALG_KAS_FFC_RESPONDER		(1<<1)
+#define DEF_ALG_KAS_FFC_INITIATOR (1 << 0)
+#define DEF_ALG_KAS_FFC_RESPONDER (1 << 1)
 	unsigned int kas_ffc_role;
 
 	/*
@@ -417,7 +416,6 @@ struct def_algo_kas_ffc {
 		const struct def_algo_kas_ffc_kdfnokc *kdfnokc;
 		const struct def_algo_kas_ffc_kdfkc *kdfkc;
 	} type_info;
-
 };
 
 #ifdef __cplusplus

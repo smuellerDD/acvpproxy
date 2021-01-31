@@ -1,6 +1,6 @@
 /* Base64 encoder and decoder
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -27,34 +27,30 @@
 #include "../lib/constructor.h"
 
 static const char encoding_table[] = {
-	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-	'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
-	'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
-	'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
-	'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-	'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
-	'w', 'x', 'y', 'z', '0', '1', '2', '3',
-	'4', '5', '6', '7', '8', '9', '+', '/'};
+	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+	'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+	'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+	'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'
+};
 
 /* Filename and URL safe */
 static const char encoding_table_safe[] = {
-	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-	'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
-	'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
-	'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
-	'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-	'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
-	'w', 'x', 'y', 'z', '0', '1', '2', '3',
-	'4', '5', '6', '7', '8', '9', '-', '_'};
+	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+	'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+	'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+	'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '_'
+};
 
 static char decoding_table[256];
 static char decoding_table_safe[256];
 
-static int __base64_encode(const uint8_t *idata, uint32_t ilen,
-			   char **odata, uint32_t *olen, const char table[])
+static int __base64_encode(const uint8_t *idata, size_t ilen, char **odata,
+			   size_t *olen, const char table[])
 {
-	uint32_t elen, i, j;
-	unsigned int mod_table[] = {0, 2, 1};
+	size_t elen, i, j;
+	unsigned int mod_table[] = { 0, 2, 1 };
 	char *encoded;
 
 	if (ilen > (UINT_MAX / 2))
@@ -71,13 +67,12 @@ static int __base64_encode(const uint8_t *idata, uint32_t ilen,
 	if (!encoded)
 		return -ENOMEM;
 
-	for (i = 0, j = 0; i < ilen; ) {
+	for (i = 0, j = 0; i < ilen;) {
 		uint32_t octet_a = i < ilen ? idata[i++] : 0;
 		uint32_t octet_b = i < ilen ? idata[i++] : 0;
 		uint32_t octet_c = i < ilen ? idata[i++] : 0;
-		uint32_t triple = (octet_a << 0x10) +
-				  (octet_b << 0x08) +
-				  octet_c;
+		uint32_t triple =
+			(octet_a << 0x10) + (octet_b << 0x08) + octet_c;
 
 		encoded[j++] = table[(triple >> 3 * 6) & 0x3F];
 		encoded[j++] = table[(triple >> 2 * 6) & 0x3F];
@@ -94,22 +89,21 @@ static int __base64_encode(const uint8_t *idata, uint32_t ilen,
 	return 0;
 }
 
-int base64_encode(const uint8_t *idata, uint32_t ilen,
-		  char **odata, uint32_t *olen)
+int base64_encode(const uint8_t *idata, size_t ilen, char **odata, size_t *olen)
 {
 	return __base64_encode(idata, ilen, odata, olen, encoding_table);
 }
 
-int base64_encode_safe(const uint8_t *idata, uint32_t ilen,
-		       char **odata, uint32_t *olen)
+int base64_encode_safe(const uint8_t *idata, size_t ilen, char **odata,
+		       size_t *olen)
 {
 	return __base64_encode(idata, ilen, odata, olen, encoding_table_safe);
 }
 
-int __base64_decode(const char *idata, uint32_t ilen,
-		    uint8_t **odata, uint32_t *olen, const char table[])
+int __base64_decode(const char *idata, size_t ilen, uint8_t **odata,
+		    size_t *olen, const char table[])
 {
-	uint32_t dlen, i, j;
+	size_t dlen, i, j;
 	uint8_t *decoded;
 
 	if (ilen % 4 != 0)
@@ -133,22 +127,24 @@ int __base64_decode(const char *idata, uint32_t ilen,
 		return -ENOMEM;
 
 	for (i = 0, j = 0; i < ilen;) {
-		uint32_t sextet_a = idata[i] == '=' ?
-			0 & i++ :
-			(uint32_t)table[(unsigned char)idata[i++]];
-		uint32_t sextet_b = idata[i] == '=' ?
-			0 & i++ :
-			(uint32_t)table[(unsigned char)idata[i++]];
-		uint32_t sextet_c = idata[i] == '=' ?
-			0 & i++ :
-			(uint32_t)table[(unsigned char)idata[i++]];
-		uint32_t sextet_d = idata[i] == '=' ?
-			0 & i++ :
-			(uint32_t)table[(unsigned char)idata[i++]];
-		uint32_t triple = (sextet_a << 3 * 6)
-				  + (sextet_b << 2 * 6)
-				  + (sextet_c << 1 * 6)
-				  + (sextet_d << 0 * 6);
+		uint32_t sextet_a =
+			idata[i] == '=' ?
+				      0 & i++ :
+				      (uint32_t)table[(unsigned char)idata[i++]];
+		uint32_t sextet_b =
+			idata[i] == '=' ?
+				      0 & i++ :
+				      (uint32_t)table[(unsigned char)idata[i++]];
+		uint32_t sextet_c =
+			idata[i] == '=' ?
+				      0 & i++ :
+				      (uint32_t)table[(unsigned char)idata[i++]];
+		uint32_t sextet_d =
+			idata[i] == '=' ?
+				      0 & i++ :
+				      (uint32_t)table[(unsigned char)idata[i++]];
+		uint32_t triple = (sextet_a << 3 * 6) + (sextet_b << 2 * 6) +
+				  (sextet_c << 1 * 6) + (sextet_d << 0 * 6);
 
 		if (j < dlen)
 			decoded[j++] = (triple >> 2 * 8) & 0xFF;
@@ -164,14 +160,13 @@ int __base64_decode(const char *idata, uint32_t ilen,
 	return 0;
 }
 
-int base64_decode(const char *idata, uint32_t ilen,
-		  uint8_t **odata, uint32_t *olen)
+int base64_decode(const char *idata, size_t ilen, uint8_t **odata, size_t *olen)
 {
 	return __base64_decode(idata, ilen, odata, olen, decoding_table);
 }
 
-int base64_decode_safe(const char *idata, uint32_t ilen,
-		       uint8_t **odata, uint32_t *olen)
+int base64_decode_safe(const char *idata, size_t ilen, uint8_t **odata,
+		       size_t *olen)
 {
 	return __base64_decode(idata, ilen, odata, olen, decoding_table_safe);
 }
@@ -184,5 +179,6 @@ static void base64_init(void)
 	for (i = 0; i < 64; i++)
 		decoding_table[(unsigned char)encoding_table[i]] = (char)i;
 	for (i = 0; i < 64; i++)
-		decoding_table_safe[(unsigned char)encoding_table_safe[i]] = (char)i;
+		decoding_table_safe[(unsigned char)encoding_table_safe[i]] =
+			(char)i;
 }

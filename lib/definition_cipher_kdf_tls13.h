@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -30,8 +30,7 @@
 #include "definition_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /****************************************************************************
@@ -58,9 +57,9 @@ struct def_algo_kdf_tls13 {
 	 *
 	 * required: required
 	 */
-#define DEF_ALG_KDF_TLS13_MODE_DHE	(1<<0)
-#define DEF_ALG_KDF_TLS13_MODE_PSK	(1<<1)
-#define DEF_ALG_KDF_TLS13_MODE_PSK_DHE	(1<<2)
+#define DEF_ALG_KDF_TLS13_MODE_DHE (1 << 0)
+#define DEF_ALG_KDF_TLS13_MODE_PSK (1 << 1)
+#define DEF_ALG_KDF_TLS13_MODE_PSK_DHE (1 << 2)
 	unsigned int running_mode;
 
 	/*

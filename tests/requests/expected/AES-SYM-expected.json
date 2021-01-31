@@ -140,7 +140,8 @@
         ],
         "tweakMode":[
           "hex"
-        ]
+        ],
+        "dataUnitLenMatchesPayload":false
       },
       {
         "revision":"1.0",

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -24,11 +24,10 @@
 #include "json-c/json.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-#define DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN	10
+#define DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN 10
 
 /*
  * IUTs SHALL be capable of specifying how the FixedInfo is constructed
@@ -103,12 +102,19 @@ struct def_algo_kas_kdf_onestepkdf_aux {
 	 *
 	 * required: if auxfunc points to a MAC method
 	 */
-#define DEF_ALG_KAS_KDF_MAC_SALT_UNDEFINED	(0)
+#define DEF_ALG_KAS_KDF_MAC_SALT_UNDEFINED (0)
 	/* All bytes are zero bytes */
-#define DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT	(1<<0)
+#define DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT (1 << 0)
 	/* Random salt */
-#define DEF_ALG_KAS_KDF_MAC_SALT_RANDOM		(1<<1)
+#define DEF_ALG_KAS_KDF_MAC_SALT_RANDOM (1 << 1)
 	unsigned int mac_salt_method;
+
+	/*
+	 * Length of the salt value
+	 *
+	 * required: optional
+	 */
+	int saltlen;
 };
 
 /*
@@ -135,7 +141,8 @@ struct def_algo_kas_kdf_onestepkdf {
 	 *
 	 * required: always
 	 */
-	enum kas_kdf_fixedinfo_pattern fixed_info_pattern_type[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN];
+	enum kas_kdf_fixedinfo_pattern
+		fixed_info_pattern_type[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN];
 	const char *literal;
 	enum kas_kdf_fixedinfo_encoding fixed_info_encoding;
 };
@@ -151,12 +158,19 @@ struct def_algo_kas_kdf_twostepkdf {
 	 * required: always for mac based auxiliary functions, otherwise
 	 * optional
 	 */
-#define DEF_ALG_KAS_KDF_MAC_SALT_UNDEFINED	(0)
+#define DEF_ALG_KAS_KDF_MAC_SALT_UNDEFINED (0)
 	/* All bytes are zero bytes */
-#define DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT	(1<<0)
+#define DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT (1 << 0)
 	/* Random salt */
-#define DEF_ALG_KAS_KDF_MAC_SALT_RANDOM		(1<<1)
+#define DEF_ALG_KAS_KDF_MAC_SALT_RANDOM (1 << 1)
 	unsigned int mac_salt_method;
+
+	/*
+	 * Length of the salt value
+	 *
+	 * required: optional
+	 */
+	int saltlen;
 
 	/*
 	 * The pattern and encoding used for fixedInfo construction.
@@ -166,7 +180,8 @@ struct def_algo_kas_kdf_twostepkdf {
 	 *
 	 * required: always
 	 */
-	enum kas_kdf_fixedinfo_pattern fixed_info_pattern_type[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN];
+	enum kas_kdf_fixedinfo_pattern
+		fixed_info_pattern_type[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN];
 	const char *literal;
 	enum kas_kdf_fixedinfo_encoding fixed_info_encoding;
 
@@ -236,8 +251,8 @@ struct def_algo_kas_r3_kc {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_R3_UNILATERAL	(1<<0)
-#define DEF_ALG_KAS_R3_BILATERAL	(1<<1)
+#define DEF_ALG_KAS_R3_UNILATERAL (1 << 0)
+#define DEF_ALG_KAS_R3_BILATERAL (1 << 1)
 	unsigned int kc_direction;
 
 	/*
@@ -245,8 +260,8 @@ struct def_algo_kas_r3_kc {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_R3_PROVIDER		(1<<0)
-#define DEF_ALG_KAS_R3_RECIPIENT	(1<<1)
+#define DEF_ALG_KAS_R3_PROVIDER (1 << 0)
+#define DEF_ALG_KAS_R3_RECIPIENT (1 << 1)
 	unsigned int kcrole;
 
 	/*

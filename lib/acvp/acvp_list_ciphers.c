@@ -1,6 +1,6 @@
 /* ACVP proxy listing of cipher options
  *
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -68,17 +68,14 @@ acvp_list_ciphers_store_sorted_one(struct acvp_list_ciphers **full_list,
 	}
 
 	/* Sorting */
-	for (list = *full_list, prev = *full_list;
-	     list != NULL;
+	for (list = *full_list, prev = *full_list; list != NULL;
 	     list = list->next) {
-
 		/* Remove duplicates */
 		if (acvp_find_match(list->cipher_name, new->cipher_name,
 				    false) &&
 		    acvp_find_match(list->cipher_mode, new->cipher_mode,
 				    false) &&
-		    acvp_find_match(list->cipher_aux, new->cipher_aux,
-				    false) &&
+		    acvp_find_match(list->cipher_aux, new->cipher_aux, false) &&
 		    acvp_find_match(list->impl, new->impl, false) &&
 		    acvp_find_match(list->internal_dep, new->internal_dep,
 				    false) &&
@@ -93,10 +90,9 @@ acvp_list_ciphers_store_sorted_one(struct acvp_list_ciphers **full_list,
 		 * Sort the key implementations for given certificate
 		 * name in ascending order
 		 */
-		if (acvp_find_match(list->cipher_name,
-				    new->cipher_name, false) &&
-			(strncmp(list->impl, new->impl,
-				 strlen(list->impl)) > 0)) {
+		if (acvp_find_match(list->cipher_name, new->cipher_name,
+				    false) &&
+		    (strncmp(list->impl, new->impl, strlen(list->impl)) > 0)) {
 			if (list == *full_list)
 				*full_list = new;
 			else
@@ -130,11 +126,11 @@ acvp_list_ciphers_store_sorted_one(struct acvp_list_ciphers **full_list,
 	return ret;
 }
 
-static int
-acvp_list_ciphers_store_sorted(struct acvp_list_ciphers **full_list,
-			       struct acvp_list_ciphers *new,
-			       const char *impl, const char *internal_dep,
-			       const char *external_dep)
+static int acvp_list_ciphers_store_sorted(struct acvp_list_ciphers **full_list,
+					  struct acvp_list_ciphers *new,
+					  const char *impl,
+					  const char *internal_dep,
+					  const char *external_dep)
 {
 	int ret = 0;
 
@@ -168,12 +164,12 @@ static int acvp_list_cipher_gatherer(const struct definition *def,
 	unsigned int prereq_num, i;
 	struct acvp_list_ciphers *new = NULL;
 	char internal_dep[FILENAME_MAX], external_dep[FILENAME_MAX],
-	     impl[FILENAME_MAX];
+		impl[FILENAME_MAX];
 	int ret;
 	bool found = false, found2 = false;
 
 	/* Gather the information from the different ciphers */
-	switch(def_algo->type) {
+	switch (def_algo->type) {
 	case DEF_ALG_TYPE_SYM:
 		CKINT(acvp_list_algo_sym(&def_algo->algo.sym, &new));
 		break;
@@ -258,11 +254,11 @@ static int acvp_list_cipher_gatherer(const struct definition *def,
 		break;
 	case DEF_ALG_TYPE_KDF_ONESTEP:
 		CKINT(acvp_list_algo_kdf_onestep(&def_algo->algo.kdf_onestep,
-					         &new));
+						 &new));
 		break;
 	case DEF_ALG_TYPE_KDF_TWOSTEP:
 		CKINT(acvp_list_algo_kdf_twostep(&def_algo->algo.kdf_twostep,
-					         &new));
+						 &new));
 		break;
 
 	default:
@@ -284,14 +280,12 @@ static int acvp_list_cipher_gatherer(const struct definition *def,
 		while (deps) {
 			/* Manual external dependencies */
 			if (deps->deps_type == acvp_deps_manual_resolution) {
-				CKINT(acvp_extend_string(external_dep,
-					sizeof(external_dep),
-					"%s%s->%s",
-					found ? ", " : "",
-					deps->dep_cipher,
-					deps->dep_name));
-					found = true;
-					continue;
+				CKINT(acvp_extend_string(
+					external_dep, sizeof(external_dep),
+					"%s%s->%s", found ? ", " : "",
+					deps->dep_cipher, deps->dep_name));
+				found = true;
+				continue;
 			}
 
 			if (!deps->dependency)
@@ -306,29 +300,30 @@ static int acvp_list_cipher_gatherer(const struct definition *def,
 			 */
 			for (i = 0; i < prereq_num; i++, prereqs++) {
 				if (acvp_find_match(deps->dep_cipher,
-						     prereqs->algorithm,
-						     false)) {
+						    prereqs->algorithm,
+						    false)) {
 					/*
 					 * Dependency to different test
 					 * session.
 					 */
-					CKINT(acvp_extend_string(external_dep,
+					CKINT(acvp_extend_string(
+						external_dep,
 						sizeof(external_dep),
-						"%s%s->%s",
-						found ? ", " : "",
+						"%s%s->%s", found ? ", " : "",
 						deps->dep_cipher,
-						deps->dependency->info->impl_name));
+						deps->dependency->info
+							->impl_name));
 					found = true;
 					break;
 				} else {
 					/*
 					 * Dependency within our test session.
 					 */
-					CKINT(acvp_extend_string(internal_dep,
-						 sizeof(internal_dep),
-						 "%s->%s",
-						 found2 ? ", " : "",
-						 prereqs->algorithm));
+					CKINT(acvp_extend_string(
+						internal_dep,
+						sizeof(internal_dep), "%s->%s",
+						found2 ? ", " : "",
+						prereqs->algorithm));
 					found2 = true;
 				}
 			}
@@ -344,11 +339,9 @@ static int acvp_list_cipher_gatherer(const struct definition *def,
 		prereqs = new->prereqs;
 		prereq_num = new->prereq_num;
 		for (i = 0; i < prereq_num; i++, prereqs++) {
-			CKINT(acvp_extend_string(internal_dep,
-						 sizeof(internal_dep),
-						 "%s->%s",
-						 found2 ? ", " : "",
-						 prereqs->algorithm));
+			CKINT(acvp_extend_string(
+				internal_dep, sizeof(internal_dep), "%s->%s",
+				found2 ? ", " : "", prereqs->algorithm));
 			found2 = true;
 		}
 	}
@@ -358,14 +351,12 @@ static int acvp_list_cipher_gatherer(const struct definition *def,
 		 * We have no dependencies for our cipher, reference the
 		 * implementation.
 		 */
-		CKINT(acvp_extend_string(impl, sizeof(impl),
-					 "%s",
+		CKINT(acvp_extend_string(impl, sizeof(impl), "%s",
 					 info->impl_name));
 	}
 
-
-	CKINT(acvp_list_ciphers_store_sorted(full_list, new, impl,
-					     internal_dep, external_dep));
+	CKINT(acvp_list_ciphers_store_sorted(full_list, new, impl, internal_dep,
+					     external_dep));
 
 	return 0;
 
@@ -422,9 +413,7 @@ static int acvp_list_cipher_key_to_str(const cipher_t keylen[DEF_ALG_MAX_INT],
 		if (keylen[i] & ACVP_CIPHERTYPE) {
 			const char *name;
 
-			CKINT(acvp_req_cipher_to_name(keylen[i],
-							0,
-							&name));
+			CKINT(acvp_req_cipher_to_name(keylen[i], 0, &name));
 			acvp_extend_string(str, stringlen, "%s, ", name);
 		} else {
 			acvp_extend_string(str, stringlen, "%lu, ", keylen[i]);
@@ -441,17 +430,16 @@ out:
 
 static int
 _acvp_list_cipher_options_print(struct acvp_list_ciphers *full_list,
-				const bool print_deps,
-				unsigned int *ca_len, unsigned int *cm_len,
-				unsigned int *cd_len, unsigned int *ks_len,
-				unsigned int *im_len, unsigned int *ex_len,
-				unsigned int *in_len)
+				const bool print_deps, unsigned int *ca_len,
+				unsigned int *cm_len, unsigned int *cd_len,
+				unsigned int *ks_len, unsigned int *im_len,
+				unsigned int *ex_len, unsigned int *in_len)
 {
 	struct acvp_list_ciphers *list;
 	const char *cipher_name = NULL, *cipher_mode = NULL, *cipher_aux = NULL;
-	cipher_t  keylen[DEF_ALG_MAX_INT];
+	cipher_t keylen[DEF_ALG_MAX_INT];
 	char impl[FILENAME_MAX], external_dep[FILENAME_MAX],
-	     internal_dep[FILENAME_MAX], tmp[FILENAME_MAX];
+		internal_dep[FILENAME_MAX], tmp[FILENAME_MAX];
 	int ret = 0;
 	bool complete = true, print = true;
 
@@ -509,11 +497,11 @@ _acvp_list_cipher_options_print(struct acvp_list_ciphers *full_list,
 				acvp_extend_string(impl, sizeof(impl), "%s",
 						   list->impl);
 				acvp_extend_string(external_dep,
-						   sizeof(external_dep),
-						   "%s", list->external_dep);
+						   sizeof(external_dep), "%s",
+						   list->external_dep);
 				acvp_extend_string(internal_dep,
-						   sizeof(internal_dep),
-						   "%s", list->internal_dep);
+						   sizeof(internal_dep), "%s",
+						   list->internal_dep);
 			}
 
 			list->listed = true;
@@ -521,47 +509,41 @@ _acvp_list_cipher_options_print(struct acvp_list_ciphers *full_list,
 		}
 
 		/* Only process entries with same cipher name / mode */
-		if (!acvp_find_match(cipher_name, list->cipher_name,
-				     false))
+		if (!acvp_find_match(cipher_name, list->cipher_name, false))
 			goto nextloop;
-		if (cipher_mode && !acvp_find_match(cipher_mode,
-						    list->cipher_mode,
-						    false))
+		if (cipher_mode &&
+		    !acvp_find_match(cipher_mode, list->cipher_mode, false))
 			goto nextloop;
 
-		if (cipher_aux && !acvp_find_match(cipher_aux,
-						   list->cipher_aux,
-						   false))
+		if (cipher_aux &&
+		    !acvp_find_match(cipher_aux, list->cipher_aux, false))
 			goto nextloop;
 
 		if (!acvp_list_cipher_match_key(keylen, list->keylen))
 			goto nextloop;
 
-
 		if (print_deps) {
 			if (strlen(list->impl))
 				acvp_extend_string(impl, sizeof(impl), "%s%s",
-						   strlen(impl) ? ", ": "",
+						   strlen(impl) ? ", " : "",
 						   list->impl);
 			if (strlen(list->external_dep))
 				acvp_extend_string(external_dep,
-						   sizeof(external_dep),
-						   "%s%s",
-						   strlen(external_dep) ?
-						   ", ": "",
+						   sizeof(external_dep), "%s%s",
+						   strlen(external_dep) ? ", " :
+										"",
 						   list->external_dep);
 			if (strlen(list->internal_dep))
 				acvp_extend_string(internal_dep,
-						   sizeof(internal_dep),
-						   "%s%s",
-						   strlen(internal_dep) ?
-						   ", ": "",
+						   sizeof(internal_dep), "%s%s",
+						   strlen(internal_dep) ? ", " :
+										"",
 						   list->internal_dep);
-			}
+		}
 
 		list->listed = true;
 
-nextloop:
+	nextloop:
 		/*
 		 * We reached the end of the list but not all entries
 		 * were processed - rewind.
@@ -603,20 +585,18 @@ out:
 	return ret;
 }
 
-static int
-acvp_list_cipher_options_print(struct acvp_list_ciphers *full_list,
-			       const bool print_deps)
+static int acvp_list_cipher_options_print(struct acvp_list_ciphers *full_list,
+					  const bool print_deps)
 {
 	struct acvp_list_ciphers *list;
-	unsigned int ca_len = 0, cm_len = 0, cd_len = 0, ks_len = 0,
-		     im_len = 0, ex_len = 0, in_len = 0;
+	unsigned int ca_len = 0, cm_len = 0, cd_len = 0, ks_len = 0, im_len = 0,
+		     ex_len = 0, in_len = 0;
 	int ret;
 
 	/* Get string lengths */
-	CKINT(_acvp_list_cipher_options_print(full_list, print_deps,
-					      &ca_len, &cm_len,
-					      &cd_len, &ks_len, &im_len,
-					      &ex_len, &in_len));
+	CKINT(_acvp_list_cipher_options_print(full_list, print_deps, &ca_len,
+					      &cm_len, &cd_len, &ks_len,
+					      &im_len, &ex_len, &in_len));
 
 	/* Unset the listed field */
 	for (list = full_list; list != NULL; list = list->next)
@@ -624,26 +604,20 @@ acvp_list_cipher_options_print(struct acvp_list_ciphers *full_list,
 
 	/* Print */
 	if (print_deps) {
-		fprintf(stdout, "%-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %s\n",
-			ca_len, "Algorithm",
-			cm_len, "Mode",
-			cd_len, "Details",
-			ks_len, "Key Size",
-			im_len, "Implementation",
-			ex_len, "External Dependency",
-			"Internal Dependency");
+		fprintf(stdout,
+			"%-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %s\n",
+			ca_len, "Algorithm", cm_len, "Mode", cd_len, "Details",
+			ks_len, "Key Size", im_len, "Implementation", ex_len,
+			"External Dependency", "Internal Dependency");
 	} else {
-		fprintf(stdout, "%-*s | %-*s | %-*s | %s\n",
-			ca_len, "Algorithm",
-			cm_len, "Mode",
-			cd_len, "Details",
+		fprintf(stdout, "%-*s | %-*s | %-*s | %s\n", ca_len,
+			"Algorithm", cm_len, "Mode", cd_len, "Details",
 			"Key Size");
 	}
 
-	CKINT(_acvp_list_cipher_options_print(full_list, print_deps,
-					      &ca_len, &cm_len,
-					      &cd_len, &ks_len, &im_len,
-					      &ex_len, &in_len));
+	CKINT(_acvp_list_cipher_options_print(full_list, print_deps, &ca_len,
+					      &cm_len, &cd_len, &ks_len,
+					      &im_len, &ex_len, &in_len));
 out:
 	return ret;
 }
@@ -653,7 +627,7 @@ int acvp_list_cipher_options(const struct acvp_ctx *ctx, const bool list_deps)
 {
 	const struct acvp_datastore_ctx *datastore;
 	const struct acvp_search_ctx *search;
-	struct definition *def;
+	const struct definition *def;
 	struct acvp_list_ciphers *full_list = NULL;
 	int ret = 0;
 

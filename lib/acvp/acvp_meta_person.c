@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the person information
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -57,8 +57,9 @@ static int acvp_person_build(const struct def_vendor *def_vendor,
 	CKNULL(person, -ENOMEM);
 
 	/* Name */
-	CKINT(json_object_object_add(person, "fullName",
-			json_object_new_string(def_vendor->contact_name)));
+	CKINT(json_object_object_add(
+		person, "fullName",
+		json_object_new_string(def_vendor->contact_name)));
 
 	/* Reference to Vendor definition */
 	CKINT(acvp_create_urlpath(NIST_VAL_OP_VENDOR, vendor_url,
@@ -66,13 +67,13 @@ static int acvp_person_build(const struct def_vendor *def_vendor,
 	CKINT(acvp_extend_string(vendor_url, sizeof(vendor_url), "/%u",
 				 def_vendor->acvp_vendor_id));
 	CKINT(json_object_object_add(person, "vendorUrl",
-			json_object_new_string(vendor_url)));
+				     json_object_new_string(vendor_url)));
 
 	/* Emails */
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);
-	CKINT(json_object_array_add(array,
-			json_object_new_string(def_vendor->contact_email)));
+	CKINT(json_object_array_add(
+		array, json_object_new_string(def_vendor->contact_email)));
 	CKINT(json_object_object_add(person, "emails", array));
 	array = NULL;
 
@@ -80,7 +81,8 @@ static int acvp_person_build(const struct def_vendor *def_vendor,
 	if (def_vendor->contact_phone) {
 		phone = json_object_new_object();
 		CKNULL(phone, -ENOMEM);
-		CKINT(json_object_object_add(phone, "number",
+		CKINT(json_object_object_add(
+			phone, "number",
 			json_object_new_string(def_vendor->contact_phone)));
 		CKINT(json_object_object_add(phone, "type",
 					     json_object_new_string("voice")));
@@ -130,16 +132,15 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 	    organizationurl_id != def_vendor->acvp_vendor_id) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Contact name mismatch for contact ID %u (expected: %s, found: %s, vendor ID %u)\n",
-		      person_id, def_vendor->contact_name, name,
-		      def_vendor->acvp_vendor_id);
+		       person_id, def_vendor->contact_name, name,
+		       def_vendor->acvp_vendor_id);
 		ret = -ENOENT;
 		goto out;
 	}
 
 	CKINT(json_find_key(json_vendor, "emails", &tmp, json_type_array));
 	for (i = 0; i < json_object_array_length(tmp); i++) {
-		struct json_object *email =
-				json_object_array_get_idx(tmp, i);
+		struct json_object *email = json_object_array_get_idx(tmp, i);
 
 		if (!strncmp(def_vendor->contact_email,
 			     json_object_get_string(email),
@@ -157,8 +158,7 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 		goto out;
 	}
 
-	ret = json_find_key(json_vendor, "phoneNumbers", &tmp,
-			    json_type_array);
+	ret = json_find_key(json_vendor, "phoneNumbers", &tmp, json_type_array);
 	if (ret) {
 		/* if we did not find a phone number and we have none, match */
 		if (!def_vendor->contact_phone) {
@@ -175,7 +175,7 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 
 	for (i = 0; i < json_object_array_length(tmp); i++) {
 		struct json_object *number_def =
-				json_object_array_get_idx(tmp, i);
+			json_object_array_get_idx(tmp, i);
 		const char *number, *type;
 
 		CKINT(json_get_string(number_def, "number", &number));
@@ -238,8 +238,8 @@ out:
 
 /* POST / PUT / DELETE /persons */
 static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
-				struct def_vendor *def_vendor,
-				char *url, const unsigned int urllen,
+				struct def_vendor *def_vendor, char *url,
+				const unsigned int urllen,
 				const enum acvp_http_type type,
 				const bool asked)
 {
@@ -254,15 +254,15 @@ static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 		CKINT(acvp_person_build(def_vendor, &json_person));
 	}
 
-	if (!req_details->dump_register &&
-	    !ctx_opts->register_new_vendor &&
+	if (!req_details->dump_register && !ctx_opts->register_new_vendor &&
 	    !asked) {
 		if (json_person) {
-			logger_status(LOGGER_C_ANY,
-				      "Data to be registered: %s\n",
-				      json_object_to_json_string_ext(json_person,
+			logger_status(
+				LOGGER_C_ANY, "Data to be registered: %s\n",
+				json_object_to_json_string_ext(
+					json_person,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 		if (ask_yes("No module definition found - shall the person be registered")) {
 			ret = -ENOENT;
@@ -295,30 +295,35 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 
 	ret = acvp_person_get_match(testid_ctx, def_vendor, &resp, &found_data);
 
-	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_PERSON,
-				       ctx_opts, def_vendor->acvp_person_id,
-				       &http_type);
+	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_PERSON, ctx_opts,
+				       def_vendor->acvp_person_id, &http_type);
 	if (ret == -ENOENT) {
 		CKINT(acvp_person_build(def_vendor, &json_person));
 		if (json_person) {
-			logger_status(LOGGER_C_ANY,
-				      "Data to be registered: %s\n",
-				      json_object_to_json_string_ext(json_person,
+			logger_status(
+				LOGGER_C_ANY, "Data to be registered: %s\n",
+				json_object_to_json_string_ext(
+					json_person,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
 		if (found_data) {
-			logger_status(LOGGER_C_ANY,
-				      "Data currently on ACVP server: %s\n",
-				      json_object_to_json_string_ext(found_data,
+			logger_status(
+				LOGGER_C_ANY,
+				"Data currently on ACVP server: %s\n",
+				json_object_to_json_string_ext(
+					found_data,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
-		if (!ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
+		if (!ask_yes(
+			    "Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
 			http_type = acvp_http_put;
-		} else if (!ask_yes("Shall the entry be DELETED from the ACVP server data base")) {
+		} else if (
+			!ask_yes(
+				"Shall the entry be DELETED from the ACVP server data base")) {
 			http_type = acvp_http_delete;
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -328,26 +333,29 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 
 		asked = true;
 	} else if (ret) {
-		  logger(LOGGER_ERR, LOGGER_C_ANY,
-			 "Conversion from search type to HTTP request type failed for person\n");
-		  goto out;
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Conversion from search type to HTTP request type failed for person\n");
+		goto out;
 	} else if (http_type == acvp_http_put) {
 		/* Update requested */
 		CKINT(acvp_person_build(def_vendor, &json_person));
 		if (json_person) {
-			logger_status(LOGGER_C_ANY,
-				      "Data to be registered: %s\n",
-				      json_object_to_json_string_ext(json_person,
+			logger_status(
+				LOGGER_C_ANY, "Data to be registered: %s\n",
+				json_object_to_json_string_ext(
+					json_person,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
 		if (found_data) {
-			logger_status(LOGGER_C_ANY,
-				      "Data currently on ACVP server: %s\n",
-				      json_object_to_json_string_ext(found_data,
+			logger_status(
+				LOGGER_C_ANY,
+				"Data currently on ACVP server: %s\n",
+				json_object_to_json_string_ext(
+					found_data,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
 		if (ask_yes("Local meta data differs from ACVP server data - shall the ACVP data base be UPDATED")) {
@@ -358,11 +366,13 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	} else if (http_type == acvp_http_delete) {
 		/* Delete requested */
 		if (found_data) {
-			logger_status(LOGGER_C_ANY,
-				      "Data currently on ACVP server: %s\n",
-				      json_object_to_json_string_ext(found_data,
+			logger_status(
+				LOGGER_C_ANY,
+				"Data currently on ACVP server: %s\n",
+				json_object_to_json_string_ext(
+					found_data,
 					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 		}
 
 		if (ask_yes("Shall the entry be DELETED from the ACVP server data base")) {
@@ -435,8 +445,8 @@ static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
-	CKINT(acvp_person_register(testid_ctx, def_vendor, url,
-				   sizeof(url), acvp_http_post, false));
+	CKINT(acvp_person_register(testid_ctx, def_vendor, url, sizeof(url),
+				   acvp_http_post, false));
 
 out:
 	return ret;
@@ -505,16 +515,16 @@ int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx)
 	if (req_details->dump_register) {
 		char url[ACVP_NET_URL_MAXLEN];
 
-		CKINT_ULCK(acvp_create_url(NIST_VAL_OP_PERSONS, url,
-					   sizeof(url)));
+		CKINT_ULCK(
+			acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
 		acvp_person_register(testid_ctx, def_vendor, url, sizeof(url),
 				     acvp_http_post, false);
 		goto unlock;
 	}
 
 	/* Check if we have an outstanding request */
-	CKINT_ULCK(acvp_meta_obtain_request_result(testid_ctx,
-						   &def_vendor->acvp_person_id));
+	CKINT_ULCK(acvp_meta_obtain_request_result(
+		testid_ctx, &def_vendor->acvp_person_id));
 
 	if (def_vendor->acvp_person_id && !(opts->show_db_entries)) {
 		CKINT_ULCK(acvp_person_validate_one(testid_ctx, def_vendor));

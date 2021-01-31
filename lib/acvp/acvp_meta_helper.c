@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -17,6 +17,8 @@
  * DAMAGE.
  */
 
+#define _XOPEN_SOURCE 600
+#include <time.h>
 #include <string.h>
 
 #include "internal.h"
@@ -24,12 +26,17 @@
 
 int acvp_str_match(const char *exp, const char *found, const uint32_t id)
 {
+	size_t len;
+
 	if (!exp || !found)
 		return 0;
-	if (strncmp(exp, found, strlen(exp))) {
+
+	len = strlen(exp);
+
+	if (len != strlen(found) || strncmp(exp, found, len)) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Mismatch for ID %u (expected: %s, found: %s)\n",
-		       id, exp, found);
+		       "Mismatch for ID %u (expected: %s, found: %s)\n", id,
+		       exp, found);
 		return -ENOENT;
 	}
 
@@ -44,8 +51,7 @@ int acvp_get_verdict_json(const struct acvp_buf *verdict_buf,
 	const char *result;
 	bool test_passed;
 
-	CKINT_LOG(acvp_req_strip_version(verdict_buf, &verdict_full,
-					 &verdict),
+	CKINT_LOG(acvp_req_strip_version(verdict_buf, &verdict_full, &verdict),
 		  "JSON parser cannot parse verdict data\n");
 
 	ret = json_get_bool(verdict, "passed", &test_passed);
@@ -86,6 +92,42 @@ out:
 	return ret;
 }
 
+int acvp_get_testsession_expiry(const struct acvp_buf *meta_buf, char *date,
+				size_t datelen)
+{
+	struct json_object *meta_full = NULL, *meta;
+	const char *str;
+	int ret;
+
+	CKINT_LOG(acvp_req_strip_version(meta_buf, &meta_full, &meta),
+		  "JSON parser cannot parse verdict data\n");
+
+	CKINT(json_get_string(meta, "expiresOn", &str));
+	snprintf(date, datelen, "%s", str);
+
+out:
+	ACVP_JSON_PUT_NULL(meta_full);
+	return ret;
+}
+
+int acvp_get_testsession_expiry_epoch(const struct acvp_buf *meta_buf,
+				      time_t *epoch)
+{
+	struct tm time;
+	char date[128];
+	int ret;
+
+	CKINT(acvp_get_testsession_expiry(meta_buf, date, sizeof(date)));
+
+	memset(&time, 0, sizeof(time));
+	strptime(date, "%Y-%Om-%dT%H:%M:%S", &time);
+
+	*epoch = mktime(&time);
+
+out:
+	return ret;
+}
+
 int acvp_get_algoinfo_json(const struct acvp_buf *buf,
 			   struct acvp_test_verdict_status *verdict)
 {
@@ -93,8 +135,7 @@ int acvp_get_algoinfo_json(const struct acvp_buf *buf,
 	int ret;
 	const char *tmp;
 
-	CKINT_LOG(acvp_req_strip_version(buf, &algo_full,
-					 &algo),
+	CKINT_LOG(acvp_req_strip_version(buf, &algo_full, &algo),
 		  "JSON parser cannot parse verdict data\n");
 
 	CKINT(json_get_string(algo, "algorithm", &tmp));

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -29,8 +29,7 @@
 #include "definition_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /****************************************************************************
@@ -100,11 +99,11 @@ struct def_algo_kdf_108 {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KDF_108_COUNTER_ORDER_NONE		(1<<0)
-#define DEF_ALG_KDF_108_COUNTER_ORDER_AFTER_FIXED_DATA	(1<<1)
-#define DEF_ALG_KDF_108_COUNTER_ORDER_BEFORE_FIXED_DATA	(1<<2)
-#define DEF_ALG_KDF_108_COUNTER_ORDER_MIDDLE_FIXED_DATA	(1<<3)
-#define DEF_ALG_KDF_108_COUNTER_ORDER_BEFORE_ITERATOR	(1<<4)
+#define DEF_ALG_KDF_108_COUNTER_ORDER_NONE (1 << 0)
+#define DEF_ALG_KDF_108_COUNTER_ORDER_AFTER_FIXED_DATA (1 << 1)
+#define DEF_ALG_KDF_108_COUNTER_ORDER_BEFORE_FIXED_DATA (1 << 2)
+#define DEF_ALG_KDF_108_COUNTER_ORDER_MIDDLE_FIXED_DATA (1 << 3)
+#define DEF_ALG_KDF_108_COUNTER_ORDER_BEFORE_ITERATOR (1 << 4)
 	unsigned int fixed_data_order;
 
 	/*
@@ -112,11 +111,11 @@ struct def_algo_kdf_108 {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KDF_108_COUNTER_LENGTH_0		(1<<0)
-#define DEF_ALG_KDF_108_COUNTER_LENGTH_8		(1<<1)
-#define DEF_ALG_KDF_108_COUNTER_LENGTH_16		(1<<2)
-#define DEF_ALG_KDF_108_COUNTER_LENGTH_24		(1<<3)
-#define DEF_ALG_KDF_108_COUNTER_LENGTH_32		(1<<4)
+#define DEF_ALG_KDF_108_COUNTER_LENGTH_0 (1 << 0)
+#define DEF_ALG_KDF_108_COUNTER_LENGTH_8 (1 << 1)
+#define DEF_ALG_KDF_108_COUNTER_LENGTH_16 (1 << 2)
+#define DEF_ALG_KDF_108_COUNTER_LENGTH_24 (1 << 3)
+#define DEF_ALG_KDF_108_COUNTER_LENGTH_32 (1 << 4)
 	unsigned int counter_lengths;
 
 	/*

@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for retrieving the cipher specification
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -82,7 +82,7 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 	 */
 	for (i = 0; i < (uint32_t)json_object_array_length(algorithms); i++) {
 		struct json_object *algo =
-				json_object_array_get_idx(algorithms, i);
+			json_object_array_get_idx(algorithms, i);
 		struct stat statbuf;
 		const char *url, *algoname;
 		uint32_t urlnum;
@@ -104,7 +104,7 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 			continue;
 
 		if (!pathname) {
-			const char * mode;
+			const char *mode;
 
 			ret = json_get_string(algo, "mode", &mode);
 			if (ret) {
@@ -116,30 +116,28 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 			continue;
 		}
 
-
 		/* Get details about cipher */
 		/* Get "algorithm ID" */
 		CKINT(json_get_string(algo, "url", &url));
 		CKINT(acvp_get_trailing_number(url, &urlnum));
 
-		snprintf(tmpalgoname, sizeof(tmpalgoname), "%s",
-				algoname);
+		snprintf(tmpalgoname, sizeof(tmpalgoname), "%s", algoname);
 		CKINT(acvp_req_check_filename(tmpalgoname,
-					strlen(tmpalgoname)));
+					      strlen(tmpalgoname)));
 
 		/* Write the data */
-		snprintf(jsonfile, sizeof(jsonfile),
-				"%s/%s-%u.json", pathname, tmpalgoname,
-				urlnum);
+		snprintf(jsonfile, sizeof(jsonfile), "%s/%s-%u.json", pathname,
+			 tmpalgoname, urlnum);
 
 		/* Do not re-download information */
 		if (!stat(jsonfile, &statbuf)) {
 			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+			       "Detailed cipher option information for %s already downloaded, skipping new download\n",
+			       algoname);
+			logger_status(
+				LOGGER_C_ANY,
 				"Detailed cipher option information for %s already downloaded, skipping new download\n",
 				algoname);
-			logger_status(LOGGER_C_ANY,
-					"Detailed cipher option information for %s already downloaded, skipping new download\n",
-					algoname);
 
 			/* implement "touch" */
 			file = fopen(jsonfile, "a");
@@ -151,13 +149,10 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 		}
 
 		/* Fetch details about the algorithm ID */
-		CKINT(acvp_fetch_cipher_info(testid_ctx, urlnum,
-						&buf));
+		CKINT(acvp_fetch_cipher_info(testid_ctx, urlnum, &buf));
 
 		file = fopen(jsonfile, "w");
-		CKNULL_LOG(file, -errno,
-				"Failed to open file %s\n",
-				jsonfile);
+		CKNULL_LOG(file, -errno, "Failed to open file %s\n", jsonfile);
 
 		fwrite(buf.buf, 1, buf.len, file);
 
@@ -174,9 +169,8 @@ out:
 }
 
 DSO_PUBLIC
-int acvp_cipher_get(const struct acvp_ctx *ctx,
-		    const char *ciphername[], const size_t ciphername_arraylen,
-		    const char *pathname)
+int acvp_cipher_get(const struct acvp_ctx *ctx, const char *ciphername[],
+		    const size_t ciphername_arraylen, const char *pathname)
 {
 	struct acvp_testid_ctx testid_ctx;
 	struct json_object *req = NULL, *entry = NULL;
@@ -202,8 +196,7 @@ int acvp_cipher_get(const struct acvp_ctx *ctx,
 	if (ciphername_arraylen) {
 		for (i = 0; i < ciphername_arraylen; i++)
 			CKINT(acvp_iterate_algoarray(&testid_ctx, entry,
-						     ciphername[i],
-						     pathname));
+						     ciphername[i], pathname));
 	} else {
 		CKINT(acvp_iterate_algoarray(&testid_ctx, entry, NULL,
 					     pathname));

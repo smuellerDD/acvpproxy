@@ -1,6 +1,6 @@
 /* JSON request generator for KAS KDF (onestep, twostep) and MAC methods
  *
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -123,7 +123,8 @@ out:
 }
 
 int
-acvp_req_kas_mac_salt(unsigned int mac_salt_method,  struct json_object *entry)
+acvp_req_kas_mac_salt(unsigned int mac_salt_method,  int saltlen,
+		      struct json_object *entry)
 {
 	struct json_object *mode;
 	int ret;
@@ -142,6 +143,11 @@ acvp_req_kas_mac_salt(unsigned int mac_salt_method,  struct json_object *entry)
 		CKINT(json_object_array_add(mode,
 				json_object_new_string("random")));
 		found = true;
+	}
+
+	if (saltlen) {
+		CKINT(json_object_object_add(entry, "saltLen",
+					     json_object_new_int(saltlen)));
 	}
 
 	if (!found) {
@@ -179,7 +185,8 @@ acvp_req_kas_kdf_twostep_def(const struct def_algo_kas_kdf_twostepkdf *twostep,
 		CKNULL(ts, -ENOMEM);
 		CKINT(json_object_array_add(tmp, cap));
 
-		CKINT(acvp_req_kas_mac_salt(two->mac_salt_method, cap));
+		CKINT(acvp_req_kas_mac_salt(two->mac_salt_method, two->saltlen,
+					    cap));
 
 		CKINT(acvp_req_kas_kdf_fi(two->fixed_info_pattern_type,
 					  two->literal,
@@ -251,8 +258,8 @@ acvp_req_kas_kdf_onestep_def(const struct def_algo_kas_kdf_onestepkdf *onestep,
 				ACVP_CIPHERTYPE_MAC | ACVP_CIPHERTYPE_HASH,
 				"auxFunctionName"));
 
-		CKINT(acvp_req_kas_mac_salt(
-					aux_function->mac_salt_method, one));
+		CKINT(acvp_req_kas_mac_salt(aux_function->mac_salt_method,
+					    aux_function->saltlen, one));
 	}
 
 	CKINT(acvp_req_kas_kdf_fi(onestep->fixed_info_pattern_type,

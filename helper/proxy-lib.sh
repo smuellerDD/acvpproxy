@@ -26,6 +26,7 @@ REQFILE="testvector-request.json"
 # proxy-lib.sh status file
 SCRIPT=${0//[.\/]/_}
 PROXYLIBSTATUS=".proxy-lib-status-$SCRIPT.txt"
+PROXYLIBSTATUSPOST=".proxy-lib-status-post-$SCRIPT.txt"
 
 # File that will contain a general cipher options overview
 CIPHER_OPTION_OVERVIEW="cipher_options_overview.txt"
@@ -439,7 +440,35 @@ getvectors() {
 
 postvectors() {
 	local log="${LOGFILE}-post-${DATE}.log"
-	invoke $PROXYBIN $PARAMS $(addlogging "$log")
+
+	if [ -e $TARGETDIR/$PROXYLIBSTATUSPOST ]
+	then
+		local libstatus=$(cat $TARGETDIR/$PROXYLIBSTATUSPOST)
+		rm -f $TARGETDIR/$PROXYLIBSTATUSPOST
+
+		if [ x"$libstatus" = x"post success" ]
+		then
+			invoke $PROXYBIN $PARAMS $(addlogging "$log")
+		else
+			invoke $PROXYBIN $PARAMS $(addlogging "$log")
+		fi
+	else
+		invoke $PROXYBIN $PARAMS --upload-only $(addlogging "$log")
+
+		local ret=$?
+		if [ $ret -eq 0 ]
+		then
+			echo "post success" > $TARGETDIR/$PROXYLIBSTATUSPOST
+
+			echo "Now go out and sip some coffee and re-invoke command at a later time of your choice."
+			echo "There is no network operation happening until you re-invoke the command allowing you to go about your business without considering at the ACVP connection"
+		else
+			echo "post error: $ret" > $TARGETDIR/$PROXYLIBSTATUSPOST
+			echo "Error occurred during post operation, re-invoke command"
+		fi
+
+		exit $ret
+	fi
 
 	invoke $PROXYBIN $PARAMS --list-verdicts
 

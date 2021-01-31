@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for paged requests
  *
- * Copyright (C) 2019 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -120,8 +120,8 @@ int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
 				* parameters
 				*/
 				CKINT(acvp_paging_get_url_parameters(&next));
-				CKINT(acvp_replace_urloptions(next,
-					parametrized_url,
+				CKINT(acvp_replace_urloptions(
+					next, parametrized_url,
 					sizeof(parametrized_url)));
 			}
 		}
@@ -130,21 +130,22 @@ int acvp_paging_get(const struct acvp_testid_ctx *testid_ctx, const char *url,
 			CKINT(json_get_uint(pagingdata, "totalCount",
 					    &totalcount));
 
-		logger_status(LOGGER_C_ANY,
-			      "Paging: %u entries to process\n", totalcount);
+		logger_status(LOGGER_C_ANY, "Paging: %u entries to process\n",
+			      totalcount);
 
 		/* Iterate over data array */
 		CKINT(json_find_key(pagingdata, "data", &dataarray,
 				    json_type_array));
 		for (i = 0; i < json_object_array_length(dataarray); i++) {
 			struct json_object *entry =
-					json_object_array_get_idx(dataarray, i);
+				json_object_array_get_idx(dataarray, i);
 
 			if (opts->show_db_entries & show_type) {
 				fprintf(stdout, "%s\n",
-				        json_object_to_json_string_ext(entry,
-					JSON_C_TO_STRING_PRETTY |
-					JSON_C_TO_STRING_NOSLASHESCAPE));
+					json_object_to_json_string_ext(
+						entry,
+						JSON_C_TO_STRING_PRETTY |
+							JSON_C_TO_STRING_NOSLASHESCAPE));
 			} else if (cb) {
 				CKINT(cb(private, entry));
 			}

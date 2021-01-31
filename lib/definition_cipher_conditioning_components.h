@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -30,8 +30,7 @@
 #include "definition_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 struct def_algo_cond_comp {
@@ -63,9 +62,9 @@ struct def_algo_cond_comp {
 	 * Key length in bits
 	 * required: for ACVP_COND_COMP_BLOCK_DF and ACVP_COND_COMP_CBC_MAC
 	 */
-#define DEF_ALG_SYM_KEYLEN_128			(1<<0)
-#define DEF_ALG_SYM_KEYLEN_192			(1<<2)
-#define DEF_ALG_SYM_KEYLEN_256			(1<<3)
+#define DEF_ALG_SYM_KEYLEN_128 (1 << 0)
+#define DEF_ALG_SYM_KEYLEN_192 (1 << 2)
+#define DEF_ALG_SYM_KEYLEN_256 (1 << 3)
 	unsigned int keylen;
 
 	/*

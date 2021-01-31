@@ -291,6 +291,26 @@ have multiple JSON files in one directory. The ACVP Proxy will instantiate the
 module with all permutations of oe/vendor/module_info definitions that it
 finds.
 
+### Operational Environment Configuration
+
+The definition of operational environments allows the following different
+schemes:
+
+* The simple configuration allows defining all information in a flat JSON
+structure. This allows a fast specification of all settings. Yet, it is very
+limited and inflexible: The use of the simple configuration is only appropriate
+if the IUT has exactly one software dependency and one hardware dependency.
+
+* The complex configuration allows defining arbitrary number of dependencies
+and supports different types of dependencies.
+
+It is not permissible to mix-n-match both types of configurations in one OE
+configuration file. Yet, it is permissible to have multiple OE configuration
+files where one configuration file contains the simple and another the complex
+configuration approach.
+
+#### Simple Operational Environment Configuration
+
 The JSON files in the `oe` directory must contain the following JSON keywords:
 
 * `oeEnvName`: Name of the operation environment (such as operating system and
@@ -322,15 +342,72 @@ The JSON files in the `oe` directory must contain the following JSON keywords:
 
 * `features`: Feature defined by an OR of the `OE_PROC_*` definitions.
 
-* `envType`: Type of the execution environment which is a selection from
-  `enum def_mod_type`. Instead of a numeric value, the following values are
-   equally allowed: `Software`, `Hardware`, `Firmware`.
+* `dependencies-internal`: This keyword is optional. For details, see section
+  about automated dependency handling.
+
+* `dependencies-external`: This keyword is optional. For details, see section
+  about manual dependency handling.
+
+#### Complex Operational Environment Configuration
+
+The complex configuration for the operational environment contains the following
+key words:
+
+* `oeDependencies`: This keyword points to an array of individual dependencies
+on the operational environment. Zero or more OE dependencies are configurable.
+See the next bullet list for a discussion on the options.
 
 * `dependencies-internal`: This keyword is optional. For details, see section
   about automated dependency handling.
 
 * `dependencies-external`: This keyword is optional. For details, see section
   about manual dependency handling.
+
+The OE dependency array allows to specify an arbitrary number of array entries
+where each entry points to one particular OE dependency. Each individual
+dependency has the following key words:
+
+* If the dependency is a hardware (CPU, entire computer), the following key
+words are applicable:
+
+	- `dependencyType`: This key word must contain the string `processor`
+	or `cpu` which both are synonyms.
+
+	- `manufacturer`: Manufacturer of the underlying CPU executing the
+	module.
+
+	- `procFamily`: Processor family executing the module. Note, this string
+	must match one `processor` of the module cipher definitions registered
+	with the ACVP Proxy. See `acvp-proxy -u` for details. If the list
+	contains an empty string for the processor, the JSON are not restricted
+	in the processor information.
+
+	- `procFamilyInternal`: This is an optional keyword that if present is
+	used to resolve the uninstantiated definitions. It is not used for
+	anything else. Its purpose is to support private ACVP Proxy extensions
+	with slight derivations from ACVP Proxy built-in definitions.
+
+	- `procName`: Specific processor name executing the module.
+
+	- `procSeries`: Processor series executing the module.
+
+	- `features`: Feature defined by an OR of the `OE_PROC_*` definitions.
+
+* Any other dependency type is defined with the following key words:
+
+	- `dependencyType`: This key word must contain one of the following
+	string: `software`, `firmware`, `os`
+
+	- `oeEnvName`: Name of the operation environment (such as operating
+	system and its version).
+
+	- `cpe`: CPE tag (may be non-existant if `swid` exists)
+
+	- `swid`: SWID tag (may be non-existant if `cpe` exists)
+
+	- `oe_description`: Description of the operational environment
+
+### Vendor Configuration
 
 The JSON files in the `vendor` directory must contain the following JSON
 keywords:
@@ -348,6 +425,8 @@ keywords:
 
 * `dependencies-external`: This keyword is optional. For details, see section
   about manual dependency handling.
+
+### Module Configuration
 
 The JSON files in the `module_info` directory must contain the following JSON
 keywords:
@@ -377,6 +456,8 @@ keywords:
 
 * `dependencies-external`: This keyword is optional. For details, see section
   about manual dependency handling.
+
+### Implementation definition
 
 The JSON files in the `implementations` directory must contain the following
 JSON keywords:

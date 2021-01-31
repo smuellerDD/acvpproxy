@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+# Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
 #
 
 CC		:= gcc
@@ -30,7 +30,7 @@ LNS		:= $(LN) -sf
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	:= . ./acvp
+INCLUDE_DIRS	:= . ./acvp ./common ./esvp
 LIBRARY_DIRS	:=
 LIBRARIES	:= curl pthread
 
@@ -43,9 +43,9 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 # Get version name and cross check
 #
 ###############################################################################
-LIBMAJOR   := $(shell grep '^\#define.*MAJVERSION' acvp/internal.h | awk '{print $$3}')
-LIBMINOR   := $(shell grep '^\#define.*MINVERSION' acvp/internal.h | awk '{print $$3}')
-LIBPATCH   := $(shell grep '^\#define.*PATCHLEVEL' acvp/internal.h | awk '{print $$3}')
+LIBMAJOR   := $(shell grep '^\#define.*MAJVERSION' common/internal.h | awk '{print $$3}')
+LIBMINOR   := $(shell grep '^\#define.*MINVERSION' common/internal.h | awk '{print $$3}')
+LIBPATCH   := $(shell grep '^\#define.*PATCHLEVEL' common/internal.h | awk '{print $$3}')
 LIBVERSION := $(LIBMAJOR).$(LIBMINOR).$(LIBPATCH)
 
 ###############################################################################

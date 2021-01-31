@@ -39,6 +39,18 @@
     "acvVersion":"1.0"
   },
   {
+    "type":"software",
+    "name":"Fedora 29",
+    "cpe":null,
+    "swid":"org.fedoraproject.Fedora-29",
+    "description":"Linux distribution developed by the community-supported Fedora Project and sponsored by Red Hat, Inc."
+  }
+]
+[
+  {
+    "acvVersion":"1.0"
+  },
+  {
     "type":"processor",
     "manufacturer":"Intel",
     "family":"X86",
@@ -52,22 +64,10 @@
     "acvVersion":"1.0"
   },
   {
-    "type":"software",
-    "name":"Fedora 29",
-    "cpe":null,
-    "swid":"org.fedoraproject.Fedora-29",
-    "description":"Linux distribution developed by the community-supported Fedora Project and sponsored by Red Hat, Inc."
-  }
-]
-[
-  {
-    "acvVersion":"1.0"
-  },
-  {
     "name":"Fedora 29 on Intel Broadwell i7",
     "dependencyUrls":[
-      "/acvp/v1/dependencies/20094",
-      "/acvp/v1/dependencies/20095"
+      "/acvp/v1/dependencies/20095",
+      "/acvp/v1/dependencies/20094"
     ]
   }
 ]

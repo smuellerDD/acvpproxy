@@ -1,6 +1,6 @@
 /* ACVP definition handling
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -44,9 +44,57 @@ static struct def_algo_map *def_uninstantiated_head = NULL;
 static DEFINE_MUTEX_UNLOCKED(def_file_access_mutex);
 
 /*****************************************************************************
+ * Conversions
+ *****************************************************************************/
+
+struct def_dependency_type_names {
+	enum def_dependency_type type;
+	const char *name;
+};
+
+static struct def_dependency_type_names type_name[] = {
+	{ def_dependency_os, "os" },
+	{ def_dependency_hardware, "processor" },
+	{ def_dependency_hardware, "cpu" },
+	{ def_dependency_software, "software" },
+	{ def_dependency_firmware, "firmware" }
+};
+
+int acvp_dep_type2name(enum def_dependency_type type, const char **name)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(type_name); i++) {
+		if (type == type_name[i].type) {
+			*name = type_name[i].name;
+			return 0;
+		}
+	}
+
+	return -ENOENT;
+}
+
+int acvp_dep_name2type(const char *name, enum def_dependency_type *type)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(type_name); i++) {
+		size_t len = strlen(type_name[i].name);
+
+		if (strlen(name) == len &&
+		    !strncmp(name, type_name[i].name, len)) {
+			*type = type_name[i].type;
+			return 0;
+		}
+	}
+
+	return -ENOENT;
+}
+
+/*****************************************************************************
  * Handle refcnt lock
  *****************************************************************************/
-static int acvp_def_alloc_lock(struct def_lock **lock)
+int acvp_def_alloc_lock(struct def_lock **lock)
 {
 	struct def_lock *tmp;
 	int ret = 0;
@@ -150,10 +198,56 @@ out:
 	return;
 }
 
-struct definition *acvp_find_def(const struct acvp_search_ctx *search,
-				 struct definition *processed_ptr)
+static int acvp_match_def_search(const struct acvp_search_ctx *search,
+				 const struct definition *def)
 {
-	struct definition *tmp_def = NULL;
+	const struct def_vendor *vendor = def->vendor;
+	const struct def_info *mod_info = def->info;
+	const struct def_oe *oe = def->oe;
+	const struct def_dependency *def_dep;
+	bool match = false, match2 = false;
+
+	if (!acvp_find_match(search->modulename, mod_info->module_name,
+			     search->modulename_fuzzy_search) ||
+	    !acvp_find_match(search->moduleversion, mod_info->module_version,
+			     search->moduleversion_fuzzy_search) ||
+	    !acvp_find_match(search->orig_modulename,
+			     mod_info->orig_module_name, false) ||
+	    !acvp_find_match(search->vendorname, vendor->vendor_name,
+			     search->vendorname_fuzzy_search))
+		return -ENOENT;
+
+	for (def_dep = oe->def_dep; def_dep != NULL; def_dep = def_dep->next) {
+		switch (def_dep->def_dependency_type) {
+		case def_dependency_firmware:
+		case def_dependency_os:
+		case def_dependency_software:
+			match |= acvp_find_match(search->execenv, def_dep->name,
+						 search->execenv_fuzzy_search);
+			break;
+		case def_dependency_hardware:
+			match2 |=
+				acvp_find_match(search->processor,
+						def_dep->proc_name,
+						search->processor_fuzzy_search);
+			break;
+		default:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Unknown OE dependency type\n");
+			return -ENOENT;
+		}
+	}
+
+	if (!match || !match2)
+		return -ENOENT;
+
+	return 0;
+}
+
+const struct definition *acvp_find_def(const struct acvp_search_ctx *search,
+				       const struct definition *processed_ptr)
+{
+	const struct definition *tmp_def = NULL;
 
 	mutex_reader_lock(&def_mutex);
 
@@ -162,8 +256,7 @@ struct definition *acvp_find_def(const struct acvp_search_ctx *search,
 		 * Guarantee that the pointer is valid as we unlock the mutex
 		 * when returning.
 		 */
-		for (tmp_def = def_head;
-		     tmp_def != NULL;
+		for (tmp_def = def_head; tmp_def != NULL;
 		     tmp_def = tmp_def->next) {
 			if (tmp_def == processed_ptr)
 				break;
@@ -181,34 +274,17 @@ struct definition *acvp_find_def(const struct acvp_search_ctx *search,
 		tmp_def = def_head;
 	}
 
-	for ( ; tmp_def != NULL; tmp_def = tmp_def->next) {
-		const struct def_vendor *vendor = tmp_def->vendor;
-		const struct def_info *mod_info = tmp_def->info;
-		const struct def_oe *oe = tmp_def->oe;
+	for (; tmp_def != NULL; tmp_def = tmp_def->next) {
+		int ret = acvp_match_def_search(search, tmp_def);
 
-		if (!acvp_find_match(search->modulename,
-				     mod_info->module_name,
-				     search->modulename_fuzzy_search))
+		if (ret == -ENOENT)
 			continue;
+		else if (ret) {
+			tmp_def = NULL;
+			goto out;
+		}
 
-		if (!acvp_find_match(search->moduleversion,
-				     mod_info->module_version,
-				     search->moduleversion_fuzzy_search))
-			continue;
-
-		if (!acvp_find_match(search->vendorname,
-				     vendor->vendor_name,
-				     search->vendorname_fuzzy_search))
-			continue;
-
-		if (!acvp_find_match(search->execenv,
-				     oe->oe_env_name,
-				     search->execenv_fuzzy_search))
-			continue;
-
-		if (!acvp_find_match(search->processor,
-				     oe->proc_name,
-				     search->processor_fuzzy_search))
+		if (search->with_es_def && !tmp_def->es)
 			continue;
 
 		break;
@@ -217,6 +293,92 @@ struct definition *acvp_find_def(const struct acvp_search_ctx *search,
 out:
 	mutex_reader_unlock(&def_mutex);
 	return tmp_def;
+}
+
+static int acvp_export_def_search_dep_v1(const struct def_oe *oe,
+					 struct json_object *s)
+{
+	const struct def_dependency *def_dep;
+	int ret;
+	bool execenv_done = false, cpu_done = false;
+
+	for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->name && !execenv_done) {
+			CKINT(json_object_object_add(
+				s, "execenv",
+				json_object_new_string(def_dep->name)));
+			/* we only store one */
+			execenv_done = true;
+		}
+
+		if (def_dep->proc_name && def_dep->proc_family &&
+		    def_dep->proc_series && !cpu_done) {
+			CKINT(json_object_object_add(
+				s, "processor",
+				json_object_new_string(def_dep->proc_name)));
+			CKINT(json_object_object_add(
+				s, "processorFamily",
+				json_object_new_string(def_dep->proc_family)));
+			CKINT(json_object_object_add(
+				s, "processorSeries",
+				json_object_new_string(def_dep->proc_series)));
+			cpu_done = true;
+		}
+
+		if (execenv_done && cpu_done)
+			break;
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_export_def_search_dep_v2(const struct def_oe *oe,
+					 struct json_object *s)
+{
+	const struct def_dependency *def_dep;
+	struct json_object *array;
+	int ret;
+
+	array = json_object_new_array();
+	CKNULL(array, -ENOMEM);
+	CKINT(json_object_object_add(s, "dependencies", array));
+
+	for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
+		struct json_object *entry = json_object_new_object();
+
+		CKNULL(entry, -ENOMEM);
+		CKINT(json_object_array_add(array, entry));
+
+		switch (def_dep->def_dependency_type) {
+		case def_dependency_firmware:
+		case def_dependency_os:
+		case def_dependency_software:
+			CKINT(json_object_object_add(
+				entry, "execenv",
+				json_object_new_string(def_dep->name)));
+			break;
+		case def_dependency_hardware:
+			CKINT(json_object_object_add(
+				entry, "processor",
+				json_object_new_string(def_dep->proc_name)));
+			CKINT(json_object_object_add(
+				entry, "processorFamily",
+				json_object_new_string(def_dep->proc_family)));
+			CKINT(json_object_object_add(
+				entry, "processorSeries",
+				json_object_new_string(def_dep->proc_series)));
+			break;
+		default:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Unknown dependency type\n");
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+
+out:
+	return ret;
 }
 
 int acvp_export_def_search(const struct acvp_testid_ctx *testid_ctx)
@@ -238,27 +400,34 @@ int acvp_export_def_search(const struct acvp_testid_ctx *testid_ctx)
 	s = json_object_new_object();
 	CKNULL(s, -ENOMEM);
 
-	CKINT(json_object_object_add(s, "moduleName",
-			json_object_new_string(mod_info->module_name)));
-	CKINT(json_object_object_add(s, "moduleVersion",
-			json_object_new_string(mod_info->module_version)));
-	CKINT(json_object_object_add(s, "vendorName",
-			json_object_new_string(vendor->vendor_name)));
-	if (oe->oe_env_name)
-		CKINT(json_object_object_add(s, "execenv",
-				json_object_new_string(oe->oe_env_name)));
-	CKINT(json_object_object_add(s, "processor",
-			json_object_new_string(oe->proc_name)));
-	CKINT(json_object_object_add(s, "processorFamily",
-			json_object_new_string(oe->proc_family)));
-	CKINT(json_object_object_add(s, "processorSeries",
-			json_object_new_string(oe->proc_series)));
+	CKINT(json_object_object_add(
+		s, "moduleName",
+		json_object_new_string(mod_info->module_name)));
+	CKINT(json_object_object_add(
+		s, "moduleVersion",
+		json_object_new_string(mod_info->module_version)));
+	CKINT(json_object_object_add(
+		s, "vendorName", json_object_new_string(vendor->vendor_name)));
+
+	switch (oe->config_file_version) {
+	case 0:
+	case 1:
+		CKINT(acvp_export_def_search_dep_v1(oe, s));
+		break;
+	case 2:
+		CKINT(acvp_export_def_search_dep_v2(oe, s));
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Unknown dependency version\n");
+		ret = -EINVAL;
+		goto out;
+	}
 
 	/* Convert the JSON buffer into a string */
-	str = json_object_to_json_string_ext(s, JSON_C_TO_STRING_PRETTY  |
-					     JSON_C_TO_STRING_NOSLASHESCAPE);
-	CKNULL_LOG(str, -EFAULT,
-		   "JSON object conversion into string failed\n");
+	str = json_object_to_json_string_ext(
+		s, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
+	CKNULL_LOG(str, -EFAULT, "JSON object conversion into string failed\n");
 
 	/* Write the JSON data to disk */
 	tmp.buf = (uint8_t *)str;
@@ -271,28 +440,8 @@ out:
 	return ret;
 }
 
-static int acvp_match_def_search(struct acvp_search_ctx *search,
-				 const struct definition *def)
-{
-	const struct def_vendor *vendor = def->vendor;
-	const struct def_info *mod_info = def->info;
-	const struct def_oe *oe = def->oe;
-
-	if (!acvp_find_match(search->modulename, mod_info->module_name, false) ||
-	    !acvp_find_match(search->moduleversion, mod_info->module_version,
-			     false) ||
-	    !acvp_find_match(search->orig_modulename,
-			     mod_info->orig_module_name, false) ||
-	    !acvp_find_match(search->vendorname, vendor->vendor_name, false) ||
-	    !acvp_find_match(search->execenv, oe->oe_env_name, false) ||
-	    !acvp_find_match(search->processor, oe->proc_name, false)) {
-		return -ENOENT;
-	}
-	return 0;
-}
-
-int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
-		   struct json_object *def_config)
+static int acvp_match_def_v1(const struct acvp_testid_ctx *testid_ctx,
+			     const struct json_object *def_config)
 {
 	const struct definition *def = testid_ctx->def;
 	struct acvp_search_ctx search;
@@ -327,6 +476,69 @@ out:
 	return ret;
 }
 
+static int acvp_match_def_v2(const struct acvp_testid_ctx *testid_ctx,
+			     const struct json_object *def_config)
+{
+	const struct definition *def = testid_ctx->def;
+	struct acvp_search_ctx search;
+	struct json_object *dep_array;
+	unsigned int i;
+	int ret;
+
+	CKINT(json_find_key(def_config, "dependencies", &dep_array,
+			    json_type_array));
+
+	memset(&search, 0, sizeof(search));
+	CKINT(json_get_string(def_config, "moduleName",
+			      (const char **)&search.modulename));
+	CKINT(json_get_string(def_config, "moduleVersion",
+			      (const char **)&search.moduleversion));
+	CKINT(json_get_string(def_config, "vendorName",
+			      (const char **)&search.vendorname));
+	CKINT(acvp_match_def_search(&search, def));
+
+	for (i = 0; i < json_object_array_length(dep_array); i++) {
+		struct json_object *dep_entry =
+			json_object_array_get_idx(dep_array, i);
+
+		memset(&search, 0, sizeof(search));
+		CKNULL(dep_array, -EFAULT);
+
+		/*
+		 * no error checks, as we do not require these entries to be
+		 * found everywhere
+		 */
+		json_get_string(dep_entry, "execenv",
+				(const char **)&search.execenv);
+		json_get_string(dep_entry, "processor",
+				(const char **)&search.processor);
+		CKINT(acvp_match_def_search(&search, def));
+	}
+
+out:
+	if (ret) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Crypto definition for testID %u for current search does not match with old search\n",
+		       testid_ctx->testid);
+	} else {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Crypto definition for testID %u for current search matches with old search\n",
+		       testid_ctx->testid);
+	}
+	return ret;
+}
+
+int acvp_match_def(const struct acvp_testid_ctx *testid_ctx,
+		   const struct json_object *def_config)
+{
+	struct json_object *o;
+
+	if (json_find_key(def_config, "dependencies", &o, json_type_array))
+		return acvp_match_def_v1(testid_ctx, def_config);
+
+	return acvp_match_def_v2(testid_ctx, def_config);
+}
+
 DSO_PUBLIC
 int acvp_list_unregistered_definitions(void)
 {
@@ -337,12 +549,13 @@ int acvp_list_unregistered_definitions(void)
 	mutex_reader_lock(&def_uninstantiated_mutex);
 
 	for (map = def_uninstantiated_head; map != NULL; map = map->next)
-		fprintf(stderr, "%s | %s | %s\n",
-			map->algo_name, map->processor, map->impl_name);
+		fprintf(stderr, "%s | %s | %s\n", map->algo_name,
+			map->processor, map->impl_name);
 
 	mutex_reader_unlock(&def_uninstantiated_mutex);
 
-	fprintf(stderr, "\nUse this information to create instantiations by module definition configuration files\n");
+	fprintf(stderr,
+		"\nUse this information to create instantiations by module definition configuration files\n");
 
 	return 0;
 }
@@ -358,7 +571,7 @@ static void acvp_get_max(int *len, const char *str)
 DSO_PUBLIC
 int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 {
-	struct definition *def;
+	const struct definition *def;
 	unsigned int vsid = 0;
 	int v_len = 11, o_len = 2, p_len = 4, m_len = 11, mv_len = 7;
 	char bottomline[200];
@@ -375,25 +588,25 @@ int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 		const struct def_info *mod_info = def->info;
 		const struct def_vendor *vendor = def->vendor;
 		const struct def_oe *oe = def->oe;
+		const struct def_dependency *def_dep = oe->def_dep;
 
 		acvp_get_max(&v_len, vendor->vendor_name);
-		acvp_get_max(&o_len, oe->oe_env_name);
-		acvp_get_max(&p_len, oe->proc_name);
 		acvp_get_max(&m_len, mod_info->module_name);
 		acvp_get_max(&mv_len, mod_info->module_version);
+
+		for (; def_dep; def_dep = def_dep->next) {
+			acvp_get_max(&o_len, def_dep->name);
+			acvp_get_max(&p_len, def_dep->proc_name);
+		}
 
 		/* Check if we find another module definition. */
 		def = acvp_find_def(search, def);
 	}
 
 	/* Printing data */
-	fprintf(stderr, "%*s | %*s | %*s | %*s | %*s | %5s\n",
-		v_len, "Vendor Name",
-		o_len, "OE",
-		p_len, "Proc",
-		m_len, "Module Name",
-		mv_len, "Version",
-		"vsIDs");
+	fprintf(stderr, "%*s | %*s | %*s | %*s | %*s | %5s\n", v_len,
+		"Vendor Name", o_len, "OE", p_len, "Proc", m_len, "Module Name",
+		mv_len, "Version", "vsIDs");
 
 	def = acvp_find_def(search, NULL);
 	if (!def) {
@@ -406,13 +619,44 @@ int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 		const struct def_info *mod_info = def->info;
 		const struct def_vendor *vendor = def->vendor;
 		const struct def_oe *oe = def->oe;
+		const struct def_dependency *def_dep;
+		bool found = false;
 
-		fprintf(stderr, "%*s | %*s | %*s | %*s | %*s | %5u\n",
-			v_len, vendor->vendor_name,
-			o_len, oe->oe_env_name ? oe->oe_env_name : "",
-			p_len, oe->proc_name,
-			m_len, mod_info->module_name,
-			mv_len, mod_info->module_version,
+		//%*s | %*s | %*s | %*s | %5u\n",
+		fprintf(stderr, "%*s |", v_len, vendor->vendor_name);
+
+		for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
+			if (def_dep->name) {
+				if (found)
+					fprintf(stderr, " +");
+				fprintf(stderr, " %*s", o_len, def_dep->name);
+				found = true;
+			}
+		}
+
+		if (found)
+			fprintf(stderr, " | ");
+		else
+			fprintf(stderr, "%*s |", o_len, "");
+
+		found = false;
+		for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
+			if (def_dep->proc_name) {
+				if (found)
+					fprintf(stderr, " +");
+				fprintf(stderr, " %*s", p_len,
+					def_dep->proc_name);
+				found = true;
+			}
+		}
+
+		if (found)
+			fprintf(stderr, " | ");
+		else
+			fprintf(stderr, "%*s | ", p_len, "");
+
+		fprintf(stderr, "%*s | %*s | %5u\n", m_len,
+			mod_info->module_name, mv_len, mod_info->module_version,
 			def->num_algos);
 
 		vsid += def->num_algos;
@@ -435,15 +679,8 @@ int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 	return 0;
 }
 
-static void acvp_def_del_info(struct definition *def)
+void acvp_def_free_info(struct def_info *info)
 {
-	struct def_info *info;
-
-	if (!def || !def->info)
-		return;
-
-	info = def->info;
-
 	ACVP_PTR_FREE_NULL(info->module_name);
 	ACVP_PTR_FREE_NULL(info->impl_name);
 	ACVP_PTR_FREE_NULL(info->impl_description);
@@ -455,18 +692,23 @@ static void acvp_def_del_info(struct definition *def)
 	ACVP_PTR_FREE_NULL(info->module_description);
 	ACVP_PTR_FREE_NULL(info->def_module_file);
 	acvp_def_put_lock(info->def_lock);
+}
+
+static void acvp_def_del_info(struct definition *def)
+{
+	struct def_info *info;
+
+	if (!def || !def->info)
+		return;
+
+	info = def->info;
+
+	acvp_def_free_info(info);
 	ACVP_PTR_FREE_NULL(def->info);
 }
 
-static void acvp_def_del_vendor(struct definition *def)
+void acvp_def_free_vendor(struct def_vendor *vendor)
 {
-	struct def_vendor *vendor;
-
-	if (!def || !def->vendor)
-		return;
-
-	vendor = def->vendor;
-
 	ACVP_PTR_FREE_NULL(vendor->vendor_name);
 	ACVP_PTR_FREE_NULL(vendor->vendor_name_filesafe);
 	ACVP_PTR_FREE_NULL(vendor->vendor_url);
@@ -480,7 +722,56 @@ static void acvp_def_del_vendor(struct definition *def)
 	ACVP_PTR_FREE_NULL(vendor->addr_zipcode);
 	ACVP_PTR_FREE_NULL(vendor->def_vendor_file);
 	acvp_def_put_lock(vendor->def_lock);
+}
+
+static void acvp_def_del_vendor(struct definition *def)
+{
+	struct def_vendor *vendor;
+
+	if (!def || !def->vendor)
+		return;
+
+	vendor = def->vendor;
+
+	acvp_def_free_vendor(vendor);
 	ACVP_PTR_FREE_NULL(def->vendor);
+}
+
+static void acvp_def_free_dep(struct def_oe *oe)
+{
+	struct def_dependency *def_dep;
+
+	if (!oe)
+		return;
+
+	def_dep = oe->def_dep;
+
+	while (def_dep) {
+		struct def_dependency *tmp = def_dep;
+
+		ACVP_PTR_FREE_NULL(def_dep->name);
+		ACVP_PTR_FREE_NULL(def_dep->cpe);
+		ACVP_PTR_FREE_NULL(def_dep->swid);
+		ACVP_PTR_FREE_NULL(def_dep->description);
+		ACVP_PTR_FREE_NULL(def_dep->manufacturer);
+		ACVP_PTR_FREE_NULL(def_dep->proc_family);
+		ACVP_PTR_FREE_NULL(def_dep->proc_family_internal);
+		ACVP_PTR_FREE_NULL(def_dep->proc_name);
+		ACVP_PTR_FREE_NULL(def_dep->proc_series);
+
+		def_dep = def_dep->next;
+		free(tmp);
+	}
+}
+
+void acvp_def_free_oe(struct def_oe *oe)
+{
+	if (!oe)
+		return;
+
+	acvp_def_free_dep(oe);
+	ACVP_PTR_FREE_NULL(oe->def_oe_file);
+	acvp_def_put_lock(oe->def_lock);
 }
 
 static void acvp_def_del_oe(struct definition *def)
@@ -492,17 +783,7 @@ static void acvp_def_del_oe(struct definition *def)
 
 	oe = def->oe;
 
-	ACVP_PTR_FREE_NULL(oe->oe_env_name);
-	ACVP_PTR_FREE_NULL(oe->cpe);
-	ACVP_PTR_FREE_NULL(oe->swid);
-	ACVP_PTR_FREE_NULL(oe->oe_description);
-	ACVP_PTR_FREE_NULL(oe->manufacturer);
-	ACVP_PTR_FREE_NULL(oe->proc_family);
-	ACVP_PTR_FREE_NULL(oe->proc_family_internal);
-	ACVP_PTR_FREE_NULL(oe->proc_name);
-	ACVP_PTR_FREE_NULL(oe->proc_series);
-	ACVP_PTR_FREE_NULL(oe->def_oe_file);
-	acvp_def_put_lock(oe->def_lock);
+	acvp_def_free_oe(oe);
 	ACVP_PTR_FREE_NULL(def->oe);
 }
 
@@ -639,9 +920,53 @@ out:
 	return ret;
 }
 
+static int acvp_def_add_dep(struct def_oe *oe, const struct def_dependency *src)
+{
+	struct def_dependency *def_dep;
+	int ret;
+
+	CKNULL_LOG(oe, -EINVAL, "Definition context missing\n");
+
+	def_dep = calloc(1, sizeof(*def_dep));
+	CKNULL(def_dep, -ENOMEM);
+
+	/* Append to the end */
+	if (!oe->def_dep) {
+		oe->def_dep = def_dep;
+	} else {
+		struct def_dependency *tmp;
+
+		for (tmp = oe->def_dep; tmp; tmp = tmp->next) {
+			if (!tmp->next) {
+				tmp->next = def_dep;
+				break;
+			}
+		}
+	}
+
+	CKINT(acvp_duplicate(&def_dep->name, src->name));
+	CKINT(acvp_duplicate(&def_dep->cpe, src->cpe));
+	CKINT(acvp_duplicate(&def_dep->swid, src->swid));
+	CKINT(acvp_duplicate(&def_dep->description, src->description));
+	CKINT(acvp_duplicate(&def_dep->manufacturer, src->manufacturer));
+	CKINT(acvp_duplicate(&def_dep->proc_family, src->proc_family));
+	CKINT(acvp_duplicate(&def_dep->proc_family_internal,
+			     src->proc_family_internal));
+	CKINT(acvp_duplicate(&def_dep->proc_name, src->proc_name));
+	CKINT(acvp_duplicate(&def_dep->proc_series, src->proc_series));
+	def_dep->features = src->features;
+
+	def_dep->acvp_dep_id = src->acvp_dep_id;
+	def_dep->def_dependency_type = src->def_dependency_type;
+
+out:
+	return ret;
+}
+
 static int acvp_def_add_oe(struct definition *def, const struct def_oe *src)
 {
 	struct def_oe *oe;
+	struct def_dependency *def_dep;
 	int ret = 0;
 
 	CKNULL_LOG(def, -EINVAL, "Definition context missing\n");
@@ -650,24 +975,13 @@ static int acvp_def_add_oe(struct definition *def, const struct def_oe *src)
 	CKNULL(oe, -ENOMEM);
 	def->oe = oe;
 
-	oe->env_type = src->env_type;
-	CKINT(acvp_duplicate(&oe->oe_env_name, src->oe_env_name));
-	CKINT(acvp_duplicate(&oe->cpe, src->cpe));
-	CKINT(acvp_duplicate(&oe->swid, src->swid));
-	CKINT(acvp_duplicate(&oe->oe_description, src->oe_description));
-	CKINT(acvp_duplicate(&oe->manufacturer, src->manufacturer));
-	CKINT(acvp_duplicate(&oe->proc_family, src->proc_family));
-	CKINT(acvp_duplicate(&oe->proc_family_internal,
-			     src->proc_family_internal));
-	CKINT(acvp_duplicate(&oe->proc_name, src->proc_name));
-	CKINT(acvp_duplicate(&oe->proc_series, src->proc_series));
-	oe->features = src->features;
-
 	CKINT(acvp_duplicate(&oe->def_oe_file, src->def_oe_file));
-
-	oe->acvp_oe_dep_proc_id = src->acvp_oe_dep_proc_id;
-	oe->acvp_oe_dep_sw_id = src->acvp_oe_dep_sw_id;
 	oe->acvp_oe_id = src->acvp_oe_id;
+	oe->config_file_version = src->config_file_version;
+
+	for (def_dep = src->def_dep; def_dep; def_dep = def_dep->next) {
+		CKINT(acvp_def_add_dep(oe, def_dep));
+	}
 
 	/* Use a global lock for all OE definitions */
 	oe->def_lock = src->def_lock;
@@ -680,7 +994,7 @@ out:
 }
 
 static int acvp_def_add_deps(struct definition *def,
-			     struct json_object *json_deps,
+			     const struct json_object *json_deps,
 			     const enum acvp_deps_type dep_type)
 {
 	const struct def_info *info;
@@ -700,6 +1014,7 @@ static int acvp_def_add_deps(struct definition *def,
 	deps = def->deps;
 	info = def->info;
 	CKNULL_LOG(info, -EINVAL, "Module meta data missing\n");
+	CKNULL(info->impl_name, 0);
 
 	/* Try finding the dependency for our definition */
 	ret = json_find_key(json_deps, info->impl_name, &my_dep,
@@ -711,7 +1026,8 @@ static int acvp_def_add_deps(struct definition *def,
 	}
 
 	/* Iterate over the one or more entries found in the configuration */
-	json_object_object_foreachC(my_dep, one_dep) {
+	json_object_object_foreachC(my_dep, one_dep)
+	{
 		/* Allocate a linked-list entry for the definition */
 		if (deps) {
 			/* fast-forward to the end */
@@ -774,6 +1090,7 @@ static int acvp_def_wire_deps(void)
 		const struct def_vendor *vendor;
 		const struct def_oe *oe;
 		const struct def_info *curr_info;
+		const struct def_dependency *def_dep;
 		struct def_deps *deps;
 		struct acvp_search_ctx search;
 
@@ -789,8 +1106,20 @@ static int acvp_def_wire_deps(void)
 		search.orig_modulename = curr_info->orig_module_name;
 		search.moduleversion = curr_info->module_version;
 		search.vendorname = vendor->vendor_name;
-		search.execenv = oe->oe_env_name;
-		search.processor = oe->proc_name;
+
+		for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
+			if (def_dep->name) {
+				search.execenv = def_dep->name;
+				break;
+			}
+		}
+
+		for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
+			if (def_dep->proc_name) {
+				search.processor = def_dep->proc_name;
+				break;
+			}
+		}
 
 		/* Iterate through the dependencies */
 		for (deps = curr_def->deps; deps != NULL; deps = deps->next) {
@@ -808,8 +1137,7 @@ static int acvp_def_wire_deps(void)
 			 * Search through all definitions for a match of the
 			 * impl_name.
 			 */
-			for (s_def = def_head;
-			     s_def != NULL;
+			for (s_def = def_head; s_def != NULL;
 			     s_def = s_def->next) {
 				struct def_info *info = s_def->info;
 
@@ -859,11 +1187,12 @@ static int acvp_def_wire_deps(void)
 			 * If we did not find anything, the references are
 			 * wrong
 			 */
-			CKNULL_LOG(deps->dependency, -EINVAL,
-				   "Unmatched dependency for %s: type %s -> %s (vendor name: %s, OE %s, processor %s)\n",
-				   curr_info->impl_name, deps->dep_cipher,
-				   deps->dep_name, search.vendorname,
-				   search.execenv, search.processor);
+			CKNULL_LOG(
+				deps->dependency, -EINVAL,
+				"Unmatched dependency for %s: type %s -> %s (vendor name: %s, OE %s, processor %s)\n",
+				curr_info->impl_name, deps->dep_cipher,
+				deps->dep_name, search.vendorname,
+				search.execenv, search.processor);
 		}
 	}
 
@@ -881,8 +1210,10 @@ static int acvp_def_init(struct definition **def_out,
 	def = calloc(1, sizeof(*def));
 	CKNULL(def, -ENOMEM);
 
-	def->algos = map->algos;
-	def->num_algos = map->num_algos;
+	if (map) {
+		def->algos = map->algos;
+		def->num_algos = map->num_algos;
+	}
 
 	*def_out = def;
 
@@ -901,6 +1232,7 @@ static void acvp_def_release(struct definition *def)
 	acvp_def_del_vendor(def);
 	acvp_def_del_info(def);
 	acvp_def_del_deps(def);
+	esvp_def_es_free(def->es);
 	free(def);
 }
 
@@ -938,8 +1270,9 @@ static int acvp_def_write_json(struct json_object *config, const char *pathname)
 	if (fd < 0)
 		return -errno;
 
-	ret = json_object_to_fd(fd, config, JSON_C_TO_STRING_PRETTY |
-				JSON_C_TO_STRING_NOSLASHESCAPE);
+	ret = json_object_to_fd(fd, config,
+				JSON_C_TO_STRING_PRETTY |
+					JSON_C_TO_STRING_NOSLASHESCAPE);
 
 	close(fd);
 
@@ -971,8 +1304,8 @@ out:
 	return ret;
 }
 
-static int acvp_def_set_value(struct json_object *json,
-			      const char *name, const uint32_t id, bool *set)
+static int acvp_def_set_value(struct json_object *json, const char *name,
+			      const uint32_t id, bool *set)
 {
 	struct json_object *val;
 	uint32_t tmp;
@@ -1034,8 +1367,7 @@ static int acvp_def_update_id(const char *pathname,
 			continue;
 
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Updating entry %s with %u\n",
-		       list[i].name, list[i].id);
+		       "Updating entry %s with %u\n", list[i].name, list[i].id);
 		CKINT(acvp_def_set_value(config, list[i].name, list[i].id,
 					 &updated));
 	}
@@ -1048,8 +1380,8 @@ out:
 	return ret;
 }
 
-static int acvp_def_set_str(struct json_object *json,
-			    const char *name, const char *str, bool *set)
+static int acvp_def_set_str(struct json_object *json, const char *name,
+			    const char *str, bool *set)
 {
 	struct json_object *val;
 	int ret;
@@ -1068,8 +1400,7 @@ static int acvp_def_set_str(struct json_object *json,
 		if (!str)
 			return 0;
 
-		json_object_object_add(json, name,
-				       json_object_new_string(str));
+		json_object_object_add(json, name, json_object_new_string(str));
 		*set = true;
 		return 0;
 	}
@@ -1119,8 +1450,8 @@ static int acvp_def_update_str(const char *pathname,
 			continue;
 
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Updating entry %s with %s\n",
-		       list[i].name, list[i].str);
+		       "Updating entry %s with %s\n", list[i].name,
+		       list[i].str);
 		CKINT(acvp_def_set_str(config, list[i].name, list[i].str,
 				       &updated));
 	}
@@ -1132,10 +1463,7 @@ out:
 	return ret;
 }
 
-#define ACVP_DEF_PRODUCTION_ID(x)					\
-	(acvp_req_is_production() ? x "Production" : x)
-
-static void acvp_def_read_vendor_id(struct json_object *vendor_config,
+static void acvp_def_read_vendor_id(const struct json_object *vendor_config,
 				    struct def_vendor *def_vendor)
 {
 	/*
@@ -1170,7 +1498,7 @@ out:
 	return ret;
 }
 
-static int acvp_def_update_vendor_id(struct def_vendor *def_vendor)
+static int acvp_def_update_vendor_id(const struct def_vendor *def_vendor)
 {
 	struct acvp_def_update_id_entry list[2];
 
@@ -1182,7 +1510,7 @@ static int acvp_def_update_vendor_id(struct def_vendor *def_vendor)
 	return acvp_def_update_id(def_vendor->def_vendor_file, list, 2);
 }
 
-int acvp_def_put_vendor_id(struct def_vendor *def_vendor)
+int acvp_def_put_vendor_id(const struct def_vendor *def_vendor)
 {
 	int ret;
 
@@ -1196,7 +1524,7 @@ out:
 	return ret;
 }
 
-static void acvp_def_read_person_id(struct json_object *vendor_config,
+static void acvp_def_read_person_id(const struct json_object *vendor_config,
 				    struct def_vendor *def_vendor)
 {
 	/*
@@ -1232,7 +1560,7 @@ out:
 	return ret;
 }
 
-static int acvp_def_update_person_id(struct def_vendor *def_vendor)
+static int acvp_def_update_person_id(const struct def_vendor *def_vendor)
 {
 	struct acvp_def_update_id_entry list;
 
@@ -1242,7 +1570,7 @@ static int acvp_def_update_person_id(struct def_vendor *def_vendor)
 	return acvp_def_update_id(def_vendor->def_vendor_file, &list, 1);
 }
 
-int acvp_def_put_person_id(struct def_vendor *def_vendor)
+int acvp_def_put_person_id(const struct def_vendor *def_vendor)
 {
 	int ret;
 
@@ -1256,20 +1584,92 @@ out:
 	return ret;
 }
 
-static void acvp_def_read_oe_id(struct json_object *oe_config,
-			        struct def_oe *def_oe)
+static void acvp_def_read_oe_id_v1(const struct json_object *oe_config,
+				   struct def_oe *def_oe)
 {
-	/*
-	 * No error handling - in case we cannot find entry, it will be
-	 * created.
-	 */
+	struct def_dependency *def_dep;
 
 	json_get_uint(oe_config, ACVP_DEF_PRODUCTION_ID("acvpOeId"),
 		      &def_oe->acvp_oe_id);
-	json_get_uint(oe_config, ACVP_DEF_PRODUCTION_ID("acvpOeDepProcId"),
-		      &def_oe->acvp_oe_dep_proc_id);
-	json_get_uint(oe_config, ACVP_DEF_PRODUCTION_ID("acvpOeDepSwId"),
-		      &def_oe->acvp_oe_dep_sw_id);
+
+	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->def_dependency_type == def_dependency_hardware) {
+			json_get_uint(oe_config,
+				      ACVP_DEF_PRODUCTION_ID("acvpOeDepProcId"),
+				      &def_dep->acvp_dep_id);
+		}
+
+		if (def_dep->def_dependency_type == def_dependency_software) {
+			json_get_uint(oe_config,
+				      ACVP_DEF_PRODUCTION_ID("acvpOeDepSwId"),
+				      &def_dep->acvp_dep_id);
+		}
+	}
+}
+
+static int acvp_def_oe_config_get_deps(const struct def_oe *def_oe,
+				       const struct json_object *config,
+				       struct json_object **dep_array_out)
+{
+	struct json_object *dep_array;
+	struct def_dependency *def_dep;
+	unsigned int i = 0;
+	int ret;
+
+	CKINT(json_find_key(config, "oeDependencies", &dep_array,
+			    json_type_array));
+
+	/*
+	 * The following loop implicitly assumes that the order of the entries
+	 * in the in-memory linked list are identical to the order of the
+	 * entries in the JSON array found in the configuration file.
+	 */
+	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next)
+		i++;
+
+	if (i != json_object_array_length(dep_array)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "JSON configuration file %s inconsistent with in-memory representation of the file read during startup\n",
+		       def_oe->def_oe_file);
+		ret = -EFAULT;
+		goto out;
+	}
+
+	*dep_array_out = dep_array;
+
+out:
+	return ret;
+}
+
+static void acvp_def_read_oe_id_v2(struct json_object *oe_config,
+				   struct def_oe *def_oe)
+{
+	struct json_object *dep_array;
+	struct def_dependency *def_dep;
+	unsigned int i = 0;
+
+	if (acvp_def_oe_config_get_deps(def_oe, oe_config, &dep_array))
+		return;
+
+	json_get_uint(oe_config, ACVP_DEF_PRODUCTION_ID("acvpId"),
+		      &def_oe->acvp_oe_id);
+
+	/*
+	 * Iterate over configuration file dependency array and in-memory
+	 * dependency definition in unison.
+	 */
+	for (def_dep = def_oe->def_dep, i = 0;
+	     def_dep && (i < json_object_array_length(dep_array));
+	     def_dep = def_dep->next, i++) {
+		struct json_object *dep_entry =
+			json_object_array_get_idx(dep_array, i);
+
+		if (!dep_entry)
+			continue;
+
+		json_get_uint(dep_entry, ACVP_DEF_PRODUCTION_ID("acvpId"),
+			      &def_dep->acvp_dep_id);
+	}
 }
 
 int acvp_def_get_oe_id(struct def_oe *def_oe)
@@ -1277,13 +1677,34 @@ int acvp_def_get_oe_id(struct def_oe *def_oe)
 	struct json_object *oe_config = NULL;
 	int ret = 0;
 
+	if (!def_oe)
+		return 0;
+
 	acvp_def_lock_lock(def_oe->def_lock);
 
 	CKINT_LOG(acvp_def_read_json(&oe_config, def_oe->def_oe_file),
 		  "Cannot parse operational environment config file %s\n",
 		  def_oe->def_oe_file);
 
-	acvp_def_read_oe_id(oe_config, def_oe);
+	/*
+	 * No error handling - in case we cannot find entry, it will be
+	 * created.
+	 */
+	switch (def_oe->config_file_version) {
+	case 0:
+	case 1:
+		acvp_def_read_oe_id_v1(oe_config, def_oe);
+		break;
+	case 2:
+		acvp_def_read_oe_id_v2(oe_config, def_oe);
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Unknown OE configuration file version %u\n",
+		       def_oe->config_file_version);
+		ret = -EFAULT;
+		goto out;
+	}
 
 out:
 	if (ret)
@@ -1293,53 +1714,135 @@ out:
 	return ret;
 }
 
-static int acvp_def_update_oe_id(struct def_oe *def_oe)
+static int acvp_def_update_oe_id_v1(const struct def_oe *def_oe)
 {
 	struct acvp_def_update_id_entry list[3];
+	struct def_dependency *def_dep;
 
 	list[0].name = ACVP_DEF_PRODUCTION_ID("acvpOeId");
 	list[0].id = def_oe->acvp_oe_id;
 	list[1].name = ACVP_DEF_PRODUCTION_ID("acvpOeDepProcId");
-	list[1].id = def_oe->acvp_oe_dep_proc_id;
+	list[1].id = 0;
 	list[2].name = ACVP_DEF_PRODUCTION_ID("acvpOeDepSwId");
-	list[2].id = def_oe->acvp_oe_dep_sw_id;
+	list[2].id = 0;
+
+	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->def_dependency_type == def_dependency_hardware) {
+			list[1].id = def_dep->acvp_dep_id;
+		}
+
+		if (def_dep->def_dependency_type == def_dependency_software) {
+			list[2].id = def_dep->acvp_dep_id;
+		}
+	}
 
 	return acvp_def_update_id(def_oe->def_oe_file, list, 3);
 }
 
-int acvp_def_put_oe_id(struct def_oe *def_oe)
+static int acvp_def_update_oe_id_v2(const struct def_oe *def_oe)
+{
+	struct json_object *config = NULL, *dep_array;
+	struct def_dependency *def_dep;
+	unsigned int i = 0;
+	int ret = 0;
+	bool updated = false;
+
+	CKINT_LOG(acvp_def_read_json(&config, def_oe->def_oe_file),
+		  "Cannot parse config file %s\n", def_oe->def_oe_file);
+
+	CKINT(acvp_def_oe_config_get_deps(def_oe, config, &dep_array));
+
+	CKINT(acvp_def_set_value(config, ACVP_DEF_PRODUCTION_ID("acvpId"),
+				 def_oe->acvp_oe_id, &updated));
+
+	/*
+	 * Iterate over configuration file dependency array and in-memory
+	 * dependency definition in unison.
+	 */
+	for (def_dep = def_oe->def_dep, i = 0;
+	     def_dep && (i < json_object_array_length(dep_array));
+	     def_dep = def_dep->next, i++) {
+		struct json_object *dep_entry =
+			json_object_array_get_idx(dep_array, i);
+
+		CKNULL(dep_entry, -EINVAL);
+
+		CKINT(acvp_def_set_value(dep_entry,
+					 ACVP_DEF_PRODUCTION_ID("acvpId"),
+					 def_dep->acvp_dep_id, &updated));
+	}
+
+	if (updated)
+		CKINT(acvp_def_write_json(config, def_oe->def_oe_file));
+
+out:
+	ACVP_JSON_PUT_NULL(config);
+	return ret;
+}
+
+int acvp_def_put_oe_id(const struct def_oe *def_oe)
 {
 	int ret;
 
 	if (!def_oe)
 		return 0;
 
-	CKINT(acvp_def_update_oe_id(def_oe));
+	switch (def_oe->config_file_version) {
+	case 0:
+	case 1:
+		CKINT(acvp_def_update_oe_id_v1(def_oe));
+		break;
+	case 2:
+		CKINT(acvp_def_update_oe_id_v2(def_oe));
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Unknown OE configuration file version %u\n",
+		       def_oe->config_file_version);
+		ret = -EFAULT;
+		goto out;
+	}
 	acvp_def_lock_unlock(def_oe->def_lock);
 
 out:
 	return ret;
 }
 
-int acvp_def_update_oe_config(const struct def_oe *def_oe)
+static int acvp_def_update_oe_config_v1(const struct def_oe *def_oe)
 {
 	struct acvp_def_update_string_entry str_list[7];
+	struct def_dependency *def_dep;
 	int ret;
 
 	str_list[0].name = "oeEnvName";
-	str_list[0].str = def_oe->oe_env_name;
+	str_list[0].str = NULL;
 	str_list[1].name = "cpe";
-	str_list[1].str = def_oe->cpe;
+	str_list[1].str = NULL;
 	str_list[2].name = "swid";
-	str_list[2].str = def_oe->swid;
+	str_list[2].str = NULL;
 	str_list[3].name = "manufacturer";
-	str_list[3].str = def_oe->manufacturer;
+	str_list[3].str = NULL;
 	str_list[4].name = "procFamily";
-	str_list[4].str = def_oe->proc_family;
+	str_list[4].str = NULL;
 	str_list[5].name = "procName";
-	str_list[5].str = def_oe->proc_name;
+	str_list[5].str = NULL;
 	str_list[6].name = "procSeries";
-	str_list[6].str = def_oe->proc_series;
+	str_list[6].str = NULL;
+
+	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->def_dependency_type == def_dependency_hardware) {
+			str_list[3].str = def_dep->manufacturer;
+			str_list[4].str = def_dep->proc_family;
+			str_list[5].str = def_dep->proc_name;
+			str_list[6].str = def_dep->proc_series;
+		}
+
+		if (def_dep->def_dependency_type == def_dependency_software) {
+			str_list[0].str = def_dep->name;
+			str_list[1].str = def_dep->cpe;
+			str_list[2].str = def_dep->swid;
+		}
+	}
 
 	acvp_def_lock_lock(def_oe->def_lock);
 	ret = acvp_def_update_str(def_oe->def_oe_file, str_list,
@@ -1349,8 +1852,101 @@ int acvp_def_update_oe_config(const struct def_oe *def_oe)
 	return ret;
 }
 
-static int acvp_def_find_module_id(struct def_info *def_info,
-				   struct json_object *config,
+static int acvp_def_update_oe_config_v2(const struct def_oe *def_oe)
+{
+	struct json_object *config = NULL, *dep_array;
+	struct def_dependency *def_dep;
+	unsigned int i = 0;
+	int ret = 0;
+	bool updated = false;
+
+	acvp_def_lock_lock(def_oe->def_lock);
+
+	CKINT_LOG(acvp_def_read_json(&config, def_oe->def_oe_file),
+		  "Cannot parse config file %s\n", def_oe->def_oe_file);
+
+	CKINT(acvp_def_oe_config_get_deps(def_oe, config, &dep_array));
+
+	/*
+	 * Iterate over configuration file dependency array and in-memory
+	 * dependency definition in unison.
+	 */
+	for (def_dep = def_oe->def_dep, i = 0;
+	     def_dep && (i < json_object_array_length(dep_array));
+	     def_dep = def_dep->next, i++) {
+		struct json_object *dep_entry =
+			json_object_array_get_idx(dep_array, i);
+
+		CKNULL(dep_entry, -EINVAL);
+
+		switch (def_dep->def_dependency_type) {
+		case def_dependency_firmware:
+		case def_dependency_os:
+		case def_dependency_software:
+			CKINT(acvp_def_set_str(dep_entry, "oeEnvName",
+					       def_dep->name, &updated));
+			CKINT(acvp_def_set_str(dep_entry, "cpe", def_dep->cpe,
+					       &updated));
+			CKINT(acvp_def_set_str(dep_entry, "swid", def_dep->swid,
+					       &updated));
+			break;
+		case def_dependency_hardware:
+			CKINT(acvp_def_set_str(dep_entry, "manufacturer",
+					       def_dep->manufacturer,
+					       &updated));
+			CKINT(acvp_def_set_str(dep_entry, "procFamily",
+					       def_dep->proc_family, &updated));
+			CKINT(acvp_def_set_str(dep_entry, "procName",
+					       def_dep->proc_name, &updated));
+			CKINT(acvp_def_set_str(dep_entry, "procSeries",
+					       def_dep->proc_series, &updated));
+			break;
+		default:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Unknown OE dependency type\n");
+			ret = -EFAULT;
+			goto out;
+		}
+	}
+
+	if (updated)
+		CKINT(acvp_def_write_json(config, def_oe->def_oe_file));
+
+out:
+	acvp_def_lock_unlock(def_oe->def_lock);
+	ACVP_JSON_PUT_NULL(config);
+	return ret;
+}
+
+int acvp_def_update_oe_config(const struct def_oe *def_oe)
+{
+	int ret;
+
+	if (!def_oe)
+		return 0;
+
+	switch (def_oe->config_file_version) {
+	case 0:
+	case 1:
+		CKINT(acvp_def_update_oe_config_v1(def_oe));
+		break;
+	case 2:
+		CKINT(acvp_def_update_oe_config_v2(def_oe));
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Unknown OE configuration file version %u\n",
+		       def_oe->config_file_version);
+		ret = -EFAULT;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_def_find_module_id(const struct def_info *def_info,
+				   const struct json_object *config,
 				   struct json_object **entry)
 {
 	struct json_object *id_list, *id_entry = NULL;
@@ -1373,7 +1969,7 @@ static int acvp_def_find_module_id(struct def_info *def_info,
 				      ACVP_DEF_PRODUCTION_ID("acvpModuleName"),
 				      &str));
 		if (strncmp(def_info->module_name, str,
-				strlen(def_info->module_name)))
+			    strlen(def_info->module_name)))
 			continue;
 
 		found = true;
@@ -1390,7 +1986,8 @@ out:
 	return ret;
 }
 
-static int acvp_def_read_module_id(struct def_info *def_info, uint32_t *id)
+static int acvp_def_read_module_id(const struct def_info *def_info,
+				   uint32_t *id)
 {
 	struct json_object *config = NULL;
 	struct json_object *entry;
@@ -1428,7 +2025,7 @@ int acvp_def_get_module_id(struct def_info *def_info)
 	return 0;
 }
 
-static int acvp_def_update_module_id(struct def_info *def_info)
+static int acvp_def_update_module_id(const struct def_info *def_info)
 {
 	struct json_object *config = NULL, *id_list, *id_entry;
 	int ret = 0;
@@ -1444,9 +2041,8 @@ static int acvp_def_update_module_id(struct def_info *def_info)
 	ret = acvp_def_find_module_id(def_info, config, &id_entry);
 	if (ret) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-			       "Adding entry %s with %u\n",
-			       def_info->module_name,
-			       def_info->acvp_module_id);
+		       "Adding entry %s with %u\n", def_info->module_name,
+		       def_info->acvp_module_id);
 
 		ret = json_find_key(config,
 				    ACVP_DEF_PRODUCTION_ID("acvpModuleIds"),
@@ -1458,26 +2054,26 @@ static int acvp_def_update_module_id(struct def_info *def_info)
 			 */
 			id_list = json_object_new_array();
 			CKNULL(id_list, -ENOMEM);
-			CKINT(json_object_object_add(config,
-				ACVP_DEF_PRODUCTION_ID("acvpModuleIds"),
-						     id_list));
+			CKINT(json_object_object_add(
+				config, ACVP_DEF_PRODUCTION_ID("acvpModuleIds"),
+				id_list));
 		}
 
 		id_entry = json_object_new_object();
 		CKNULL(id_entry, -ENOMEM);
 		CKINT(json_object_array_add(id_list, id_entry));
 
-		CKINT(json_object_object_add(id_entry,
-				ACVP_DEF_PRODUCTION_ID("acvpModuleName"),
-				json_object_new_string(def_info->module_name)));
-		CKINT(json_object_object_add(id_entry,
-			ACVP_DEF_PRODUCTION_ID("acvpModuleId"),
+		CKINT(json_object_object_add(
+			id_entry, ACVP_DEF_PRODUCTION_ID("acvpModuleName"),
+			json_object_new_string(def_info->module_name)));
+		CKINT(json_object_object_add(
+			id_entry, ACVP_DEF_PRODUCTION_ID("acvpModuleId"),
 			json_object_new_int((int)def_info->acvp_module_id)));
 		updated = true;
 	} else {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-			       "Updating entry %s with %u\n",
-			       def_info->module_name, def_info->acvp_module_id);
+		       "Updating entry %s with %u\n", def_info->module_name,
+		       def_info->acvp_module_id);
 		CKINT(acvp_def_set_value(id_entry,
 					 ACVP_DEF_PRODUCTION_ID("acvpModuleId"),
 					 def_info->acvp_module_id, &updated));
@@ -1538,7 +2134,7 @@ static int acvp_check_features(const uint64_t feature)
 	return 0;
 }
 
-static int acvp_def_load_deps(struct json_object *config,
+static int acvp_def_load_deps(const struct json_object *config,
 			      struct definition *def)
 {
 	struct json_object *deps_int = NULL, *deps_ext = NULL;
@@ -1551,17 +2147,247 @@ static int acvp_def_load_deps(struct json_object *config,
 		      json_type_object);
 
 	/* First stage of dependencies */
-	CKINT(acvp_def_add_deps(def, deps_int,
-				acvp_deps_automated_resolution));
-	CKINT(acvp_def_add_deps(def, deps_ext,
-				acvp_deps_manual_resolution));
+	CKINT(acvp_def_add_deps(def, deps_int, acvp_deps_automated_resolution));
+	CKINT(acvp_def_add_deps(def, deps_ext, acvp_deps_manual_resolution));
 
 out:
 	return ret;
 }
 
-static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
-				const char *info_file, const char *impl_file)
+static int acvp_def_load_config_dep_typed(const struct json_object *dep_entry,
+					  struct def_dependency *def_dep,
+					  const char **local_proc_family)
+{
+	int ret;
+
+	CKNULL(dep_entry, -EINVAL);
+
+	switch (def_dep->def_dependency_type) {
+	case def_dependency_firmware:
+	case def_dependency_os:
+	case def_dependency_software:
+		ret = json_get_string(dep_entry, "oeEnvName",
+				      (const char **)&def_dep->name);
+		if (ret < 0) {
+			struct json_object *o = NULL;
+
+			CKINT(json_find_key(dep_entry, "oeEnvName", &o,
+					    json_type_null));
+			def_dep->name = NULL;
+		}
+		/*
+		* No error handling - one or more may not exist.
+		*/
+		json_get_string(dep_entry, "cpe", (const char **)&def_dep->cpe);
+		json_get_string(dep_entry, "swid",
+				(const char **)&def_dep->swid);
+		json_get_string(dep_entry, "oe_description",
+				(const char **)&def_dep->description);
+		break;
+	case def_dependency_hardware:
+		CKINT(json_get_string(dep_entry, "manufacturer",
+				      (const char **)&def_dep->manufacturer));
+		CKINT(json_get_string(dep_entry, "procFamily",
+				      (const char **)&def_dep->proc_family));
+		/* This is an option */
+		json_get_string(dep_entry, "procFamilyInternal",
+				(const char **)&def_dep->proc_family_internal);
+		CKINT(json_get_string(dep_entry, "procName",
+				      (const char **)&def_dep->proc_name));
+		CKINT(json_get_string(dep_entry, "procSeries",
+				      (const char **)&def_dep->proc_series));
+		CKINT(json_get_uint(dep_entry, "features",
+				    (uint32_t *)&def_dep->features));
+		CKINT(acvp_check_features(def_dep->features));
+		*local_proc_family = def_dep->proc_family_internal ?
+						   def_dep->proc_family_internal :
+						   def_dep->proc_family;
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Unknown OE dependency type\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_def_load_config_dep(struct json_object *dep_entry,
+				    struct def_dependency *def_dep,
+				    const char **local_proc_family)
+{
+	const char *str;
+	int ret;
+
+	CKNULL(dep_entry, -EINVAL);
+
+	CKINT(json_get_string(dep_entry, "dependencyType", &str));
+	CKINT(acvp_dep_name2type(str, &def_dep->def_dependency_type));
+	CKINT(acvp_def_load_config_dep_typed(dep_entry, def_dep,
+					     local_proc_family));
+
+out:
+	return ret;
+}
+
+static int acvp_def_load_config_oe(const struct json_object *oe_config,
+				   struct def_oe *oe,
+				   const char **local_proc_family)
+{
+	struct def_dependency def_dep;
+	struct json_object *dep_array;
+	int ret;
+
+	CKINT(acvp_def_alloc_lock(&oe->def_lock));
+
+	/* Check whether we have old or new style configuration file */
+	ret = json_find_key(oe_config, "oeDependencies", &dep_array,
+			    json_type_array);
+
+	if (!ret) {
+		/* We have version 2 configuration file */
+		struct json_object *oe_name;
+		unsigned int i;
+		/*
+		 * Sanity check: if any of the following entries are found,
+		 * the user has a mix-n-match of v1 and v2 config files.
+		 */
+		if (!json_find_key(oe_config, "oeEnvName", &oe_name,
+				   json_type_string) ||
+		    !json_find_key(oe_config, "oeEnvName", &oe_name,
+				   json_type_null) ||
+		    !json_find_key(oe_config, "manufacturer", &oe_name,
+				   json_type_string))
+			goto v2_err;
+
+		oe->config_file_version = 2;
+
+		for (i = 0; i < json_object_array_length(dep_array); i++) {
+			struct json_object *dep_entry =
+				json_object_array_get_idx(dep_array, i);
+
+			memset(&def_dep, 0, sizeof(def_dep));
+
+			CKINT_LOG(
+				acvp_def_load_config_dep(dep_entry, &def_dep,
+							 local_proc_family),
+				"Loading of dependency configuration %u failed\n",
+				i);
+			CKINT(acvp_def_add_dep(oe, &def_dep));
+		}
+
+		goto out;
+	}
+
+	/* We have version 1 configuration file */
+	memset(&def_dep, 0, sizeof(def_dep));
+
+	/* Software dependency */
+	oe->config_file_version = 1;
+	def_dep.def_dependency_type = def_dependency_software;
+	CKINT(acvp_def_load_config_dep_typed(oe_config, &def_dep,
+					     local_proc_family));
+	CKINT(acvp_def_add_dep(oe, &def_dep));
+
+	/* Processor dependency */
+	memset(&def_dep, 0, sizeof(def_dep));
+	def_dep.def_dependency_type = def_dependency_hardware;
+	CKINT(acvp_def_load_config_dep_typed(oe_config, &def_dep,
+					     local_proc_family));
+	CKINT(acvp_def_add_dep(oe, &def_dep));
+
+	/* We do not read the dependency ID here */
+
+#if 0
+	if (!oe.cpe && !oe.swid) {
+		logger(LOGGER_ERR, LOGGER_C_ANY, "CPE or SWID missing\n");
+		ret = -EINVAL;
+		goto out;
+	}
+#endif
+
+	/* We do not read the OE and dependency ID here */
+
+out:
+	return ret;
+
+v2_err:
+	logger(LOGGER_ERR, LOGGER_C_ANY,
+	       "Mix-n-match of v1 and v2 style OE configuration not permissible\n");
+	ret = -EINVAL;
+	goto out;
+}
+
+static int acvp_def_load_config_module(const struct json_object *info_config,
+				       struct def_info *info,
+				       const char **local_module_name)
+{
+	int ret;
+
+	CKINT(acvp_def_alloc_lock(&info->def_lock));
+	CKINT(json_get_string(info_config, "moduleName",
+			      (const char **)&info->module_name));
+	/* This is an option */
+	json_get_string(info_config, "moduleNameInternal",
+			(const char **)&info->module_name_internal);
+	CKINT(json_get_string(info_config, "moduleVersion",
+			      (const char **)&info->module_version));
+	CKINT(json_get_string(info_config, "moduleDescription",
+			      (const char **)&info->module_description));
+	CKINT(json_get_uint(info_config, "moduleType",
+			    (uint32_t *)&info->module_type));
+	CKINT(acvp_module_oe_type(info->module_type, NULL));
+
+	/* Shall we use the internal name for the mapping lookup? */
+	*local_module_name = info->module_name_internal ?
+					   info->module_name_internal :
+					   info->module_name;
+
+	/* We do not read the module ID here */
+
+out:
+	return ret;
+}
+
+static int acvp_def_load_config_vendor(const struct json_object *vendor_config,
+				       struct def_vendor *vendor)
+{
+	int ret;
+
+	CKINT(acvp_def_alloc_lock(&vendor->def_lock));
+	CKINT(json_get_string(vendor_config, "vendorName",
+			      (const char **)&vendor->vendor_name));
+	CKINT(json_get_string(vendor_config, "vendorUrl",
+			      (const char **)&vendor->vendor_url));
+	CKINT(json_get_string(vendor_config, "contactName",
+			      (const char **)&vendor->contact_name));
+	CKINT(json_get_string(vendor_config, "contactEmail",
+			      (const char **)&vendor->contact_email));
+	/* no error handling */
+	json_get_string(vendor_config, "contactPhone",
+			(const char **)&vendor->contact_phone);
+	CKINT(json_get_string(vendor_config, "addressStreet",
+			      (const char **)&vendor->addr_street));
+	CKINT(json_get_string(vendor_config, "addressCity",
+			      (const char **)&vendor->addr_locality));
+	CKINT(json_get_string(vendor_config, "addressState",
+			      (const char **)&vendor->addr_region));
+	CKINT(json_get_string(vendor_config, "addressCountry",
+			      (const char **)&vendor->addr_country));
+	CKINT(json_get_string(vendor_config, "addressZip",
+			      (const char **)&vendor->addr_zipcode));
+
+	/* We do not read the vendor and person IDs here */
+
+out:
+	return ret;
+}
+
+static int acvp_def_load_config(const char *basedir, const char *oe_file,
+				const char *vendor_file, const char *info_file,
+				const char *impl_file)
 {
 	struct json_object *oe_config = NULL, *vendor_config = NULL,
 			   *info_config = NULL, *impl_config = NULL,
@@ -1571,153 +2397,68 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 	struct def_oe oe;
 	struct def_info info;
 	struct def_vendor vendor;
-	const char *local_module_name, *local_proc_family;
+
+	const char *local_module_name, *local_proc_family = NULL;
 	int ret;
+	bool registered = false;
 
 	memset(&oe, 0, sizeof(oe));
 	memset(&info, 0, sizeof(info));
 	memset(&vendor, 0, sizeof(vendor));
 
-	CKNULL_LOG(oe_file, -EINVAL,
-		   "No operational environment file name given for definition config\n");
+	CKNULL_LOG(
+		oe_file, -EINVAL,
+		"No operational environment file name given for definition config\n");
 	CKNULL_LOG(vendor_file, -EINVAL,
 		   "No vendor file name given for definition config\n");
-	CKNULL_LOG(info_file, -EINVAL,
-		   "No module information file name given for definition config\n");
-	CKNULL_LOG(impl_file, -EINVAL,
-		   "No module implementation definition file name given for definition config\n");
+	CKNULL_LOG(
+		info_file, -EINVAL,
+		"No module information file name given for definition config\n");
+	CKNULL_LOG(
+		impl_file, -EINVAL,
+		"No module implementation definition file name given for definition config\n");
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Reading module definitions from %s, %s, %s, %s\n",
-	       oe_file, vendor_file, info_file, impl_file);
+	       "Reading module definitions from %s, %s, %s, %s\n", oe_file,
+	       vendor_file, info_file, impl_file);
 
-	CKINT(acvp_def_alloc_lock(&oe.def_lock));
+	/* Load OE configuration */
 	CKINT_LOG(acvp_def_read_json(&oe_config, oe_file),
 		  "Cannot parse operational environment config file %s\n",
 		  oe_file);
-	ret = json_get_string(oe_config, "oeEnvName",
-			      (const char **)&oe.oe_env_name);
-	if (ret < 0) {
-		struct json_object *o = NULL;
-
-		CKINT(json_find_key(oe_config, "oeEnvName", &o,
-				    json_type_null));
-		oe.oe_env_name = NULL;
-	}
-
-	CKINT(json_get_string(oe_config, "manufacturer",
-			      (const char **)&oe.manufacturer));
-	CKINT(json_get_string(oe_config, "procFamily",
-			      (const char **)&oe.proc_family));
-	/* This is an option */
-	json_get_string(oe_config, "procFamilyInternal",
-			(const char **)&oe.proc_family_internal);
-	CKINT(json_get_string(oe_config, "procName",
-			      (const char **)&oe.proc_name));
-	CKINT(json_get_string(oe_config, "procSeries",
-			      (const char **)&oe.proc_series));
-	CKINT(json_get_uint(oe_config, "features", (uint32_t *)&oe.features));
-	CKINT(acvp_check_features(oe.features));
-
-	/* Allow numeric or string-based name */
-	ret = json_get_uint(oe_config, "envType", (uint32_t *)&oe.env_type);
-	if (!ret) {
-		CKINT(acvp_module_oe_type(oe.env_type, NULL));
-	} else {
-		const char *oe_type_str;
-		CKINT(json_get_string(oe_config, "envType", &oe_type_str));
-		CKINT_LOG(acvp_module_type_name_to_enum(oe_type_str,
-							&oe.env_type),
-			  "OE envType is allowed to only hold 'Hardware', 'Software' or 'Firmware', but string %s found in file %s\n",
-			  oe_type_str ? oe_type_str : "(null)", oe_file);
-	}
-
-	/* Shall we use the internal name for the mapping lookup? */
-	local_proc_family = oe.proc_family_internal ?
-			    oe.proc_family_internal : oe.proc_family;
-
-	/*
-	 * No error handling - one or more may not exist.
-	 */
-	json_get_string(oe_config, "cpe", (const char **)&oe.cpe);
-	json_get_string(oe_config, "swid", (const char **)&oe.swid);
-	json_get_string(oe_config, "oe_description",
-			(const char **)&oe.oe_description);
-#if 0
-	if (!oe.cpe && !oe.swid) {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "CPE or SWID missing\n");
-		ret = -EINVAL;
-		goto out;
-	}
-#endif
-
-	/* We do not read the OE / dependencies IDs here */
-
+	CKINT_LOG(acvp_def_load_config_oe(oe_config, &oe, &local_proc_family),
+		  "Loading of OE configuration file %s failed\n", oe_file);
+	if (!local_proc_family)
+		local_proc_family = "unknown processor family";
 	/* Unconstify harmless, because data will be duplicated */
 	oe.def_oe_file = (char *)oe_file;
 
-	CKINT(acvp_def_alloc_lock(&info.def_lock));
+	/* Load module configuration */
 	CKINT_LOG(acvp_def_read_json(&info_config, info_file),
 		  "Cannot parse module information config file %s\n",
 		  info_file);
-	CKINT(json_get_string(info_config, "moduleName",
-			      (const char **)&info.module_name));
-	/* This is an option */
-	json_get_string(info_config, "moduleNameInternal",
-			(const char **)&info.module_name_internal);
-	CKINT(json_get_string(info_config, "moduleVersion",
-			      (const char **)&info.module_version));
-	CKINT(json_get_string(info_config, "moduleDescription",
-			      (const char **)&info.module_description));
-	CKINT(json_get_uint(info_config, "moduleType",
-			    (uint32_t *)&info.module_type));
-	CKINT(acvp_module_oe_type(info.module_type, NULL));
-
-	/* Shall we use the internal name for the mapping lookup? */
-	local_module_name = info.module_name_internal ?
-			    info.module_name_internal : info.module_name;
-
-	/* We do not read the module ID here */
-
+	CKINT_LOG(acvp_def_load_config_module(info_config, &info,
+					      &local_module_name),
+		  "Loading of module configuration file %s failed\n",
+		  info_file);
 	/* Unconstify harmless, because data will be duplicated */
 	info.def_module_file = (char *)info_file;
 
-	CKINT(acvp_def_alloc_lock(&vendor.def_lock));
+	/* Load vendor configuration */
 	CKINT_LOG(acvp_def_read_json(&vendor_config, vendor_file),
 		  "Cannot parse vendor information config file %s\n",
 		  vendor_file);
-	CKINT(json_get_string(vendor_config, "vendorName",
-			      (const char **)&vendor.vendor_name));
-	CKINT(json_get_string(vendor_config, "vendorUrl",
-			      (const char **)&vendor.vendor_url));
-	CKINT(json_get_string(vendor_config, "contactName",
-			      (const char **)&vendor.contact_name));
-	CKINT(json_get_string(vendor_config, "contactEmail",
-			      (const char **)&vendor.contact_email));
-	/* no error handling */
-	json_get_string(vendor_config, "contactPhone",
-			(const char **)&vendor.contact_phone);
-	CKINT(json_get_string(vendor_config, "addressStreet",
-			      (const char **)&vendor.addr_street));
-	CKINT(json_get_string(vendor_config, "addressCity",
-			      (const char **)&vendor.addr_locality));
-	CKINT(json_get_string(vendor_config, "addressState",
-			      (const char **)&vendor.addr_region));
-	CKINT(json_get_string(vendor_config, "addressCountry",
-			      (const char **)&vendor.addr_country));
-	CKINT(json_get_string(vendor_config, "addressZip",
-			      (const char **)&vendor.addr_zipcode));
-
-	/* We do not read the vendor and person IDs here */
-
+	CKINT_LOG(acvp_def_load_config_vendor(vendor_config, &vendor),
+		  "Loading of vendor configuration file %s failed\n",
+		  vendor_file);
 	/* Unconstify harmless, because data will be duplicated */
 	vendor.def_vendor_file = (char *)vendor_file;
 
 	CKINT_LOG(acvp_def_read_json(&impl_config, impl_file),
 		  "Cannot parse cipher implementations config file %s\n",
 		  impl_file);
-	CKINT(json_find_key(impl_config, "implementations",
-			    &impl_array, json_type_array));
+	CKINT(json_find_key(impl_config, "implementations", &impl_array,
+			    json_type_array));
 
 	mutex_lock(&def_uninstantiated_mutex);
 
@@ -1757,12 +2498,13 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 		/* Instantiate mapping into definition. */
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Algorithm map for name %s, processor %s found\n",
-		       info.module_name, oe.proc_family);
+		       info.module_name, local_proc_family);
 		CKINT_ULCK(acvp_def_init(&def, map));
 		CKINT_ULCK(acvp_def_add_oe(def, &oe));
 		CKINT_ULCK(acvp_def_add_vendor(def, &vendor));
 		CKINT_ULCK(acvp_def_add_info(def, &info, map->impl_name,
 					     map->impl_description));
+		CKINT_ULCK(esvp_def_config(basedir, &def->es));
 
 		/* First stage of dependencies */
 		CKINT_ULCK(acvp_def_load_deps(impl_config, def));
@@ -1771,6 +2513,27 @@ static int acvp_def_load_config(const char *oe_file, const char *vendor_file,
 		CKINT_ULCK(acvp_def_load_deps(info_config, def));
 
 		def->uninstantiated_def = map;
+
+		acvp_register_def(def);
+
+		registered = true;
+	}
+
+	if (!registered) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Register %s without cipher definition\n",
+		       info.module_name);
+		CKINT_ULCK(acvp_def_init(&def, NULL));
+		CKINT_ULCK(acvp_def_add_oe(def, &oe));
+		CKINT_ULCK(acvp_def_add_vendor(def, &vendor));
+		CKINT_ULCK(acvp_def_add_info(def, &info, NULL, NULL));
+		CKINT_ULCK(esvp_def_config(basedir, &def->es));
+
+		/* First stage of dependencies */
+		CKINT_ULCK(acvp_def_load_deps(impl_config, def));
+		CKINT_ULCK(acvp_def_load_deps(oe_config, def));
+		CKINT_ULCK(acvp_def_load_deps(vendor_config, def));
+		CKINT_ULCK(acvp_def_load_deps(info_config, def));
 
 		acvp_register_def(def);
 	}
@@ -1782,6 +2545,7 @@ out:
 	ACVP_JSON_PUT_NULL(vendor_config);
 	ACVP_JSON_PUT_NULL(info_config);
 	ACVP_JSON_PUT_NULL(impl_config);
+	acvp_def_free_dep(&oe);
 
 	/*
 	 * In error case, acvp_def_release will free the lock, in successful
@@ -1809,11 +2573,11 @@ int acvp_def_config(const char *directory)
 	DIR *oe_dir = NULL, *vendor_dir = NULL, *info_dir = NULL,
 	    *impl_dir = NULL;
 	char oe_pathname[FILENAME_MAX - 257],
-	     vendor_pathname[FILENAME_MAX - 257],
-	     info_pathname[FILENAME_MAX - 257],
-	     impl_pathname[FILENAME_MAX  - 257];
+		vendor_pathname[FILENAME_MAX - 257],
+		info_pathname[FILENAME_MAX - 257],
+		impl_pathname[FILENAME_MAX - 257];
 	char oe[FILENAME_MAX], vendor[FILENAME_MAX], info[FILENAME_MAX],
-	     impl[FILENAME_MAX];
+		impl[FILENAME_MAX];
 	int ret = 0;
 
 	CKNULL_LOG(directory, -EINVAL, "Configuration directory missing\n");
@@ -1864,14 +2628,17 @@ int acvp_def_config(const char *directory)
 				snprintf(oe, sizeof(oe), "%s/%s", oe_pathname,
 					 oe_dirent->d_name);
 
-				while ((impl_dirent = readdir(impl_dir)) != NULL) {
-					if (!acvp_def_usable_dirent(impl_dirent))
+				while ((impl_dirent = readdir(impl_dir)) !=
+				       NULL) {
+					if (!acvp_def_usable_dirent(
+						    impl_dirent))
 						continue;
 
 					snprintf(impl, sizeof(impl), "%s/%s",
 						 impl_pathname,
 						 impl_dirent->d_name);
-					CKINT(acvp_def_load_config(oe, vendor,
+					CKINT(acvp_def_load_config(directory,
+								   oe, vendor,
 								   info, impl));
 				}
 				rewinddir(impl_dir);
@@ -1912,7 +2679,7 @@ int acvp_def_default_config(const char *config_basedir)
 	DIR *dir = NULL;
 	char configdir[255];
 	char pathname[FILENAME_MAX];
-	int ret = 0;
+	int ret = 0, errsv;
 
 	if (config_basedir) {
 		snprintf(configdir, sizeof(configdir), "%s", config_basedir);
@@ -1920,8 +2687,18 @@ int acvp_def_default_config(const char *config_basedir)
 		snprintf(configdir, sizeof(configdir), "%s",
 			 ACVP_DEF_DEFAULT_CONFIG_DIR);
 	}
+
 	dir = opendir(configdir);
-	CKNULL_LOG(dir, -errno, "Failed to open directory %s\n",
+	errsv = errno;
+
+	if (!dir && errsv == ENOENT) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Configuration directory %s not present, skipping\n",
+		       configdir);
+		goto out;
+	}
+
+	CKNULL_LOG(dir, -errsv, "Failed to open directory %s\n",
 		   ACVP_DEF_DEFAULT_CONFIG_DIR);
 
 	while ((dirent = readdir(dir)) != NULL) {
@@ -1933,8 +2710,8 @@ int acvp_def_default_config(const char *config_basedir)
 		if (dirent->d_type != DT_DIR)
 			continue;
 
-		snprintf(pathname, sizeof(pathname), "%s/%s",
-			 configdir, dirent->d_name);
+		snprintf(pathname, sizeof(pathname), "%s/%s", configdir,
+			 dirent->d_name);
 
 		CKINT(acvp_def_config(pathname));
 	}
@@ -1973,8 +2750,7 @@ void acvp_register_algo_map(struct def_algo_map *curr_map,
 	}
 
 	/* Find the last entry to append the current map. */
-	for (tmp_map = def_uninstantiated_head;
-	     tmp_map != NULL;
+	for (tmp_map = def_uninstantiated_head; tmp_map != NULL;
 	     tmp_map = tmp_map->next) {
 		/* do not re-register */
 		if (curr_map == tmp_map)

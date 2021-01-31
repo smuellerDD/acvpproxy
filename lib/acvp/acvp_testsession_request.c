@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for requesting test vectors
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "acvp_error_handler.h"
 #include "atomic_bool.h"
 #include "logger.h"
 #include "acvpproxy.h"
@@ -63,8 +64,8 @@ void acvp_op_enable(void)
 	atomic_bool_set_false(&acvp_op_interrupted);
 }
 
-int acvp_testid_url(const struct acvp_testid_ctx *testid_ctx,
-		    char *url, const uint32_t urllen, const bool urlpath)
+int acvp_testid_url(const struct acvp_testid_ctx *testid_ctx, char *url,
+		    const uint32_t urllen, const bool urlpath)
 {
 	int ret;
 
@@ -351,23 +352,28 @@ static int acvp_req_build(const struct acvp_testid_ctx *testid_ctx,
 	entry = json_object_new_object();
 	CKNULL(entry, -ENOMEM);
 
-	CKINT(json_object_object_add(entry, "isSample",
-	       json_object_new_boolean(ctx->req_details.request_sample)));
+	CKINT(json_object_object_add(
+		entry, "isSample",
+		json_object_new_boolean(ctx->req_details.request_sample)));
 
 	CKINT(json_object_object_add(entry, "operation",
 				     json_object_new_string("register")));
-	CKINT(json_object_object_add(entry, "certificateRequest",
+	CKINT(json_object_object_add(
+		entry, "certificateRequest",
 		json_object_new_string(
-			req_details->certificateRequest ? "yes" : "no" )));
-	CKINT(json_object_object_add(entry, "debugRequest",
-		json_object_new_string(
-			req_details->debugRequest ? "yes" : "no" )));
-	CKINT(json_object_object_add(entry, "production",
-		json_object_new_string(
-			req_details->production ? "yes" : "no" )));
-	CKINT(json_object_object_add(entry, "encryptAtRest",
-		json_object_new_string(
-			req_details->encryptAtRest ? "yes" : "no" )));
+			req_details->certificateRequest ? "yes" : "no")));
+	CKINT(json_object_object_add(
+		entry, "debugRequest",
+		json_object_new_string(req_details->debugRequest ? "yes" :
+									 "no")));
+	CKINT(json_object_object_add(
+		entry, "production",
+		json_object_new_string(req_details->production ? "yes" :
+								       "no")));
+	CKINT(json_object_object_add(
+		entry, "encryptAtRest",
+		json_object_new_string(req_details->encryptAtRest ? "yes" :
+									  "no")));
 
 	algorithms = json_object_new_array();
 	CKNULL(algorithms, -ENOMEM);
@@ -407,10 +413,9 @@ out:
  * Fetch data and process potential retry responses
  */
 int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
-		       struct acvp_buf *result_data,
-		       const char *url,
-	int (*debug_logger)(const struct acvp_vsid_ctx *vsid_ctx,
-			    const struct acvp_buf *buf, int err))
+		       struct acvp_buf *result_data, const char *url,
+		       int (*debug_logger)(const struct acvp_vsid_ctx *vsid_ctx,
+					   const struct acvp_buf *buf, int err))
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct definition *def = testid_ctx->def;
@@ -421,14 +426,15 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 
 	while (1) {
 		if (vsid_ctx->vsid) {
-			logger_status(LOGGER_C_ANY,
-				      "(Re)Try testID %u / vsID %u (%u / %u done)\n",
-				      testid_ctx->testid, vsid_ctx->vsid,
-				      atomic_read(&glob_vsids_processed),
-				      atomic_read(&glob_vsids_to_process));
+			logger_status(
+				LOGGER_C_ANY,
+				"(Re)Try testID %u / vsID %u (%u / %u done)\n",
+				testid_ctx->testid, vsid_ctx->vsid,
+				atomic_read(&glob_vsids_processed),
+				atomic_read(&glob_vsids_to_process));
 		} else {
-			logger(LOGGER_VERBOSE, LOGGER_C_ANY, "(Re)Try testID %u\n",
-			       testid_ctx->testid);
+			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+			       "(Re)Try testID %u\n", testid_ctx->testid);
 		}
 
 		ret2 = acvp_net_op(testid_ctx, url, NULL, result_data,
@@ -477,17 +483,18 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 out:
 	if (ret) {
 		if (ret == -EINTR || ret == -ESHUTDOWN) {
-			logger_status(LOGGER_C_ANY,
-				      "Interrupted processing testID %u with vsID %u (%d)\n",
-				      testid_ctx->testid, vsid_ctx->vsid, ret);
+			logger_status(
+				LOGGER_C_ANY,
+				"Interrupted processing testID %u with vsID %u (%d)\n",
+				testid_ctx->testid, vsid_ctx->vsid, ret);
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "Failure in processing testID %u with vsID %u (%d) for module %s (%s)\n",
 			       testid_ctx->testid, vsid_ctx->vsid, ret,
 			       (info && info->module_name) ? info->module_name :
-							     "<undefined>",
+								   "<undefined>",
 			       (info && info->impl_name) ? info->impl_name :
-							   "<undefined>");
+								 "<undefined>");
 		}
 	}
 
@@ -496,8 +503,7 @@ out:
 }
 
 int acvp_process_retry_testid(const struct acvp_testid_ctx *testid_ctx,
-			      struct acvp_buf *result_data,
-			      const char *url)
+			      struct acvp_buf *result_data, const char *url)
 {
 	struct acvp_vsid_ctx vsid_ctx;
 
@@ -526,8 +532,7 @@ int acvp_get_testvectors_expected(const struct acvp_vsid_ctx *vsid_ctx)
 
 	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url), false));
 	CKINT(acvp_expected_url(url, sizeof(url)));
-	CKINT(acvp_process_retry(vsid_ctx, &buf, url,
-				 acvp_store_vector_debug));
+	CKINT(acvp_process_retry(vsid_ctx, &buf, url, acvp_store_vector_debug));
 	CKINT(ds->acvp_datastore_write_vsid(vsid_ctx, datastore->expectedfile,
 					    false, &buf));
 
@@ -576,13 +581,13 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 	CKINT(acvp_vsid_url(vsid_ctx, url, sizeof(url), false));
 
 	/* Do the actual download of the vsID */
-	ret2 = acvp_process_retry(vsid_ctx, &buf, url,
-				  acvp_store_vector_debug);
+	ret2 = acvp_process_retry(vsid_ctx, &buf, url, acvp_store_vector_debug);
 
 	/* Initialize the vsID directory for later potential re-load. */
-	CKINT(acvp_store_vector_status(vsid_ctx,
-				       "vsID HTTP GET operation completed with return code %d\n",
-				       ret2));
+	CKINT(acvp_store_vector_status(
+		vsid_ctx,
+		"vsID HTTP GET operation completed with return code %d\n",
+		ret2));
 
 	if (ret2 < 0) {
 		ret = ret2;
@@ -610,8 +615,8 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 	CKNULL_LOG(tmp.buf, -EINVAL, "Client certificate reference missing\n");
 
 	tmp.len = (uint32_t)strlen((char *)tmp.buf);
-	CKINT(ds->acvp_datastore_write_vsid(vsid_ctx, datastore->signer,
-					    true, &tmp));
+	CKINT(ds->acvp_datastore_write_vsid(vsid_ctx, datastore->signer, true,
+					    &tmp));
 
 	CKINT(acvp_get_testvectors_expected(vsid_ctx));
 
@@ -680,7 +685,7 @@ static int acvp_get_vsid_array(const struct json_object *response,
 
 	for (i = 0; i < array->entries; i++) {
 		struct json_object *vsid_url =
-				json_object_array_get_idx(vectorsets, i);
+			json_object_array_get_idx(vectorsets, i);
 
 		if (!json_object_is_type(vsid_url, json_type_string)) {
 			json_logger(LOGGER_WARN, LOGGER_C_ANY, vsid_url,
@@ -778,8 +783,7 @@ static int acvp_process_vectors(const struct acvp_testid_ctx *testid_ctx,
 		}
 
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Fetching data for vsID %u\n",
-		       vsid_ctx->vsid);
+		       "Fetching data for vsID %u\n", vsid_ctx->vsid);
 
 #ifdef ACVP_USE_PTHREAD
 		/* Disable threading in DEBUG mode */
@@ -883,34 +887,30 @@ static int acvp_register_dump_request(const struct acvp_testid_ctx *testid_ctx,
 	localtime_r(&now, &now_detail);
 
 	snprintf(filename, sizeof(filename),
-		 "%s-%d%.2d%.2d_%.2d-%.2d-%.2d.json",
-		 ACVP_DS_DEF_REQUEST,
-		 now_detail.tm_year + 1900,
-		 now_detail.tm_mon + 1,
-		 now_detail.tm_mday,
-		 now_detail.tm_hour,
-		 now_detail.tm_min,
+		 "%s-%d%.2d%.2d_%.2d-%.2d-%.2d.json", ACVP_DS_DEF_REQUEST,
+		 now_detail.tm_year + 1900, now_detail.tm_mon + 1,
+		 now_detail.tm_mday, now_detail.tm_hour, now_detail.tm_min,
 		 now_detail.tm_sec);
 
-	json_request = json_object_to_json_string_ext(request,
-					JSON_C_TO_STRING_PRETTY  |
-					JSON_C_TO_STRING_NOSLASHESCAPE);
+	json_request = json_object_to_json_string_ext(
+		request,
+		JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
 	CKNULL_LOG(json_request, -ENOMEM,
 		   "JSON object conversion into string failed\n");
 
 	register_buf.buf = (uint8_t *)json_request;
 	register_buf.len = (uint32_t)strlen(json_request);
-	CKINT_LOG(ds->acvp_datastore_write_testid(testid_ctx, filename,
-						  true, &register_buf),
+	CKINT_LOG(ds->acvp_datastore_write_testid(testid_ctx, filename, true,
+						  &register_buf),
 		  "Cannot write file (%d) %s\n", ret, filename);
 
 out:
 	return ret;
 }
 
-static int acvp_get_testid(struct acvp_testid_ctx *testid_ctx,
-			   struct json_object *request,
-			   struct json_object *register_response)
+int acvp_get_testid(struct acvp_testid_ctx *testid_ctx,
+		    struct json_object *request,
+		    struct json_object *register_response)
 {
 	int ret;
 	char *str;
@@ -993,26 +993,6 @@ out:
 	return ret;
 }
 
-/* Process any return code from the ACVP server */
-static int acvp_request_error_handler(const int request_ret)
-{
-	enum acvp_error_code code;
-
-	if (request_ret <= 0)
-		return request_ret;
-
-	code = (enum acvp_error_code)request_ret;
-
-	switch (code) {
-	case ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING:
-	case ACVP_ERR_NO_ERR:
-	case ACVP_ERR_RESPONSE_REJECTED:
-	case ACVP_ERR_AUTH_JWT_EXPIRED:
-	default:
-		return -request_ret;
-	}
-}
-
 /* POST /testSessions */
 static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 {
@@ -1021,7 +1001,7 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	const struct definition *def = testid_ctx->def;
 	const struct def_info *info = def->info;
 	struct json_object *request = NULL;
-	ACVP_BUFFER_INIT(register_buf);
+	ACVP_EXT_BUFFER_INIT(register_buf);
 	ACVP_BUFFER_INIT(response_buf);
 	const char *json_request;
 	char url[ACVP_NET_URL_MAXLEN];
@@ -1046,17 +1026,18 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	 */
 	if (req_details->dump_register) {
 		fprintf(stdout, "%s\n",
-			json_object_to_json_string_ext(request,
-					JSON_C_TO_STRING_PRETTY |
+			json_object_to_json_string_ext(
+				request,
+				JSON_C_TO_STRING_PRETTY |
 					JSON_C_TO_STRING_NOSLASHESCAPE));
 		ret = 0;
 		goto out;
 	}
 
 	/* Convert the JSON buffer into a string */
-	json_request = json_object_to_json_string_ext(request,
-					JSON_C_TO_STRING_PLAIN  |
-					JSON_C_TO_STRING_NOSLASHESCAPE);
+	json_request = json_object_to_json_string_ext(
+		request,
+		JSON_C_TO_STRING_PLAIN | JSON_C_TO_STRING_NOSLASHESCAPE);
 	CKNULL_LOG(json_request, -ENOMEM,
 		   "JSON object conversion into string failed\n");
 
@@ -1073,8 +1054,7 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 		testid_ctx->sig_cancel_send_delete = false;
 
 	/* Store the debug version of the result unconditionally. */
-	CKINT(acvp_store_register_debug(testid_ctx, &response_buf,
-					ret2));
+	CKINT(acvp_store_register_debug(testid_ctx, &response_buf, ret2));
 
 	CKINT(acvp_request_error_handler(ret2));
 
@@ -1123,11 +1103,13 @@ void acvp_record_testid_duration(const struct acvp_testid_ctx *testid_ctx,
 }
 
 static int _acvp_register(const struct acvp_ctx *ctx,
-			  const struct definition *def)
+			  const struct definition *def, uint32_t testid)
 {
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	int ret;
+
+	(void)testid;
 
 	/* Put the context on heap for signal handler */
 	testid_ctx = calloc(1, sizeof(*testid_ctx));
@@ -1148,7 +1130,7 @@ out:
 		       "Not all test vectors obtained for testID %u (%u missing) - use options --testid %u --request to retry fetching them\n",
 		       testid_ctx->testid,
 		       atomic_read(&testid_ctx->vsids_to_process) -
-		       atomic_read(&testid_ctx->vsids_processed),
+			       atomic_read(&testid_ctx->vsids_processed),
 		       testid_ctx->testid);
 
 		acvp_record_failed_testid(testid_ctx->testid);
@@ -1169,29 +1151,31 @@ out:
 	return ret;
 }
 
-
 #ifdef ACVP_USE_PTHREAD
 static int acvp_register_thread(void *arg)
 {
 	struct acvp_thread_reqresp_ctx *tdata = arg;
 	const struct acvp_ctx *ctx = tdata->ctx;
 	const struct definition *def = tdata->def;
+	int (*cb)(const struct acvp_ctx *ctx, const struct definition *def,
+		  const uint32_t testid) = tdata->cb;
 
 	free(tdata);
 
 	thread_set_name(acvp_testid, 0);
 
-	return _acvp_register(ctx, def);
+	return cb(ctx, def, 0);
 }
 #endif
 
-DSO_PUBLIC
-int acvp_register(const struct acvp_ctx *ctx)
+int acvp_register_cb(const struct acvp_ctx *ctx,
+		     int (*cb)(const struct acvp_ctx *ctx,
+			       const struct definition *def, uint32_t testid))
 {
 	const struct acvp_datastore_ctx *datastore;
 	const struct acvp_search_ctx *search;
 	const struct acvp_opts_ctx *opts;
-	struct definition *def;
+	const struct definition *def;
 	int ret = 0;
 
 	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
@@ -1235,7 +1219,7 @@ int acvp_register(const struct acvp_ctx *ctx)
 		if (opts->threading_disabled) {
 			logger(LOGGER_DEBUG, LOGGER_C_ANY,
 			       "Disable threading support\n");
-			CKINT(_acvp_register(ctx, def));
+			CKINT(cb(ctx, def, 0));
 		} else {
 			struct acvp_thread_reqresp_ctx *tdata;
 			int ret_ancestor;
@@ -1245,6 +1229,7 @@ int acvp_register(const struct acvp_ctx *ctx)
 				   "Failed to allocate memory\n");
 			tdata->ctx = ctx;
 			tdata->def = def;
+			tdata->cb = cb;
 			ret = thread_start(acvp_register_thread, tdata, 0,
 					   &ret_ancestor);
 			if (ret) {
@@ -1255,7 +1240,7 @@ int acvp_register(const struct acvp_ctx *ctx)
 			ret |= ret_ancestor;
 		}
 #else
-		CKINT(_acvp_register(ctx, def));
+		CKINT(cb(ctx, def, 0));
 #endif
 
 		/* Check if we find another module definition. */
@@ -1269,4 +1254,10 @@ out:
 #endif
 
 	return ret;
+}
+
+DSO_PUBLIC
+int acvp_register(const struct acvp_ctx *ctx)
+{
+	return acvp_register_cb(ctx, &_acvp_register);
 }

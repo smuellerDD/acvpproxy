@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -31,8 +31,7 @@
 #include "definition_cipher_kas_kdf_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /****************************************************************************
@@ -100,12 +99,19 @@ struct def_algo_hkdf {
 	 *
 	 * required: always
 	 */
-#define DEF_ALG_KAS_HKDF_MAC_SALT_UNDEFINED	(0)
+#define DEF_ALG_KAS_HKDF_MAC_SALT_UNDEFINED (0)
 	/* All bytes are zero bytes */
-#define DEF_ALG_KAS_HKDF_MAC_SALT_DEFAULT	(1<<0)
+#define DEF_ALG_KAS_HKDF_MAC_SALT_DEFAULT (1 << 0)
 	/* Random salt */
-#define DEF_ALG_KAS_HKDF_MAC_SALT_RANDOM	(1<<1)
+#define DEF_ALG_KAS_HKDF_MAC_SALT_RANDOM (1 << 1)
 	unsigned int mac_salt_method;
+
+	/*
+	 * Length of the salt value
+	 *
+	 * required: optional
+	 */
+	int saltlen;
 
 	/*
 	 * The pattern and encoding used for fixedInfo construction.
@@ -115,7 +121,8 @@ struct def_algo_hkdf {
 	 *
 	 * required: always
 	 */
-	enum kas_kdf_fixedinfo_pattern fixed_info_pattern_type[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN];
+	enum kas_kdf_fixedinfo_pattern
+		fixed_info_pattern_type[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN];
 	const char *literal;
 	enum kas_kdf_fixedinfo_encoding fixed_info_encoding;
 

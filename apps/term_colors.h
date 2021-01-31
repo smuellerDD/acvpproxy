@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -24,34 +24,33 @@
 #include <stdio.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-#define TERM_COLOR_NORMAL	"\x1B[0m"
-#define TERM_COLOR_RED		"\x1B[31m"
-#define TERM_COLOR_GREEN	"\x1B[32m"
-#define TERM_COLOR_YELLOW	"\x1B[33m"
-#define TERM_COLOR_BLUE		"\x1B[34m"
-#define TERM_COLOR_MAGENTA	"\x1B[35m"
-#define TERM_COLOR_CYAN		"\x1B[36m"
-#define TERM_COLOR_WHITE	"\x1B[37m"
+#define TERM_COLOR_NORMAL "\x1B[0m"
+#define TERM_COLOR_RED "\x1B[31m"
+#define TERM_COLOR_GREEN "\x1B[32m"
+#define TERM_COLOR_YELLOW "\x1B[33m"
+#define TERM_COLOR_BLUE "\x1B[34m"
+#define TERM_COLOR_MAGENTA "\x1B[35m"
+#define TERM_COLOR_CYAN "\x1B[36m"
+#define TERM_COLOR_WHITE "\x1B[37m"
 
-#define TERM_COLOR_PRINT(color_name, color)				\
-	static inline int fprintf_##color_name(FILE *stream,		\
-					       const char *format, ...)	\
-	{								\
-		va_list args;						\
-		int ret;						\
-									\
-		fprintf(stream, "%s", color);				\
-		va_start(args, format);					\
-		ret = vfprintf(stream, format, args);			\
-		va_end(args);						\
-		fprintf(stream, "%s", TERM_COLOR_NORMAL);		\
-									\
-		return ret;						\
-}
+#define TERM_COLOR_PRINT(color_name, color)                                    \
+	static inline int fprintf_##color_name(FILE *stream,                   \
+					       const char *format, ...)        \
+	{                                                                      \
+		va_list args;                                                  \
+		int ret;                                                       \
+                                                                               \
+		fprintf(stream, "%s", color);                                  \
+		va_start(args, format);                                        \
+		ret = vfprintf(stream, format, args);                          \
+		va_end(args);                                                  \
+		fprintf(stream, "%s", TERM_COLOR_NORMAL);                      \
+                                                                               \
+		return ret;                                                    \
+	}
 
 /*
  * Create functions fprintf_red, fprintf_green, etc.

@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+* Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
 *
 * License: see LICENSE file in root directory
 *
@@ -32,8 +32,7 @@
 #include "definition_common.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /****************************************************************************
@@ -145,18 +144,18 @@ struct def_algo_sym {
 	 * Supported direction
 	 * required: always
 	 */
-#define DEF_ALG_SYM_DIRECTION_ENCRYPTION	(1<<0)
-#define DEF_ALG_SYM_DIRECTION_DECRYPTION	(1<<1)
+#define DEF_ALG_SYM_DIRECTION_ENCRYPTION (1 << 0)
+#define DEF_ALG_SYM_DIRECTION_DECRYPTION (1 << 1)
 	unsigned int direction;
 
 	/*
 	 * Key length in bits
 	 * required: always
 	 */
-#define DEF_ALG_SYM_KEYLEN_128			(1<<0)
-#define DEF_ALG_SYM_KEYLEN_168			(1<<1)
-#define DEF_ALG_SYM_KEYLEN_192			(1<<2)
-#define DEF_ALG_SYM_KEYLEN_256			(1<<3)
+#define DEF_ALG_SYM_KEYLEN_128 (1 << 0)
+#define DEF_ALG_SYM_KEYLEN_168 (1 << 1)
+#define DEF_ALG_SYM_KEYLEN_192 (1 << 2)
+#define DEF_ALG_SYM_KEYLEN_256 (1 << 3)
 	unsigned int keylen;
 
 	/*
@@ -247,16 +246,16 @@ struct def_algo_sym {
 	 * AES SP800-38F KW cipher type (regular or inverse)
 	 * required: only for AES-KW mode
 	 */
-#define DEF_ALG_SYM_KW_CIPHER			(1<<0)
-#define DEF_ALG_SYM_KW_INVERSE			(1<<1)
+#define DEF_ALG_SYM_KW_CIPHER (1 << 0)
+#define DEF_ALG_SYM_KW_INVERSE (1 << 1)
 	unsigned int kwcipher;
 
 	/*
 	 * The format of tweak value for AES-XTS
 	 * required: only for AES-XTS mode
 	 */
-#define DEF_ALG_SYM_XTS_TWEAK_128HEX		(1<<0)
-#define DEF_ALG_SYM_XTS_TWEAK_DUSEQUENCE	(1<<1)
+#define DEF_ALG_SYM_XTS_TWEAK_128HEX (1 << 0)
+#define DEF_ALG_SYM_XTS_TWEAK_DUSEQUENCE (1 << 1)
 	unsigned int tweakformat;
 
 	/*
@@ -268,9 +267,31 @@ struct def_algo_sym {
 	 *	  a tweak value.
 	 * required: only for AES-XTS mode
 	 */
-#define DEF_ALG_SYM_XTS_TWEAK_HEX		(1<<0)
-#define DEF_ALG_SYM_XTS_TWEAK_NUM		(1<<1)
+#define DEF_ALG_SYM_XTS_TWEAK_HEX (1 << 0)
+#define DEF_ALG_SYM_XTS_TWEAK_NUM (1 << 1)
 	unsigned int tweakmode;
+
+	/*
+	 * XTS data unit length
+	 *
+	 * The length must be between 128 and 65536 (bits)
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * NOTE: This definition is only applied if
+	 * xts_data_unit_len_matches_payload is set to true
+	 *
+	 * required: optional for XTS
+	 */
+	int xts_data_unit_len[DEF_ALG_MAX_INT];
+
+	/*
+	 * XTS: Boolean to indicate whether or not the length of the data unit
+	 * always matches the length of the payload.
+	 *
+	 * required: required for XTS
+	 */
+	bool xts_data_unit_len_matches_payload;
 
 	/*
 	 * Source of AES-CTR mode
@@ -317,6 +338,18 @@ struct def_algo_sym {
 	 * required: only for AES-FF1 and AES-FF3-1
 	 */
 	int tweaklen[DEF_ALG_MAX_INT];
+
+	/*
+	 * Specify the conformance claim for a given cipher
+	 *
+	 * DEF_ALG_SYM_CONFORMANCE_RFC3686: ACVP-AES-CTR conformance "RFC3686".
+	 * This conformance ensures the IV is generated with the LSB[32] of the
+	 * IV representing the integer "1".
+	 *
+	 * required: optional
+	 */
+#define DEF_ALG_SYM_CONFORMANCE_RFC3686 (1 << 0)
+	unsigned int conformance;
 
 	/*
 	 * Specific capabilities for the AES-FF1 and AES-FF3-1 cipher.

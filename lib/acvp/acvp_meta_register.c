@@ -1,6 +1,6 @@
 /* ACVP operation for registering vendor, modules, persons, OE
  *
- * Copyright (C) 2019 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -109,9 +109,10 @@ static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 	 * ID
 	 */
 	if (status_flag) {
-		logger_status(LOGGER_C_ANY,
-			      "Request ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %u\n",
-			      acvp_id(tmp_id));
+		logger_status(
+			LOGGER_C_ANY,
+			"Request ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %u\n",
+			acvp_id(tmp_id));
 		ret = -EAGAIN;
 	}
 
@@ -156,14 +157,13 @@ out:
 }
 
 int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
-		       struct json_object *json,
-		       char *url, unsigned int urllen, uint32_t *id,
-		       enum acvp_http_type submit_type)
+		       struct json_object *json, char *url, unsigned int urllen,
+		       uint32_t *id, enum acvp_http_type submit_type)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	struct json_object *json_submission = NULL;
-	ACVP_BUFFER_INIT(submit);
+	ACVP_EXT_BUFFER_INIT(submit);
 	ACVP_BUFFER_INIT(response);
 	ACVP_BUFFER_INIT(tmpbuf);
 	int ret;
@@ -175,8 +175,9 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 	if (acvp_request_id(*id)) {
 		if (req_details->dump_register && json) {
 			fprintf(stdout, "%s\n",
-				json_object_to_json_string_ext(json,
-						JSON_C_TO_STRING_PRETTY |
+				json_object_to_json_string_ext(
+					json,
+					JSON_C_TO_STRING_PRETTY |
 						JSON_C_TO_STRING_NOSLASHESCAPE));
 
 			return 0;
@@ -188,13 +189,15 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 		CKINT(acvp_extend_string(url, urllen, "/%u", *id));
 
 	logger_status(LOGGER_C_ANY, "%s object\n",
-	       (submit_type == acvp_http_delete) ? "Deleting" : "Registering");
+		      (submit_type == acvp_http_delete) ? "Deleting" :
+								"Registering");
 
 	if (json) {
 		logger_status(LOGGER_C_ANY, "%s\n",
-			      json_object_to_json_string_ext(json,
-				JSON_C_TO_STRING_PRETTY |
-				JSON_C_TO_STRING_NOSLASHESCAPE));
+			      json_object_to_json_string_ext(
+				      json,
+				      JSON_C_TO_STRING_PRETTY |
+					      JSON_C_TO_STRING_NOSLASHESCAPE));
 
 		/* Build the JSON object to be submitted */
 		json_submission = json_object_new_array();
@@ -209,27 +212,28 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 
 		if (req_details->dump_register) {
 			fprintf(stdout, "%s\n",
-				json_object_to_json_string_ext(json_submission,
-						JSON_C_TO_STRING_PRETTY |
+				json_object_to_json_string_ext(
+					json_submission,
+					JSON_C_TO_STRING_PRETTY |
 						JSON_C_TO_STRING_NOSLASHESCAPE));
 			ret = 0;
 			goto out;
 		}
 
 		tmpbuf.buf = (uint8_t *)json_object_to_json_string_ext(
-						json_submission,
-						JSON_C_TO_STRING_PRETTY |
-						JSON_C_TO_STRING_NOSLASHESCAPE);
+			json_submission,
+			JSON_C_TO_STRING_PRETTY |
+				JSON_C_TO_STRING_NOSLASHESCAPE);
 		tmpbuf.len = (uint32_t)strlen((char *)tmpbuf.buf);
 		CKINT(ds->acvp_datastore_write_testid(
-						testid_ctx,
-						"operational_environment.json",
-						true, &tmpbuf));
+			testid_ctx, "operational_environment.json", true,
+			&tmpbuf));
 
 		/* Convert the JSON buffer into a string */
-		json_request = json_object_to_json_string_ext(json_submission,
-						JSON_C_TO_STRING_PLAIN |
-						JSON_C_TO_STRING_NOSLASHESCAPE);
+		json_request = json_object_to_json_string_ext(
+			json_submission,
+			JSON_C_TO_STRING_PLAIN |
+				JSON_C_TO_STRING_NOSLASHESCAPE);
 		CKNULL_LOG(json_request, -ENOMEM,
 			   "JSON object conversion into string failed\n");
 
@@ -300,7 +304,7 @@ int acvp_search_to_http_type(int search_errno, unsigned int type,
 
 		return 0;
 
-	/*
+		/*
 	 * We only attempt a delete if we have a match between the ACVP server
 	 * DB and our configurations. We do not want to delete unknown
 	 * definitions. Yet, if we are forced to perform the delete, we will

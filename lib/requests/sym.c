@@ -1,6 +1,6 @@
 /* JSON generator for symmetric ciphers
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -152,6 +152,28 @@ out:
 	return ret;
 }
 
+static int acvp_req_conformance(struct json_object *entry,
+				unsigned int conformance)
+{
+	struct json_object *array;
+	int ret;
+
+	if (!conformance)
+		return 0;
+
+	array = json_object_new_array();
+	CKNULL(array, -ENOMEM);
+	CKINT(json_object_object_add(entry, "conformances", array));
+
+	if (conformance & DEF_ALG_SYM_CONFORMANCE_RFC3686) {
+		CKINT(json_object_array_add(array,
+					    json_object_new_string("RFC3686")));
+	}
+
+out:
+	return ret;
+}
+
 /*
  * Generate algorithm entry for symmetric ciphers
  */
@@ -161,7 +183,12 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	struct json_object *tmp_array = NULL, *tmp = NULL;
 	int ret = -EINVAL;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
+	//TOD Enable once XTS version 2.0 is active
+//	if (acvp_match_cipher(sym->algorithm, ACVP_XTS)) {
+//		CKINT(acvp_req_add_revision(entry, "2.0"));
+//	} else {
+		CKINT(acvp_req_add_revision(entry, "1.0"));
+//	}
 
 	/*
 	 * AES_GCM with zero payload length is not allowed any more.
@@ -370,15 +397,32 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		tmp_array = NULL;
 	}
 
+	if (acvp_match_cipher(sym->algorithm, ACVP_XTS)) {
+		if (sym->xts_data_unit_len_matches_payload) {
+			CKINT(acvp_req_algo_int_array(entry, sym->xts_data_unit_len,
+						      "dataUnitLen"));
+		}
+		CKINT(json_object_object_add(entry, "dataUnitLenMatchesPayload",
+					     json_object_new_boolean(sym->xts_data_unit_len_matches_payload)));
+	}
+
+	CKINT(acvp_req_algo_int_array(entry, sym->taglen, "tagLen"));
+
 	CKINT(acvp_req_tdes_keyopt(entry, sym->algorithm));
 
-	if ((acvp_match_cipher(sym->algorithm, ACVP_CTR) ||
-	     acvp_match_cipher(sym->algorithm, ACVP_TDESCTR)) &&
-	    !sym->ctrsource) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "CTR mode definition: ctrsource setting missing\n");
-		ret = -EINVAL;
-		goto out;
+	if (acvp_match_cipher(sym->algorithm, ACVP_CTR) ||
+	     acvp_match_cipher(sym->algorithm, ACVP_TDESCTR)) {
+
+		CKINT(acvp_req_conformance(entry,
+					   sym->conformance &
+					   DEF_ALG_SYM_CONFORMANCE_RFC3686));
+
+		if (!sym->ctrsource) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "CTR mode definition: ctrsource setting missing\n");
+			ret = -EINVAL;
+			goto out;
+		}
 	}
 	switch (sym->ctrsource) {
 	case DEF_ALG_SYM_CTR_UNDEF:

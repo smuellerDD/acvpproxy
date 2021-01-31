@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -48,9 +48,9 @@ int main(int argc, char *argv[])
 {
 	uint8_t *bresult;
 	char *result;
-	uint32_t rlen;
+	size_t rlen;
 	unsigned int i;
-	unsigned int return_ret = 0;
+	int return_ret = 0;
 
 	(void)argc;
 	(void)argv;

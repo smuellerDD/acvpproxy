@@ -1,6 +1,6 @@
 /* List all pending request IDs
  *
- * Copyright (C) 2019 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -34,8 +34,10 @@ acvp_list_verdict_print(const struct acvp_test_verdict_status *verdict,
 {
 	unsigned int namelen = vsid ? 20 : 26;
 	unsigned int modelen = 16;
-	unsigned int stringlen = verdict->cipher_name ?
-				 (unsigned int)strlen(verdict->cipher_name) : 0;
+	unsigned int stringlen =
+		verdict->cipher_name ?
+			      (unsigned int)strlen(verdict->cipher_name) :
+			      0;
 
 	if (stringlen > namelen) {
 		stringlen -= namelen;
@@ -109,6 +111,8 @@ static int acvp_list_verdicts_cb(const struct acvp_ctx *ctx,
 				 const uint32_t testid)
 {
 	const struct def_info *def_info = def->info;
+	const struct def_oe *def_oe = def->oe;
+	const struct def_dependency *def_dep;
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	struct acvp_auth_ctx *auth;
 	int ret = 0;
@@ -141,9 +145,25 @@ static int acvp_list_verdicts_cb(const struct acvp_ctx *ctx,
 	acvp_list_verdict_print(&testid_ctx->verdict, false);
 	testid_ctx->verdict.cipher_name = NULL;
 
+	fprintf(stdout, "\tExpiry date: ");
+	acvp_print_expiry(stdout, testid_ctx->expiry);
+	fprintf(stdout, "\n");
+
+	fprintf(stdout, "\tDetails:");
+	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->name)
+			fprintf(stdout, " %s", def_dep->name);
+		if (def_dep->proc_name)
+			fprintf(stdout, " %s", def_dep->proc_name);
+		if (def_dep->proc_family)
+			fprintf(stdout, " %s", def_dep->proc_family);
+		if (def_dep->proc_series)
+			fprintf(stdout, " %s", def_dep->proc_series);
+	}
+	fprintf(stdout, "\n");
+
 	if (auth->testsession_certificate_number) {
-		fprintf(stdout,
-			"\tCertificate number: %s\n",
+		fprintf(stdout, "\tCertificate number: %s\n",
 			auth->testsession_certificate_number);
 	}
 

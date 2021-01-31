@@ -1,6 +1,6 @@
 /* ACVP Proxy application
  *
- * Copyright (C) 2018 - 2020, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -18,36 +18,27 @@
  * DAMAGE.
  */
 
-#include <ctype.h>
-#include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <string.h>
+#include <libgen.h>
 #include <limits.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include <json-c/json.h>
 
 #include "acvpproxy.h"
+#include "esvpproxy.h"
 #include "base64.h"
+#include "credentials.h"
+#include "helper.h"
 #include "logger.h"
+#include "memset_secure.h"
 #include "ret_checkers.h"
 #include "term_colors.h"
 
 #include "macos.h"
 
-#define OPT_STR_TOTPLASTGEN		"totpLastGen"
-#define OPT_STR_TLSKEYFILE		"tlsKeyFile"
-#define OPT_STR_TLSCERTFILE		"tlsCertFile"
-#define OPT_STR_TLSCERTKEYCHAIN		"tlsCertMacOSKeyChainRef"
-#define OPT_STR_TLSKEYPASSCODE		"tlsKeyPasscode"
-#define OPT_STR_TLSCABUNDLE		"tlsCaBundle"
-#define OPT_STR_TLSCAKEYCHAIN		"tlsCaMacOSKeyChainRef"
-#define OPT_STR_TOTPSEEDFILE		"totpSeedFile"
-
-#define OPT_CIPHER_OPTIONS_MAX		512
+#define OPT_CIPHER_OPTIONS_MAX 512
 
 struct opt_data {
 	struct acvp_search_ctx search;
@@ -58,17 +49,12 @@ struct opt_data {
 	uint32_t purchase_opt;
 	uint32_t purchase_qty;
 
-	char *configfile;
-	struct json_object *config;
-	const char *tlskey;
-	const char *tlspasscode;
-	const char *tlscert;
-	const char *tlscertkeychainref;
-	const char *tlscabundle;
-	const char *tlscakeychainref;
-	const char *seedfile;
+	struct opt_cred cred;
+
 	const char *cert_details_niap_req_file;
 	const char *acvp_server_db_search;
+	uint32_t acvp_server_db_fetch_id;
+	uint32_t acvp_server_db_validation_id;
 	enum acvp_server_db_search_type search_type;
 	char *basedir;
 	char *secure_basedir;
@@ -95,237 +81,9 @@ struct opt_data {
 	bool sync_meta;
 	bool list_purchased_vs;
 	bool list_available_purchase_opts;
+	bool fetch_verdicts;
+	bool esvp_proxy;
 };
-
-/*
- * Pointer to parsed options. This pointer is only to be used by the async
- * callback function of last_gen_cb.
- */
-static struct opt_data *global_opts = NULL;
-
-static int json_find_key(const struct json_object *inobj, const char *name,
-			 struct json_object **out, enum json_type type)
-{
-	if (!json_object_object_get_ex(inobj, name, out)) {
-		/*
-		 * Use debug level only as optional fields may be searched
-		 * for.
-		 */
-		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "JSON field %s does not exist\n", name);
-		return -ENOENT;
-	}
-
-	if (!json_object_is_type(*out, type)) {
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "JSON data type %s does not match expected type %s for field %s\n",
-		       json_type_to_name(json_object_get_type(*out)),
-		       json_type_to_name(type), name);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int json_get_uint64(struct json_object *obj, const char *name,
-			   uint64_t *integer)
-{
-	struct json_object *o = NULL;
-	int64_t tmp;
-	int ret = json_find_key(obj, name, &o, json_type_int);
-
-	if (ret)
-		return ret;
-
-	tmp = json_object_get_int64(o);
-
-	*integer = (uint64_t)tmp;
-
-	logger(LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Found integer %s with value %" PRIu64 "\n",
-	       name, *integer);
-
-	return 0;
-}
-
-static int json_get_string(struct json_object *obj, const char *name,
-			   const char **outbuf, bool nodebug)
-{
-	struct json_object *o = NULL;
-	const char *string;
-	int ret = json_find_key(obj, name, &o, json_type_string);
-
-	if (ret)
-		return ret;
-
-	string = json_object_get_string(o);
-
-	logger(LOGGER_DEBUG, LOGGER_C_ANY,
-	       "Found string data %s with value %s\n", name,
-	       nodebug ? "HIDDEN" : string);
-
-	*outbuf = string;
-
-	return 0;
-}
-
-static int read_complete(int fd, char *buf, uint32_t buflen)
-{
-	ssize_t ret;
-
-	if (buflen > INT_MAX)
-		return -EINVAL;
-
-	do {
-		ret = read(fd, buf, buflen);
-		if (0 < ret) {
-			buflen -= (uint32_t)ret;
-			buf += ret;
-		}
-	} while ((0 < ret || EINTR == errno) && buflen);
-
-	if (buflen == 0)
-		return 0;
-	return -EFAULT;
-}
-
-static int load_config(struct opt_data *opts)
-{
-	struct flock lock;
-	int ret;
-	int fd;
-
-	fd = open(global_opts->configfile, O_RDONLY);
-	if (fd < 0) {
-		ret = -errno;
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Cannot open config file %s\n",
-		       opts->configfile);
-		return ret;
-	}
-
-	memset (&lock, 0, sizeof(lock));
-
-	/*
-	 * Place a write lock on the file. This call will put us to sleep if
-	 * there is another lock.
-	 */
-	fcntl(fd, F_SETLKW, &lock);
-
-	opts->config = json_object_from_fd(fd);
-
-	/* Release the lock. */
-	lock.l_type = F_UNLCK;
-	fcntl(fd, F_SETLKW, &lock);
-
-	close(fd);
-
-	if (!opts->config) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Cannot parse config file %s\n", opts->configfile);
-		return -EFAULT;
-	}
-
-	/* Allow an empty key file */
-	ret = json_get_string(opts->config, OPT_STR_TLSKEYFILE, &opts->tlskey,
-			      false);
-	if (ret)
-		opts->tlskey = NULL;
-
-	/* Allow an empty passcode entry */
-	ret = json_get_string(opts->config, OPT_STR_TLSKEYPASSCODE,
-			      &opts->tlspasscode, true);
-	if (ret)
-		opts->tlspasscode = NULL;
-
-	ret = json_get_string(opts->config, OPT_STR_TLSCERTFILE,
-			      &opts->tlscert, false);
-	if (ret)
-		opts->tlscert = NULL;
-
-	ret = json_get_string(opts->config, OPT_STR_TLSCERTKEYCHAIN,
-			      &opts->tlscertkeychainref, false);
-	if (ret)
-		opts->tlscertkeychainref = NULL;
-	if (!opts->tlscert && !opts->tlscertkeychainref) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Neither client certificate key file nor macOS keychain reference provided - no authentication credential available\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	ret = json_get_string(opts->config, OPT_STR_TLSCABUNDLE,
-			      &opts->tlscabundle, false);
-	if (ret)
-		opts->tlscabundle = NULL;
-	ret = json_get_string(opts->config, OPT_STR_TLSCAKEYCHAIN,
-			      &opts->tlscakeychainref, false);
-	if (ret)
-		opts->tlscakeychainref = NULL;
-
-	CKINT(json_get_string(opts->config, OPT_STR_TOTPSEEDFILE,
-			      &opts->seedfile, false));
-
-out:
-	if (fd >= 0)
-		close(fd);
-	return ret;
-}
-
-static int load_totp_seed(struct opt_data *opts, char **seed_base64,
-			  uint32_t *seed_base64_len)
-{
-	struct stat statbuf;
-	char *seed;
-	uint32_t len;
-	int ret;
-	int fd = -1;
-
-	if (stat(opts->seedfile, &statbuf)) {
-		ret = -errno;
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Error accessing seed file %s (%d)\n", opts->seedfile,
-		       ret);
-		goto out;
-	}
-
-	if (!statbuf.st_size) {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Seed file %s empty\n",
-		       opts->seedfile);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	fd = open(opts->seedfile, O_RDONLY | O_CLOEXEC);
-	if (fd < 0) {
-		ret = -errno;
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Cannot open seed file %s (%d)\n", opts->seedfile, ret);
-		goto out;
-	}
-
-	len = (uint32_t)statbuf.st_size;
-	seed = malloc((size_t)statbuf.st_size);
-	if (!seed) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	CKINT(read_complete(fd, seed, len));
-
-	while (isspace(seed[len - 1]))
-		len--;
-
-	logger(LOGGER_DEBUG, LOGGER_C_ANY,
-	       "TOTP seed file %s read into memory\n", opts->seedfile);
-
-	*seed_base64 = seed;
-	*seed_base64_len = len;
-
-out:
-	if (fd >= 0)
-		close(fd);
-	return ret;
-}
 
 static void usage(void)
 {
@@ -336,84 +94,130 @@ static void usage(void)
 	fprintf(stderr, "\nACVP Test Vector And Test Verdict Proxy\n");
 	fprintf(stderr, "\nACVP proxy library version: %s\n\n", version);
 	fprintf(stderr, "Register module and fetch test vectors:\n");
-	fprintf(stderr, "  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] --request\n\n");
-	fprintf(stderr, "Continue download interrupted fetch of test vectors:\n");
-	fprintf(stderr, "  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] --request [--testid|--vsid ID]\n\n");
-	fprintf(stderr, "Upload test responses and (continue to) fetch verdict:\n");
-	fprintf(stderr, "  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] [--testid|--vsid ID]\n\n");
+	fprintf(stderr,
+		"  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] --request\n\n");
+	fprintf(stderr,
+		"Continue download interrupted fetch of test vectors:\n");
+	fprintf(stderr,
+		"  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] --request [--testid|--vsid ID]\n\n");
+	fprintf(stderr,
+		"Upload test responses and (continue to) fetch verdict:\n");
+	fprintf(stderr,
+		"  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] [--testid|--vsid ID]\n\n");
 
 	fprintf(stderr, "Download samples after vectors are obtained:\n");
-	fprintf(stderr, "  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] [--testid|--vsid ID] --sample\n\n");
+	fprintf(stderr,
+		"  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] [--testid|--vsid ID] --sample\n\n");
 	fprintf(stderr, "Usage:\n");
-	fprintf(stderr, "\tModule search criteria limiting the scope of processed modules:\n");
-	fprintf(stderr, "\t-m --module <NAME>\t\tDefinition search criteria: Name of\n");
+	fprintf(stderr,
+		"\tModule search criteria limiting the scope of processed modules:\n");
+	fprintf(stderr,
+		"\t-m --module <NAME>\t\tDefinition search criteria: Name of\n");
 	fprintf(stderr, "\t\t\t\t\tcrypto module to process\n");
-	fprintf(stderr, "\t-r --releaseversion <VERSION>\tDefinition search criteria: Version\n");
+	fprintf(stderr,
+		"\t-r --releaseversion <VERSION>\tDefinition search criteria: Version\n");
 	fprintf(stderr, "\t\t\t\t\tof crypto module to process\n");
-	fprintf(stderr, "\t-n --vendorname <NAME>\t\tDefinition search criteria: Name of\n");
+	fprintf(stderr,
+		"\t-n --vendorname <NAME>\t\tDefinition search criteria: Name of\n");
 	fprintf(stderr, "\t\t\t\t\tvendor of crypto module to process\n");
-	fprintf(stderr, "\t-e --execenv <NAME>\t\tDefinition search criteria: Name of \n");
+	fprintf(stderr,
+		"\t-e --execenv <NAME>\t\tDefinition search criteria: Name of \n");
 	fprintf(stderr, "\t\t\t\t\texecution environment of crypto module\n");
 	fprintf(stderr, "\t\t\t\t\tto process\n");
-	fprintf(stderr, "\t-p --processor <NAME>\t\tDefinition search criteria: Name of \n");
+	fprintf(stderr,
+		"\t-p --processor <NAME>\t\tDefinition search criteria: Name of \n");
 	fprintf(stderr, "\t\t\t\t\tprocessor executing crypto module\n");
-	fprintf(stderr, "\t-f --fuzzy\t\t\tPerform a fuzzy search for all search \n");
+	fprintf(stderr,
+		"\t-f --fuzzy\t\t\tPerform a fuzzy search for all search \n");
 	fprintf(stderr, "\t\t\t\t\tcriteria (perform a substring search)\n");
-	fprintf(stderr, "\n\tNote: The search critera allow narrowing the processed module\n");
-	fprintf(stderr, "\tdefinitions found with the list operation. The less search criteria are\n");
-	fprintf(stderr, "\tprovided, the broader the scope is. If no search critera are provided,\n");
-	fprintf(stderr, "\tall module definitions are in scope. For example, using --request with\n");
-	fprintf(stderr, "\tno search criteria implies that test vectors for all module\n");
-	fprintf(stderr, "\timplementations known to the library are requested.\n\n");
-	fprintf(stderr, "\tNote 2: Prepending the search strings with \"f:\" requests a fuzzy search\n");
+	fprintf(stderr,
+		"\n\tNote: The search critera allow narrowing the processed module\n");
+	fprintf(stderr,
+		"\tdefinitions found with the list operation. The less search criteria are\n");
+	fprintf(stderr,
+		"\tprovided, the broader the scope is. If no search critera are provided,\n");
+	fprintf(stderr,
+		"\tall module definitions are in scope. For example, using --request with\n");
+	fprintf(stderr,
+		"\tno search criteria implies that test vectors for all module\n");
+	fprintf(stderr,
+		"\timplementations known to the library are requested.\n\n");
+	fprintf(stderr,
+		"\tNote 2: Prepending the search strings with \"f:\" requests a fuzzy search\n");
 	fprintf(stderr, "\tfor only that particular search criteria.\n\n");
 
 	fprintf(stderr, "\t-c --config\t\t\tConfiguration file\n");
 	fprintf(stderr, "\t-l --list\t\t\tList supported crypto modules\n");
-	fprintf(stderr, "\t-u --unregistered\t\tList unregistered crypto definitions\n");
-	fprintf(stderr, "\t   --modversion <VERSION>\tSpecific module version to send to ACVP\n");
-	fprintf(stderr, "\t   --vsid <VSID>\t\tSubmit response for given vsID\n");
+	fprintf(stderr,
+		"\t-u --unregistered\t\tList unregistered crypto definitions\n");
+	fprintf(stderr,
+		"\t   --modversion <VERSION>\tSpecific module version to send to ACVP\n");
+	fprintf(stderr,
+		"\t   --vsid <VSID>\t\tSubmit response for given vsID\n");
 	fprintf(stderr, "\t\t\t\t\tOption can be specified up to %d times\n",
 		MAX_SUBMIT_ID);
-	fprintf(stderr, "\t   --testid <TESTID>\t\tSubmit response for given testID\n");
+	fprintf(stderr,
+		"\t   --testid <TESTID>\t\tSubmit response for given testID\n");
 	fprintf(stderr, "\t\t\t\t\t(use -1 to download all pending testIDs)\n");
 	fprintf(stderr, "\t\t\t\t\tOption can be specified up to %d times\n",
 		MAX_SUBMIT_ID);
 	fprintf(stderr, "\t   --request\t\t\tRequest new test vector set\n");
-	fprintf(stderr, "\n\tNote: If the caller provides --testid or --vsid together with\n");
-	fprintf(stderr, "\t--request, the application assumes that pending vector sets shall\n");
-	fprintf(stderr, "\tbe downloaded again (e.g. in case prior download attempts failed).\n\n");
+	fprintf(stderr,
+		"\n\tNote: If the caller provides --testid or --vsid together with\n");
+	fprintf(stderr,
+		"\t--request, the application assumes that pending vector sets shall\n");
+	fprintf(stderr,
+		"\tbe downloaded again (e.g. in case prior download attempts failed).\n\n");
 	fprintf(stderr, "\t   --publish\t\t\tPublish test verdicts\n");
-	fprintf(stderr, "\n\tNote: You can use --testid or --vsid together with\n");
+	fprintf(stderr,
+		"\n\tNote: You can use --testid or --vsid together with\n");
 	fprintf(stderr, "\t--publish to limit the scope.\n\n");
 
-	fprintf(stderr, "\t   --dump-register\t\tDump register JSON request to stdout\n");
-	fprintf(stderr, "\t   --sample\t\t\tRequest a test sample with expected\n");
+	fprintf(stderr,
+		"\t   --dump-register\t\tDump register JSON request to stdout\n");
+	fprintf(stderr,
+		"\t   --sample\t\t\tRequest a test sample with expected\n");
 	fprintf(stderr, "\t\t\t\t\tresults\n");
-	fprintf(stderr, "\t-d --definitions\t\tDirectory holding the module definitions\n");
+	fprintf(stderr,
+		"\t-d --definitions\t\tDirectory holding the module definitions\n");
 	fprintf(stderr, "\t\t\t\t\tfor one specific module\n");
-	fprintf(stderr, "\t   --official\t\t\tPerform an official testing to get\n");
+	fprintf(stderr,
+		"\t   --official\t\t\tPerform an official testing to get\n");
 	fprintf(stderr, "\t\t\t\t\tcertificates (use official NIST servers)\n");
 	fprintf(stderr, "\t-b --basedir\t\t\tBase directory for test data\n");
-	fprintf(stderr, "\t-s --secure-basedir\t\tBase directory for sensitive data\n");
-	fprintf(stderr, "\t   --definition-basedir\t\tBase directory for module definition\n\n");
+	fprintf(stderr,
+		"\t-s --secure-basedir\t\tBase directory for sensitive data\n");
+	fprintf(stderr,
+		"\t   --definition-basedir\t\tBase directory for module definition\n\n");
 
-	fprintf(stderr, "\t   --resubmit-result\t\tIn case test results were already\n");
+	fprintf(stderr,
+		"\t   --resubmit-result\t\tIn case test results were already\n");
 	fprintf(stderr, "\t\t\t\t\tsubmitted for a vsID, resubmit the\n");
 	fprintf(stderr, "\t\t\t\t\tcurrent results on file to update the\n");
 	fprintf(stderr, "\t\t\t\t\tresults on the ACVP server\n\n");
 
-	fprintf(stderr, "\t   --delete-test\t\tDelete all vsIds in scope which\n");
+	fprintf(stderr,
+		"\t   --delete-test\t\tDelete all vsIds in scope which\n");
 	fprintf(stderr, "\t\t\t\t\tare part of the registration - this\n");
 	fprintf(stderr, "\t\t\t\t\toption is only applicable during\n");
-	fprintf(stderr, "\t\t\t\t\tsubmitting responses to the ACVP server\n\n");
+	fprintf(stderr, "\t\t\t\t\tsubmitting responses to the ACVP server\n");
+	fprintf(stderr,
+		"\t   --fetch-verdicts\t\tFetch verdicts for all vsIDs in scope\n");
+	fprintf(stderr, "\t\t\t\t\tThis option can be used to also refresh\n");
+	fprintf(stderr, "\t\t\t\t\ta vsID to guard it against deletion due\n");
+	fprintf(stderr, "\t\t\t\t\tto 30 day inactivity\n\n");
 
-	fprintf(stderr, "\tUpdate ACVP database with content from JSON configuration files:\n");
-	fprintf(stderr, "\t   --nopublish-prereqs\t\tRemove prerequisites from publication\n");
+	fprintf(stderr,
+		"\tUpdate ACVP database with content from JSON configuration files:\n");
+	fprintf(stderr,
+		"\t   --nopublish-prereqs\t\tRemove prerequisites from publication\n");
 	fprintf(stderr, "\t\t\t\t\trequest\n");
-	fprintf(stderr, "\t   --register-definition\tRegister pending definitions with ACVP\n");
-	fprintf(stderr, "\t   --delete-definition <TYPE>\tDelete definition at ACVP server\n");
-	fprintf(stderr, "\t   --update-definition <TYPE>\tUpdate definition at ACVP server\n");
+	fprintf(stderr,
+		"\t   --register-definition\tRegister pending definitions with ACVP\n");
+	fprintf(stderr,
+		"\t   --delete-definition <TYPE>\tDelete definition at ACVP server\n");
+	fprintf(stderr,
+		"\t   --update-definition <TYPE>\tUpdate definition at ACVP server\n");
 	fprintf(stderr, "\t\t\t\t\tTYPE: [oe|vendor|module|person|force]\n");
 	fprintf(stderr, "\t\t\t\t\tNote: Force implies that even when no\n");
 	fprintf(stderr, "\t\t\t\t\t      consistency is established between\n");
@@ -421,72 +225,118 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\t      definition selected with the TYPE,\n");
 	fprintf(stderr, "\t\t\t\t\t      it is deleted from the ACVP\n");
 	fprintf(stderr, "\t\t\t\t\t      server.\n");
-	fprintf(stderr, "\t   --sync-meta\t\t\tSynchronize meta data with server\n\n");
+	fprintf(stderr,
+		"\t   --sync-meta\t\t\tSynchronize meta data with server\n\n");
 
 	fprintf(stderr, "\tList of IDs and verdicts:\n");
-	fprintf(stderr, "\t   --list-request-ids\t\tList all pending request IDs\n");
-	fprintf(stderr, "\t   --list-request-ids-sparse\tList all pending request IDs\n");
+	fprintf(stderr,
+		"\t   --list-request-ids\t\tList all pending request IDs\n");
+	fprintf(stderr,
+		"\t   --list-request-ids-sparse\tList all pending request IDs\n");
 	fprintf(stderr, "\t\t\t\t\twithout duplicates\n");
-	fprintf(stderr, "\t   --list-available-ids\t\tList all available IDs\n");
+	fprintf(stderr,
+		"\t   --list-available-ids\t\tList all available IDs\n");
 	fprintf(stderr, "\t   --list-verdicts\t\tList all verdicts\n\n");
 	fprintf(stderr, "\t   --list-certificates\t\tList all certificates\n");
-	fprintf(stderr, "\t   --list-cert-details\t\tList all certificate details for\n");
+	fprintf(stderr,
+		"\t   --list-cert-details\t\tList all certificate details for\n");
 	fprintf(stderr, "\t\t\t\t\tTE.01.12.01\n");
-	fprintf(stderr, "\t   --list-cert-niap <FILE>\tList all certificate details for\n");
+	fprintf(stderr,
+		"\t   --list-cert-niap <FILE>\tList all certificate details for\n");
 	fprintf(stderr, "\t\t\t\t\ta NIAP CC eval\n");
-	fprintf(stderr, "\t   --list-cipher-options\tList all cipher options\n");
-	fprintf(stderr, "\t   --list-cipher-options-deps\tList all cipher options with\n");
-	fprintf(stderr, "\t\t\t\t\tcipher dependencies\n");
-	fprintf(stderr, "\t   --list-server-db <TYPE>\tList entries in ACVP server database\n");
+	fprintf(stderr,
+		"\t   --list-cipher-options\tList all cipher options\n");
+	fprintf(stderr,
+		"\t   --list-cipher-options-deps\tList all cipher options with\n");
+	fprintf(stderr, "\t\t\t\t\tcipher dependencies\n\n");
+
+	fprintf(stderr, "\tSearch the ACVP Server DB:\n");
+	fprintf(stderr,
+		"\t   --list-server-db <TYPE>\tList entries in ACVP server database\n");
+	fprintf(stderr, "\t\t\t\t\twhich are found in the local JSON\n");
+	fprintf(stderr, "\t\t\t\t\tconfig files\n");
 	fprintf(stderr, "\t\t\t\t\tTYPE: [oe|vendor|module|person]\n");
-	fprintf(stderr, "\t   --search-server-db <SEARCH>\tSearch ACVP server database\n");
+	fprintf(stderr,
+		"\t   --search-server-db <SEARCH>\tSearch ACVP server database\n");
 	fprintf(stderr, "\t\t\t\t\tSEARCH: <TYPE>:<QUERY>\n");
 	fprintf(stderr, "\t\t\t\t\tTYPE:\t[oe|vendor|module|person|\n");
-	fprintf(stderr, "\t\t\t\t\t\taddress|dependency]\n");
+	fprintf(stderr, "\t\t\t\t\t\taddress|dependency|validation]\n");
 	fprintf(stderr, "\t\t\t\t\tQUERY: string as defined in ACVP spec\n");
-	fprintf(stderr, "\t\t\t\t\tsection 11.6 \n\n");
+	fprintf(stderr, "\t\t\t\t\tsection 11.6 \n");
+	fprintf(stderr, "\t   --fetch-id-from-server-db <SEARCH>\n");
+	fprintf(stderr, "\t\t\t\t\tFetch given ID from ACVP server DB\n");
+	fprintf(stderr, "\t\t\t\t\tSEARCH: <TYPE>:<ID>\n");
+	fprintf(stderr, "\t\t\t\t\tTYPE:\t[oe|vendor|module|person|\n");
+	fprintf(stderr, "\t\t\t\t\t\taddress|dependency|validation]\n");
+	fprintf(stderr, "\t\t\t\t\tID: numeric ID to search for\n");
+	fprintf(stderr,
+		"\t   --fetch-validation-from-server-db <VALIDATION ID>\n");
+	fprintf(stderr, "\t\t\t\t\tAll meta data for validation ID from\n");
+	fprintf(stderr, "\t\t\t\t\tACVP server DB to populate new\n");
+	fprintf(stderr, "\t\t\t\t\tmodule_definition directory\n\n");
 
 	fprintf(stderr, "\tGathering cipher definitions from ACVP server:\n");
-	fprintf(stderr, "\t   --cipher-list\t\tList all ciphers supported by ACVP\n");
+	fprintf(stderr,
+		"\t   --cipher-list\t\tList all ciphers supported by ACVP\n");
 	fprintf(stderr, "\t\t\t\t\tserver\n");
-	fprintf(stderr, "\t   --cipher-options <DIR>\tGet cipher options from ACVP server\n");
+	fprintf(stderr,
+		"\t   --cipher-options <DIR>\tGet cipher options from ACVP server\n");
 	fprintf(stderr, "\t\t\t\t\tand store them in <DIR>\n");
-	fprintf(stderr, "\t   --cipher-algo <ALGO>\t\tGet cipher options particular cipher\n\n");
+	fprintf(stderr,
+		"\t   --cipher-algo <ALGO>\t\tGet cipher options particular cipher\n\n");
 
 	fprintf(stderr, "\tPayment options:\n");
-	fprintf(stderr, "\t   --list-purchased-vs\t\tList number of yet unused and thus\n");
+	fprintf(stderr,
+		"\t   --list-purchased-vs\t\tList number of yet unused and thus\n");
 	fprintf(stderr, "\t\t\t\t\tavailable vector sets\n");
-	fprintf(stderr, "\t   --list-purchase-opts\t\tList purchase options offered by ACVP\n");
+	fprintf(stderr,
+		"\t   --list-purchase-opts\t\tList purchase options offered by ACVP\n");
 	fprintf(stderr, "\t\t\t\t\tserver\n");
-	fprintf(stderr, "\t   --purchase <OPTION>\t\tPurchase option <OPTION>\n");
+	fprintf(stderr,
+		"\t   --purchase <OPTION>\t\tPurchase option <OPTION>\n");
 	fprintf(stderr, "\t\t\t\t\t- see output of --list-purchase-opts\n\n");
 
 	fprintf(stderr, "\tAuxiliary options:\n");
-	fprintf(stderr, "\t   --proxy-extension <SO-FILE>\tShared library of ACVP Proxy extension\n");
+	fprintf(stderr,
+		"\t   --proxy-extension <SO-FILE>\tShared library of ACVP Proxy extension\n");
 	fprintf(stderr, "\t\t\t\t\tZero or more extensions can be provided.\n");
-	fprintf(stderr, "\t   --proxy-extension-dir <DIR>\tDirectory with ACVP Proxy extensions\n");
-	fprintf(stderr, "\t   --rename-version <NEW>\tRename version of definition\n");
+	fprintf(stderr,
+		"\t   --proxy-extension-dir <DIR>\tDirectory with ACVP Proxy extensions\n");
+	fprintf(stderr,
+		"\t   --rename-version <NEW>\tRename version of definition\n");
 	fprintf(stderr, "\t\t\t\t\t(moduleVersion)\n");
-	fprintf(stderr, "\t   --rename-name <NEW>\t\tRename name of definition (moduleName)\n");
-	fprintf(stderr, "\t   --rename-oename <NEW>\tRename OE name of definition (oeEnvName)\n");
-	fprintf(stderr, "\t   --rename-procname <NEW>\tRename processor name of definition \n");
+	fprintf(stderr,
+		"\t   --rename-name <NEW>\t\tRename name of definition (moduleName)\n");
+	fprintf(stderr,
+		"\t   --rename-oename <NEW>\tRename OE name of definition (oeEnvName)\n");
+	fprintf(stderr,
+		"\t   --rename-procname <NEW>\tRename processor name of definition \n");
 	fprintf(stderr, "\t\t\t\t\t(procName)\n");
-	fprintf(stderr, "\t   --rename-procseries <NEW>\tRename processor series of definition \n");
+	fprintf(stderr,
+		"\t   --rename-procseries <NEW>\tRename processor series of definition \n");
 	fprintf(stderr, "\t\t\t\t\t(procSeries)\n");
-	fprintf(stderr, "\t   --rename-procfamily <NEW>\tRename processor family of definition \n");
+	fprintf(stderr,
+		"\t   --rename-procfamily <NEW>\tRename processor family of definition \n");
 	fprintf(stderr, "\t\t\t\t\t(procFamily)\n");
-	fprintf(stderr, "\t   --register-only\t\tOnly register tests without downloading\n");
+	fprintf(stderr,
+		"\t   --register-only\t\tOnly register tests without downloading\n");
 	fprintf(stderr, "\t\t\t\t\ttest vectors\n");
-	fprintf(stderr, "\t-v --verbose\t\t\tVerbose logging, multiple options\n");
+	fprintf(stderr,
+		"\t   --upload-only\t\tOnly upload test responses without downloading\n");
+	fprintf(stderr, "\t\t\t\t\ttest verdicts\n");
+	fprintf(stderr,
+		"\t-v --verbose\t\t\tVerbose logging, multiple options\n");
 	fprintf(stderr, "\t\t\t\t\tincrease verbosity\n");
 	fprintf(stderr, "\t\t\t\t\tNote: In debug mode (3 or more -v),\n");
 	fprintf(stderr, "\t\t\t\t\t      threading is disabled.\n");
-	fprintf(stderr, "\t   --logger-class <NUM>\t\tLimit logging to given class\n");
+	fprintf(stderr,
+		"\t   --logger-class <NUM>\t\tLimit logging to given class\n");
 	fprintf(stderr, "\t\t\t\t\t(-1 lists all logging classes)\n");
 	fprintf(stderr, "\t   --logfile <FILE>\t\tFile to write logs to\n");
 	fprintf(stderr, "\t-q --quiet\t\t\tNo output - quiet operation\n");
 	fprintf(stderr, "\t   --version\t\t\tVersion of ACVP proxy\n");
-	fprintf(stderr, "\t   --version-numeric\t\tNumeric version of ACVP proxy\n");
+	fprintf(stderr,
+		"\t   --version-numeric\t\tNumeric version of ACVP proxy\n");
 	fprintf(stderr, "\t-h --help\t\t\tPrint this help information\n");
 }
 
@@ -494,6 +344,8 @@ static void free_opts(struct opt_data *opts)
 {
 	struct acvp_search_ctx *search = &opts->search;
 	size_t i;
+
+	cred_free(&opts->cred);
 
 	if (search->modulename)
 		free(search->modulename);
@@ -507,8 +359,6 @@ static void free_opts(struct opt_data *opts)
 		free(search->processor);
 	if (opts->specific_modversion)
 		free(opts->specific_modversion);
-	if (opts->configfile)
-		free(opts->configfile);
 	if (opts->basedir)
 		free(opts->basedir);
 	if (opts->secure_basedir)
@@ -519,24 +369,6 @@ static void free_opts(struct opt_data *opts)
 		free(opts->cipher_options_file);
 	for (i = 0; i < opts->cipher_options_algo_idx; i++)
 		free(opts->cipher_options_algo[i]);
-	json_object_put(opts->config);
-}
-
-static int duplicate_string(char **dst, const char *src)
-{
-	if (*dst)
-		free(*dst);
-	if (src) {
-		*dst = strdup(src);
-		if (!(*dst)) {
-			logger(LOGGER_ERR, LOGGER_C_ANY, "Out of memory\n");
-			return -ENOMEM;
-		}
-	} else {
-		*dst = NULL;
-	}
-
-	return 0;
 }
 
 static bool ask_yes(const char *question)
@@ -580,8 +412,8 @@ static int convert_update_delete_type(const char *string, unsigned int *option)
 	} else if (!strncmp(string, "force", 5)) {
 		*option |= ACVP_OPTS_DELUP_FORCE;
 	} else {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		"Unknown delete type %s\n", string);
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Unknown delete type %s\n",
+		       string);
 		return -EINVAL;
 	}
 
@@ -599,17 +431,17 @@ static int convert_show_type(const char *string, unsigned int *option)
 	} else if (!strncmp(string, "module", 6)) {
 		*option |= ACVP_OPTS_SHOW_MODULE;
 	} else {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		"Unknown show type %s\n", string);
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Unknown show type %s\n",
+		       string);
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-static int convert_search_type(const char *string,
-			       const char **searchstr,
-			       enum acvp_server_db_search_type *type)
+static int convert_search_type_string(const char *string,
+				      const char **searchstr,
+				      enum acvp_server_db_search_type *type)
 {
 	if (!strncmp(string, "oe:", 3)) {
 		*type = NIST_SERVER_DB_SEARCH_OE;
@@ -629,45 +461,35 @@ static int convert_search_type(const char *string,
 	} else if (!strncmp(string, "address:", 8)) {
 		*type = NIST_SERVER_DB_SEARCH_ADDRESSES;
 		*searchstr = string + 8;
+	} else if (!strncmp(string, "validation:", 11)) {
+		*type = NIST_SERVER_DB_SEARCH_VALIDATION;
+		*searchstr = string + 11;
 	} else {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		"Unknown search type %s\n", string);
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Unknown search type %s\n",
+		       string);
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-static int parse_fuzzy_flag(bool *fuzzy_search_flag, char **dst,
-			    const char *src)
+static int convert_search_type_id(const char *string, uint32_t *id,
+				  enum acvp_server_db_search_type *type)
 {
+	const char *search;
+	unsigned long val;
 	int ret;
-	char *fuzzing_request;
 
-	if (!src) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Empty string for fuzzy search provided\n");
-		return -EINVAL;
+	CKINT(convert_search_type_string(string, &search, type));
+	val = strtoul(search, NULL, 10);
+	if (val == UINT_MAX) {
+		logger(LOGGER_ERR, LOGGER_C_ANY, "ID too big\n");
+		usage();
+		ret = -EINVAL;
+		goto out;
 	}
 
-	fuzzing_request = strstr(src, "f:");
-
-	/*
-	 * Only honor the fuzzing request string if placed at the beginning
-	 * of the string.
-	 */
-	if (fuzzing_request && fuzzing_request == src) {
-		*fuzzy_search_flag = true;
-		src += 2;
-	}
-
-	/*
-	 * In case no fuzzy search flag is provided, we do NOT set the
-	 * *fuzzy_search_flag to false, because the caller may have provided
-	 * the -f command line option.
-	 */
-
-	CKINT(duplicate_string(dst, src));
+	*id = (uint32_t)val;
 
 out:
 	return ret;
@@ -677,6 +499,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 {
 	struct acvp_search_ctx *search = &opts->search;
 	struct acvp_rename_ctx *rename = &opts->rename_ctx;
+	struct opt_cred *cred = &opts->cred;
 	int c = 0, ret;
 	char version[200] = { 0 };
 	unsigned long val = 0;
@@ -684,86 +507,90 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 	unsigned int dolist = 0, listunregistered = 0, modconf_loaded = 0;
 	bool logger_force_threading = false;
 
-	memset(opts, 0, sizeof(*opts));
-
 	while (1) {
 		int opt_index = 0;
 		static struct option options[] = {
-			{"verbose",		no_argument,		0, 'v'},
-			{"logger-class",	required_argument,	0, 0},
-			{"logfile",		required_argument,	0, 0},
-			{"quiet",		no_argument,		0, 'q'},
-			{"version",		no_argument,		0, 0},
-			{"version-numeric",	no_argument,		0, 0},
-			{"help",		no_argument,		0, 'h'},
+			{ "verbose", no_argument, 0, 'v' },
+			{ "logger-class", required_argument, 0, 0 },
+			{ "logfile", required_argument, 0, 0 },
+			{ "quiet", no_argument, 0, 'q' },
+			{ "version", no_argument, 0, 0 },
+			{ "version-numeric", no_argument, 0, 0 },
+			{ "help", no_argument, 0, 'h' },
 
-			{"module",		required_argument,	0, 'm'},
-			{"vendorname",		required_argument,	0, 'n'},
-			{"execenv",		required_argument,	0, 'e'},
-			{"releaseversion",	required_argument,	0, 'r'},
-			{"processor",		required_argument,	0, 'p'},
-			{"fuzzy",		required_argument,	0, 'f'},
+			{ "module", required_argument, 0, 'm' },
+			{ "vendorname", required_argument, 0, 'n' },
+			{ "execenv", required_argument, 0, 'e' },
+			{ "releaseversion", required_argument, 0, 'r' },
+			{ "processor", required_argument, 0, 'p' },
+			{ "fuzzy", required_argument, 0, 'f' },
 
-			{"list",		no_argument,		0, 'l'},
-			{"unregistered",	no_argument,		0, 'u'},
-			{"modversion",		required_argument,	0, 0},
-			{"vsid",		required_argument,	0, 0},
-			{"testid",		required_argument,	0, 0},
-			{"request",		no_argument,		0, 0},
-			{"publish",		no_argument,		0, 0},
-			{"dump-register", 	no_argument, 		0, 0},
-			{"sample",	 	no_argument, 		0, 0},
-			{"config",	 	required_argument,	0, 'c'},
-			{"definitions", 	required_argument,	0, 'd'},
+			{ "list", no_argument, 0, 'l' },
+			{ "unregistered", no_argument, 0, 'u' },
+			{ "modversion", required_argument, 0, 0 },
+			{ "vsid", required_argument, 0, 0 },
+			{ "testid", required_argument, 0, 0 },
+			{ "request", no_argument, 0, 0 },
+			{ "publish", no_argument, 0, 0 },
+			{ "dump-register", no_argument, 0, 0 },
+			{ "sample", no_argument, 0, 0 },
+			{ "config", required_argument, 0, 'c' },
+			{ "definitions", required_argument, 0, 'd' },
 
-			{"official",	 	no_argument, 		0, 'o'},
-			{"basedir",	 	required_argument,	0, 'b'},
-			{"secure-basedir",	required_argument,	0, 's'},
-			{"definition-basedir",	required_argument,	0, 0},
+			{ "official", no_argument, 0, 'o' },
+			{ "basedir", required_argument, 0, 'b' },
+			{ "secure-basedir", required_argument, 0, 's' },
+			{ "definition-basedir", required_argument, 0, 0 },
 
-			{"resubmit-result",	no_argument,		0, 0},
-			{"delete-test",		no_argument,		0, 0},
-			{"register-definition",	no_argument,		0, 0},
-			{"delete-definition",	required_argument,	0, 0},
-			{"update-definition",	required_argument,	0, 0},
-			{"nopublish-prereqs",	required_argument,	0, 0},
-			{"sync-meta",		no_argument,		0, 0},
+			{ "resubmit-result", no_argument, 0, 0 },
+			{ "delete-test", no_argument, 0, 0 },
+			{ "register-definition", no_argument, 0, 0 },
+			{ "delete-definition", required_argument, 0, 0 },
+			{ "update-definition", required_argument, 0, 0 },
+			{ "nopublish-prereqs", required_argument, 0, 0 },
+			{ "sync-meta", no_argument, 0, 0 },
 
-			{"list-request-ids",	no_argument,		0, 0},
-			{"list-request-ids-sparse",no_argument,		0, 0},
-			{"list-available-ids",	no_argument,		0, 0},
-			{"list-verdicts",	no_argument,		0, 0},
-			{"list-certificates",	no_argument,		0, 0},
-			{"list-cert-details",	no_argument,		0, 0},
-			{"list-cert-niap",	required_argument,	0, 0},
-			{"list-cipher-options",	no_argument,		0, 0},
-			{"list-cipher-options-deps",no_argument,	0, 0},
-			{"list-server-db",	required_argument,	0, 0},
-			{"search-server-db",	required_argument,	0, 0},
+			{ "list-request-ids", no_argument, 0, 0 },
+			{ "list-request-ids-sparse", no_argument, 0, 0 },
+			{ "list-available-ids", no_argument, 0, 0 },
+			{ "list-verdicts", no_argument, 0, 0 },
+			{ "list-certificates", no_argument, 0, 0 },
+			{ "list-cert-details", no_argument, 0, 0 },
+			{ "list-cert-niap", required_argument, 0, 0 },
+			{ "list-cipher-options", no_argument, 0, 0 },
+			{ "list-cipher-options-deps", no_argument, 0, 0 },
+			{ "list-server-db", required_argument, 0, 0 },
+			{ "search-server-db", required_argument, 0, 0 },
+			{ "fetch-id-from-server-db", required_argument, 0, 0 },
+			{ "fetch-validation-from-server-db", required_argument,
+			  0, 0 },
 
-			{"cipher-options",	required_argument,	0, 0},
-			{"cipher-algo",		required_argument,	0, 0},
-			{"cipher-list",		no_argument,		0, 0},
+			{ "cipher-options", required_argument, 0, 0 },
+			{ "cipher-algo", required_argument, 0, 0 },
+			{ "cipher-list", no_argument, 0, 0 },
 
-			{"proxy-extension",	required_argument,	0, 0},
-			{"proxy-extension-dir",	required_argument,	0, 0},
-			{"rename-version",	required_argument,	0, 0},
-			{"rename-name",		required_argument,	0, 0},
-			{"rename-oename",	required_argument,	0, 0},
-			{"rename-procname",	required_argument,	0, 0},
-			{"rename-procseries",	required_argument,	0, 0},
-			{"rename-procfamily",	required_argument,	0, 0},
+			{ "proxy-extension", required_argument, 0, 0 },
+			{ "proxy-extension-dir", required_argument, 0, 0 },
+			{ "rename-version", required_argument, 0, 0 },
+			{ "rename-name", required_argument, 0, 0 },
+			{ "rename-oename", required_argument, 0, 0 },
+			{ "rename-procname", required_argument, 0, 0 },
+			{ "rename-procseries", required_argument, 0, 0 },
+			{ "rename-procfamily", required_argument, 0, 0 },
 
-			{"register-only",	no_argument,		0, 0},
+			{ "register-only", no_argument, 0, 0 },
+			{ "upload-only", no_argument, 0, 0 },
 
-			{"list-purchased-vs",	no_argument,		0, 0},
-			{"list-purchase-opts",	no_argument,		0, 0},
-			{"purchase",		required_argument,	0, 0},
+			{ "list-purchased-vs", no_argument, 0, 0 },
+			{ "list-purchase-opts", no_argument, 0, 0 },
+			{ "purchase", required_argument, 0, 0 },
 
-			{0, 0, 0, 0}
+			{ "fetch-verdicts", no_argument, 0, 0 },
+
+			{ 0, 0, 0, 0 }
 		};
-		c = getopt_long(argc, argv, "m:n:e:r:p:fluc:d:ob:s:vqh", options,
-				&opt_index);
+		c = getopt_long(argc, argv, "m:n:e:r:p:fluc:d:ob:s:vqh",
+				options, &opt_index);
 		if (-1 == c)
 			break;
 		switch (c) {
@@ -773,8 +600,10 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				/* verbose */
 				logger_inc_verbosity();
 				if (logger_get_verbosity(LOGGER_C_ANY) >=
-				    LOGGER_DEBUG && !logger_force_threading)
-					opts->acvp_ctx_options.threading_disabled = true;
+					    LOGGER_DEBUG &&
+				    !logger_force_threading)
+					opts->acvp_ctx_options
+						.threading_disabled = true;
 				break;
 			case 1:
 				/* logger-class */
@@ -794,7 +623,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				ret = logger_set_class((uint32_t)lval);
 				if (ret) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
-					       "Failed to set logger class %lu\n", val);
+					       "Failed to set logger class %lu\n",
+					       val);
 					goto out;
 				}
 				break;
@@ -802,7 +632,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				/* logfile */
 				CKINT(logger_set_file(optarg));
 				logger_force_threading = true;
-				opts->acvp_ctx_options.threading_disabled = false;
+				opts->acvp_ctx_options.threading_disabled =
+					false;
 				break;
 			case 3:
 				/* quiet */
@@ -878,8 +709,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				break;
 			case 15:
 				/* modversion */
-				CKINT(duplicate_string(&opts->specific_modversion,
-						       optarg));
+				CKINT(duplicate_string(
+					&opts->specific_modversion, optarg));
 				break;
 			case 16:
 				/* vsid */
@@ -900,9 +731,13 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				}
 				/* Download all pending testIDs */
 				if (lval == -1)
-					search->submit_vsid[search->nr_submit_vsid++] = UINT_MAX;
+					search->submit_vsid
+						[search->nr_submit_vsid++] =
+						UINT_MAX;
 				else
-					search->submit_vsid[search->nr_submit_vsid++] = (unsigned int)lval;
+					search->submit_vsid
+						[search->nr_submit_vsid++] =
+						(unsigned int)lval;
 				break;
 			case 17:
 				/* testid */
@@ -921,7 +756,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					ret = -EINVAL;
 					goto out;
 				}
-				search->submit_testid[search->nr_submit_testid++] = (unsigned int)val;
+				search->submit_testid[search->nr_submit_testid++] =
+					(unsigned int)val;
 				break;
 			case 18:
 				/* request */
@@ -942,7 +778,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				break;
 			case 22:
 				/* config */
-				CKINT(duplicate_string(&opts->configfile,
+				CKINT(duplicate_string(&cred->configfile,
 						       optarg));
 				break;
 			case 23:
@@ -966,8 +802,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				break;
 			case 27:
 				/* definition-basedir */
-				CKINT(duplicate_string(&opts->definition_basedir,
-						       optarg));
+				CKINT(duplicate_string(
+					&opts->definition_basedir, optarg));
 				break;
 
 			case 28:
@@ -980,27 +816,32 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				break;
 			case 30:
 				/* register-definition */
-				opts->acvp_ctx_options.register_new_module = true;
-				opts->acvp_ctx_options.register_new_vendor = true;
+				opts->acvp_ctx_options.register_new_module =
+					true;
+				opts->acvp_ctx_options.register_new_vendor =
+					true;
 				opts->acvp_ctx_options.register_new_oe = true;
 				break;
 			case 31:
 				/* delete-definition */
-				CKINT(convert_update_delete_type(optarg,
-				      &opts->acvp_ctx_options.delete_db_entry));
+				CKINT(convert_update_delete_type(
+					optarg, &opts->acvp_ctx_options
+							 .delete_db_entry));
 				/* This operation must use the publish path */
 				opts->publish = true;
 				break;
 			case 32:
 				/* update-definition */
-				CKINT(convert_update_delete_type(optarg,
-				  &opts->acvp_ctx_options.update_db_entry));
+				CKINT(convert_update_delete_type(
+					optarg, &opts->acvp_ctx_options
+							 .update_db_entry));
 				/* This operation must use the publish path */
 				opts->publish = true;
 				break;
 			case 33:
 				/* nopublish-prereqs */
-				opts->acvp_ctx_options.no_publish_prereqs = true;
+				opts->acvp_ctx_options.no_publish_prereqs =
+					true;
 				break;
 			case 34:
 				/* sync-meta */
@@ -1010,70 +851,102 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			case 35:
 				/* list-request-ids */
 				opts->list_pending_request_ids = true;
-				opts->acvp_ctx_options.threading_disabled = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				break;
 			case 36:
 				/* list-request-ids-sparse */
 				opts->list_pending_request_ids_sparse = true;
-				opts->acvp_ctx_options.threading_disabled = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				break;
 			case 37:
 				/* list-available-ids */
 				opts->list_available_ids = true;
-				opts->acvp_ctx_options.threading_disabled = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				break;
 			case 38:
 				/* list-verdicts */
 				opts->list_verdicts = true;
-				opts->acvp_ctx_options.threading_disabled = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				break;
 			case 39:
 				/* list-certificates */
 				opts->list_certificates = true;
-				opts->acvp_ctx_options.threading_disabled = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				break;
 			case 40:
 				/* list-cert-details */
 				opts->list_certificates_detailed = true;
-				opts->acvp_ctx_options.threading_disabled = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				break;
 			case 41:
 				/* list-cert-niap */
 				opts->list_certificates_detailed = true;
-				opts->acvp_ctx_options.threading_disabled = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				opts->cert_details_niap_req_file = optarg;
 				break;
 			case 42:
 				/* list-cipher-options */
 				opts->list_cipher_options = true;
-				opts->acvp_ctx_options.threading_disabled = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				break;
 			case 43:
 				/* list-cipher-options-deps */
 				opts->list_cipher_options_deps = true;
-				opts->acvp_ctx_options.threading_disabled = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				break;
 			case 44:
 				/* list-server-db */
-				CKINT(convert_show_type(optarg,
-				      &opts->acvp_ctx_options.show_db_entries));
+				CKINT(convert_show_type(
+					optarg, &opts->acvp_ctx_options
+							 .show_db_entries));
 				break;
 			case 45:
 				/* search-server-db */
-				CKINT(convert_search_type(optarg,
-						&opts->acvp_server_db_search,
-						&opts->search_type));
+				CKINT(convert_search_type_string(
+					optarg, &opts->acvp_server_db_search,
+					&opts->search_type));
 				break;
-
 			case 46:
-				/* cipher-options */
-				CKINT(duplicate_string(&opts->cipher_options_file,
-						       optarg));
+				/* fetch-id-from-server-db */
+				CKINT(convert_search_type_id(
+					optarg, &opts->acvp_server_db_fetch_id,
+					&opts->search_type));
 				break;
 			case 47:
+				/* fetch-validation-from-server-db */
+				val = strtoul(optarg, NULL, 10);
+				if (val == UINT_MAX) {
+					logger(LOGGER_ERR, LOGGER_C_ANY,
+					       "validation ID too big\n");
+					usage();
+					ret = -EINVAL;
+					goto out;
+				}
+				opts->acvp_server_db_validation_id =
+					(unsigned int)val;
+
+				break;
+
+			case 48:
+				/* cipher-options */
+				CKINT(duplicate_string(
+					&opts->cipher_options_file, optarg));
+				break;
+			case 49:
 				/* cipher-algo */
-				CKINT(duplicate_string(&opts->cipher_options_algo[opts->cipher_options_algo_idx],
-						       optarg));
+				CKINT(duplicate_string(
+					&opts->cipher_options_algo
+						 [opts->cipher_options_algo_idx],
+					optarg));
 				opts->cipher_options_algo_idx++;
 				if (opts->cipher_options_algo_idx >=
 				    OPT_CIPHER_OPTIONS_MAX) {
@@ -1081,71 +954,84 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					goto out;
 				}
 				break;
-			case 48:
+			case 50:
 				/* cipher-list */
 				opts->cipher_list = true;
 				break;
 
-			case 49:
+			case 51:
 				/* proxy-extension */
 				CKINT(acvp_load_extension(optarg));
 				break;
-			case 50:
+			case 52:
 				/* proxy-extension-dir */
 				CKINT(acvp_load_extension_directory(optarg));
 				break;
-			case 51:
+			case 53:
 				/* rename-version */
 				rename->moduleversion_new = optarg;
-				opts->acvp_ctx_options.threading_disabled = true;
-				opts->rename = true;
-				break;
-			case 52:
-				/* rename-name */
-				rename->modulename_new = optarg;
-				opts->acvp_ctx_options.threading_disabled = true;
-				opts->rename = true;
-				break;
-			case 53:
-				/* rename-oename */
-				rename->oe_env_name_new = optarg;
-				opts->acvp_ctx_options.threading_disabled = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				opts->rename = true;
 				break;
 			case 54:
-				/* rename-procname */
-				rename->proc_name_new = optarg;
-				opts->acvp_ctx_options.threading_disabled = true;
+				/* rename-name */
+				rename->modulename_new = optarg;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				opts->rename = true;
 				break;
 			case 55:
-				/* rename-procseries */
-				rename->proc_series_new = optarg;
-				opts->acvp_ctx_options.threading_disabled = true;
+				/* rename-oename */
+				rename->oe_env_name_new = optarg;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				opts->rename = true;
 				break;
 			case 56:
+				/* rename-procname */
+				rename->proc_name_new = optarg;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
+				opts->rename = true;
+				break;
+			case 57:
+				/* rename-procseries */
+				rename->proc_series_new = optarg;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
+				opts->rename = true;
+				break;
+			case 58:
 				/* rename-procfamily */
 				rename->proc_family_new = optarg;
-				opts->acvp_ctx_options.threading_disabled = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 				opts->rename = true;
 				break;
 
-			case 57:
+			case 59:
 				/* register-only */
 				opts->acvp_ctx_options.register_only = true;
 				break;
-
-				/* list-purchased-vs */
-			case 58:
-				opts->list_purchased_vs = true;
-				break;
-				/* list-purchase-opts */
-			case 59:
-				opts->list_available_purchase_opts = true;
-				break;
-				/* purchase */
 			case 60:
+				/* register-only */
+				opts->acvp_ctx_options.upload_only = true;
+				break;
+			case 61:
+				/* list-purchased-vs */
+				opts->list_purchased_vs = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
+				break;
+			case 62:
+				/* list-purchase-opts */
+				opts->list_available_purchase_opts = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
+				break;
+			case 63:
+				/* purchase */
 				lval = strtol(optarg, NULL, 10);
 				if (lval == UINT32_MAX || lval <= 0) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -1158,6 +1044,15 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				opts->purchase_opt = (uint32_t)lval;
 				// TODO
 				opts->purchase_qty = 1;
+
+				opts->acvp_ctx_options.threading_disabled =
+					true;
+				break;
+
+			case 64: /* fetch-verdicts */
+				/* force the proxy to contact server */
+				opts->acvp_ctx_options.resubmit_result = true;
+				opts->fetch_verdicts = true;
 				break;
 
 			default:
@@ -1182,8 +1077,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			break;
 		case 'r':
 			CKINT(parse_fuzzy_flag(
-					&search->moduleversion_fuzzy_search,
-					&search->moduleversion, optarg));
+				&search->moduleversion_fuzzy_search,
+				&search->moduleversion, optarg));
 			break;
 		case 'p':
 			CKINT(parse_fuzzy_flag(&search->processor_fuzzy_search,
@@ -1204,7 +1099,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			listunregistered = 1;
 			break;
 		case 'c':
-			CKINT(duplicate_string(&opts->configfile, optarg));
+			CKINT(duplicate_string(&cred->configfile, optarg));
 			break;
 		case 'd':
 			CKINT(acvp_def_config(optarg));
@@ -1222,9 +1117,9 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 
 		case 'v':
 			logger_inc_verbosity();
-			if (logger_get_verbosity(LOGGER_C_ANY) >=
-						 LOGGER_DEBUG)
-				opts->acvp_ctx_options.threading_disabled = true;
+			if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_DEBUG)
+				opts->acvp_ctx_options.threading_disabled =
+					true;
 			break;
 		case 'q':
 			logger_set_verbosity(LOGGER_NONE);
@@ -1242,6 +1137,10 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 		}
 	}
 
+	/* Only operate on entropy sources */
+	if (opts->esvp_proxy)
+		search->with_es_def = true;
+
 	if (opts->acvp_ctx_options.delete_db_entry == ACVP_OPTS_DELUP_FORCE) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "Forcing a deletion without specifying the definition type to delete is useless, use --delete-definition once or more with an option of [oe|vendor|module|person]\n");
@@ -1258,7 +1157,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 
 		if ((opts->acvp_ctx_options.delete_db_entry &
 		     ACVP_OPTS_DELUP_FORCE) &&
-		    !ask_yes("Are you sure to perform a forced deletion operation")) {
+		    !ask_yes(
+			    "Are you sure to perform a forced deletion operation")) {
 			ret = -EINVAL;
 			goto out;
 		}
@@ -1287,15 +1187,26 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 		goto out;
 	}
 
-	if (!opts->configfile) {
-		if (opts->official_testing)
-			opts->configfile = strdup("acvpproxy_conf_production.json");
-		else
-			opts->configfile = strdup("acvpproxy_conf.json");
-		CKNULL(opts->configfile, -ENOMEM);
+	if (!cred->configfile) {
+		if (opts->official_testing) {
+			if (opts->esvp_proxy)
+				cred->configfile = strdup(
+					"esvpproxy_conf_production.json");
+			else
+				cred->configfile = strdup(
+					"acvpproxy_conf_production.json");
+		} else {
+			if (opts->esvp_proxy)
+				cred->configfile =
+					strdup("esvpproxy_conf.json");
+			else
+				cred->configfile =
+					strdup("acvpproxy_conf.json");
+		}
+		CKNULL(cred->configfile, -ENOMEM);
 	}
 
-	CKINT(load_config(opts));
+	CKINT(load_config(cred));
 
 	return ret;
 
@@ -1304,122 +1215,44 @@ out:
 	exit(-ret);
 }
 
-static void memset_secure(void *s, const int c, const uint32_t n)
-{
-	memset(s, c, n);
-	__asm__ __volatile__("" : : "r" (s) : "memory");
-}
-
-static void last_gen_cb(const time_t now)
-{
-	struct json_object *totp_val;
-	struct flock lock;
-	int ret;
-	int fd;
-
-	if (!global_opts || !global_opts->configfile)
-		return;
-
-	ret = json_find_key(global_opts->config, OPT_STR_TOTPLASTGEN, &totp_val,
-			    json_type_int);
-	if (ret) {
-		json_object_object_add(global_opts->config, OPT_STR_TOTPLASTGEN,
-				       json_object_new_int64(now));
-	} else {
-		json_object_set_int64(totp_val, now);
-	}
-
-	fd = open(global_opts->configfile, O_WRONLY | O_TRUNC);
-	if (fd < 0)
-		return;
-
-	memset (&lock, 0, sizeof(lock));
-
-	/*
-	 * Place a write lock on the file. This call will put us to sleep if
-	 * there is another lock.
-	 */
-	fcntl(fd, F_SETLKW, &lock);
-
-	json_object_to_fd(fd, global_opts->config, JSON_C_TO_STRING_PRETTY |
-			  JSON_C_TO_STRING_NOSLASHESCAPE);
-
-	/* Release the lock. */
-	lock.l_type = F_UNLCK;
-	fcntl(fd, F_SETLKW, &lock);
-
-	close(fd);
-
-	return;
-}
-
-static int set_totp_seed(struct opt_data *opts, const bool enable_net)
-{
-	int ret;
-	char *seed_base64 = NULL;
-	uint32_t seed_base64_len = 0;
-	uint8_t *seed = NULL;
-	uint32_t seed_len = 0;
-	uint64_t totp_last_gen;
-
-	if (!enable_net) {
-		return acvp_init(NULL, 0, 0, false, NULL);
-	}
-
-	CKINT(load_totp_seed(opts, &seed_base64, &seed_base64_len));
-
-	CKINT_LOG(base64_decode(seed_base64, seed_base64_len,
-			        &seed, &seed_len),
-		  "Base64 decoding failed\n");
-
-	ret = json_get_uint64(opts->config, OPT_STR_TOTPLASTGEN,
-			      &totp_last_gen);
-	if (ret)
-		totp_last_gen = 0;
-
-	CKINT(acvp_init(seed, seed_len, (time_t)totp_last_gen,
-			opts->official_testing, &last_gen_cb));
-
-	logger(LOGGER_DEBUG, LOGGER_C_ANY,
-	       "TOTP base64 seed converted into binary and applied\n");
-
-out:
-	/* securely dispose of the seed */
-	if (seed_base64) {
-		memset_secure(seed_base64, 0, seed_base64_len);
-		free(seed_base64);
-	}
-	if (seed) {
-		memset_secure(seed, 0, seed_len);
-		free(seed);
-	}
-	return ret;
-}
-
 static int initialize_ctx(struct acvp_ctx **ctx, struct opt_data *opts,
 			  const bool enable_net)
 {
+	const struct opt_cred *cred;
+	char *server =
+		opts->official_testing ? NIST_DEFAULT_SERVER : NIST_TEST_SERVER;
+	unsigned int port = NIST_DEFAULT_SERVER_PORT;
+	enum acvp_protocol_type proto = acv_protocol;
 	int ret;
 
-	CKINT(set_totp_seed(opts, enable_net));
+	if (opts->esvp_proxy) {
+		server = opts->official_testing ? NIST_ESVP_DEFAULT_SERVER :
+							NIST_ESVP_TEST_SERVER;
+		port = NIST_ESVP_DEFAULT_SERVER_PORT;
+		proto = esv_protocol;
+	}
+
+	CKINT(acvp_set_proto(proto));
+
+	CKINT(set_totp_seed(&opts->cred, opts->official_testing, enable_net));
 
 	CKINT(acvp_ctx_init(ctx, opts->basedir, opts->secure_basedir));
 
+	cred = &opts->cred;
 	/* Official testing */
 	if (opts->official_testing) {
 		CKINT(acvp_req_production(*ctx));
 		if (enable_net)
-			CKINT(acvp_set_net(NIST_DEFAULT_SERVER,
-					   NIST_DEFAULT_SERVER_PORT,
-				   opts->tlscabundle, opts->tlscakeychainref,
-				   opts->tlscert, opts->tlscertkeychainref,
-				   opts->tlskey, opts->tlspasscode));
+			CKINT(acvp_set_net(server, port, cred->tlscabundle,
+					   cred->tlscakeychainref,
+					   cred->tlscert,
+					   cred->tlscertkeychainref,
+					   cred->tlskey, cred->tlspasscode));
 	} else if (enable_net) {
-		CKINT(acvp_set_net(NIST_TEST_SERVER,
-				   NIST_DEFAULT_SERVER_PORT,
-				   opts->tlscabundle, opts->tlscakeychainref,
-				   opts->tlscert, opts->tlscertkeychainref,
-				   opts->tlskey, opts->tlspasscode));
+		CKINT(acvp_set_net(server, port, cred->tlscabundle,
+				   cred->tlscakeychainref, cred->tlscert,
+				   cred->tlscertkeychainref, cred->tlskey,
+				   cred->tlspasscode));
 	}
 
 	/* Submit requests and retrieve test vectors */
@@ -1458,7 +1291,8 @@ static int do_register(struct opt_data *opts)
 
 	if (opts->acvp_ctx_options.register_only) {
 		if (!ret) {
-			fprintf(stderr, "Test definitions registered successfully, do not forget to download them at a later time.\n");
+			fprintf(stderr,
+				"Test definitions registered successfully, do not forget to download them at a later time.\n");
 		} else if (ret == -ENOENT)
 			ret = 0;
 
@@ -1469,7 +1303,8 @@ static int do_register(struct opt_data *opts)
 	// TODO: Maybe store that data for automated resumption of download?
 	while (!(ret = acvp_list_failed_testid(&idx, &testid))) {
 		if (!printed) {
-			fprintf(stderr, "Not all testIDs were downloaded cleanly. Invoke ACVP Proxy with the following options to download the remaining test vectors:\n");
+			fprintf(stderr,
+				"Not all testIDs were downloaded cleanly. Invoke ACVP Proxy with the following options to download the remaining test vectors:\n");
 
 			/* log to STDOUT to allow capturing apart from the log data */
 			printf("--request ");
@@ -1627,8 +1462,8 @@ static int list_certificates_detailed(struct opt_data *opts)
 
 	CKINT(initialize_ctx(&ctx, opts, false));
 
-	CKINT(acvp_list_certificates_detailed(ctx,
-					opts->cert_details_niap_req_file));
+	CKINT(acvp_list_certificates_detailed(
+		ctx, opts->cert_details_niap_req_file));
 
 out:
 	acvp_ctx_release(ctx);
@@ -1696,6 +1531,36 @@ out:
 	return ret;
 }
 
+static int do_fetch_server_db(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	CKINT(acvp_server_db_fetch_id(ctx, opts->search_type,
+				      opts->acvp_server_db_fetch_id));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int do_fetch_validation_server_db(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	CKINT(acvp_server_db_fetch_validation(
+		ctx, opts->acvp_server_db_validation_id));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 static int do_sync_meta(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
@@ -1753,13 +1618,49 @@ out:
 	return ret;
 }
 
+static int do_fetch_verdicts(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	CKINT(acvp_fetch_verdicts(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int esvp_proxy_handling(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	ctx->req_details.dump_register = opts->dump_register;
+	ctx->req_details.request_sample = opts->request_sample;
+
+	CKINT(esvp_register(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	struct opt_data opts;
+	const char *basen;
 	int ret;
 
 	memset(&opts, 0, sizeof(opts));
-	global_opts = &opts;
+
+	basen = basename(argv[0]);
+	CKNULL(basen, -EFAULT);
+	if (!strncmp("esvp-proxy", basen, 10))
+		opts.esvp_proxy = true;
 
 	macos_disable_nap();
 
@@ -1767,7 +1668,14 @@ int main(int argc, char *argv[])
 
 	CKINT(parse_opts(argc, argv, &opts));
 
-	if (opts.list_purchased_vs) {
+	if (opts.esvp_proxy) {
+		ret = esvp_proxy_handling(&opts);
+		goto out;
+	}
+
+	if (opts.fetch_verdicts) {
+		CKINT(do_fetch_verdicts(&opts));
+	} else if (opts.list_purchased_vs) {
 		CKINT(do_list_purchased_vsids(&opts));
 	} else if (opts.list_available_purchase_opts) {
 		CKINT(do_list_available_purchased_opts(&opts));
@@ -1777,10 +1685,14 @@ int main(int argc, char *argv[])
 		CKINT(do_sync_meta(&opts));
 	} else if (opts.acvp_server_db_search && opts.search_type) {
 		CKINT(do_search_server_db(&opts));
+	} else if (opts.acvp_server_db_fetch_id && opts.search_type) {
+		CKINT(do_fetch_server_db(&opts));
+	} else if (opts.acvp_server_db_validation_id) {
+		CKINT(do_fetch_validation_server_db(&opts));
 	} else if (opts.acvp_ctx_options.show_db_entries) {
 		CKINT(do_list_server_db(&opts));
 	} else if (opts.cipher_list || opts.cipher_options_algo_idx ||
-	    opts.cipher_options_file) {
+		   opts.cipher_options_file) {
 		CKINT(do_fetch_cipher_options(&opts));
 	} else if (opts.rename) {
 		CKINT(do_rename(&opts));
@@ -1788,8 +1700,7 @@ int main(int argc, char *argv[])
 		CKINT(do_register(&opts));
 	} else if (opts.publish) {
 		CKINT(do_publish(&opts));
-	} else if (opts.list_available_ids ||
-		   opts.list_pending_request_ids ||
+	} else if (opts.list_available_ids || opts.list_pending_request_ids ||
 		   opts.list_pending_request_ids_sparse) {
 		CKINT(list_ids(&opts));
 	} else if (opts.list_verdicts) {
