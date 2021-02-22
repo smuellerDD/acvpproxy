@@ -689,15 +689,10 @@ static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 		if (full)
 			CKINT(acvp_req_rsa_siggen(rsa, entry));
 		break;
+	case DEF_ALG_RSA_MODE_LEGACY_SIGVER:
 	case DEF_ALG_RSA_MODE_SIGVER:
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigVer")));
-		if (full)
-			CKINT(acvp_req_rsa_sigver(rsa, entry));
-		break;
-	case DEF_ALG_RSA_MODE_LEGACY_SIGVER:
-		CKINT(json_object_object_add(entry, "mode",
-				json_object_new_string("legacySigVer")));
 		if (full)
 			CKINT(acvp_req_rsa_sigver(rsa, entry));
 		break;
