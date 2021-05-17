@@ -68,7 +68,10 @@ void acvp_free_ext_buf(struct acvp_ext_buf *buf)
 		free(buf->buf);
 	if (buf->data_type)
 		free(buf->data_type);
+	if (buf->filename)
+		free(buf->filename);
 	buf->data_type = NULL;
+	buf->filename = NULL;
 	buf->buf = NULL;
 	buf->len = 0;
 

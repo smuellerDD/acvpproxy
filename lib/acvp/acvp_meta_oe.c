@@ -199,6 +199,27 @@ out:
 /*****************************************************************************
  * Matcher
  *****************************************************************************/
+static int acvp_str_match_zero(const char *exp, const char *found,
+			       const uint32_t id)
+{
+	size_t exp_len = 0, found_len = 0;
+
+	if (exp)
+		exp_len = strlen(exp);
+	if (found)
+		found_len = strlen(found);
+
+	/*
+	 * We need that check because we want to consider a NULL and a
+	 * zero-length data to match. But if there is a NULL on one side and
+	 * a filled buffer on the other, we should not match.
+	 */
+	if (exp_len != found_len)
+		return -ENOENT;
+
+	return acvp_str_match(exp, found, id);
+}
+
 static int acvp_oe_match_dep_sw(struct def_dependency *def_dep,
 				struct json_object *json_oe)
 {
@@ -208,17 +229,23 @@ static int acvp_oe_match_dep_sw(struct def_dependency *def_dep,
 	if (!def_dep->name)
 		return 0;
 
-	CKINT(json_get_string(json_oe, "name", &str));
-	CKINT(acvp_str_match(def_dep->name, str, def_dep->acvp_dep_id));
+	/*
+	 * no error check on remote data read -> if not existent, its string
+	 * is NULL
+	 */
+	json_get_string(json_oe, "name", &str);
+	CKINT(acvp_str_match_zero(def_dep->name, str, def_dep->acvp_dep_id));
 
 	if (def_dep->cpe) {
-		CKINT(json_get_string(json_oe, "cpe", &str));
-		CKINT(acvp_str_match(def_dep->cpe, str, def_dep->acvp_dep_id));
+		json_get_string(json_oe, "cpe", &str);
+		CKINT(acvp_str_match_zero(def_dep->cpe, str,
+					  def_dep->acvp_dep_id));
 	}
 
 	if (def_dep->swid) {
-		CKINT(json_get_string(json_oe, "swid", &str));
-		CKINT(acvp_str_match(def_dep->swid, str, def_dep->acvp_dep_id));
+		json_get_string(json_oe, "swid", &str);
+		CKINT(acvp_str_match_zero(def_dep->swid, str,
+					  def_dep->acvp_dep_id));
 	}
 
 	/*
@@ -243,13 +270,14 @@ static int acvp_oe_match_dep_sw(struct def_dependency *def_dep,
 		}
 	}
 
-	CKINT(json_get_string(json_oe, "description", &str));
+	json_get_string(json_oe, "description", &str);
 
 	if (def_dep->description) {
-		CKINT(acvp_str_match(def_dep->description, str,
-				     def_dep->acvp_dep_id));
+		CKINT(acvp_str_match_zero(def_dep->description, str,
+					  def_dep->acvp_dep_id));
 	} else {
-		CKINT(acvp_str_match(def_dep->name, str, def_dep->acvp_dep_id));
+		CKINT(acvp_str_match_zero(def_dep->name, str,
+					  def_dep->acvp_dep_id));
 	}
 
 	/* Last step as we got a successful match: get the ID */
@@ -267,24 +295,32 @@ static int acvp_oe_match_dep_proc(struct def_dependency *def_dep,
 	int ret;
 	const char *str;
 
-	CKINT(json_get_string(json_oe, "manufacturer", &str));
-	CKINT(acvp_str_match(def_dep->manufacturer, str, def_dep->acvp_dep_id));
+	/*
+	 * no error check on remote data read -> if not existent, its string
+	 * is NULL
+	 */
+	json_get_string(json_oe, "manufacturer", &str);
+	CKINT(acvp_str_match_zero(def_dep->manufacturer, str,
+				  def_dep->acvp_dep_id));
 
-	CKINT(json_get_string(json_oe, "family", &str));
-	CKINT(acvp_str_match(def_dep->proc_family, str, def_dep->acvp_dep_id));
+	json_get_string(json_oe, "family", &str);
+	CKINT(acvp_str_match_zero(def_dep->proc_family, str,
+				  def_dep->acvp_dep_id));
 
-	CKINT(json_get_string(json_oe, "name", &str));
-	CKINT(acvp_str_match(def_dep->proc_name, str, def_dep->acvp_dep_id));
+	json_get_string(json_oe, "name", &str);
+	CKINT(acvp_str_match_zero(def_dep->proc_name, str,
+				  def_dep->acvp_dep_id));
 
-	CKINT(json_get_string(json_oe, "series", &str));
-	CKINT(acvp_str_match(def_dep->proc_series, str, def_dep->acvp_dep_id));
+	json_get_string(json_oe, "series", &str);
+	CKINT(acvp_str_match_zero(def_dep->proc_series, str,
+				  def_dep->acvp_dep_id));
 
 	CKINT(acvp_oe_proc_name(def_dep, tmp, sizeof(tmp)));
-	CKINT(json_get_string(json_oe, "description", &str));
-	CKINT(acvp_str_match(tmp, str, def_dep->acvp_dep_id));
+	json_get_string(json_oe, "description", &str);
+	CKINT(acvp_str_match_zero(tmp, str, def_dep->acvp_dep_id));
 
 	/* Last step as we got a successful match: get the ID */
-	CKINT(json_get_string(json_oe, "url", &str));
+	json_get_string(json_oe, "url", &str);
 	CKINT(acvp_get_id_from_url(str, &def_dep->acvp_dep_id));
 
 out:
@@ -416,7 +452,7 @@ static int acvp_oe_register_dep(const struct acvp_testid_ctx *testid_ctx,
 				      json_dep,
 				      JSON_C_TO_STRING_PRETTY |
 					      JSON_C_TO_STRING_NOSLASHESCAPE));
-		if (ask_yes("No module definition found - shall the OE be registered")) {
+		if (ask_yes("No module definition found - shall the dependency for an OE be registered")) {
 			ret = -ENOENT;
 			goto out;
 		}
@@ -865,6 +901,14 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
 		bool found = false;
 
+		/*
+		 * If we have no local dependency ID set (e.g. when using the
+		 * old dependency definition config file structure and having
+		 * no software), then we trivially match.
+		 */
+		if (!def_dep->acvp_dep_id)
+			continue;
+
 		for (i = 0; i < json_object_array_length(tmp); i++) {
 			uint32_t id = 0;
 			struct json_object *dep =
@@ -882,6 +926,10 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 		}
 
 		if (!found) {
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			       "Dependency ID %u found on local database without a match on server\n",
+			       def_dep->acvp_dep_id);
+			def_dep->acvp_dep_id = 0;
 			ret = -EAGAIN;
 			goto out;
 		}
@@ -1428,6 +1476,13 @@ int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx)
 
 	/* Lock def_oe */
 	CKINT(acvp_def_get_oe_id(def_oe));
+
+	/* If we have no OE with dependencies, do not handle it */
+	if (!def_oe->def_dep) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "No dependencies defined - OE handling disabled\n");
+		return 0;
+	}
 
 	if (req_details->dump_register) {
 		char url[ACVP_NET_URL_MAXLEN];

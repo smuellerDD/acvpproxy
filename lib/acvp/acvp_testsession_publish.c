@@ -356,7 +356,7 @@ static int acvp_publish_build(const struct acvp_testid_ctx *testid_ctx,
 	int ret = -EINVAL;
 	char url[ACVP_NET_URL_MAXLEN];
 
-	if (!def_info->acvp_module_id || !def_oe->acvp_oe_id) {
+	if (!def_info->acvp_module_id) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "No module or OE ID for test ID %u (%s) found\n",
 		       testid_ctx->testid, def_info->module_name);
@@ -404,10 +404,13 @@ static int acvp_publish_build(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(json_object_object_add(pub, "moduleUrl",
 				     json_object_new_string(url)));
 
-	CKINT(acvp_create_urlpath(NIST_VAL_OP_OE, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u", def_oe->acvp_oe_id));
-	CKINT(json_object_object_add(pub, "oeUrl",
-				     json_object_new_string(url)));
+	if (def_oe->acvp_oe_id) {
+		CKINT(acvp_create_urlpath(NIST_VAL_OP_OE, url, sizeof(url)));
+		CKINT(acvp_extend_string(url, sizeof(url), "/%u",
+					 def_oe->acvp_oe_id));
+		CKINT(json_object_object_add(pub, "oeUrl",
+					     json_object_new_string(url)));
+	}
 
 	//TODO: reenable once issue 749 is fixed
 	if (0)

@@ -45,7 +45,19 @@ _acvp_req_set_algo_kdf_twostep(const struct def_algo_kdf_twostep *kdf_twostep,
 				     json_object_new_string("KAS-KDF")));
 	CKINT(json_object_object_add(entry, "mode",
 				     json_object_new_string("TwoStep")));
-	CKINT(acvp_req_add_revision(entry, "Sp800-56Cr1"));
+
+	switch (kdf_twostep->kdf_spec) {
+	case DEF_ALG_KDF_SP800_56Crev1:
+		CKINT(acvp_req_add_revision(entry, "Sp800-56Cr1"));
+		break;
+	case DEF_ALG_KDF_SP800_56Crev2:
+		CKINT(acvp_req_add_revision(entry, "Sp800-56Cr2"));
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "SP800-56C: Unknown KDF specification\n");
+		return -EINVAL;
+	}
 
 	if (!full)
 		goto out;

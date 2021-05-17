@@ -2,14 +2,18 @@
 # Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
 #
 
-CC		:= gcc
+CC		?= gcc
 CFLAGS		+= -Wextra -Wall -pedantic -fPIC -O2 -std=gnu99
 #Hardening
-CFLAGS		+= -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE
+CFLAGS		+= -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wno-variadic-macros -Wno-gnu-zero-variadic-macro-arguments
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
-LDFLAGS        += -Wl,-z,relro,-z,now -pie
+LDFLAGS		+= -Wl,-z,relro,-z,now -pie
+endif
+
+ifneq '' '$(findstring clang,$(CC))'
+CFLAGS		+= -Wno-gnu-zero-variadic-macro-arguments
 endif
 
 NAME		:= totp

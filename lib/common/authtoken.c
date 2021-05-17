@@ -29,7 +29,7 @@
 #include "request_helper.h"
 #include "totp.h"
 
-static int _acvp_init_auth(struct acvp_auth_ctx **auth)
+int acvp_init_acvp_auth_ctx(struct acvp_auth_ctx **auth)
 {
 	if (*auth) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
@@ -51,7 +51,7 @@ int acvp_init_auth_ctx(struct acvp_ctx *ctx)
 	if (!ctx)
 		return -EINVAL;
 
-	return _acvp_init_auth(&ctx->ctx_auth);
+	return acvp_init_acvp_auth_ctx(&ctx->ctx_auth);
 }
 
 int acvp_init_auth(struct acvp_testid_ctx *testid_ctx)
@@ -59,10 +59,10 @@ int acvp_init_auth(struct acvp_testid_ctx *testid_ctx)
 	if (!testid_ctx)
 		return -EINVAL;
 
-	return _acvp_init_auth(&testid_ctx->server_auth);
+	return acvp_init_acvp_auth_ctx(&testid_ctx->server_auth);
 }
 
-static void _acvp_release_auth(struct acvp_auth_ctx *auth)
+void acvp_release_acvp_auth_ctx(struct acvp_auth_ctx *auth)
 {
 	if (!auth)
 		return;
@@ -70,6 +70,8 @@ static void _acvp_release_auth(struct acvp_auth_ctx *auth)
 	ACVP_PTR_FREE_NULL(auth->jwt_token);
 	auth->jwt_token_len = 0;
 	ACVP_PTR_FREE_NULL(auth->testsession_certificate_number);
+
+	mutex_destroy(&auth->mutex);
 }
 
 void acvp_release_auth_ctx(struct acvp_ctx *ctx)
@@ -80,8 +82,7 @@ void acvp_release_auth_ctx(struct acvp_ctx *ctx)
 		return;
 
 	auth = ctx->ctx_auth;
-	_acvp_release_auth(auth);
-	mutex_destroy(&auth->mutex);
+	acvp_release_acvp_auth_ctx(auth);
 
 	ACVP_PTR_FREE_NULL(ctx->ctx_auth);
 }
@@ -95,8 +96,7 @@ void acvp_release_auth(struct acvp_testid_ctx *testid_ctx)
 
 	auth = testid_ctx->server_auth;
 
-	_acvp_release_auth(auth);
-	mutex_destroy(&auth->mutex);
+	acvp_release_acvp_auth_ctx(auth);
 
 	ACVP_PTR_FREE_NULL(testid_ctx->server_auth);
 }
@@ -105,6 +105,10 @@ int acvp_copy_auth(struct acvp_auth_ctx *dst, const struct acvp_auth_ctx *src)
 {
 	int ret = 0;
 
+	if (!dst)
+		return -EINVAL;
+
+	acvp_release_acvp_auth_ctx(dst);
 	dst->jwt_token = strndup(src->jwt_token, ACVP_JWT_TOKEN_MAX);
 	CKNULL(dst->jwt_token, -ENOMEM);
 	dst->jwt_token_len = src->jwt_token_len;
@@ -117,10 +121,8 @@ out:
 	return ret;
 }
 
-static int acvp_set_authtoken_temp(const struct acvp_testid_ctx *testid_ctx,
-				   const char *authtoken)
+int acvp_set_authtoken_temp(struct acvp_auth_ctx *auth, const char *authtoken)
 {
-	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	size_t tokenlen = strlen(authtoken);
 	int ret = 0;
 
@@ -130,7 +132,7 @@ static int acvp_set_authtoken_temp(const struct acvp_testid_ctx *testid_ctx,
 		return -EINVAL;
 	}
 
-	_acvp_release_auth(auth);
+	acvp_release_acvp_auth_ctx(auth);
 	auth->jwt_token = strndup(authtoken, ACVP_JWT_TOKEN_MAX);
 	CKNULL(auth->jwt_token, -ENOMEM);
 	auth->jwt_token_len = tokenlen;
@@ -147,7 +149,7 @@ int acvp_set_authtoken(const struct acvp_testid_ctx *testid_ctx,
 	const struct definition *def = testid_ctx->def;
 	int ret = 0;
 
-	CKINT(acvp_set_authtoken_temp(testid_ctx, authtoken));
+	CKINT(acvp_set_authtoken_temp(testid_ctx->server_auth, authtoken));
 
 	/* Store the refreshed JWT auth token */
 	if (def)
@@ -189,7 +191,8 @@ int acvp_get_accesstoken(const struct acvp_testid_ctx *testid_ctx,
 	if (permanently) {
 		CKINT(acvp_set_authtoken(testid_ctx, otp_accesstoken));
 	} else {
-		CKINT(acvp_set_authtoken_temp(testid_ctx, otp_accesstoken));
+		CKINT(acvp_set_authtoken_temp(testid_ctx->server_auth,
+					      otp_accesstoken));
 	}
 
 out:
@@ -282,7 +285,7 @@ static int acvp_process_login(const struct acvp_testid_ctx *testid_ctx,
 	if (initial_login) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Initial login received, store it for reuse\n");
-		_acvp_release_auth(ctx_auth);
+		acvp_release_acvp_auth_ctx(ctx_auth);
 		CKINT(acvp_copy_auth(ctx_auth, testid_ctx->server_auth));
 	}
 
@@ -695,7 +698,7 @@ int acvp_login_refresh(const struct acvp_testid_ctx *testid_ctx_head)
 
 	logger_status(
 		LOGGER_C_ANY,
-		"Logging into ACVP server to refresh %u existing auth tokens",
+		"Logging into ACVP server to refresh %u existing auth tokens\n",
 		counter);
 
 	CKINT(acvp_create_url(NIST_VAL_OP_LOGIN_REFRESH, url, sizeof(url)));

@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 /****************************************************************************
- * SP800-56C rev 1 Onestep KDF
+ * SP800-56C rev 1 and 2 Onestep KDF
  ****************************************************************************/
 struct def_algo_kdf_onestep {
 	/*
@@ -47,6 +47,13 @@ struct def_algo_kdf_onestep {
 	 * entry of an array of prerequisites!
 	 */
 	unsigned int prereqvals_num;
+
+	/*
+	 * KDF specification that is to be applied
+	 *
+	 * required: optional - if not set SP800-56Cr1 is assumed
+	 */
+	enum kdf_spec kdf_spec;
 
 	/*
 	 * Definitions of the one-step KDF

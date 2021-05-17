@@ -1,3 +1,17 @@
+v1.7.2
+- fix: --fetch-validation-from-server-db uses OE config file version 2
+- add ESVP /certify endpoint handling
+- enhancement: add SP800-56C rev 2 support
+- enhancement: add complete LRNG test definition
+
+v1.7.1
+- fix: FIPS 186-2 legacy sigver request
+- enhancement: Verify that the certificate used to create the JWT is also used for uploading the date
+- fix: sometimes empty ACVP definitions are shown - this is now fixed
+- fix: support OE definition without dependencies (just define "oeDependencies" = [])
+- ESVP tool: first successful upload of data
+- enhancement: add cryptographic POST
+
 v1.7.0
 - enhancement: add --fetch-id-from-server-db to allow fetching the ACVP server DB data for the given ID
 - enhancement: add --fetch-validation-from-server-db allowing to provide a validation ID which is used to query the ACVP server DB to populate a full module_definitions/<dir> directory which can immediately be used for ACVP Proxy operations on the meta data

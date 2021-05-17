@@ -5,12 +5,16 @@
 CC		?= gcc
 CFLAGS		+= -Werror -Wextra -Wall -pedantic -fPIC -O2 -std=gnu99
 #Hardening
-CFLAGS		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wno-missing-field-initializers -Wno-gnu-zero-variadic-macro-arguments
+CFLAGS		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wno-missing-field-initializers -Wno-gnu-zero-variadic-macro-arguments -Wno-variadic-macros
 
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
 ifeq ($(UNAME_S),Linux)
 LDFLAGS		+= -Wl,-z,relro,-z,now -pie
+endif
+
+ifneq '' '$(findstring clang,$(CC))'
+CFLAGS		+= -Wno-gnu-zero-variadic-macro-arguments
 endif
 
 NAME		?= totp_mq_server

@@ -183,12 +183,11 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	struct json_object *tmp_array = NULL, *tmp = NULL;
 	int ret = -EINVAL;
 
-	//TOD Enable once XTS version 2.0 is active
-//	if (acvp_match_cipher(sym->algorithm, ACVP_XTS)) {
-//		CKINT(acvp_req_add_revision(entry, "2.0"));
-//	} else {
+	if (acvp_match_cipher(sym->algorithm, ACVP_XTS)) {
+		CKINT(acvp_req_add_revision(entry, "2.0"));
+	} else {
 		CKINT(acvp_req_add_revision(entry, "1.0"));
-//	}
+	}
 
 	/*
 	 * AES_GCM with zero payload length is not allowed any more.
@@ -245,7 +244,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 
 	if (acvp_match_cipher(sym->algorithm, ACVP_GCM) && !sym->ivgen) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "GCM mode definition: ivgenmode setting missing\n");
+		       "GCM mode definition: ivgen setting missing\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -269,9 +268,10 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		break;
 	}
 
-	if (acvp_match_cipher(sym->algorithm, ACVP_GCM) && !sym->ivgenmode) {
+	if (acvp_match_cipher(sym->algorithm, ACVP_GCM) &&
+	    (sym->ivgen == DEF_ALG_SYM_IVGEN_INTERNAL) && !sym->ivgenmode) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "GCM mode definition: ivgenmode setting missing\n");
+		       "GCM mode definition: ivgenmode setting for internal IV generation missing\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -411,19 +411,24 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	CKINT(acvp_req_tdes_keyopt(entry, sym->algorithm));
 
 	if (acvp_match_cipher(sym->algorithm, ACVP_CTR) ||
-	     acvp_match_cipher(sym->algorithm, ACVP_TDESCTR)) {
+	    acvp_match_cipher(sym->algorithm, ACVP_TDESCTR)) {
 
 		CKINT(acvp_req_conformance(entry,
 					   sym->conformance &
 					   DEF_ALG_SYM_CONFORMANCE_RFC3686));
 
+#if 0
 		if (!sym->ctrsource) {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "CTR mode definition: ctrsource setting missing\n");
 			ret = -EINVAL;
 			goto out;
 		}
+#endif
 	}
+
+	/* not supported any more in current ACVP servers */
+#if 0
 	switch (sym->ctrsource) {
 	case DEF_ALG_SYM_CTR_UNDEF:
 		/* Do nothing */
@@ -443,6 +448,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		goto out;
 		break;
 	}
+#endif
 
 	if ((acvp_match_cipher(sym->algorithm, ACVP_CTR) ||
 	     acvp_match_cipher(sym->algorithm, ACVP_TDESCTR)) &&

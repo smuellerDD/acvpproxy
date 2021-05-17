@@ -418,8 +418,7 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	const struct acvp_datastore_ctx *datastore;
 	const struct definition *def;
 	struct acvp_buf tmp;
-	char pathname[FILENAME_MAX / 2];
-	char file[FILENAME_MAX], msgsize[12];
+	char pathname[FILENAME_MAX / 2], file[FILENAME_MAX], msgsize[12];
 	int ret;
 
 	CKNULL_C_LOG(testid_ctx, -EINVAL, LOGGER_C_DS_FILE,
@@ -482,6 +481,18 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 
 	logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
 	       "JWT access token stored in %s\n", file);
+
+	/* Write JWT certificate reference */
+	tmp.buf = NULL;
+	tmp.len = 0;
+	CKINT(acvp_cert_ref(&tmp));
+	snprintf(file, sizeof(file), "%s/%s", pathname, datastore->jwtcertref);
+	ret = acvp_datastore_write_data(&tmp, file);
+	acvp_free_buf(&tmp);
+	if (ret == -EEXIST)
+		ret = 0;
+	if (ret < 0)
+		goto out;
 
 	/* Write message size constraint information */
 	snprintf(file, sizeof(file), "%s/%s", pathname,
@@ -553,8 +564,34 @@ static int acvp_datastore_process_certinfo(const char *pathname,
 	}
 
 out:
-	if (certinfo)
-		json_object_put(certinfo);
+	ACVP_JSON_PUT_NULL(certinfo);
+	return ret;
+}
+
+static int acvp_datastore_parse_status(const char *pathname,
+				       const char *filename,
+				       const struct acvp_testid_ctx *testid_ctx)
+{
+	struct stat statbuf;
+	struct json_object *status = NULL;
+	int ret = 0;
+	char file[FILENAME_MAX];
+
+	if (!testid_ctx->status_parse)
+		return 0;
+
+	snprintf(file, sizeof(file), "%s/%s", pathname, filename);
+	if (!stat(file, &statbuf) && statbuf.st_size) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY, "Loading status file %s\n",
+		       file);
+		status = json_object_from_file(file);
+		CKNULL_LOG(status, -EFAULT, "Cannot parse input file %s\n",
+			   file);
+		CKINT(testid_ctx->status_parse(testid_ctx, status));
+	}
+
+out:
+	ACVP_JSON_PUT_NULL(status);
 	return ret;
 }
 
@@ -643,6 +680,9 @@ acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_datastore_process_certinfo(
 		pathname, datastore->testsession_certificate_info,
 		&auth->testsession_certificate_number));
+
+	CKINT(acvp_datastore_parse_status(pathname, datastore->esvp_statusfile,
+					  testid_ctx));
 
 out:
 	return ret;
@@ -738,6 +778,7 @@ out:
 static int acvp_datastore_file_compare(const struct acvp_vsid_ctx *vsid_ctx,
 				       const char *filename,
 				       const bool secure_location,
+				       const bool vsid_location,
 				       const struct acvp_buf *data)
 {
 	const struct acvp_testid_ctx *testid_ctx;
@@ -770,8 +811,15 @@ static int acvp_datastore_file_compare(const struct acvp_vsid_ctx *vsid_ctx,
 	CKNULL_C_LOG(data->buf, -EINVAL, LOGGER_C_DS_FILE,
 		     "Data buffer to be compared missing\n");
 
-	CKINT(acvp_datastore_file_vectordir_vsid(
-		vsid_ctx, pathname, sizeof(pathname), false, secure_location));
+	if (vsid_location) {
+		CKINT(acvp_datastore_file_vectordir_vsid(
+			vsid_ctx, pathname, sizeof(pathname), false,
+			secure_location));
+	} else {
+		CKINT(acvp_datastore_file_vectordir(testid_ctx, pathname,
+						    sizeof(pathname), false,
+						    secure_location));
+	}
 	CKINT(acvp_extend_string(pathname, sizeof(pathname), "/%s", filename));
 
 	CKINT(acvp_datastore_read_data(&buf, &buflen, pathname));

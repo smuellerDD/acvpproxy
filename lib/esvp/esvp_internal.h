@@ -20,18 +20,42 @@
 #ifndef ESVP_INTERNAL_H
 #define ESVP_INTERNAL_H
 
+#include "acvpproxy.h"
 #include "bool.h"
 #include "buffer.h"
+#include "internal.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/**
+ * Status handing: write the status file
+ */
+int esvp_write_status(const struct acvp_testid_ctx *testid_ctx);
+
+/**
+ * Status handing: read the status file
+ */
+int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
+		     struct json_object *status);
+
+/**
+ * Support to create the supporting document array
+ */
+int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
+		  struct json_object *data, bool write_extended);
+
+/**
+ * Start certification operation
+ */
+int esvp_certify(struct acvp_testid_ctx *testid_ctx);
+
 /* File holding the general entropy source information */
 #define ESVP_ES_FILE_DEF "definition"
 
 /* Directory holding the raw noise data */
-#define ESVP_ES_DIR_RAW_NOISE "raw_noise"
+#define ESVP_ES_DIR_ENTROPY_SOURCE "entropy_source"
 /* File with the raw noise data */
 #define ESVP_ES_FILE_RAW_NOISE "raw_noise_bits"
 /* File with the restart data */
@@ -50,6 +74,14 @@ extern "C" {
 
 /* File holding the metadata about the test session provided by ESVP server */
 #define ESVP_DS_TESTIDMETA "esvid_metadata.json"
+
+/* Data store directory for sensitive data including debug logs */
+#define ESVP_DS_CREDENTIALDIR "esvp-secure-datastore"
+#define ESVP_DS_CREDENTIALDIR_PRODUCTION "esvp-secure-datastore-production"
+/* Data store directory for testvectors and other regular data */
+#define ESVP_DS_DATADIR "esvp-testvectors"
+#define ESVP_DS_DATADIR_PRODUCTION "esvp-testvectors-production"
+
 
 #ifdef __cplusplus
 }

@@ -29,6 +29,11 @@ extern "C" {
 
 #define DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN 10
 
+enum kdf_spec {
+	DEF_ALG_KDF_SP800_56Crev1 = 0,
+	DEF_ALG_KDF_SP800_56Crev2
+};
+
 /*
  * IUTs SHALL be capable of specifying how the FixedInfo is constructed
  * for the KAS/KTS negotiation.

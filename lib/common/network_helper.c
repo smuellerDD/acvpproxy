@@ -48,7 +48,8 @@ static int _acvp_net_op(const struct acvp_testid_ctx *testid_ctx,
 		break;
 	case acvp_http_post_multi:
 		CKNULL_LOG(submit, -EINVAL, "Submit buffer missing\n");
-		ret = na->acvp_http_post_multi(&netinfo, submit);
+		CKNULL_LOG(response, -EINVAL, "Response buffer missing\n");
+		ret = na->acvp_http_post_multi(&netinfo, submit, response);
 		break;
 	case acvp_http_put:
 		CKNULL_LOG(submit, -EINVAL, "Submit buffer missing\n");

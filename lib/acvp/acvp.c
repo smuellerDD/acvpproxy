@@ -94,14 +94,15 @@ static void acvp_release_datastore(struct acvp_datastore_ctx *datastore)
 	ACVP_PTR_FREE_NULL(datastore->resultsfile);
 	ACVP_PTR_FREE_NULL(datastore->vectorfile);
 	ACVP_PTR_FREE_NULL(datastore->jwttokenfile);
+	ACVP_PTR_FREE_NULL(datastore->jwtcertref);
 	ACVP_PTR_FREE_NULL(datastore->messagesizeconstraint);
 	ACVP_PTR_FREE_NULL(datastore->testsession_certificate_id);
 	ACVP_PTR_FREE_NULL(datastore->testsession_certificate_info);
 	ACVP_PTR_FREE_NULL(datastore->verdictfile);
 	ACVP_PTR_FREE_NULL(datastore->processedfile);
 	ACVP_PTR_FREE_NULL(datastore->srcserver);
-	ACVP_PTR_FREE_NULL(datastore->signer);
 	ACVP_PTR_FREE_NULL(datastore->expectedfile);
+	ACVP_PTR_FREE_NULL(datastore->esvp_statusfile);
 }
 
 static void acvp_release_search(struct acvp_search_ctx *search)
@@ -472,6 +473,7 @@ out:
 DSO_PUBLIC
 int acvp_req_production(struct acvp_ctx *ctx)
 {
+	const struct acvp_net_proto *proto;
 	struct acvp_req_ctx *req_details;
 	struct acvp_datastore_ctx *datastore;
 	int ret = 0;
@@ -483,6 +485,8 @@ int acvp_req_production(struct acvp_ctx *ctx)
 		       "ACVP library was not yet initialized\n");
 		return -EOPNOTSUPP;
 	}
+
+	CKINT(acvp_get_proto(&proto));
 
 	req_details = &ctx->req_details;
 
@@ -498,18 +502,19 @@ int acvp_req_production(struct acvp_ctx *ctx)
 	acvp_production = true;
 
 	datastore = &ctx->datastore;
-	if (!strncmp(datastore->basedir, ACVP_DS_DATADIR,
-		     strlen(ACVP_DS_DATADIR))) {
+
+	if (!strncmp(datastore->basedir, proto->basedir,
+		     strlen(proto->basedir))) {
 		ACVP_PTR_FREE_NULL(datastore->basedir);
 		CKINT(acvp_duplicate(&datastore->basedir,
-				     ACVP_DS_DATADIR_PRODUCTION));
+				     proto->basedir_production));
 	}
 
-	if (!strncmp(datastore->secure_basedir, ACVP_DS_CREDENTIALDIR,
-		     strlen(ACVP_DS_CREDENTIALDIR))) {
+	if (!strncmp(datastore->secure_basedir, proto->secure_basedir,
+		     strlen(proto->secure_basedir))) {
 		ACVP_PTR_FREE_NULL(datastore->secure_basedir);
 		CKINT(acvp_duplicate(&datastore->secure_basedir,
-				     ACVP_DS_CREDENTIALDIR_PRODUCTION));
+				     proto->secure_basedir_production));
 	}
 
 out:
@@ -518,8 +523,14 @@ out:
 
 int acvp_versionstring_short(char *buf, const size_t buflen)
 {
-	return snprintf(buf, buflen, "ACVPProxy/%d.%d.%d", MAJVERSION,
-			MINVERSION, PATCHLEVEL);
+	const struct acvp_net_proto *proto;
+	int ret;
+
+	ret = acvp_get_proto(&proto);
+
+	return snprintf(buf, buflen, "%sProxy/%d.%d.%d",
+			ret ? "" : proto->proto_name, MAJVERSION, MINVERSION,
+			PATCHLEVEL);
 }
 
 DSO_PUBLIC
@@ -543,10 +554,16 @@ uint32_t acvp_versionstring_numeric(void)
 DSO_PUBLIC
 int acvp_versionstring(char *buf, const size_t buflen)
 {
+	const struct acvp_net_proto *proto;
+	int ret;
+
+	ret = acvp_get_proto(&proto);
+
 	return snprintf(
 		buf, buflen,
-		"ACVPProxy/%d.%d.%d\nDatastore version %d\nCrypto version: %s",
-		MAJVERSION, MINVERSION, PATCHLEVEL, ACVP_DS_VERSION,
+		"%sProxy/%d.%d.%d\nDatastore version %d\nCrypto version: %s",
+		ret ? "" : proto->proto_name, MAJVERSION, MINVERSION,
+		PATCHLEVEL, ACVP_DS_VERSION,
 		_CRYPTOVERSION ? _CRYPTOVERSION : "undefined");
 }
 
@@ -602,6 +619,7 @@ DSO_PUBLIC
 int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 		  const char *secure_basedir)
 {
+	const struct acvp_net_proto *proto;
 	struct acvp_req_ctx *req_details;
 	struct acvp_datastore_ctx *datastore;
 	int ret;
@@ -613,6 +631,8 @@ int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 		       "ACVP library was not yet initialized\n");
 		return -EOPNOTSUPP;
 	}
+
+	CKINT(acvp_get_proto(&proto));
 
 	*ctx = calloc(1, sizeof(struct acvp_ctx));
 	CKNULL(*ctx, -ENOMEM);
@@ -632,7 +652,7 @@ int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 	if (datastore_basedir) {
 		CKINT(acvp_duplicate(&datastore->basedir, datastore_basedir));
 	} else {
-		CKINT(acvp_duplicate(&datastore->basedir, ACVP_DS_DATADIR));
+		CKINT(acvp_duplicate(&datastore->basedir, proto->basedir));
 	}
 
 	/*
@@ -644,12 +664,14 @@ int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 				     secure_basedir));
 	} else {
 		CKINT(acvp_duplicate(&datastore->secure_basedir,
-				     ACVP_DS_CREDENTIALDIR));
+				     proto->secure_basedir));
 	}
 
 	CKINT(acvp_duplicate(&datastore->resultsfile, ACVP_DS_TESTRESPONSE));
 	CKINT(acvp_duplicate(&datastore->vectorfile, ACVP_DS_TESTREQUEST));
 	CKINT(acvp_duplicate(&datastore->jwttokenfile, ACVP_DS_JWTAUTHTOKEN));
+	CKINT(acvp_duplicate(&datastore->jwtcertref,
+			     ACVP_DS_JWTCERTIFICATE_REF));
 	CKINT(acvp_duplicate(&datastore->messagesizeconstraint,
 			     ACVP_DS_MESSAGESIZECONSTRAINT));
 	CKINT(acvp_duplicate(&datastore->testsession_certificate_id,
@@ -659,8 +681,8 @@ int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 	CKINT(acvp_duplicate(&datastore->verdictfile, ACVP_DS_VERDICT));
 	CKINT(acvp_duplicate(&datastore->processedfile, ACVP_DS_PROCESSED));
 	CKINT(acvp_duplicate(&datastore->srcserver, ACVP_DS_SRCSERVER));
-	CKINT(acvp_duplicate(&datastore->signer, ACVP_DS_SIGNER));
 	CKINT(acvp_duplicate(&datastore->expectedfile, ACVP_DS_EXPECTED));
+	CKINT(acvp_duplicate(&datastore->esvp_statusfile, ACVP_DS_ESVPSTATUS));
 
 	CKINT(acvp_init_auth_ctx(*ctx));
 
@@ -710,9 +732,19 @@ int acvp_init(const uint8_t *seed, size_t seed_len, time_t last_gen,
 	if (!acvp_library_initialized())
 		CKINT(thread_init(2));
 
-	if (seed && seed_len)
+	if (seed && seed_len) {
+		time_t now = time(NULL);
+
+		if ((now != (time_t)-1) && (now < last_gen)) {
+			logger_status(
+				LOGGER_C_ANY,
+				"Time warp since last TOTP generation detected, correcting\n");
+			last_gen = 0;
+		}
+
 		CKINT(totp_set_seed(seed, seed_len, last_gen, production,
 				    last_gen_cb));
+	}
 
 	CKINT(sig_install_handler());
 

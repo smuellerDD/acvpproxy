@@ -1,0 +1,16 @@
+{
+  "moduleName":"Linux Random Number Generator",
+  "moduleVersion":"39",
+  "moduleDescription":"The Linux Random Number Generator is an SP800-90B and SP800-90C compliant noise source for the Linux kernel.",
+  "moduleType":0,
+  "acvpModuleIds":[
+    {
+      "acvpModuleName":"Linux Random Number Generator (LRNG implementation)",
+      "acvpModuleId":0
+    },
+    {
+      "acvpModuleName":"Linux Random Number Generator (Kernel Crypto API implementation)",
+      "acvpModuleId":0
+    }
+  ]
+}

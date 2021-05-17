@@ -1,0 +1,10 @@
+{
+	"_description": "Function 2.2 from section 2.2",
+	"description": "SHA2-512",
+	"minHin": 1,
+	"minNin": 8192,
+	"nw": 512,
+	"nOut": 512,
+	"vetted": true,
+	"acvtsCertificate": "A582"
+}

@@ -471,7 +471,7 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 /**************************************************************************
  * SP800-56B rev2 OAEP
  **************************************************************************/
-#if 1
+#if 0
 static const struct def_algo_prereqs devel_kas_ifc_prereqs[] = {
 	{
 		.algorithm = "DRBG",
@@ -605,7 +605,7 @@ const struct def_algo_kas_ifc_ssc_schema devel_kas_ifc_ssc_schema_kas[] = { {
 /**************************************************************************
  * SP800-56C rev 1 Onestep KDF
  **************************************************************************/
-#if 0
+#if 1
 static const struct def_algo_prereqs devel_kdf_onestep_prereqs[] = {
 	{
 		.algorithm = "SHA",
@@ -636,6 +636,7 @@ const struct def_algo_kas_kdf_onestepkdf_aux devel_kas_kdf_onestepkdf_aux[] = { 
 	.type = DEF_ALG_TYPE_KDF_ONESTEP,				\
 	.algo.kdf_onestep = {						\
 		DEF_PREREQS(devel_kdf_onestep_prereqs),			\
+		.kdf_spec = DEF_ALG_KDF_SP800_56Crev2,			\
 		.onestep = 	{					\
 			.aux_function = devel_kas_kdf_onestepkdf_aux,	\
 			.aux_function_num = ARRAY_SIZE(devel_kas_kdf_onestepkdf_aux),\
@@ -658,7 +659,7 @@ const struct def_algo_kas_kdf_onestepkdf_aux devel_kas_kdf_onestepkdf_aux[] = { 
 /**************************************************************************
  * SP800-56C rev 1 Twostep KDF
  **************************************************************************/
-#if 0
+#if 1
 static const struct def_algo_prereqs devel_kdf_twostep_prereqs[] = {
 	{
 		.algorithm = "SHA",
@@ -789,7 +790,7 @@ static const struct def_algo devel[] = {
 	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYGENERATION,
 			 ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |
 			 ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |
-			 ACVP_DH_MODP_8192),
+			 ACVP_DH_MODP_8192)
 	DEVEL_SAFEPRIMES(DEF_ALG_SAFEPRIMES_KEYVERIFICATION,
 			 ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |
 			 ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |
@@ -797,7 +798,7 @@ static const struct def_algo devel[] = {
 
 	DEVEL_KAS_IFC_SSC
 
-	DEVEL_KAS_KDF_ONESTEP
+	DEVEL_KAS_KDF_ONESTEP,
 	DEVEL_KAS_KDF_TWOSTEP
 
 	DEVEL_RSA_DEC_PRIMITIVE

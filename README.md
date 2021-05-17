@@ -4,6 +4,8 @@ The ACVP Proxy allows the retrieving of test vectors from the ACVP
 servers. In addition, it allows the submission of test results to the ACVP
 servers and to retrieve the verdict of the test results.
 
+For details on the ESVP Proxy, please see `README.esvp.md`.
+
 The obtained test vectors stored in the files `testvector-request.json`
 are intended to be transferred to the test system hosting the cryptographic
 module to be tested. The JSON file must be inserted into the cryptographic
@@ -364,7 +366,8 @@ See the next bullet list for a discussion on the options.
   about manual dependency handling.
 
 The OE dependency array allows to specify an arbitrary number of array entries
-where each entry points to one particular OE dependency. Each individual
+where each entry points to one particular OE dependency. It is permissible to
+specify an empty array when no dependencies are required. Each individual
 dependency has the following key words:
 
 * If the dependency is a hardware (CPU, entire computer), the following key
@@ -591,7 +594,6 @@ For example, the following configuration for `oe` illustrates the approach:
         "procName": "i7",
         "procSeries": "Broadwell",
         "features": 7,
-        "envType": 2,
         "dependencies-external": {
                 "SP800-38D GCM Implementation": {
                         "DRBG": "DRBG 1234"

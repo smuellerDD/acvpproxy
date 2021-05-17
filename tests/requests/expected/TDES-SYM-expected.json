@@ -64,7 +64,6 @@
         "keyingOption":[
           1
         ],
-        "ctrSource":"external",
         "overflowCounter":false,
         "incrementalCounter":true
       },

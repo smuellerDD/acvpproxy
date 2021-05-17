@@ -224,7 +224,7 @@ static int load_totp_seed(struct opt_cred *cred, char **seed_base64,
 {
 	struct stat statbuf;
 	char *seed = NULL;
-	uint32_t len;
+	uint32_t len = 0;
 	int ret;
 	int fd = -1;
 

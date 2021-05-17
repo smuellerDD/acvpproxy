@@ -20,6 +20,7 @@
 #ifndef ESV_PROTO_H
 #define ESV_PROTO_H
 
+#include "esvp_internal.h"
 #include "internal.h"
 
 #ifdef __cplusplus
@@ -30,6 +31,12 @@ static const struct acvp_net_proto esv_proto_def = {
 	.url_base = "esv/v1",
 	.proto_version = "1.0",
 	.proto_version_keyword = "esvVersion",
+	.proto = esv_protocol,
+	.proto_name = "ESVP",
+	.basedir = ESVP_DS_DATADIR,
+	.basedir_production = ESVP_DS_DATADIR_PRODUCTION,
+	.secure_basedir = ESVP_DS_CREDENTIALDIR,
+	.secure_basedir_production = ESVP_DS_CREDENTIALDIR_PRODUCTION,
 };
 
 #ifdef __cplusplus

@@ -30,6 +30,12 @@ static const struct acvp_net_proto acv_proto_def = {
 	.url_base = "acvp/v1",
 	.proto_version = "1.0",
 	.proto_version_keyword = "acvVersion",
+	.proto = acv_protocol,
+	.proto_name = "ACVP",
+	.basedir = ACVP_DS_DATADIR,
+	.basedir_production = ACVP_DS_DATADIR_PRODUCTION,
+	.secure_basedir = ACVP_DS_CREDENTIALDIR,
+	.secure_basedir_production = ACVP_DS_CREDENTIALDIR_PRODUCTION,
 };
 
 #ifdef __cplusplus

@@ -50,6 +50,13 @@ struct def_algo_kdf_twostep {
 	unsigned int prereqvals_num;
 
 	/*
+	 * KDF specification that is to be applied
+	 *
+	 * required: optional - if not set SP800-56Cr1 is assumed
+	 */
+	enum kdf_spec kdf_spec;
+
+	/*
 	 * Definitions of the two-step KDF
 	 *
 	 * required: always

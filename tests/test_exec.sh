@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. libtest.sh
+. ./libtest.sh
 
 EXEC="test_exec.sh"
 

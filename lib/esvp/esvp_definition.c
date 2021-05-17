@@ -31,71 +31,15 @@
 #include "definition_internal.h"
 #include "esvp_definition.h"
 #include "esvp_internal.h"
+#include "hash/sha256.h"
 #include "internal.h"
 #include "json_wrapper.h"
 #include "logger.h"
 #include "request_helper.h"
-#include "hash/sha256.h"
 #include "threading_support.h"
 
 #include <json-c/json.h>
 
-static int acvp_hash_file(const char *pathname, struct acvp_buf *md)
-{
-	struct stat statbuf;
-	HASH_CTX_ON_STACK(ctx);
-	ACVP_EXT_BUFFER_INIT(data);
-	int ret, fd;
-
-	if (stat(pathname, &statbuf)) {
-		ret = -errno;
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "File name %s does not exist\n", pathname);
-		return ret;
-	}
-
-	if (!S_ISREG(statbuf.st_mode)) {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "%s is not a regular file\n",
-		       pathname);
-		return -EINVAL;
-	}
-
-	fd = open(pathname, O_RDONLY | O_CLOEXEC);
-	if (fd < 0) {
-		ret = -errno;
-
-		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
-		       "Cannot open file %s (%d)\n", pathname, ret);
-		goto out;
-	}
-
-	data.buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ, MAP_SHARED,
-			fd, 0);
-	if (data.buf == MAP_FAILED) {
-		logger(LOGGER_WARN, LOGGER_C_DS_FILE, "Cannot mmap file %s\n",
-		       pathname);
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	data.len = (uint32_t)statbuf.st_size;
-
-	CKINT(acvp_alloc_buf(sha256->digestsize, md));
-	sha256->init(ctx);
-	sha256->update(ctx, data.buf, data.len);
-	sha256->final(ctx, md->buf);
-
-	munmap(data.buf, (size_t)statbuf.st_size);
-	close(fd);
-
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Hashing of file %s completed\n",
-	       pathname);
-	logger_binary(LOGGER_DEBUG, LOGGER_C_ANY, md->buf, md->len,
-		      "Message digest of file");
-
-out:
-	return ret;
-}
 /*************************************************************************/
 
 static void esvp_def_cc_free_one(struct esvp_cc_def *cc)
@@ -124,10 +68,54 @@ static void esvp_def_cc_free(struct esvp_cc_def *cc)
 	}
 }
 
+
+void acvp_release_auth_sd(struct esvp_sd_def *sd)
+{
+	struct acvp_auth_ctx *auth;
+
+	if (!sd)
+		return;
+
+	auth = sd->sd_auth;
+	acvp_release_acvp_auth_ctx(auth);
+	ACVP_PTR_FREE_NULL(sd->sd_auth);
+
+	ACVP_PTR_FREE_NULL(sd->filename);
+}
+
+static void esvp_def_sd_free_one(struct esvp_sd_def *sd)
+{
+	if (!sd)
+		return;
+
+	acvp_release_auth_sd(sd);
+	free(sd);
+}
+
+void esvp_def_sd_free(struct esvp_sd_def *sd)
+{
+	if (!sd)
+		return;
+
+	while (sd) {
+		struct esvp_sd_def *tmp = sd->next;
+
+		esvp_def_sd_free_one(sd);
+
+		sd = tmp;
+	}
+}
+
 void esvp_def_es_free(struct esvp_es_def *es)
 {
+	struct acvp_auth_ctx *auth;
+
 	if (!es)
 		return;
+
+	auth = es->es_auth;
+	acvp_release_acvp_auth_ctx(auth);
+	ACVP_PTR_FREE_NULL(es->es_auth);
 
 	acvp_free_buf(&es->raw_noise_data_hash);
 	acvp_free_buf(&es->raw_noise_restart_hash);
@@ -136,6 +124,7 @@ void esvp_def_es_free(struct esvp_es_def *es)
 	ACVP_PTR_FREE_NULL(es->config_dir);
 
 	esvp_def_cc_free(es->cc);
+	esvp_def_sd_free(es->sd);
 	free(es);
 }
 
@@ -173,7 +162,7 @@ static int esvp_read_cc_def_one(const char *cc_dir_name, struct esvp_es_def *es)
 	CKINT(json_get_string(cc_conf, "description", &str));
 	CKINT(acvp_duplicate(&cc->description, str));
 
-	CKINT(json_get_uint(cc_conf, "minHin", &cc->min_h_in));
+	CKINT(json_get_double(cc_conf, "minHin", &cc->min_h_in));
 	CKINT(json_get_uint(cc_conf, "minNin", &cc->min_n_in));
 	CKINT(json_get_uint(cc_conf, "nw", &cc->nw));
 	CKINT(json_get_uint(cc_conf, "nOut", &cc->n_out));
@@ -191,7 +180,7 @@ static int esvp_read_cc_def_one(const char *cc_dir_name, struct esvp_es_def *es)
 		snprintf(cc_data_name, sizeof(cc_data_name), "%s/%s%s",
 			 cc->config_dir, ESVP_ES_FILE_CC_DATA,
 			 ESVP_ES_BINARY_FILE_EXTENSION);
-		CKINT(acvp_hash_file(cc_data_name, &cc->data_hash));
+		CKINT(acvp_hash_file(cc_data_name, sha256, &cc->data_hash));
 	}
 
 	/*
@@ -202,6 +191,12 @@ static int esvp_read_cc_def_one(const char *cc_dir_name, struct esvp_es_def *es)
 			json_get_string(cc_conf, "acvtsCertificate", &str),
 			"If  a vetted conditioning component is specified, an ACVTS certificate must be referencced\n");
 		CKINT(acvp_duplicate(&cc->acvts_certificate, str));
+
+		/*
+		 * The check if the given algo name is a correct one is
+		 * performed when building the request to be sent to the ESVP
+		 * server.
+		 */
 	}
 
 	/*
@@ -268,7 +263,7 @@ static int esvp_read_es_def(const char *directory, struct esvp_es_def **es_out)
 	CKNULL(directory, -EINVAL);
 
 	snprintf(pathname, sizeof(pathname), "%s/%s/%s%s", directory,
-		 ESVP_ES_DIR_RAW_NOISE, ESVP_ES_FILE_DEF,
+		 ESVP_ES_DIR_ENTROPY_SOURCE, ESVP_ES_FILE_DEF,
 		 ESVP_ES_CONFIG_FILE_EXTENSION);
 
 	if (stat(pathname, &statbuf)) {
@@ -299,14 +294,15 @@ static int esvp_read_es_def(const char *directory, struct esvp_es_def **es_out)
 	CKINT(acvp_duplicate(&es->primary_noise_source_desc, str));
 
 	snprintf(es_data_file, sizeof(es_data_file), "%s/%s/%s%s",
-		 es->config_dir, ESVP_ES_DIR_RAW_NOISE, ESVP_ES_FILE_RAW_NOISE,
-		 ESVP_ES_BINARY_FILE_EXTENSION);
-	CKINT(acvp_hash_file(es_data_file, &es->raw_noise_data_hash));
+		 es->config_dir, ESVP_ES_DIR_ENTROPY_SOURCE,
+		 ESVP_ES_FILE_RAW_NOISE, ESVP_ES_BINARY_FILE_EXTENSION);
+	CKINT(acvp_hash_file(es_data_file, sha256, &es->raw_noise_data_hash));
 
 	snprintf(es_data_file, sizeof(es_data_file), "%s/%s/%s%s",
-		 es->config_dir, ESVP_ES_DIR_RAW_NOISE,
+		 es->config_dir, ESVP_ES_DIR_ENTROPY_SOURCE,
 		 ESVP_ES_FILE_RESTART_DATA, ESVP_ES_BINARY_FILE_EXTENSION);
-	CKINT(acvp_hash_file(es_data_file, &es->raw_noise_restart_hash));
+	CKINT(acvp_hash_file(es_data_file, sha256,
+			     &es->raw_noise_restart_hash));
 
 	CKINT(json_get_uint(es_conf, "bitsPerSample", &es->bits_per_sample));
 	CKINT(json_get_uint(es_conf, "alphabetSize", &es->alphabet_size));

@@ -199,6 +199,8 @@ enum def_dependency_type {
 #define OE_PROC_X86_CLMULNI (1 << 2)
 #define OE_PROC_S390_CPACF (1 << 3)
 #define OE_PROC_ARM_AES (1 << 4)
+#define OE_PROC_POWER_AES (1 << 5)
+#define OE_PROC_POWER_SHA (1 << 6)
 
 /**
  * @brief Specify one dependency
@@ -273,7 +275,8 @@ static const struct acvp_feature {
 } acvp_features[] = {
 	{ OE_PROC_X86_RDRAND, "rdrand" },   { OE_PROC_X86_AESNI, "aes-ni" },
 	{ OE_PROC_X86_CLMULNI, "clmulni" }, { OE_PROC_S390_CPACF, "cpacf" },
-	{ OE_PROC_ARM_AES, "aes" },
+	{ OE_PROC_ARM_AES, "aes" },	    { OE_PROC_POWER_AES, "aes" },
+	{ OE_PROC_POWER_SHA, "sha" },
 };
 
 #define ACVP_DEF_PRODUCTION_ID(x)                                              \

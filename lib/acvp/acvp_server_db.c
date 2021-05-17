@@ -566,6 +566,102 @@ out:
 	return ret;
 }
 
+static int acvp_server_db_write_def(const struct def_dependency *def_dep,
+				    struct json_object *dep_entry)
+{
+	const char *type_name;
+	int ret;
+
+	CKINT(acvp_dep_type2name(def_dep->def_dependency_type, &type_name));
+	CKINT(json_object_object_add(dep_entry, "dependencyType",
+				     json_object_new_string(type_name)));
+
+	switch (def_dep->def_dependency_type) {
+	case def_dependency_firmware:
+	case def_dependency_os:
+	case def_dependency_software:
+		if (def_dep->name) {
+			CKINT(json_object_object_add(dep_entry, "oeEnvName",
+					json_object_new_string(def_dep->name)));
+		} else {
+			CKINT(json_object_object_add(dep_entry, "oeEnvName",
+						     NULL));
+		}
+
+		if (def_dep->cpe)
+			CKINT(json_object_object_add(dep_entry, "cpe",
+					json_object_new_string(def_dep->cpe)));
+		if (def_dep->swid)
+			CKINT(json_object_object_add(dep_entry, "swid",
+					json_object_new_string(def_dep->swid)));
+
+		if (def_dep->description)
+			CKINT(json_object_object_add(dep_entry,
+				"oe_description",
+				json_object_new_string(def_dep->description)));
+		break;
+	case def_dependency_hardware:
+		if (def_dep->manufacturer)
+			CKINT(json_object_object_add(dep_entry,
+				"manufacturer",
+				json_object_new_string(def_dep->manufacturer)));
+		if (def_dep->proc_family)
+			CKINT(json_object_object_add(dep_entry,
+				"procFamily",
+				json_object_new_string(def_dep->proc_family)));
+		if (def_dep->proc_name)
+			CKINT(json_object_object_add(dep_entry,
+				"procName",
+				json_object_new_string(def_dep->proc_name)));
+		if (def_dep->proc_series)
+			CKINT(json_object_object_add(dep_entry,
+				"procSeries",
+				json_object_new_string(def_dep->proc_series)));
+
+		//TODO features is not created
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Unknown OE dependency type\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_server_db_write_oe_config(const char *pathname,
+					  const struct def_oe *def_oe)
+{
+	const struct def_dependency *def_dep;
+	struct json_object *oe = json_object_new_object();
+	struct json_object *dep_array, *dep;
+	int ret;
+
+	CKNULL(oe, -ENOMEM);
+
+	dep_array = json_object_new_array();
+	CKNULL(dep_array, -ENOMEM);
+	CKINT(json_object_object_add(oe, "oeDependencies", dep_array));
+
+	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
+		dep = json_object_new_object();
+		CKNULL(dep, -ENOMEM);
+		CKINT(json_object_array_add(dep_array, dep));
+
+		CKINT(acvp_server_db_write_def(def_dep, dep));
+	}
+
+	json_logger(LOGGER_DEBUG, LOGGER_C_ANY, oe, "writing data");
+
+	CKINT(acvp_server_db_write_json(oe, pathname));
+
+out:
+	ACVP_JSON_PUT_NULL(oe);
+	return ret;
+}
+
 static int acvp_server_db_process_one_oe(struct acvp_ctx *ctx,
 					 const char *configdir, uint32_t id)
 {
@@ -584,6 +680,7 @@ static int acvp_server_db_process_one_oe(struct acvp_ctx *ctx,
 	CKINT(acvp_def_alloc_lock(&def_oe.def_lock));
 
 	def_oe.acvp_oe_id = id;
+	def_oe.config_file_version = 2;
 
 	CKINT(_acvp_server_db_fetch_id(ctx, NIST_SERVER_DB_SEARCH_OE, id,
 				       &response));
@@ -627,72 +724,59 @@ static int acvp_server_db_process_one_oe(struct acvp_ctx *ctx,
 		}
 
 		if (!json_get_string(dep, "type", &str)) {
-			if (!strncasecmp(str, "processor", 9)) {
+			ret = acvp_dep_name2type(str,
+						 &def_dep->def_dependency_type);
+			if (ret < 0) {
+				logger(LOGGER_WARN, LOGGER_C_ANY,
+				       "dependencyType %s is unknown - using default of hardware!\n",
+				       str);
 				def_dep->def_dependency_type =
-					def_dependency_hardware;
-			} else {
-				def_dep->def_dependency_type =
-					def_dependency_software;
+							def_dependency_hardware;
 			}
 		}
 
 		CKINT(json_get_string(dep, "url", &str));
 		CKINT(acvp_get_trailing_number(str, &def_dep->acvp_dep_id));
 
-		if (!json_get_string(dep, "cpe", &str)) {
-			CKINT(acvp_duplicate(&def_dep->cpe, str));
-			CKINT(acvp_server_db_add_config(pathname, "cpe",
-							def_dep->cpe));
-		}
-
-		if (!json_get_string(dep, "swid", &str)) {
-			CKINT(acvp_duplicate(&def_dep->swid, str));
-			CKINT(acvp_server_db_add_config(pathname, "swid",
-							def_dep->swid));
-		}
-
-#if 0
-		if (!json_get_string(dep, "description", &str)) {
-			CKINT(acvp_duplicate(&def_oe.oe_description, str));
-			CKINT(acvp_server_db_add_config(pathname,
-							"oe_description",
-							def_oe.oe_description));
-		}
-#endif
-
-		if (!json_get_string(dep, "manufacturer", &str)) {
-			CKINT(acvp_duplicate(&def_dep->manufacturer, str));
-			CKINT(acvp_server_db_add_config(pathname,
-							"manufacturer",
-							def_dep->manufacturer));
-		}
-
-		if (!json_get_string(dep, "family", &str)) {
-			CKINT(acvp_duplicate(&def_dep->proc_family, str));
-			CKINT(acvp_server_db_add_config(pathname, "procFamily",
-							def_dep->proc_family));
-		}
-
-		if (!json_get_string(dep, "name", &str)) {
-			if (def_dep->def_dependency_type ==
-			    def_dependency_hardware) {
-				CKINT(acvp_duplicate(&def_dep->proc_name, str));
-				CKINT(acvp_server_db_add_config(
-					pathname, "procName",
-					def_dep->proc_name));
-			} else {
+		switch (def_dep->def_dependency_type) {
+		case def_dependency_firmware:
+		case def_dependency_os:
+		case def_dependency_software:
+			if (!json_get_string(dep, "cpe", &str))
+				CKINT(acvp_duplicate(&def_dep->cpe, str));
+			if (!json_get_string(dep, "swid", &str))
+				CKINT(acvp_duplicate(&def_dep->swid, str));
+			if (!json_get_string(dep, "description", &str)) {
+				CKINT(acvp_duplicate(&def_dep->description,
+						     str));
+			if (!json_get_string(dep, "name", &str))
 				CKINT(acvp_duplicate(&def_dep->name, str));
-				CKINT(acvp_server_db_add_config(
-					pathname, "oeEnvName", def_dep->name));
-			}
 		}
+			break;
+		case def_dependency_hardware:
+			if (!json_get_string(dep, "manufacturer", &str))
+				CKINT(acvp_duplicate(&def_dep->manufacturer,
+						     str));
 
-		if (!json_get_string(dep, "series", &str)) {
-			CKINT(acvp_duplicate(&def_dep->proc_series, str));
-			CKINT(acvp_server_db_add_config(pathname, "procSeries",
-							def_dep->proc_series));
+			if (!json_get_string(dep, "family", &str))
+				CKINT(acvp_duplicate(&def_dep->proc_family,
+						     str));
+
+			if (!json_get_string(dep, "series", &str))
+				CKINT(acvp_duplicate(&def_dep->proc_series,
+						     str));
+			if (!json_get_string(dep, "name", &str))
+				CKINT(acvp_duplicate(&def_dep->proc_name, str));
+			break;
+		default:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			"Unknown OE dependency type\n");
+			ret = -EFAULT;
+			goto out;
 		}
 	}
+
+	CKINT(acvp_server_db_write_oe_config(pathname, &def_oe));
 
 	CKINT(acvp_def_put_oe_id(&def_oe));
 

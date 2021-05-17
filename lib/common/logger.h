@@ -29,6 +29,7 @@ extern "C" {
 
 enum logger_verbosity {
 	LOGGER_NONE,
+	LOGGER_STATUS,
 	LOGGER_ERR,
 	LOGGER_WARN,
 	LOGGER_VERBOSE,
@@ -51,22 +52,37 @@ enum logger_class {
 	LOGGER_C_LAST /* This must be last entry */
 };
 
+/* Helper that is not intended to be called directly */
+void _logger(const enum logger_verbosity severity,
+	     const enum logger_class class,
+	     const char *file, const char *func, const uint32_t line,
+	     const char *fmt, ...) __attribute__((format(printf, 6, 7)));
+void _logger_binary(const enum logger_verbosity severity,
+		    const enum logger_class class, const unsigned char *bin,
+		    const uint32_t binlen, const char *str,
+		    const char *file, const char *func, const uint32_t line);
+
 /**
  * logger - log string with given severity
  * @param severity maximum severity level that causes the log entry to be logged
  * @param class logging class
  * @param fmt format string as defined by fprintf(3)
  */
-void logger(const enum logger_verbosity severity, const enum logger_class class,
-	    const char *fmt, ...) __attribute__((format(printf, 3, 4)));
+#define logger(severity, class, fmt...)					       \
+	do {								       \
+		_Pragma ("GCC diagnostic push")				       \
+		_Pragma ("GCC diagnostic ignored \"-Wpedantic\"")	       \
+		_logger(severity, class, __FILE__, __FUNCTION__, __LINE__,     \
+			##fmt);						       \
+		_Pragma ("GCC diagnostic pop")				       \
+	} while (0);
 
 /**
  * logger - log status if LOGGER_WARN or LOGGER_ERR is found
  * @param class logging class
  * @param fmt format string as defined by fprintf(3)
  */
-void logger_status(const enum logger_class class, const char *fmt, ...)
-	__attribute__((format(printf, 2, 3)));
+#define logger_status(class, fmt...)	logger(LOGGER_STATUS, class, ##fmt)
 
 /**
  * logger_binary - log binary string as hex
@@ -76,9 +92,14 @@ void logger_status(const enum logger_class class, const char *fmt, ...)
  * @param binlen length of binary string
  * @param str string that is prepended to hex-converted binary string
  */
-void logger_binary(const enum logger_verbosity severity,
-		   const enum logger_class class, const unsigned char *bin,
-		   const uint32_t binlen, const char *str);
+#define logger_binary(severity, class, bin, binlen, str)		       \
+	do {								       \
+		_Pragma ("GCC diagnostic push")				       \
+		_Pragma ("GCC diagnostic ignored \"-Wpedantic\"")	       \
+		_logger_binary(severity, class, bin, binlen, str,	       \
+			       __FILE__, __FUNCTION__, __LINE__);	       \
+		_Pragma ("GCC diagnostic pop")				       \
+	} while (0);
 
 /**
  * logger - log a percentage only if LOG_NONE is given

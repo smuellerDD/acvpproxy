@@ -29,6 +29,7 @@
 #include "config.h"
 #include "definition_internal.h"
 #include "esvpproxy.h"
+#include "hash/hash.h"
 #include "mutex_w.h"
 #include "ret_checkers.h"
 
@@ -52,7 +53,7 @@ extern "C" {
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
  */
-#define PATCHLEVEL 0
+#define PATCHLEVEL 2
 
 struct acvp_test_deps {
 	char *dep_cipher;
@@ -295,6 +296,12 @@ struct acvp_net_proto {
 	char *url_base; /* Base path of URL */
 	char *proto_version;
 	char *proto_version_keyword;
+	const char *proto_name;
+	const char *basedir;
+	const char *basedir_production;
+	const char *secure_basedir;
+	const char *secure_basedir_production;
+	enum acvp_protocol_type proto;
 };
 
 struct acvp_net_ctx {
@@ -352,7 +359,8 @@ struct acvp_netaccess_be {
 			      const struct acvp_ext_buf *submit_buf,
 			      struct acvp_buf *response_buf);
 	int (*acvp_http_post_multi)(const struct acvp_na_ex *netinfo,
-				    const struct acvp_ext_buf *submit_buf);
+				    const struct acvp_ext_buf *submit_buf,
+				    struct acvp_buf *response_buf);
 	int (*acvp_http_get)(const struct acvp_na_ex *netinfo,
 			     struct acvp_buf *response_buf);
 	int (*acvp_http_put)(const struct acvp_na_ex *netinfo,
@@ -407,6 +415,9 @@ struct acvp_testid_ctx {
 	atomic_t vsids_processed;
 
 	struct timespec start;
+
+	int (*status_parse)(const struct acvp_testid_ctx *testid_ctx,
+			    struct json_object *status);
 
 	mutex_w_t shutdown;
 	bool sig_cancel_send_delete; /* Send a DELETE HTTP request */
@@ -512,7 +523,8 @@ struct acvp_datastore_be {
 		bool secure_location, const struct acvp_buf *data);
 	int (*acvp_datastore_compare)(const struct acvp_vsid_ctx *vsid_ctx,
 				      const char *filename,
-				      bool secure_location,
+				      const bool secure_location,
+				      const bool vsid_location,
 				      const struct acvp_buf *data);
 	int (*acvp_datastore_write_authtoken)(
 		const struct acvp_testid_ctx *testid_ctx);
@@ -884,6 +896,7 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
  * @brief Initialize an authtoken. This includes allocation of the memory
  * for the authentcation token and all preparation tasks necessary.
  */
+int acvp_init_acvp_auth_ctx(struct acvp_auth_ctx **auth);
 int acvp_init_auth(struct acvp_testid_ctx *testid_ctx);
 int acvp_init_auth_ctx(struct acvp_ctx *ctx);
 
@@ -892,6 +905,7 @@ int acvp_init_auth_ctx(struct acvp_ctx *ctx);
  * This includes the secure disposal of all data and the release of all memory
  * allocated by the corresponding acvp_init_auth* functions.
  */
+void acvp_release_acvp_auth_ctx(struct acvp_auth_ctx *auth);
 void acvp_release_auth(struct acvp_testid_ctx *testid_ctx);
 void acvp_release_auth_ctx(struct acvp_ctx *ctx);
 
@@ -935,10 +949,18 @@ int acvp_jwt_invalidate(const struct acvp_testid_ctx *testid_ctx);
 
 /**
  * @brief Set the authtoken in the ctx data structure as needed for subsequent
- * processing, such as when HTTP requests are to be generated.
+ * processing, such as when HTTP requests are to be generated. Also store
+ * the data on disk in repository.
  */
 int acvp_set_authtoken(const struct acvp_testid_ctx *testid_ctx,
 		       const char *authtoken);
+
+/**
+ * @brief Set the authtoken in the ctx data structure as needed for subsequent
+ * processing, such as when HTTP requests are to be generated.
+ * Do not store the data on disk.
+ */
+int acvp_set_authtoken_temp(struct acvp_auth_ctx *auth, const char *authtoken);
 
 /**
  * @brief Duplicate the auth context
@@ -1028,6 +1050,9 @@ int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
 int acvp_req_check_string(char *string, const size_t slen);
 int acvp_req_check_filename(char *string, const size_t slen);
 void acvp_print_expiry(FILE *stream, time_t expiry);
+int acvp_hash_file(const char *pathname, const struct hash *hash,
+		   struct acvp_buf *md);
+int acvp_cert_ref(struct acvp_buf *buf);
 
 bool acvp_req_is_production(void);
 
@@ -1080,6 +1105,7 @@ int acvp_req_kas_r3_kc_method(const struct def_algo_kas_r3_kc *kcm,
 #define ACVP_DS_TESTREQUEST "testvector-request.json"
 /* Authentication token to be (re)used to authenticate with ACVP server */
 #define ACVP_DS_JWTAUTHTOKEN "jwt_authtoken.txt"
+#define ACVP_DS_JWTCERTIFICATE_REF "jwt_certificate_reference.txt"
 /* Message size constraint - larger messages must use the /large endpoint */
 #define ACVP_DS_MESSAGESIZECONSTRAINT "messagesizeconstraint.txt"
 /* Approval / Certificate ID */
@@ -1092,10 +1118,10 @@ int acvp_req_kas_r3_kc_method(const struct def_algo_kas_r3_kc *kcm,
 #define ACVP_DS_PROCESSED "processed.txt"
 /* File holding the URL of the ACVP server provided the test vector */
 #define ACVP_DS_SRCSERVER "acvp_server.txt"
-/* File holding the used certificate for the authentication */
-#define ACVP_DS_SIGNER "acvp_signer.txt"
 /* File holding the expected test results */
 #define ACVP_DS_EXPECTED "testvector-expected.json"
+/* File holding the status of the test session */
+#define ACVP_DS_ESVPSTATUS "esvp_status.json"
 /* File holding the metadata about the test session provided by ACVP server */
 #define ACVP_DS_TESTIDMETA "testid_metadata.json"
 /* File holding the time in seconds the testID/vsID communication took */

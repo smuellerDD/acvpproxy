@@ -1075,7 +1075,7 @@ static const struct def_algo openssl_aes [] = {
 static const struct def_algo openssl_gcm [] = {
 	OPENSSL_AES_GCM,
 	//zero length data not supported by OpenSSL
-	//OPENSSL_AES_GMAC,
+	OPENSSL_AES_GMAC,
 	OPENSSL_AES_GCM_IIV,
 };
 

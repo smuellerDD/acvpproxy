@@ -165,14 +165,15 @@ struct acvp_datastore_ctx {
 	char *vectorfile;
 	char *resultsfile;
 	char *jwttokenfile;
+	char *jwtcertref;
 	char *messagesizeconstraint;
 	char *testsession_certificate_id;
 	char *testsession_certificate_info;
 	char *verdictfile;
 	char *processedfile;
 	char *srcserver;
-	char *signer;
 	char *expectedfile;
+	char *esvp_statusfile;
 };
 
 struct acvp_req_ctx {
@@ -457,7 +458,6 @@ int acvp_set_proto(enum acvp_protocol_type proto);
  *			  is used which contains the private key).
  * @param passcode [in] Passcode applicable to the private key (may be NULL
  *			if no passcode is required).
- * @param proto [in] Definition of protocol
  *
  * @return 0 on success, < 0 on error
  */

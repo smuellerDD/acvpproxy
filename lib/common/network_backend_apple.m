@@ -346,11 +346,173 @@ static int acvp_nsurl_http_delete(const struct acvp_na_ex *netinfo,
 }
 
 static int acvp_nsurl_http_post_multi(const struct acvp_na_ex *netinfo,
-				      const struct acvp_ext_buf *submit_buf)
+				      const struct acvp_ext_buf *submit_buf,
+				      struct acvp_buf *resp_buf)
 {
-	(void)netinfo;
-	(void)submit_buf;
-	return -EOPNOTSUPP;
+	const struct acvp_ext_buf *s_buf;
+	const struct acvp_net_ctx *net = netinfo->net;
+	const struct acvp_auth_ctx *auth = netinfo->server_auth;
+	NSURL *url;
+	NSMutableURLRequest *urlRequest;
+	ACVPHTTPRequest *http;
+	char useragent[30];
+	long rc = 0;
+	int ret;
+	unsigned int retries = 0;
+	NSString *postLength;
+	NSString *BoundaryConstant = [[NSUUID UUID] UUIDString];
+	NSString *contentType = [NSString stringWithFormat:@"multipart/form-data; boundary=%@", BoundaryConstant];
+	NSMutableData *body = [NSMutableData data];
+
+	CKNULL_LOG(net, -EINVAL, "Network context missing\n");
+	CKNULL_LOG(netinfo->url, -EINVAL, "URL missing\n");
+	CKNULL_LOG(submit_buf, -EINVAL, "Submit buffer missing\n");
+
+	if (!acvp_certs) {
+		mutex_lock(&acvp_certs_lock);
+		if (!acvp_certs)
+			acvp_certs = [[ACVPHTTPCerts alloc]
+				      initWithNetinfo:netinfo];
+		mutex_unlock(&acvp_certs_lock);
+	}
+
+	CKNULL_LOG(acvp_certs, -EFAULT, "Certificates not loaded\n");
+
+	http = [[ACVPHTTPRequest alloc] initWithCerts:acvp_certs];
+	if (http == nil) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	url = [NSURL URLWithString:[NSString stringWithFormat:@"%s",
+				    netinfo->url]];
+	urlRequest = [NSMutableURLRequest requestWithURL:url];
+
+	if (auth && auth->jwt_token && auth->jwt_token_len) {
+		[urlRequest setValue:[NSString stringWithFormat:@"Bearer %s",
+				      auth->jwt_token]
+		  forHTTPHeaderField:@"Authorization"];
+		logger(LOGGER_DEBUG, LOGGER_C_CURL,
+		       "HTTP Authentication header: Bearer %s\n",
+		       auth->jwt_token);
+	}
+
+	CKINT(acvp_versionstring_short(useragent, sizeof(useragent)));
+
+	[urlRequest setValue:[NSString stringWithFormat:@"%s",
+			      useragent]
+	  forHTTPHeaderField:@"User-Agent"];
+
+	/* Assemble multi-part information */
+	[urlRequest setValue:contentType
+	  forHTTPHeaderField:@"Content-Type"];
+
+	for (s_buf = submit_buf; s_buf; s_buf = s_buf->next) {
+		[body appendData:[[NSString stringWithFormat:@"--%@\r\n",
+				   BoundaryConstant] dataUsingEncoding:NSUTF8StringEncoding]];
+		logger(LOGGER_DEBUG, LOGGER_C_CURL, "Set mime type %s\n",
+		       s_buf->data_type);
+
+		if (s_buf->filename) {
+			[body appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n\r\n",
+					   s_buf->data_type, s_buf->filename]
+					  dataUsingEncoding:NSUTF8StringEncoding]];
+			logger(LOGGER_DEBUG, LOGGER_C_CURL,
+			       "Add file name %s\n", s_buf->filename);
+		} else {
+			[body appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"%s\"\r\n\r\n",
+					   s_buf->data_type]
+					  dataUsingEncoding:NSUTF8StringEncoding]];
+		}
+
+		if (s_buf->buf) {
+			logger(LOGGER_DEBUG, LOGGER_C_CURL,
+			       "Adding binary data of length %u\n",
+			       s_buf->len);
+			[body appendData:[NSData dataWithBytes:s_buf->buf
+							length:s_buf->len]];
+		}
+
+		[body appendData:[[NSString stringWithFormat:@"\r\n"] dataUsingEncoding:NSUTF8StringEncoding]];
+	}
+
+	[body appendData:[[NSString stringWithFormat:@"--%@--\r\n",
+			   BoundaryConstant]
+			  dataUsingEncoding:NSUTF8StringEncoding]];
+
+	logger(LOGGER_DEBUG, LOGGER_C_CURL,
+	       "Performing a multi-form HTTP POST operation\n");
+
+	[urlRequest setHTTPMethod:@"POST"];
+	[urlRequest setHTTPBody:body];
+
+	/* Content length */
+	postLength = [NSString stringWithFormat:@"%lu", (unsigned long) [body length]];
+	[urlRequest setValue:postLength forHTTPHeaderField:@"Content-Length"];
+
+	/* Perform the HTTP request */
+	while (retries < ACVP_CURL_MAX_RETRIES) {
+		rc = [http sendRequestFromURL: urlRequest
+				  interrupted: &acvp_nsurl_interrupted
+				 response_buf: resp_buf
+				   completion: ^(struct acvp_buf *response_buf,
+						 atomic_bool_t *completed,
+						 NSData *data,
+						 NSURLResponse * response,
+						 NSError *error) {
+			acvp_nsurl_write_cb(response_buf, completed, data,
+					    response, error);
+		}];
+
+		if (rc >= 200 && rc < 300) {
+			ret = 0;
+			break;
+		}
+
+		/* Do stop processing if server return a permanent error */
+		if (rc >= 400 && rc < 500) {
+			logger(LOGGER_VERBOSE, LOGGER_C_CURL,
+			       "HTTP permanent error %ld received\n", rc);
+			break;
+		}
+
+		logger(LOGGER_WARN, LOGGER_C_CURL,
+		       "HTTP operation failed with code %ld\n", rc);
+		if (rc < 0) {
+			ret = (int)rc;
+			goto out;
+		}
+
+		retries++;
+		if (retries < ACVP_CURL_MAX_RETRIES) {
+			int ret2;
+
+			/*
+			 * Do not reuse the variable ret as it must be left
+			 * untouched in case it contains the error from the
+			 * HTTP operation.
+			 */
+			ret2 = sleep_interruptible(10, &acvp_nsurl_interrupted);
+			if (ret2 < 0) {
+				ret = ret2;
+				goto out;
+			}
+			acvp_free_buf(resp_buf);
+		}
+	}
+
+	/* Get the HTTP response status code from the server */
+	if (rc == 200) {
+		ret = 0;
+	} else {
+		logger(LOGGER_WARN, LOGGER_C_CURL,
+		       "Unable to HTTP POST data for URL %s\n",
+		       url.absoluteString.UTF8String);
+		ret = -(int)rc;
+	}
+
+out:
+	return ret;
 }
 
 static struct acvp_netaccess_be acvp_netaccess_nsurl = {

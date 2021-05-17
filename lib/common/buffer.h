@@ -34,6 +34,7 @@ struct acvp_buf {
 struct acvp_ext_buf {
 	uint32_t len;
 	uint8_t *buf;
+	char *filename;
 	char *data_type;
 	struct acvp_ext_buf *next;
 };
@@ -41,7 +42,7 @@ struct acvp_ext_buf {
 #define ACVP_BUFFER_INIT(buffer) struct acvp_buf buffer = { 0, NULL }
 
 #define ACVP_EXT_BUFFER_INIT(buffer)                                           \
-	struct acvp_ext_buf buffer = { 0, NULL, NULL, NULL }
+	struct acvp_ext_buf buffer = { 0, NULL, NULL, NULL, NULL }
 
 void acvp_free_buf(struct acvp_buf *buf);
 int acvp_alloc_buf(uint32_t size, struct acvp_buf *buf);

@@ -1,5 +1,6 @@
 {
 	"implementations": [
-		"Generic C"
+		"LRNG implementation",
+		"Kernel Crypto API implementation"
 	]
 }

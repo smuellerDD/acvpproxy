@@ -18,7 +18,15 @@
  */
 
 #include <ctype.h>
+#include <fcntl.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
+#include "binhexbin.h"
+#include "hash/sha512.h"
 #include "internal.h"
 #include "term_colors.h"
 
@@ -76,4 +84,92 @@ void acvp_print_expiry(FILE *stream, time_t expiry)
 		fprintf_yellow(stream, "in %lu days", (expiry - now) / 86400);
 	else
 		fprintf_green(stream, "in %lu days", (expiry - now) / 86400);
+}
+
+int acvp_hash_file(const char *pathname, const struct hash *hash,
+		   struct acvp_buf *md)
+{
+	struct stat statbuf;
+	HASH_CTX_ON_STACK(ctx);
+	ACVP_EXT_BUFFER_INIT(data);
+	int ret, fd;
+
+	if (stat(pathname, &statbuf)) {
+		ret = -errno;
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "File name %s does not exist\n", pathname);
+		return ret;
+	}
+
+	if (!S_ISREG(statbuf.st_mode)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY, "%s is not a regular file\n",
+		       pathname);
+		return -EINVAL;
+	}
+
+	CKINT(acvp_alloc_buf(hash->digestsize, md));
+
+	fd = open(pathname, O_RDONLY | O_CLOEXEC);
+	if (fd < 0) {
+		ret = -errno;
+
+		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+		       "Cannot open file %s (%d)\n", pathname, ret);
+		goto out;
+	}
+
+	data.buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ, MAP_SHARED,
+			fd, 0);
+	if (data.buf == MAP_FAILED) {
+		logger(LOGGER_WARN, LOGGER_C_DS_FILE, "Cannot mmap file %s\n",
+		       pathname);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	data.len = (uint32_t)statbuf.st_size;
+
+	hash->init(ctx);
+	hash->update(ctx, data.buf, data.len);
+	hash->final(ctx, md->buf);
+
+	munmap(data.buf, (size_t)statbuf.st_size);
+	close(fd);
+
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Hashing of file %s completed\n",
+	       pathname);
+	logger_binary(LOGGER_DEBUG, LOGGER_C_ANY, md->buf, md->len,
+		      "Message digest of file");
+
+out:
+	return ret;
+}
+
+int acvp_cert_ref(struct acvp_buf *buf)
+{
+	const struct acvp_net_ctx *net;
+	int ret;
+
+	/* Write JWT certificate reference */
+	CKINT(acvp_get_net(&net));
+	if (net->certs_clnt_macos_keychain_ref) {
+		CKINT(acvp_duplicate((char **)&buf->buf,
+				     net->certs_clnt_macos_keychain_ref));
+		buf->len = (uint32_t)strlen(net->certs_clnt_macos_keychain_ref);
+	} else {
+		ACVP_BUFFER_INIT(bin);
+		char digest_hex[129];
+
+		CKINT(acvp_hash_file(net->certs_clnt_file, sha512, &bin));
+		memset(digest_hex, 0, sizeof(digest_hex));
+		bin2hex(bin.buf, bin.len, digest_hex, sizeof(digest_hex) - 1,
+			0);
+		acvp_free_buf(&bin);
+
+		CKINT(acvp_duplicate((char **)&buf->buf, digest_hex));
+		buf->len = (uint32_t)strlen(digest_hex);
+	}
+
+out:
+	return ret;
 }

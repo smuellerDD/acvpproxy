@@ -26,10 +26,18 @@
 extern "C" {
 #endif
 
+struct esvp_sd_def {
+	struct acvp_auth_ctx *sd_auth;
+	unsigned int sd_id;
+	char *filename;
+
+	struct esvp_sd_def *next;
+};
+
 struct esvp_cc_def {
 	struct acvp_buf data_hash;
 
-	unsigned int min_h_in;
+	double min_h_in;
 	unsigned int min_n_in;
 	unsigned int nw;
 	unsigned int n_out;
@@ -43,11 +51,14 @@ struct esvp_cc_def {
 
 	struct esvp_cc_def *next;
 
+	bool output_submitted;
+
 	bool vetted;
 	bool bijective;
 };
 
 struct esvp_es_def {
+	struct acvp_auth_ctx *es_auth;
 	struct acvp_buf raw_noise_data_hash;
 	struct acvp_buf raw_noise_restart_hash;
 
@@ -65,14 +76,19 @@ struct esvp_es_def {
 
 	char *config_dir;
 
+	bool raw_noise_submitted;
+	bool restart_submitted;
+
 	bool iid;
 	bool physical;
 	bool itar;
 	bool additional_noise_sources;
 
 	struct esvp_cc_def *cc;
+	struct esvp_sd_def *sd;
 };
 
+void esvp_def_sd_free(struct esvp_sd_def *sd);
 void esvp_def_es_free(struct esvp_es_def *es);
 int esvp_def_config(const char *directory, struct esvp_es_def **es);
 

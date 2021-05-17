@@ -28,20 +28,29 @@ extern "C" {
 
 #define NIST_ESVP_DEFAULT_SERVER "esvts.nist.gov"
 #define NIST_ESVP_TEST_SERVER "demo.esvts.nist.gov"
-#define NIST_ESVP_DEFAULT_SERVER_PORT 443
+#define NIST_ESVP_DEFAULT_SERVER_PORT 7443
 
 #define NIST_ESVP_VAL_OP_ENTROPY_ASSESSMENT "entropyAssessments"
-#define NIST_ESVP_VAL_OP_DATAFILE "dataFile"
+#define NIST_ESVP_VAL_OP_DATAFILE "dataFiles"
 #define NIST_ESVP_VAL_OP_SUPPDOC "supportingDocumentation"
+#define NIST_ESVP_VAL_OP_CERTIFY "certify"
 
 /**
  * @brief Perform network operation to register a new entropy source with
- *	  CAVP.
+ *	  ESVP.
  *
  * @param ctx [in] ACVP Proxy library context
  * @return 0 on success, < 0 on error
  */
 int esvp_register(const struct acvp_ctx *ctx);
+
+/**
+ * @brief Continue operation on entropy source
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int esvp_continue(const struct acvp_ctx *ctx);
 
 /**
  * @brief Load all module definition configurations from the default

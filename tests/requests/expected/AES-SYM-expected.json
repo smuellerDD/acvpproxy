@@ -61,7 +61,6 @@
         "ivLen":[
           128
         ],
-        "ctrSource":"external",
         "overflowCounter":false,
         "incrementalCounter":true
       },
@@ -118,7 +117,7 @@
         ]
       },
       {
-        "revision":"1.0",
+        "revision":"2.0",
         "algorithm":"ACVP-AES-XTS",
         "direction":[
           "encrypt",

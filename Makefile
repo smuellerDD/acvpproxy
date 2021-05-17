@@ -5,7 +5,7 @@
 CC		?= gcc
 CFLAGS		+= -Werror -Wextra -Wall -pedantic -fPIC -O2 -std=gnu99
 #Hardening
-CFLAGS		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wcast-align -Wmissing-field-initializers -Wshadow -Wswitch-enum
+CFLAGS		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wcast-align -Wmissing-field-initializers -Wshadow -Wswitch-enum -Wno-variadic-macros
 
 #Optimizations
 CFLAGS		+= -flto
@@ -136,7 +136,7 @@ analyze_srcs = $(filter %.c, $(sort $(C_SRCS)))
 analyze_srcs += $(filter %.c, $(sort $(EX_SRCS)))
 analyze_plists = $(analyze_srcs:%.c=%.plist)
 
-.PHONY: all scan install clean cppcheck distclean debug asanaddress asanthread gcov binarchive extensions extensionsso
+.PHONY: all scan install clean cppcheck distclean debug asanaddress asanthread leak gcov binarchive extensions extensionsso
 
 all: $(APPNAME) $(ESVPNAME)
 
@@ -148,14 +148,22 @@ extensions: extensionsso
 
 debug: CFLAGS += -g -DDEBUG
 debug: DBG-$(APPNAME)
+debug: DBG-$(ESVPNAME)
 
 asanaddress: CFLAGS += -g -DDEBUG -fsanitize=address -fno-omit-frame-pointer
 asanaddress: LDFLAGS += -fsanitize=address
 asanaddress: DBG-$(APPNAME)
+asanaddress: DBG-$(ESVPNAME)
 
 asanthread: CFLAGS += -g -DDEBUG -fsanitize=thread -fno-omit-frame-pointer
 asanthread: LDFLAGS += -fsanitize=thread
 asanthread: DBG-$(APPNAME)
+asanthread: DBG-$(ESVPNAME)
+
+leak: CFLAGS += -g -DDEBUG -fsanitize=leak -fno-omit-frame-pointer
+leak: LDFLAGS += -fsanitize=leak
+leak: DBG-$(APPNAME)
+leak: DBG-$(ESVPNAME)
 
 # Compile for the use of GCOV
 # Usage after compilation: gcov <file>.c
@@ -179,6 +187,10 @@ $(ESVPNAME): $(APPNAME)
 
 DBG-$(APPNAME): $(ALL_OBJS)
 	$(CC) -g -DDEBUG -o $(APPNAME) $(OBJS) $(EX_OBJS) $(LDFLAGS)
+
+DBG-$(ESVPNAME): DBG-$(APPNAME)
+	$(RM) $(ESVPNAME)
+	$(LN) $(APPNAME) $(ESVPNAME)
 
 $(analyze_plists): %.plist: %.c
 	@echo "  CCSA  " $@

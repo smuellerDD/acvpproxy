@@ -69,6 +69,7 @@ int json_get_string(const struct json_object *obj, const char *name,
 	const char *string;
 	int ret = json_find_key(obj, name, &o, json_type_string);
 
+	*outbuf = NULL;
 	if (ret)
 		return ret;
 
@@ -104,10 +105,33 @@ int json_get_uint(const struct json_object *obj, const char *name,
 	return 0;
 }
 
+int json_get_uint64(struct json_object *obj, const char *name,
+		    uint64_t *integer)
+{
+	struct json_object *o = NULL;
+	int64_t tmp;
+	int ret = json_find_key(obj, name, &o, json_type_int);
+
+	if (ret)
+		return ret;
+
+	tmp = json_object_get_int64(o);
+
+	*integer = (uint64_t)tmp;
+
+	logger(LOGGER_DEBUG, LOGGER_C_ANY,
+	       "Found integer %s with value %" PRIu64 "\n", name, *integer);
+
+	return 0;
+}
+
 int json_get_double(struct json_object *obj, const char *name, double *val)
 {
 	struct json_object *o = NULL;
-	int ret = json_find_key(obj, name, &o, json_type_int);
+	int ret = json_find_key(obj, name, &o, json_type_double);
+
+	if (ret)
+		ret = json_find_key(obj, name, &o, json_type_int);
 
 	if (ret)
 		return ret;

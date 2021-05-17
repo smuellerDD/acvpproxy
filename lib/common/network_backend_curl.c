@@ -198,6 +198,80 @@ static void acvp_curl_log_peer_cert(CURL *hnd)
 	}
 }
 
+static void acvp_curl_dump(const char *text, FILE *stream, unsigned char *ptr,
+			   size_t size)
+{
+	size_t i;
+	size_t c;
+	unsigned int width = 0x10;
+
+	fprintf(stream, "%s, %10.10ld bytes (0x%8.8lx)\n", text, (long)size,
+		(long)size);
+
+	for (i = 0; i < size; i += width) {
+		fprintf(stream, "%4.4lx: ", (long)i);
+
+		/* show hex to the left */
+		for (c = 0; c < width; c++) {
+			if (i + c < size)
+				fprintf(stream, "%02x ", ptr[i + c]);
+			else
+				fputs("   ", stream);
+		}
+
+		/* show data on the right */
+		for (c = 0; (c < width) && (i + c < size); c++) {
+			unsigned char x =
+				(ptr[i + c] >= 0x20 && ptr[i + c] < 0x80) ?
+					      ptr[i + c] :
+					      '.';
+
+			fputc(x, stream);
+		}
+
+		fputc('\n', stream); /* newline */
+	}
+}
+
+static int acvp_curl_debug_cb(CURL *handle, curl_infotype type, char *data,
+			      size_t size, void *userptr)
+{
+	const char *text;
+	(void)handle; /* prevent compiler warning */
+	(void)userptr;
+
+	switch (type) {
+	case CURLINFO_TEXT:
+		fprintf(stderr, "== Info: %s", data);
+		/* FALLTHROUGH */
+	case CURLINFO_END:
+	default: /* in case a new one is introduced to shock us */
+		return 0;
+
+	case CURLINFO_HEADER_OUT:
+		text = "=> Send header";
+		break;
+	case CURLINFO_DATA_OUT:
+		text = "=> Send data";
+		break;
+	case CURLINFO_SSL_DATA_OUT:
+		text = "=> Send SSL data";
+		break;
+	case CURLINFO_HEADER_IN:
+		text = "<= Recv header";
+		break;
+	case CURLINFO_DATA_IN:
+		text = "<= Recv data";
+		break;
+	case CURLINFO_SSL_DATA_IN:
+		text = "<= Recv SSL data";
+		break;
+	}
+
+	acvp_curl_dump(text, stderr, (unsigned char *)data, size);
+	return 0;
+}
+
 static int acvp_curl_common_init(const struct acvp_na_ex *netinfo,
 				 struct acvp_buf *response_buf,
 				 struct curl_slist **slist, CURL **curl_ret)
@@ -242,6 +316,10 @@ static int acvp_curl_common_init(const struct acvp_na_ex *netinfo,
 		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L));
 		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_STDERR,
 					    logger_log_stream()));
+	}
+	if (logger_get_verbosity(LOGGER_C_CURL) >= LOGGER_DEBUG2) {
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION,
+					    acvp_curl_debug_cb));
 	}
 
 	if (net->certs_ca_file) {
@@ -328,13 +406,14 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 		break;
 	case acvp_http_post:
 		http_type_str = "POST";
-		logger(LOGGER_DEBUG, LOGGER_C_CURL,
-		       "Performing an HTTP POST operation\n");
 		if (!submit_buf || !submit_buf->buf || !submit_buf->len) {
 			logger(LOGGER_WARN, LOGGER_C_CURL, "Nothing to POST\n");
 			ret = -EINVAL;
 			goto out;
 		}
+		logger(LOGGER_DEBUG, LOGGER_C_CURL,
+		       "Performing an HTTP POST operation of following data:\n%s\n",
+		       submit_buf->buf);
 		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_POST, 1L));
 		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
 					    (curl_off_t)submit_buf->len));
@@ -343,13 +422,14 @@ static int acvp_curl_http_common(const struct acvp_na_ex *netinfo,
 		break;
 	case acvp_http_put:
 		http_type_str = "PUT";
-		logger(LOGGER_DEBUG, LOGGER_C_CURL,
-		       "Performing an HTTP PUT operation\n");
 		if (!submit_buf || !submit_buf->buf || !submit_buf->len) {
 			logger(LOGGER_WARN, LOGGER_C_CURL, "Nothing to PUT\n");
 			ret = -EINVAL;
 			goto out;
 		}
+		logger(LOGGER_DEBUG, LOGGER_C_CURL,
+		       "Performing an HTTP PUT operation of following data:\n%s\n",
+		       submit_buf->buf);
 
 		/*
 		 * We need a temporary buffer as we need to read parts of the
@@ -474,22 +554,21 @@ static int acvp_curl_http_delete(const struct acvp_na_ex *netinfo,
 }
 
 static int acvp_curl_http_post_multi(const struct acvp_na_ex *netinfo,
-				     const struct acvp_ext_buf *submit_buf)
+				     const struct acvp_ext_buf *submit_buf,
+				     struct acvp_buf *response_buf)
 {
 	const struct acvp_ext_buf *s_buf;
 	struct curl_slist *slist = NULL;
 	CURL *curl = NULL;
 	CURLM *multi_handle = NULL;
+	CURLMcode mc;
 	CURLcode cret;
 	curl_mime *form = NULL;
 	curl_mimepart *field = NULL;
-
 	int ret = 0, still_running = 0;
 
-	CKINT(acvp_curl_common_init(netinfo, NULL, &slist, &curl));
+	CKINT(acvp_curl_common_init(netinfo, response_buf, &slist, &curl));
 
-	curl = curl_easy_init();
-	CKNULL(curl, -ENOMEM);
 	multi_handle = curl_multi_init();
 	CKNULL(multi_handle, -ENOMEM);
 
@@ -500,46 +579,65 @@ static int acvp_curl_http_post_multi(const struct acvp_na_ex *netinfo,
 		field = curl_mime_addpart(form);
 		CKNULL(field, -ENOMEM);
 		CURL_CKINT(curl_mime_name(field, s_buf->data_type));
-		CURL_CKINT(curl_mime_data(field, (const char *)submit_buf->buf,
-					  submit_buf->len));
+		logger(LOGGER_DEBUG, LOGGER_C_CURL, "Set mime type %s\n",
+		       s_buf->data_type);
+		if (s_buf->buf) {
+			CURL_CKINT(curl_mime_data(
+				field, (const char *)s_buf->buf, s_buf->len));
+			logger(LOGGER_DEBUG, LOGGER_C_CURL,
+			       "Add mime data of length %u\n", s_buf->len);
+		}
+		if (s_buf->filename) {
+			CURL_CKINT(curl_mime_filename(field, s_buf->filename));
+			logger(LOGGER_DEBUG, LOGGER_C_CURL,
+			       "Add file name %s\n", s_buf->filename);
+		}
 	}
 
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_MIMEPOST, form));
-	curl_multi_add_handle(multi_handle, curl);
 
-	curl_multi_perform(multi_handle, &still_running);
+	mc = curl_multi_add_handle(multi_handle, curl);
+	if (mc != CURLM_OK) {
+		logger(LOGGER_WARN, LOGGER_C_CURL,
+		       "Addition of CURL easy-handle failed with code %d (%s)\n",
+		       mc, curl_multi_strerror(mc));
+	}
+
+	mc = curl_multi_perform(multi_handle, &still_running);
+	if (mc != CURLM_OK) {
+		logger(LOGGER_WARN, LOGGER_C_CURL,
+		       "Curl multi-HTTP operation failed with code %d (%s)\n",
+		       mc, curl_multi_strerror(mc));
+	}
 
 	while (still_running) {
 		struct timeval timeout;
-		CURLMcode mc;
 
 		fd_set fdread;
 		fd_set fdwrite;
 		fd_set fdexcep;
 		int maxfd = -1;
 
-		long curl_timeo = -1;
+		long curl_timeo;
+
+		curl_multi_timeout(multi_handle, &curl_timeo);
+		if (curl_timeo < 0)
+			curl_timeo = 1000;
+
+		timeout.tv_sec = curl_timeo / 1000;
+		timeout.tv_usec = (curl_timeo % 1000) * 1000;
+
+		logger(LOGGER_DEBUG2, LOGGER_C_CURL,
+		       "Setting the multi-form post timeout to %lu seconds, %lu microseconds\n",
+		       timeout.tv_sec, timeout.tv_usec);
 
 		FD_ZERO(&fdread);
 		FD_ZERO(&fdwrite);
 		FD_ZERO(&fdexcep);
 
-		timeout.tv_sec = 5;
-		timeout.tv_usec = 0;
-
-		curl_multi_timeout(multi_handle, &curl_timeo);
-		if (curl_timeo >= 0) {
-			timeout.tv_sec = curl_timeo / 1000;
-			if (timeout.tv_sec > 1)
-				timeout.tv_sec = 1;
-			else
-				timeout.tv_usec = (curl_timeo % 1000) * 1000;
-		}
-
 		/* get file descriptors from the transfers */
 		mc = curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep,
 				      &maxfd);
-
 		if (mc != CURLM_OK) {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "curl_multi_fdset() failed, code %d.\n", mc);
@@ -549,6 +647,8 @@ static int acvp_curl_http_post_multi(const struct acvp_na_ex *netinfo,
 		if (maxfd == -1) {
 			struct timeval wait = { 0, 100 * 1000 }; /* 100ms */
 
+			logger(LOGGER_DEBUG2, LOGGER_C_CURL,
+			       "Sleeping a bit\n");
 			ret = select(0, NULL, NULL, NULL, &wait);
 		} else {
 			ret = select(maxfd + 1, &fdread, &fdwrite, &fdexcep,
@@ -558,11 +658,18 @@ static int acvp_curl_http_post_multi(const struct acvp_na_ex *netinfo,
 		switch (ret) {
 		case -1:
 			/* select error */
+			ret = -errno;
 			break;
 		case 0:
 		default:
+			ret = 0;
 			/* timeout or readable/writable sockets */
-			curl_multi_perform(multi_handle, &still_running);
+			mc = curl_multi_perform(multi_handle, &still_running);
+			if (mc != CURLM_OK) {
+				logger(LOGGER_WARN, LOGGER_C_CURL,
+				       "Curl multi-HTTP operation failed with code %d (%s)\n",
+				       mc, curl_multi_strerror(mc));
+			}
 			break;
 		}
 	}

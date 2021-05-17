@@ -45,7 +45,7 @@ static bool acvp_list_cipher_match_key(const cipher_t dst[DEF_ALG_MAX_INT],
 	unsigned int i;
 
 	for (i = 0; i < DEF_ALG_MAX_INT; i++) {
-		if (src[DEF_ALG_MAX_INT] == DEF_ALG_ZERO_VALUE)
+		if (src[i] == DEF_ALG_ZERO_VALUE)
 			break;
 
 		if (src[i] != dst[i])

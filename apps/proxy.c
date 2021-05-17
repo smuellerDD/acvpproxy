@@ -322,8 +322,8 @@ static void usage(void)
 		"\t   --register-only\t\tOnly register tests without downloading\n");
 	fprintf(stderr, "\t\t\t\t\ttest vectors\n");
 	fprintf(stderr,
-		"\t   --upload-only\t\tOnly upload test responses without downloading\n");
-	fprintf(stderr, "\t\t\t\t\ttest verdicts\n");
+		"\t   --upload-only\t\tOnly upload test responses without\n");
+	fprintf(stderr, "\t\t\t\t\tdownloading test verdicts\n");
 	fprintf(stderr,
 		"\t-v --verbose\t\t\tVerbose logging, multiple options\n");
 	fprintf(stderr, "\t\t\t\t\tincrease verbosity\n");
@@ -523,9 +523,12 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{ "execenv", required_argument, 0, 'e' },
 			{ "releaseversion", required_argument, 0, 'r' },
 			{ "processor", required_argument, 0, 'p' },
-			{ "fuzzy", required_argument, 0, 'f' },
+			{ "fuzzy", no_argument, 0, 'f' },
 
 			{ "list", no_argument, 0, 'l' },
+			{ "config", required_argument, 0, 'c' },
+			{ "definitions", required_argument, 0, 'd' },
+
 			{ "unregistered", no_argument, 0, 'u' },
 			{ "modversion", required_argument, 0, 0 },
 			{ "vsid", required_argument, 0, 0 },
@@ -534,8 +537,6 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{ "publish", no_argument, 0, 0 },
 			{ "dump-register", no_argument, 0, 0 },
 			{ "sample", no_argument, 0, 0 },
-			{ "config", required_argument, 0, 'c' },
-			{ "definitions", required_argument, 0, 'd' },
 
 			{ "official", no_argument, 0, 'o' },
 			{ "basedir", required_argument, 0, 'b' },
@@ -704,15 +705,26 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				dolist = 1;
 				break;
 			case 14:
+				/* config */
+				CKINT(duplicate_string(&cred->configfile,
+						       optarg));
+				break;
+			case 15:
+				/* definitions */
+				CKINT(acvp_def_config(optarg));
+				modconf_loaded = 1;
+				break;
+
+			case 16:
 				/* unregistered */
 				listunregistered = 1;
 				break;
-			case 15:
+			case 17:
 				/* modversion */
 				CKINT(duplicate_string(
 					&opts->specific_modversion, optarg));
 				break;
-			case 16:
+			case 18:
 				/* vsid */
 				if (search->nr_submit_vsid >= MAX_SUBMIT_ID) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -739,7 +751,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 						[search->nr_submit_vsid++] =
 						(unsigned int)lval;
 				break;
-			case 17:
+			case 19:
 				/* testid */
 				if (search->nr_submit_testid >= MAX_SUBMIT_ID) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -759,32 +771,22 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				search->submit_testid[search->nr_submit_testid++] =
 					(unsigned int)val;
 				break;
-			case 18:
+			case 20:
 				/* request */
 				opts->request = true;
 				break;
-			case 19:
+			case 21:
 				/* publish */
 				opts->publish = true;
 				break;
 
-			case 20:
+			case 22:
 				/* dump-register */
 				opts->dump_register = true;
 				break;
-			case 21:
+			case 23:
 				/* sample */
 				opts->request_sample = true;
-				break;
-			case 22:
-				/* config */
-				CKINT(duplicate_string(&cred->configfile,
-						       optarg));
-				break;
-			case 23:
-				/* definitions */
-				CKINT(acvp_def_config(optarg));
-				modconf_loaded = 1;
 				break;
 
 			case 24:
@@ -1092,27 +1094,12 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			search->processor_fuzzy_search = true;
 			break;
 
-		case 'l':
-			dolist = 1;
-			break;
-		case 'u':
-			listunregistered = 1;
-			break;
 		case 'c':
 			CKINT(duplicate_string(&cred->configfile, optarg));
 			break;
 		case 'd':
 			CKINT(acvp_def_config(optarg));
 			modconf_loaded = 1;
-			break;
-		case 'o':
-			opts->official_testing = true;
-			break;
-		case 'b':
-			CKINT(duplicate_string(&opts->basedir, optarg));
-			break;
-		case 's':
-			CKINT(duplicate_string(&opts->secure_basedir, optarg));
 			break;
 
 		case 'v':
@@ -1128,6 +1115,23 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			usage();
 			ret = 0;
 			goto out;
+			break;
+
+		case 'l':
+			dolist = 1;
+			break;
+		case 'u':
+			listunregistered = 1;
+			break;
+
+		case 'o':
+			opts->official_testing = true;
+			break;
+		case 'b':
+			CKINT(duplicate_string(&opts->basedir, optarg));
+			break;
+		case 's':
+			CKINT(duplicate_string(&opts->secure_basedir, optarg));
 			break;
 		default:
 			usage();
@@ -1642,7 +1646,17 @@ static int esvp_proxy_handling(struct opt_data *opts)
 	ctx->req_details.dump_register = opts->dump_register;
 	ctx->req_details.request_sample = opts->request_sample;
 
-	CKINT(esvp_register(ctx));
+	if (opts->search.nr_submit_testid || opts->search.nr_submit_vsid) {
+		/*
+		 * If the caller provides particular vsIDs or testIDs to
+		 * register, we implicitly assume that the caller wants to
+		 * re-download the test vectors (how else would a caller know
+		 * particular testIDs or vsIDs?).
+		 */
+		CKINT(esvp_continue(ctx));
+	} else {
+		CKINT(esvp_register(ctx));
+	}
 
 out:
 	acvp_ctx_release(ctx);

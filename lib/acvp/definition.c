@@ -205,7 +205,8 @@ static int acvp_match_def_search(const struct acvp_search_ctx *search,
 	const struct def_info *mod_info = def->info;
 	const struct def_oe *oe = def->oe;
 	const struct def_dependency *def_dep;
-	bool match = false, match2 = false;
+	bool match = false, match_found = false, match2 = false,
+	     match2_found = false;
 
 	if (!acvp_find_match(search->modulename, mod_info->module_name,
 			     search->modulename_fuzzy_search) ||
@@ -224,12 +225,14 @@ static int acvp_match_def_search(const struct acvp_search_ctx *search,
 		case def_dependency_software:
 			match |= acvp_find_match(search->execenv, def_dep->name,
 						 search->execenv_fuzzy_search);
+			match_found = true;
 			break;
 		case def_dependency_hardware:
 			match2 |=
 				acvp_find_match(search->processor,
 						def_dep->proc_name,
 						search->processor_fuzzy_search);
+			match2_found = true;
 			break;
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -238,7 +241,17 @@ static int acvp_match_def_search(const struct acvp_search_ctx *search,
 		}
 	}
 
-	if (!match || !match2)
+	/*
+	 * If we do not have a specific dependency type, we match it
+	 * trivially.
+	 */
+	if (!match_found)
+		match = true;
+	if (!match2_found)
+		match2 = true;
+
+	/* It is permissible to have no dependencies at all */
+	if (oe->def_dep && (!match || !match2))
 		return -ENOENT;
 
 	return 0;
@@ -299,7 +312,7 @@ static int acvp_export_def_search_dep_v1(const struct def_oe *oe,
 					 struct json_object *s)
 {
 	const struct def_dependency *def_dep;
-	int ret;
+	int ret = 0;
 	bool execenv_done = false, cpu_done = false;
 
 	for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
@@ -644,7 +657,7 @@ int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 			if (def_dep->proc_name) {
 				if (found)
 					fprintf(stderr, " +");
-				fprintf(stderr, " %*s", p_len,
+				fprintf(stderr, "%*s", p_len,
 					def_dep->proc_name);
 				found = true;
 			}
@@ -1593,16 +1606,24 @@ static void acvp_def_read_oe_id_v1(const struct json_object *oe_config,
 		      &def_oe->acvp_oe_id);
 
 	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
-		if (def_dep->def_dependency_type == def_dependency_hardware) {
-			json_get_uint(oe_config,
-				      ACVP_DEF_PRODUCTION_ID("acvpOeDepProcId"),
-				      &def_dep->acvp_dep_id);
-		}
-
-		if (def_dep->def_dependency_type == def_dependency_software) {
+		switch (def_dep->def_dependency_type) {
+		case def_dependency_firmware:
+		case def_dependency_os:
+		case def_dependency_software:
 			json_get_uint(oe_config,
 				      ACVP_DEF_PRODUCTION_ID("acvpOeDepSwId"),
 				      &def_dep->acvp_dep_id);
+			break;
+		case def_dependency_hardware:
+			json_get_uint(oe_config,
+				      ACVP_DEF_PRODUCTION_ID("acvpOeDepProcId"),
+				      &def_dep->acvp_dep_id);
+			break;
+
+		default:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Unknown OE dependency type\n");
+			return;
 		}
 	}
 }
@@ -1727,12 +1748,20 @@ static int acvp_def_update_oe_id_v1(const struct def_oe *def_oe)
 	list[2].id = 0;
 
 	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
-		if (def_dep->def_dependency_type == def_dependency_hardware) {
-			list[1].id = def_dep->acvp_dep_id;
-		}
-
-		if (def_dep->def_dependency_type == def_dependency_software) {
+		switch (def_dep->def_dependency_type) {
+		case def_dependency_firmware:
+		case def_dependency_os:
+		case def_dependency_software:
 			list[2].id = def_dep->acvp_dep_id;
+			break;
+		case def_dependency_hardware:
+			list[1].id = def_dep->acvp_dep_id;
+			break;
+
+		default:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Unknown OE dependency type\n");
+			return -EFAULT;
 		}
 	}
 
@@ -1830,17 +1859,24 @@ static int acvp_def_update_oe_config_v1(const struct def_oe *def_oe)
 	str_list[6].str = NULL;
 
 	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
-		if (def_dep->def_dependency_type == def_dependency_hardware) {
+		switch (def_dep->def_dependency_type) {
+		case def_dependency_firmware:
+		case def_dependency_os:
+		case def_dependency_software:
+			str_list[0].str = def_dep->name;
+			str_list[1].str = def_dep->cpe;
+			str_list[2].str = def_dep->swid;
+			break;
+		case def_dependency_hardware:
 			str_list[3].str = def_dep->manufacturer;
 			str_list[4].str = def_dep->proc_family;
 			str_list[5].str = def_dep->proc_name;
 			str_list[6].str = def_dep->proc_series;
-		}
-
-		if (def_dep->def_dependency_type == def_dependency_software) {
-			str_list[0].str = def_dep->name;
-			str_list[1].str = def_dep->cpe;
-			str_list[2].str = def_dep->swid;
+			break;
+		default:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Unknown OE dependency type\n");
+			return -EFAULT;
 		}
 	}
 
@@ -2224,7 +2260,8 @@ static int acvp_def_load_config_dep(struct json_object *dep_entry,
 	CKNULL(dep_entry, -EINVAL);
 
 	CKINT(json_get_string(dep_entry, "dependencyType", &str));
-	CKINT(acvp_dep_name2type(str, &def_dep->def_dependency_type));
+	CKINT_LOG(acvp_dep_name2type(str, &def_dep->def_dependency_type),
+		  "dependencyType %s is unknown\n", str);
 	CKINT(acvp_def_load_config_dep_typed(dep_entry, def_dep,
 					     local_proc_family));
 
@@ -2238,6 +2275,7 @@ static int acvp_def_load_config_oe(const struct json_object *oe_config,
 {
 	struct def_dependency def_dep;
 	struct json_object *dep_array;
+	uint32_t type;
 	int ret;
 
 	CKINT(acvp_def_alloc_lock(&oe->def_lock));
@@ -2250,6 +2288,7 @@ static int acvp_def_load_config_oe(const struct json_object *oe_config,
 		/* We have version 2 configuration file */
 		struct json_object *oe_name;
 		unsigned int i;
+
 		/*
 		 * Sanity check: if any of the following entries are found,
 		 * the user has a mix-n-match of v1 and v2 config files.
@@ -2289,6 +2328,10 @@ static int acvp_def_load_config_oe(const struct json_object *oe_config,
 	def_dep.def_dependency_type = def_dependency_software;
 	CKINT(acvp_def_load_config_dep_typed(oe_config, &def_dep,
 					     local_proc_family));
+	ret = json_get_uint(oe_config, "envType", &type);
+	/* Kludge for the old handling */
+	if (!ret && (type == 2))
+		def_dep.def_dependency_type = def_dependency_firmware;
 	CKINT(acvp_def_add_dep(oe, &def_dep));
 
 	/* Processor dependency */
@@ -2336,8 +2379,14 @@ static int acvp_def_load_config_module(const struct json_object *info_config,
 			      (const char **)&info->module_version));
 	CKINT(json_get_string(info_config, "moduleDescription",
 			      (const char **)&info->module_description));
-	CKINT(json_get_uint(info_config, "moduleType",
-			    (uint32_t *)&info->module_type));
+	ret = json_get_uint(info_config, "moduleType",
+			    (uint32_t *)&info->module_type);
+	if (ret < 0) {
+		const char *str;
+		CKINT(json_get_string(info_config, "moduleType", &str));
+		CKINT(acvp_module_type_name_to_enum(str, &info->module_type));
+
+	}
 	CKINT(acvp_module_oe_type(info->module_type, NULL));
 
 	/* Shall we use the internal name for the mapping lookup? */
@@ -2480,6 +2529,14 @@ static int acvp_def_load_config(const char *basedir, const char *oe_file,
 			struct json_object *impl =
 				json_object_array_get_idx(impl_array, i);
 			const char *string;
+
+			/*
+			 * If this loop executes, we have some registered
+			 * module definition eventually. Note, the registered
+			 * false setting is used for ESVP only where there is
+			 * no ACVP definition, but ESVP definition.
+			 */
+			registered = true;
 
 			CKNULL(impl, EINVAL);
 
