@@ -23,6 +23,7 @@
 #include <json-c/json.h>
 
 #include "acvp_error_handler.h"
+#include "aux_helper.h"
 #include "atomic_bool.h"
 #include "atomic.h"
 #include "buffer.h"
@@ -53,7 +54,7 @@ extern "C" {
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
  */
-#define PATCHLEVEL 2
+#define PATCHLEVEL 4
 
 struct acvp_test_deps {
 	char *dep_cipher;
@@ -200,6 +201,14 @@ int acvp_req_set_prereq_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 int acvp_list_algo_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 			   struct acvp_list_ciphers **new);
 
+int acvp_req_set_algo_kdf_tls12(const struct def_algo_kdf_tls *kdf_tls,
+				struct json_object *entry);
+int acvp_req_set_prereq_kdf_tls12(const struct def_algo_kdf_tls *kdf_tls,
+				  const struct acvp_test_deps *deps,
+				  struct json_object *entry, bool publish);
+int acvp_list_algo_kdf_tls12(const struct def_algo_kdf_tls *kdf_tls,
+			     struct acvp_list_ciphers **new);
+
 int acvp_req_set_algo_kdf_tls13(const struct def_algo_kdf_tls13 *kdf_tls13,
 				struct json_object *entry);
 int acvp_req_set_prereq_kdf_tls13(const struct def_algo_kdf_tls13 *kdf_tls13,
@@ -291,6 +300,14 @@ int acvp_req_set_prereq_kdf_twostep(
 	bool publish);
 int acvp_list_algo_kdf_twostep(const struct def_algo_kdf_twostep *kdf_twostep,
 			       struct acvp_list_ciphers **new);
+
+int acvp_req_set_algo_kdf_tpm(const struct def_algo_kdf_tpm *kdf_tpm,
+			      struct json_object *entry);
+int acvp_req_set_prereq_kdf_tpm(const struct def_algo_kdf_tpm *kdf_tpm,
+				const struct acvp_test_deps *deps,
+				struct json_object *entry, bool publish);
+int acvp_list_algo_kdf_tpm(const struct def_algo_kdf_tpm *kdf_tpm,
+			   struct acvp_list_ciphers **new);
 
 struct acvp_net_proto {
 	char *url_base; /* Base path of URL */
@@ -564,6 +581,12 @@ void acvp_register_ds(const struct acvp_datastore_be *datastore);
 		free(x);                                                       \
 		x = NULL;                                                      \
 	}
+
+/* Returns true of value shall be added to JSON structure */
+static inline bool acvp_check_ignore(bool check_ignore_flag, bool ignore_flag)
+{
+	return ((check_ignore_flag && !ignore_flag) || !check_ignore_flag);
+}
 
 #define ACVP_REQ_MAX_FAILED_TESTID 512
 
@@ -1149,12 +1172,6 @@ int acvp_req_kas_r3_kc_method(const struct def_algo_kas_r3_kc *kcm,
 
 /* Max 128 MB */
 #define ACVP_RESPONSE_MAXLEN (1 << 27)
-
-#if __GNUC__ >= 4
-#define DSO_PUBLIC __attribute__((visibility("default")))
-#else
-#define DSO_PUBLIC
-#endif
 
 #ifdef __cplusplus
 }

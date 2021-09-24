@@ -28,6 +28,7 @@
 #include "acvpproxy.h"
 #include "internal.h"
 #include "request_helper.h"
+#include "term_colors.h"
 
 static int acvp_req_kas_ffc_paramset(enum kas_ffc_paramset kas_ffc_paramset,
 				     cipher_t hashalg,
@@ -549,5 +550,7 @@ int acvp_req_set_prereq_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 int acvp_req_set_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 			      struct json_object *entry)
 {
+	fprintf_red(stderr,
+		    "SP800-56A rev 1 KAS_FFC algorithm selected - please remove it from your definition\n");
 	return _acvp_req_set_algo_kas_ffc(kas_ffc, NULL, entry, true, false);
 }

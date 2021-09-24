@@ -2,11 +2,25 @@
 # Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
 #
 
-CC		:= gcc
+CC		?= gcc
 CFLAGS		+= -Werror -Wextra -Wall -pedantic -fPIC -O2 -std=gnu99
 #Hardening
-CFLAGS		+= -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIC
-LDFLAGS		+= -Wl,-z,relro,-z,now -fpic
+CFLAGS		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wcast-align -Wmissing-field-initializers -Wshadow -Wswitch-enum -Wno-variadic-macros
+
+#Optimizations
+CFLAGS		+= -flto
+LDFLAGS		+= -flto
+
+ifneq '' '$(findstring clang,$(CC))'
+CFLAGS		+= -Wno-gnu-zero-variadic-macro-arguments
+endif
+
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+ifeq ($(UNAME_S),Linux)
+LDFLAGS		+= -Wl,-z,relro,-z,now -pie
+LDFLAGS_SO	+= -Wl,-z,relro,-z,now,--as-needed -fpic
+endif
 
 NAME		:= acvpproxy
 
@@ -24,6 +38,11 @@ MAN8		:= $(MANDIR)/man8
 INCLUDEDIR	:= /usr/include
 LN		:= ln
 LNS		:= $(LN) -sf
+STRIP		?= strip -x
+SRCDIR		:=
+
+# Files to be filtered out and not to be compiled
+EXCLUDED	?=
 
 ###############################################################################
 #
@@ -33,6 +52,18 @@ LNS		:= $(LN) -sf
 INCLUDE_DIRS	:= . ./acvp ./common ./esvp
 LIBRARY_DIRS	:=
 LIBRARIES	:= curl pthread
+
+ifeq ($(UNAME_S),Darwin)
+CFLAGS		+= -mmacosx-version-min=10.14 -Wno-gnu-zero-variadic-macro-arguments
+LDFLAGS		+= -framework Foundation -framework Security
+EXCLUDED	+= $(SRCDIR)common/network_backend_curl.c $(SRCDIR)common/openssl_thread_support.c
+M_SRCS		:= $(wildcard $(SRCDIR)apps/*.m)
+M_SRCS		+= $(wildcard $(SRCDIR)lib/common/*.m)
+M_OBJS		:= ${M_SRCS:.m=.o}
+else
+LIBRARIES	+= curl
+M_OBJS		:=
+endif
 
 CFLAGS		+= $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 LDFLAGS		+= $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))
@@ -53,6 +84,9 @@ LIBVERSION := $(LIBMAJOR).$(LIBMINOR).$(LIBPATCH)
 # Guess at the appropriate lib directory and word size
 #
 ###############################################################################
+ifeq ($(UNAME_S),Darwin)
+LIBDIR		:= /usr/local/lib
+else
 ifeq ($(origin LIBDIR),undefined)
 LIBDIR		:= $(shell ldd /usr/bin/make | grep '\(/libc\.\)' | sed -e 's!.*\(/.*\)/libc[.].*!\1!')
 endif
@@ -74,14 +108,30 @@ USRLIBDIR	:= /usr/lib64
 endif
 endif
 endif
+endif
 
 ###############################################################################
 #
-# Names
+# Shared library compilation
 #
 ###############################################################################
-SONAME		:= lib$(NAME).so.$(LIBMAJOR)
-LIBNAME		:= lib$(NAME).so.$(LIBVERSION)
+ifeq ($(UNAME_S),Linux)
+SONAMEEXT	:= so
+LDFLAGS_SONAME	:= -soname
+SONAME		:= lib$(NAME).$(SONAMEEXT).$(LIBMAJOR)
+LIBNAME		:= lib$(NAME).$(SONAMEEXT).$(LIBVERSION)
+else ifeq ($(UNAME_S),Darwin)
+SONAMEEXT	:= dylib
+LDFLAGS_SO	+= -dylib
+LDFLAGS_SONAME	:= -install_name
+SONAME		:= lib$(NAME).$(LIBMAJOR).$(SONAMEEXT)
+LIBNAME		:= lib$(NAME).$(LIBVERSION).$(SONAMEEXT)
+else
+SONAMEEXT	:= so
+LDFLAGS_SONAME	:= -soname
+SONAME		:= lib$(NAME).$(SONAMEEXT).$(LIBMAJOR)
+LIBNAME		:= lib$(NAME).$(SONAMEEXT).$(LIBVERSION)
+endif
 
 ###############################################################################
 #
@@ -91,11 +141,17 @@ LIBNAME		:= lib$(NAME).so.$(LIBVERSION)
 C_SRCS := $(wildcard *.c)
 C_SRCS := $(wildcard json-c/*.c)
 C_SRCS += $(wildcard acvp/*.c)
+C_SRCS += $(wildcard common/*.c)
+C_SRCS += $(wildcard esvp/*.c)
 C_SRCS += $(wildcard hash/*.c)
 C_SRCS += $(wildcard requests/*.c)
 C_SRCS += $(wildcard module_implementations/*.c)
+C_SRCS := $(filter-out $(wildcard $(EXCLUDED)), $(C_SRCS))
 C_OBJS := ${C_SRCS:.c=.o}
 OBJS := $(C_OBJS)
+
+CRYPTOVERSION := $(shell cat $(SRCDIR)hash/bitshift_be.h $(SRCDIR)hash/bitshift_le.h $(SRCDIR)hash/hash.h $(SRCDIR)hash/hmac.c $(SRCDIR)hash/hmac.h $(SRCDIR)hash/memset_secure.h $(SRCDIR)hash/sha256.c $(SRCDIR)hash/sha256.h $(SRCDIR)hash/sha3.c $(SRCDIR)hash/sha3.h $(SRCDIR)hash/sha512.c $(SRCDIR)hash/sha512.h | openssl sha1 | cut -f 2 -d " ")
+CFLAGS += -DCRYPTOVERSION=\"$(CRYPTOVERSION)\"
 
 analyze_srcs = $(filter %.c, $(sort $(C_SRCS)))
 analyze_plists = $(analyze_srcs:%.c=%.plist)
@@ -111,7 +167,8 @@ all: $(NAME)
 ##############################################################################
 
 $(NAME): $(OBJS)
-	$(CC) -shared -Wl,-soname,$(SONAME) -o $(LIBNAME) $(OBJS) $(LDFLAGS)
+	$(CC) -shared -Wl,$(LDFLAGS_SONAME),$(notdir $(LIBNAME))  $(LDFLAGS_SO) -o $(LIBNAME) $(OBJS)
+	$(STRIP) $(LIBNAME)
 	$(LNS) $(LIBNAME) $(SONAME)
 	$(LNS) $(LIBNAME) lib$(NAME).so
 

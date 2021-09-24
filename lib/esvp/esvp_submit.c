@@ -330,15 +330,13 @@ out:
 }
 
 /* POST multi */
-static int
-esvp_process_datafiles_post_one(const struct acvp_testid_ctx *testid_ctx,
-				const char *url, char *pathname,
-				bool *submitted, char *data_type,
-				struct acvp_ext_buf *additional_keys,
-				int (*proces_response)
-				 (const struct acvp_testid_ctx *testid_ctx,
-				  const struct acvp_buf *response,
-				  const char *pathname))
+static int esvp_process_datafiles_post_one(
+	const struct acvp_testid_ctx *testid_ctx, const char *url,
+	char *pathname, bool *submitted, char *data_type,
+	struct acvp_ext_buf *additional_keys,
+	int (*proces_response)(const struct acvp_testid_ctx *testid_ctx,
+			       const struct acvp_buf *response,
+			       const char *pathname))
 {
 	struct esvp_es_def *es = testid_ctx->es_def;
 	struct esvp_sd_def *sd;
@@ -357,7 +355,7 @@ esvp_process_datafiles_post_one(const struct acvp_testid_ctx *testid_ctx,
 	/* Check whether supporting document file has been uploaded */
 	for (sd = es->sd; sd; sd = sd->next) {
 		if (!acvp_str_match(sd->filename, pathname,
-				   testid_ctx->testid)) {
+				    testid_ctx->testid)) {
 			logger(LOGGER_DEBUG, LOGGER_C_ANY,
 			       "Data found in %s already submitted, no resubmit\n",
 			       pathname);
@@ -403,6 +401,8 @@ esvp_process_datafiles_post_one(const struct acvp_testid_ctx *testid_ctx,
 	data.data_type = data_type;
 	data.filename = basename(pathname);
 	data.next = additional_keys;
+
+	logger_status(LOGGER_C_ANY, "Submitting file %s\n", pathname);
 
 	/* Send the data to the ESVP server. */
 	ret2 = acvp_net_op(testid_ctx, url, &data, &response,
@@ -450,10 +450,9 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u/%s/%u",
 				 testid_ctx->testid, NIST_ESVP_VAL_OP_DATAFILE,
 				 es->raw_noise_id));
-	CKINT_LOG(esvp_process_datafiles_post_one(testid_ctx, url, pathname,
-					&es->raw_noise_submitted,
-					"dataFile", NULL,
-					esvp_process_post_one_response),
+	CKINT_LOG(esvp_process_datafiles_post_one(
+			  testid_ctx, url, pathname, &es->raw_noise_submitted,
+			  "dataFile", NULL, esvp_process_post_one_response),
 		  "Cannot post raw noise data\n");
 
 	/* Post the restart data file */
@@ -466,10 +465,9 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u/%s/%u",
 				 testid_ctx->testid, NIST_ESVP_VAL_OP_DATAFILE,
 				 es->restart_id));
-	CKINT_LOG(esvp_process_datafiles_post_one(testid_ctx, url, pathname,
-					&es->restart_submitted,
-					"dataFile", NULL,
-					esvp_process_post_one_response),
+	CKINT_LOG(esvp_process_datafiles_post_one(
+			  testid_ctx, url, pathname, &es->restart_submitted,
+			  "dataFile", NULL, esvp_process_post_one_response),
 		  "Cannot post restart noise data\n");
 
 	/* Post all conditioning component files */
@@ -486,10 +484,9 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 		CKINT(acvp_extend_string(url, sizeof(url), "/%u/%s/%u",
 					 testid_ctx->testid,
 					 NIST_ESVP_VAL_OP_DATAFILE, cc->cc_id));
-		CKINT(esvp_process_datafiles_post_one(testid_ctx, url, pathname,
-					&cc->output_submitted,
-					"dataFile", NULL,
-					esvp_process_post_one_response));
+		CKINT(esvp_process_datafiles_post_one(
+			testid_ctx, url, pathname, &cc->output_submitted,
+			"dataFile", NULL, esvp_process_post_one_response));
 	}
 
 	snprintf(doc_dir_name, sizeof(doc_dir_name), "%s/%s", es->config_dir,
@@ -519,9 +516,9 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 					  sizeof(url)),
 			  "Creation of request URL failed\n");
 
-		CKINT(esvp_process_datafiles_post_one(testid_ctx, url, pathname,
-					NULL, "sdFile", &itar,
-					esvp_process_post_one_sd_response));
+		CKINT(esvp_process_datafiles_post_one(
+			testid_ctx, url, pathname, NULL, "sdFile", &itar,
+			esvp_process_post_one_sd_response));
 	}
 
 out:
@@ -637,7 +634,6 @@ out:
 /* POST /entropyAssessments */
 static int esvp_register_op(struct acvp_testid_ctx *testid_ctx)
 {
-
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details;
 	struct esvp_es_def *es = testid_ctx->es_def;
@@ -724,6 +720,12 @@ static int esvp_continue_op(struct acvp_testid_ctx *testid_ctx)
 
 	/* Get auth token for test session */
 	CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
+
+	//TODO enable to refres after fixing issue 12
+	//CKINT(acvp_login_refresh(testid_ctx));
+
+	/* Write potentially changed auth tokens */
+	//CKINT(esvp_write_status(testid_ctx));
 
 	// TODO add check for status - GET on data URLs
 

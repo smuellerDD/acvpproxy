@@ -76,7 +76,7 @@
         ]
       },
       {
-        "revision":"1.0",
+        "revision":"2.0",
         "algorithm":"SHA3-224",
         "inBit":false,
         "inEmpty":true,
@@ -89,7 +89,7 @@
         ]
       },
       {
-        "revision":"1.0",
+        "revision":"2.0",
         "algorithm":"SHA3-256",
         "inBit":false,
         "inEmpty":true,
@@ -102,7 +102,7 @@
         ]
       },
       {
-        "revision":"1.0",
+        "revision":"2.0",
         "algorithm":"SHA3-384",
         "inBit":false,
         "inEmpty":true,
@@ -115,7 +115,7 @@
         ]
       },
       {
-        "revision":"1.0",
+        "revision":"2.0",
         "algorithm":"SHA3-512",
         "inBit":false,
         "inEmpty":true,

@@ -21,6 +21,7 @@
 #ifndef DEFINITION_H
 #define DEFINITION_H
 
+#include "aux_helper.h"
 #include "constructor.h"
 
 #include "definition_cipher_drbg.h"
@@ -36,6 +37,7 @@
 #include "definition_cipher_kas_ffc.h"
 #include "definition_cipher_kas_ffc_r3.h"
 #include "definition_cipher_kdf_ssh.h"
+#include "definition_cipher_kdf_tpm.h"
 #include "definition_cipher_kdf_ikev1.h"
 #include "definition_cipher_kdf_ikev2.h"
 #include "definition_cipher_kdf_tls.h"
@@ -95,6 +97,8 @@ struct def_algo {
 		DEF_ALG_TYPE_KDF_IKEV2,
 		/** SP800-135 KDF: TLS */
 		DEF_ALG_TYPE_KDF_TLS,
+		/** SP800-135 / RFC7627 KDF: TLS */
+		DEF_ALG_TYPE_KDF_TLS12,
 		/** RFC8446 KDF: TLS 1.3 */
 		DEF_ALG_TYPE_KDF_TLS13,
 		/** SP800-108 KDF */
@@ -117,6 +121,8 @@ struct def_algo {
 		DEF_ALG_TYPE_KDF_ONESTEP,
 		/** SP800-56C rev 1 twostep KDF */
 		DEF_ALG_TYPE_KDF_TWOSTEP,
+		/** SP800-135 TPM KDF */
+		DEF_ALG_TYPE_KDF_TPM,
 	} type;
 	union {
 		/** DEF_ALG_TYPE_SYM */
@@ -149,7 +155,7 @@ struct def_algo {
 		struct def_algo_kdf_ikev1 kdf_ikev1;
 		/** DEF_ALG_TYPE_KDF_IKEV2 */
 		struct def_algo_kdf_ikev2 kdf_ikev2;
-		/** DEF_ALG_TYPE_KDF_TLS */
+		/** DEF_ALG_TYPE_KDF_TLS / DEF_ALG_TYPE_KDF_TLS12 */
 		struct def_algo_kdf_tls kdf_tls;
 		/** DEF_ALG_TYPE_KDF_TLS 1.3 */
 		struct def_algo_kdf_tls13 kdf_tls13;
@@ -173,6 +179,8 @@ struct def_algo {
 		struct def_algo_kdf_onestep kdf_onestep;
 		/** DEF_ALG_TYPE_KDF_TWOSTEP */
 		struct def_algo_kdf_twostep kdf_twostep;
+		/** DEF_ALG_TYPE_KDF_TPM */
+		struct def_algo_kdf_tpm kdf_tpm;
 	} algo;
 };
 
@@ -196,8 +204,16 @@ struct acvp_extension {
 	unsigned int nrmaps;
 };
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #define SET_IMPLEMENTATION(impl) .algos = impl, .num_algos = ARRAY_SIZE(impl)
+
+#define IMPLEMENTATION(imp, alg_name, proc, imple_name, imple_description)\
+	{								\
+		SET_IMPLEMENTATION(imp),				\
+		.algo_name = alg_name,					\
+		.processor = proc,					\
+		.impl_name = imple_name,				\
+		.impl_description = imple_description			\
+	}
 
 #if defined(ACVPPROXY_EXTENSION)
 #define ACVP_EXTENSION(map)                                                    \

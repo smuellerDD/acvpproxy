@@ -295,7 +295,7 @@ struct def_algo_sym {
 
 	/*
 	 * Source of AES-CTR mode
-	 * required: only for AES-CTR mode
+	 * required: not used any more by ACVP
 	 */
 	enum ctrsource {
 		DEF_ALG_SYM_CTR_UNDEF = 0,

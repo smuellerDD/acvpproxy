@@ -296,6 +296,8 @@ static int acvp_curl_common_init(const struct acvp_na_ex *netinfo,
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_URL, url));
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L));
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_USERAGENT, useragent));
+	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_HTTP_VERSION,
+				    CURL_HTTP_VERSION_1_1));
 	CURL_CKINT(curl_easy_setopt(curl, CURLOPT_HTTPHEADER, *slist));
 
 	/* Required for multi-threaded applications */

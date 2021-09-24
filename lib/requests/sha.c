@@ -58,14 +58,14 @@ int acvp_req_set_algo_sha(const struct def_algo_sha *sha,
 {
 	int ret = 0;
 
-//	if (acvp_match_cipher(sha->algorithm, ACVP_SHA3_224) ||
-//	    acvp_match_cipher(sha->algorithm, ACVP_SHA3_256) ||
-//	    acvp_match_cipher(sha->algorithm, ACVP_SHA3_384) ||
-//	    acvp_match_cipher(sha->algorithm, ACVP_SHA3_512)) {
-//		CKINT(acvp_req_add_revision(entry, "2.0"));
-//	} else {
+	if (acvp_match_cipher(sha->algorithm, ACVP_SHA3_224) ||
+	    acvp_match_cipher(sha->algorithm, ACVP_SHA3_256) ||
+	    acvp_match_cipher(sha->algorithm, ACVP_SHA3_384) ||
+	    acvp_match_cipher(sha->algorithm, ACVP_SHA3_512)) {
+		CKINT(acvp_req_add_revision(entry, "2.0"));
+	} else {
 		CKINT(acvp_req_add_revision(entry, "1.0"));
-//	}
+	}
 
 	CKINT(acvp_req_cipher_to_string(entry, sha->algorithm,
 				        ACVP_CIPHERTYPE_HASH, "algorithm"));

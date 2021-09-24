@@ -6,7 +6,7 @@ The application provides a help output with the `-h` option.
 
 The ACVP Proxy application requires a configuration file. The default
 configuration file is `acvpproxy_conf.json` and is located in the
-current working directory. A different configuraiton file location
+current working directory. A different configuration file location
 can be provided with the configuration option.
 
 The ACVP Proxy allows accessing two different servers: the ACVP demo server

@@ -28,6 +28,7 @@
 #include "acvpproxy.h"
 #include "internal.h"
 #include "request_helper.h"
+#include "term_colors.h"
 
 static int acvp_req_kas_ecc_paramset(enum kas_ecc_paramset kas_ecc_paramset,
 				     cipher_t curve,
@@ -574,5 +575,7 @@ int acvp_req_set_prereq_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 int acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 			      struct json_object *entry)
 {
+	fprintf_red(stderr,
+		    "SP800-56A rev 1 KAS_ECC algorithm selected - please remove it from your definition\n");
 	return _acvp_req_set_algo_kas_ecc(kas_ecc, NULL, entry, true, false);
 }

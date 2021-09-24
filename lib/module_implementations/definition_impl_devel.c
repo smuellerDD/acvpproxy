@@ -1,4 +1,4 @@
-/* Nettle module definition
+/* Development module definition
  *
  * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
  *
@@ -605,7 +605,7 @@ const struct def_algo_kas_ifc_ssc_schema devel_kas_ifc_ssc_schema_kas[] = { {
 /**************************************************************************
  * SP800-56C rev 1 Onestep KDF
  **************************************************************************/
-#if 1
+#if 0
 static const struct def_algo_prereqs devel_kdf_onestep_prereqs[] = {
 	{
 		.algorithm = "SHA",
@@ -659,7 +659,7 @@ const struct def_algo_kas_kdf_onestepkdf_aux devel_kas_kdf_onestepkdf_aux[] = { 
 /**************************************************************************
  * SP800-56C rev 1 Twostep KDF
  **************************************************************************/
-#if 1
+#if 0
 static const struct def_algo_prereqs devel_kdf_twostep_prereqs[] = {
 	{
 		.algorithm = "SHA",
@@ -776,6 +776,90 @@ static const struct def_algo_rsa_component_sig_gen devel_rsa_component_dec = {
 #endif
 
 /**************************************************************************
+ * RSA decryption primtiive
+ **************************************************************************/
+#if 0
+
+static const struct def_algo_prereqs devel_kdf_tpm_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+};
+
+#define DEVEL_KDF_TPM							\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_TPM,					\
+	.algo = {							\
+		.kdf_tpm = {						\
+			DEF_PREREQS(devel_kdf_tpm_prereqs),		\
+			}						\
+		}							\
+	}
+
+#else
+#define DEVEL_KDF_TPM
+#endif
+
+/**************************************************************************
+ * Conditioning component
+ **************************************************************************/
+#if 0
+
+#define DEVEL_COND_COMP							\
+	{								\
+	.type = DEF_ALG_TYPE_COND_COMP,					\
+	.algo = {							\
+		.cond_comp = {						\
+			.mode = ACVP_COND_COMP_CBC_MAC,			\
+			.keylen = DEF_ALG_SYM_KEYLEN_256,		\
+			DEF_ALG_DOMAIN(.payload_len, 128, 512, 128),	\
+			},						\
+		},							\
+	}
+
+#else
+#define DEVEL_COND_COMP
+#endif
+
+/**************************************************************************
+ * TLS Definitions
+ **************************************************************************/
+static const struct def_algo_prereqs devell_kdf_prereqs[] = {
+	{
+		.algorithm = "HMAC",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+};
+
+#define DEVEL_KDF11							\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_TLS,					\
+	.algo.kdf_tls = {						\
+		DEF_PREREQS(devell_kdf_prereqs),			\
+		.tls_version = DEF_ALG_KDF_TLS_1_0_1_1,			\
+		.hashalg = ACVP_SHA256 | ACVP_SHA384			\
+		}							\
+	}
+#define DEVEL_KDF12							\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_TLS12,					\
+	.algo.kdf_tls = {						\
+		DEF_PREREQS(devell_kdf_prereqs),			\
+		.tls_version = DEF_ALG_KDF_TLS_1_2,			\
+		.hashalg = ACVP_SHA256 | ACVP_SHA384			\
+		}							\
+	}
+
+#define DEVEL_KDF							\
+	DEVEL_KDF11,							\
+	DEVEL_KDF12
+
+/**************************************************************************
  * Devel Implementation Definitions
  **************************************************************************/
 static const struct def_algo devel[] = {
@@ -798,10 +882,16 @@ static const struct def_algo devel[] = {
 
 	DEVEL_KAS_IFC_SSC
 
-	DEVEL_KAS_KDF_ONESTEP,
+	DEVEL_KAS_KDF_ONESTEP
 	DEVEL_KAS_KDF_TWOSTEP
 
 	DEVEL_RSA_DEC_PRIMITIVE
+
+	DEVEL_KDF_TPM
+
+	DEVEL_COND_COMP
+
+	DEVEL_KDF
 };
 
 /**************************************************************************

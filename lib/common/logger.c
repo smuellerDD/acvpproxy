@@ -18,6 +18,7 @@
  * DAMAGE.
  */
 
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -25,13 +26,13 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "aux_helper.h"
 #include "binhexbin.h"
 #include "build_bug_on.h"
+#include "constructor.h"
 #include "logger.h"
 #include "term_colors.h"
 #include "threading_support.h"
-
-#include "internal.h"
 
 static enum logger_verbosity logger_verbosity_level = LOGGER_STATUS;
 static enum logger_class logger_class_level = LOGGER_C_ANY;
@@ -122,9 +123,8 @@ static int logger_class(const enum logger_class class, char *s,
 
 DSO_PUBLIC
 void _logger(const enum logger_verbosity severity,
-	     const enum logger_class class,
-	     const char *file, const char *func, const uint32_t line,
-	     const char *fmt, ...)
+	     const enum logger_class class, const char *file, const char *func,
+	     const uint32_t line, const char *fmt, ...)
 {
 	time_t now;
 	struct tm now_detail;
@@ -184,9 +184,12 @@ void _logger(const enum logger_verbosity severity,
 	switch (logger_verbosity_level) {
 	case LOGGER_DEBUG2:
 	case LOGGER_DEBUG:
-		fprintf_color(logger_stream, "ACVPProxy (%.2d:%.2d:%.2d) (%s) %s%s [%s:%s:%u]: ",
-		      now_detail.tm_hour, now_detail.tm_min, now_detail.tm_sec,
-		      thread_name, sev, c, file, func, line);
+		fprintf_color(
+			logger_stream,
+			"ACVPProxy (%.2d:%.2d:%.2d) (%s) %s%s [%s:%s:%u]: ",
+			now_detail.tm_hour, now_detail.tm_min,
+			now_detail.tm_sec, thread_name, sev, c, file, func,
+			line);
 		break;
 	case LOGGER_VERBOSE:
 	case LOGGER_WARN:
@@ -195,9 +198,10 @@ void _logger(const enum logger_verbosity severity,
 	case LOGGER_NONE:
 	case LOGGER_MAX_LEVEL:
 	default:
-		fprintf_color(logger_stream, "ACVPProxy (%.2d:%.2d:%.2d) (%s) %s%s: ",
-		      now_detail.tm_hour, now_detail.tm_min, now_detail.tm_sec,
-		      thread_name, sev, c);
+		fprintf_color(logger_stream,
+			      "ACVPProxy (%.2d:%.2d:%.2d) (%s) %s%s: ",
+			      now_detail.tm_hour, now_detail.tm_min,
+			      now_detail.tm_sec, thread_name, sev, c);
 		break;
 	}
 
@@ -207,8 +211,8 @@ void _logger(const enum logger_verbosity severity,
 DSO_PUBLIC
 void _logger_binary(const enum logger_verbosity severity,
 		    const enum logger_class class, const unsigned char *bin,
-		    const uint32_t binlen, const char *str,
-		    const char *file, const char *func, const uint32_t line)
+		    const uint32_t binlen, const char *str, const char *file,
+		    const char *func, const uint32_t line)
 {
 	time_t now;
 	struct tm now_detail;
@@ -235,7 +239,7 @@ void _logger_binary(const enum logger_verbosity severity,
 		snprintf(msg, sizeof(msg),
 			 "ACVPProxy (%.2d:%.2d:%.2d) %s%s [%s:%s:%u]: %s",
 			 now_detail.tm_hour, now_detail.tm_min,
-			 now_detail.tm_sec, sev, c,  file, func, line, str);
+			 now_detail.tm_sec, sev, c, file, func, line, str);
 		break;
 	case LOGGER_VERBOSE:
 	case LOGGER_WARN:
@@ -313,10 +317,11 @@ DSO_PUBLIC
 int logger_set_file(const char *pathname)
 {
 	FILE *out;
-	int ret = 0;
 
 	out = fopen(pathname, "a");
-	CKNULL(out, -errno);
+	if (!out)
+		return -errno;
+
 	if (!logger_stream || logger_stream == stderr)
 		logger_stream = out;
 	else {
@@ -326,8 +331,7 @@ int logger_set_file(const char *pathname)
 	}
 	atexit(logger_destructor);
 
-out:
-	return ret;
+	return 0;
 }
 
 DSO_PUBLIC

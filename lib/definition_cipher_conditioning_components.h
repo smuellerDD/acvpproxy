@@ -68,12 +68,13 @@ struct def_algo_cond_comp {
 	unsigned int keylen;
 
 	/*
-	 * Length of the data to be generated. It allows a range between
+	 * Length of the input data to be processed by the conditioning
+	 * component. It allows a range between
 	 * 1 and 65536.
 	 *
 	 * required: required
 	 */
-	int derived_len[DEF_ALG_MAX_INT];
+	int payload_len[DEF_ALG_MAX_INT];
 };
 
 #ifdef __cplusplus

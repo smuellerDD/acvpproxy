@@ -68,7 +68,6 @@ static void esvp_def_cc_free(struct esvp_cc_def *cc)
 	}
 }
 
-
 void acvp_release_auth_sd(struct esvp_sd_def *sd)
 {
 	struct acvp_auth_ctx *auth;

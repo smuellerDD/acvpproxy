@@ -272,6 +272,10 @@ static int acvp_req_set_algo(struct json_object *algorithms,
 		CKINT(acvp_req_set_algo_kdf_tls(&def_algo->algo.kdf_tls,
 						entry));
 		break;
+	case DEF_ALG_TYPE_KDF_TLS12:
+		CKINT(acvp_req_set_algo_kdf_tls12(&def_algo->algo.kdf_tls,
+						  entry));
+		break;
 	case DEF_ALG_TYPE_KDF_TLS13:
 		CKINT(acvp_req_set_algo_kdf_tls13(&def_algo->algo.kdf_tls13,
 						  entry));
@@ -313,6 +317,10 @@ static int acvp_req_set_algo(struct json_object *algorithms,
 	case DEF_ALG_TYPE_KDF_TWOSTEP:
 		CKINT(acvp_req_set_algo_kdf_twostep(&def_algo->algo.kdf_twostep,
 						    entry));
+		break;
+	case DEF_ALG_TYPE_KDF_TPM:
+		CKINT(acvp_req_set_algo_kdf_tpm(&def_algo->algo.kdf_tpm,
+						entry));
 		break;
 
 	default:

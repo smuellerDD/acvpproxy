@@ -80,36 +80,33 @@ int acvp_req_set_algo_kdf_tls(const struct def_algo_kdf_tls *kdf_tls,
 {
 	struct json_object *version;
 	int ret;
-	bool found = false;
-
-	CKINT(acvp_req_add_revision(entry, "1.0"));
 
 	CKINT(acvp_req_set_prereq_kdf_tls(kdf_tls, NULL, entry, false));
+
+	if (kdf_tls->tls_version & DEF_ALG_KDF_TLS_1_2) {
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Please update TLSv1.2 definition: use DEF_ALG_TYPE_KDF_TLS12 - no change in the kdf_tls definition is necessary!\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!(kdf_tls->tls_version & DEF_ALG_KDF_TLS_1_0_1_1)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Unknown TLS protocol\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	CKINT(acvp_req_add_revision(entry, "1.0"));
+	CKINT(json_object_object_add(entry, "algorithm",
+				     json_object_new_string("kdf-components")));
+	CKINT(json_object_object_add(entry, "mode",
+				     json_object_new_string("tls")));
 
 	version = json_object_new_array();
 	CKNULL(version, -ENOMEM);
 	CKINT(json_object_object_add(entry, "tlsVersion", version));
-	if (kdf_tls->tls_version & DEF_ALG_KDF_TLS_1_0_1_1) {
-		CKINT(json_object_array_add(version,
-					json_object_new_string("v1.0/1.1")));
-		found = true;
-	}
-	if (kdf_tls->tls_version & DEF_ALG_KDF_TLS_1_2) {
-		CKINT(json_object_array_add(version,
-					    json_object_new_string("v1.2")));
 
-		if (!(kdf_tls->hashalg & ACVP_SHA256 ||
-		      kdf_tls->hashalg & ACVP_SHA384 ||
-	              kdf_tls->hashalg & ACVP_SHA512)) {
-			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "KDF TLS: only ACVP_SHA256, ACVP_SHA384 and ACVP_SHA512 allowed for cipher definition\n");
-		}
-		found = true;
-	}
-	CKNULL_LOG(found, -EINVAL, "kdf_tls contains wrong value\n");
-
-	CKINT(acvp_req_cipher_to_array(entry, kdf_tls->hashalg,
-				       ACVP_CIPHERTYPE_HASH, "hashAlg"));
+	CKINT(json_object_array_add(version,
+				    json_object_new_string("v1.0/1.1")));
 
 out:
 	return ret;

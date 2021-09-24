@@ -29,7 +29,8 @@
 #include "request_helper.h"
 
 static int acvp_person_build(const struct def_vendor *def_vendor,
-			     struct json_object **json_person)
+			     struct json_object **json_person,
+			     bool check_ignore_flag)
 {
 	struct json_object *array = NULL, *entry = NULL, *person = NULL,
 			   *phone = NULL;
@@ -57,9 +58,12 @@ static int acvp_person_build(const struct def_vendor *def_vendor,
 	CKNULL(person, -ENOMEM);
 
 	/* Name */
-	CKINT(json_object_object_add(
-		person, "fullName",
-		json_object_new_string(def_vendor->contact_name)));
+	if ((check_ignore_flag && !def_vendor->contact_name_i) ||
+	    !check_ignore_flag) {
+		CKINT(json_object_object_add(
+			person, "fullName",
+			json_object_new_string(def_vendor->contact_name)));
+	}
 
 	/* Reference to Vendor definition */
 	CKINT(acvp_create_urlpath(NIST_VAL_OP_VENDOR, vendor_url,
@@ -70,28 +74,34 @@ static int acvp_person_build(const struct def_vendor *def_vendor,
 				     json_object_new_string(vendor_url)));
 
 	/* Emails */
-	array = json_object_new_array();
-	CKNULL(array, -ENOMEM);
-	CKINT(json_object_array_add(
-		array, json_object_new_string(def_vendor->contact_email)));
-	CKINT(json_object_object_add(person, "emails", array));
-	array = NULL;
+	if (acvp_check_ignore(check_ignore_flag, def_vendor->contact_email_i)) {
+		array = json_object_new_array();
+		CKNULL(array, -ENOMEM);
+		CKINT(json_object_array_add(
+			array, json_object_new_string(def_vendor->contact_email)));
+		CKINT(json_object_object_add(person, "emails", array));
+		array = NULL;
+	}
 
 	/* Phone numbers */
 	if (def_vendor->contact_phone) {
-		phone = json_object_new_object();
-		CKNULL(phone, -ENOMEM);
-		CKINT(json_object_object_add(
-			phone, "number",
-			json_object_new_string(def_vendor->contact_phone)));
-		CKINT(json_object_object_add(phone, "type",
-					     json_object_new_string("voice")));
-		array = json_object_new_array();
-		CKNULL(array, -ENOMEM);
-		CKINT(json_object_array_add(array, phone));
-		phone = NULL;
-		CKINT(json_object_object_add(person, "phoneNumbers", array));
-		array = NULL;
+		if (acvp_check_ignore(check_ignore_flag,
+				      def_vendor->contact_phone_i)) {
+			phone = json_object_new_object();
+			CKNULL(phone, -ENOMEM);
+			CKINT(json_object_object_add(
+				phone, "number",
+				json_object_new_string(def_vendor->contact_phone)));
+			CKINT(json_object_object_add(phone, "type",
+					json_object_new_string("voice")));
+			array = json_object_new_array();
+			CKNULL(array, -ENOMEM);
+			CKINT(json_object_array_add(array, phone));
+			phone = NULL;
+			CKINT(json_object_object_add(person, "phoneNumbers",
+						     array));
+			array = NULL;
+		}
 	}
 
 	json_logger(LOGGER_DEBUG2, LOGGER_C_ANY, person, "Vendor JSON object");
@@ -114,7 +124,7 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 	struct json_object *tmp;
 	uint32_t organizationurl_id, person_id;
 	unsigned int i;
-	int ret;
+	int ret, ret2;
 	const char *personurl = NULL, *name = NULL, *organizationurl = NULL;
 	bool found = false;
 
@@ -122,29 +132,32 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 	CKINT(acvp_get_trailing_number(personurl, &person_id));
 
 	CKINT(json_get_string(json_vendor, "fullName", &name));
+	ret = acvp_str_match(def_vendor->contact_name, name, person_id);
+	def_vendor->contact_name_i = !ret;
+	ret2 = ret;
 
 	/* No error handling as we check for the NULL value below */
 	json_get_string(json_vendor, "vendorUrl", &organizationurl);
 	CKINT(acvp_get_trailing_number(organizationurl, &organizationurl_id));
 
-	if (strncmp(def_vendor->contact_name, name,
-		    strlen(def_vendor->contact_name)) ||
+	if (!def_vendor->contact_name_i ||
 	    organizationurl_id != def_vendor->acvp_vendor_id) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Contact name mismatch for contact ID %u (expected: %s, found: %s, vendor ID %u)\n",
 		       person_id, def_vendor->contact_name, name,
 		       def_vendor->acvp_vendor_id);
-		ret = -ENOENT;
-		goto out;
+		ret2 = -ENOENT;
 	}
 
 	CKINT(json_find_key(json_vendor, "emails", &tmp, json_type_array));
 	for (i = 0; i < json_object_array_length(tmp); i++) {
 		struct json_object *email = json_object_array_get_idx(tmp, i);
 
-		if (!strncmp(def_vendor->contact_email,
-			     json_object_get_string(email),
-			     strlen(def_vendor->contact_email))) {
+		def_vendor->contact_email_i =
+			!acvp_str_match(def_vendor->contact_email,
+					json_object_get_string(email),
+					person_id);
+		if (def_vendor->contact_email_i) {
 			found = true;
 			break;
 		}
@@ -154,25 +167,24 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Person email address not found for person ID %u\n",
 		       def_vendor->acvp_person_id);
-		ret = -ENOENT;
-		goto out;
+		ret2 |= -ENOENT;
 	}
 
 	ret = json_find_key(json_vendor, "phoneNumbers", &tmp, json_type_array);
 	if (ret) {
 		/* if we did not find a phone number and we have none, match */
 		if (!def_vendor->contact_phone) {
-			ret = 0;
+			def_vendor->contact_phone_i = true;
 			goto found;
 		} else {
 			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 			       "Person phone number not found for person ID %u\n",
 			       def_vendor->acvp_person_id);
-			ret = -ENOENT;
-			goto out;
+			ret2 |= -ENOENT;
 		}
 	}
 
+	found = false;
 	for (i = 0; i < json_object_array_length(tmp); i++) {
 		struct json_object *number_def =
 			json_object_array_get_idx(tmp, i);
@@ -181,8 +193,11 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 		CKINT(json_get_string(number_def, "number", &number));
 		CKINT(json_get_string(number_def, "type", &type));
 
-		if (!strncmp(def_vendor->contact_phone, number,
-			     strlen(def_vendor->contact_phone)) &&
+		def_vendor->contact_phone_i =
+			!acvp_str_match(def_vendor->contact_phone, number,
+					person_id);
+
+		if (def_vendor->contact_phone_i &&
 		    !strncmp("voice", type, 5)) {
 			found = true;
 			break;
@@ -193,13 +208,16 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Person phone number not found for person ID %u\n",
 		       def_vendor->acvp_person_id);
-		ret = -ENOENT;
-		goto out;
+		ret2 = -ENOENT;
 	}
 
 found:
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Person found\n");
-	def_vendor->acvp_person_id = person_id;
+	if (!ret2) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY, "Person found\n");
+		def_vendor->acvp_person_id = person_id;
+	}
+
+	ret = ret2;
 
 out:
 	return ret;
@@ -251,7 +269,7 @@ static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Build JSON object with the vendor specification */
 	if (type != acvp_http_delete) {
-		CKINT(acvp_person_build(def_vendor, &json_person));
+		CKINT(acvp_person_build(def_vendor, &json_person, asked));
 	}
 
 	if (!req_details->dump_register && !ctx_opts->register_new_vendor &&
@@ -298,7 +316,8 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_PERSON, ctx_opts,
 				       def_vendor->acvp_person_id, &http_type);
 	if (ret == -ENOENT) {
-		CKINT(acvp_person_build(def_vendor, &json_person));
+		CKINT(acvp_person_build(def_vendor, &json_person,
+					!!found_data));
 		if (json_person) {
 			logger_status(
 				LOGGER_C_ANY, "Data to be registered: %s\n",
@@ -338,7 +357,7 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	} else if (http_type == acvp_http_put) {
 		/* Update requested */
-		CKINT(acvp_person_build(def_vendor, &json_person));
+		CKINT(acvp_person_build(def_vendor, &json_person, true));
 		if (json_person) {
 			logger_status(
 				LOGGER_C_ANY, "Data to be registered: %s\n",

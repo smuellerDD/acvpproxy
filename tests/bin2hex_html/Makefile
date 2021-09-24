@@ -5,11 +5,18 @@
 CC		:= gcc
 CFLAGS		+= -Wextra -Wall -pedantic -fPIC -O2 -std=gnu99
 #Hardening
-CFLAGS		+= -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE
+CFLAGS		+= -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wno-variadic-macros
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 LDFLAGS        += -Wl,-z,relro,-z,now -pie
+endif
+
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+ifeq ($(UNAME_S),Linux)
+LDFLAGS		+= -Wl,-z,relro,-z,now -pie
+LDFLAGS_SO	+= -Wl,-z,relro,-z,now,--as-needed -fpic
 endif
 
 NAME		:= bin2hex_html
@@ -38,11 +45,15 @@ ACVP_DIR	:= ../../lib
 
 INCLUDE_DIRS	:= $(ACVP_DIR) $(ACVP_DIR)/acvp $(ACVP_DIR)/common
 LIBRARY_DIRS	:= $(ACVP_DIR)
-LIBRARIES	:=
+LIBRARIES	:= pthread
 
 CFLAGS		+= $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 LDFLAGS		+= $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir))
 LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
+
+ifeq ($(UNAME_S),Darwin)
+CFLAGS		+= -Wno-gnu-zero-variadic-macro-arguments
+endif
 
 ###############################################################################
 #
@@ -51,7 +62,7 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 ###############################################################################
 C_SRCS := $(wildcard *.c)
 
-C_SRCS += $(ACVP_DIR)/common/binhexbin.c
+C_SRCS += $(ACVP_DIR)/common/binhexbin.c $(ACVP_DIR)/common/logger.c $(ACVP_DIR)/common/threading_support.c
 C_OBJS := ${C_SRCS:.c=.o}
 C_GCOV := ${C_SRCS:.c=.gcda}
 C_GCOV += ${C_SRCS:.c=.gcno}

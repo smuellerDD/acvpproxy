@@ -82,7 +82,6 @@ int esvp_certify(struct acvp_testid_ctx *testid_ctx);
 #define ESVP_DS_DATADIR "esvp-testvectors"
 #define ESVP_DS_DATADIR_PRODUCTION "esvp-testvectors-production"
 
-
 #ifdef __cplusplus
 }
 #endif

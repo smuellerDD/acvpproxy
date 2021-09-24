@@ -89,6 +89,11 @@ acvp_req_kas_kdf_fi(const enum kas_kdf_fixedinfo_pattern
 		case DEF_ALG_KAS_KDF_FI_PATTERN_LABEL:
 			CKINT(acvp_extend_string(buf, sizeof(buf), "%s%s",
 						 first_in ? "||" : "",
+						 "label"));
+			break;
+		case DEF_ALG_KAS_KDF_FI_PATTERN_DKMLENGTH:
+			CKINT(acvp_extend_string(buf, sizeof(buf), "%s%s",
+						 first_in ? "||" : "",
 						 "l"));
 			break;
 		default:

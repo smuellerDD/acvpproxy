@@ -222,24 +222,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 
 	CKINT(acvp_req_sym_keylen(entry, sym->keylen));
 
-	if (acvp_match_cipher(sym->algorithm, ACVP_CBC_CS1) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_CBC_CS2) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_CBC_CS3) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_CTR) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_XTS) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_KW) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_KWP) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_GCM) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_GCMSIV) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_CCM) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_XPN) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_TDESCTR) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_FF1) ||
-	    acvp_match_cipher(sym->algorithm, ACVP_FF3_1)) {
-		CKINT(acvp_req_algo_int_array_always(entry, sym->ptlen,
-						     "payloadLen"));
-	}
-
+	CKINT(acvp_req_algo_int_array(entry, sym->ptlen, "payloadLen"));
 	CKINT(acvp_req_algo_int_array(entry, sym->ivlen, "ivLen"));
 
 	if (acvp_match_cipher(sym->algorithm, ACVP_GCM) && !sym->ivgen) {
@@ -334,6 +317,14 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		ret = -EINVAL;
 		goto out;
 	}
+
+	if (acvp_match_cipher(sym->algorithm, ACVP_CCM) &&
+	    acvp_req_valid_range(32, 128, 16, sym->taglen)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "CCM mode definition: taglen must be between 32 and 128 modulo 16 bits\n");
+		ret = -EINVAL;
+		goto out;
+	}
 	CKINT(acvp_req_algo_int_array(entry, sym->taglen, "tagLen"));
 
 	if ((acvp_match_cipher(sym->algorithm, ACVP_KW) ||
@@ -398,8 +389,10 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	}
 
 	if (acvp_match_cipher(sym->algorithm, ACVP_XTS)) {
-		if (sym->xts_data_unit_len_matches_payload) {
-			CKINT(acvp_req_algo_int_array(entry, sym->xts_data_unit_len,
+		if (sym->xts_data_unit_len[0] &&
+		    !sym->xts_data_unit_len_matches_payload) {
+			CKINT(acvp_req_algo_int_array(entry,
+						      sym->xts_data_unit_len,
 						      "dataUnitLen"));
 		}
 		CKINT(json_object_object_add(entry, "dataUnitLenMatchesPayload",
@@ -466,7 +459,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		CKINT(json_object_object_add(entry, "overflowCounter",
 					     json_object_new_boolean(1)));
 		break;
-	case DEF_ALG_SYM_CTR_EXTERNAL:
+	case DEF_ALG_SYM_CTROVERFLOW_UNHANDLED:
 		CKINT(json_object_object_add(entry, "overflowCounter",
 					     json_object_new_boolean(0)));
 		break;

@@ -29,7 +29,8 @@
 #include "request_helper.h"
 
 static int acvp_vendor_build(const struct def_vendor *def_vendor,
-			     struct json_object **json_vendor)
+			     struct json_object **json_vendor,
+			     bool check_ignore_flag)
 {
 	struct json_object *array = NULL, *entry = NULL, *vendor = NULL,
 			   *address = NULL;
@@ -65,12 +66,17 @@ static int acvp_vendor_build(const struct def_vendor *def_vendor,
 	CKNULL(vendor, -ENOMEM);
 
 	/* Name, website */
-	CKINT(json_object_object_add(
-		vendor, "name",
-		json_object_new_string(def_vendor->vendor_name)));
-	CKINT(json_object_object_add(
-		vendor, "website",
-		json_object_new_string(def_vendor->vendor_url)));
+	if (acvp_check_ignore(check_ignore_flag, def_vendor->vendor_name_i)) {
+		CKINT(json_object_object_add(
+			vendor, "name",
+			json_object_new_string(def_vendor->vendor_name)));
+	}
+
+	if (acvp_check_ignore(check_ignore_flag, def_vendor->vendor_url_i)) {
+		CKINT(json_object_object_add(
+			vendor, "website",
+			json_object_new_string(def_vendor->vendor_url)));
+	}
 
 	/* Emails not defined */
 
@@ -79,27 +85,41 @@ static int acvp_vendor_build(const struct def_vendor *def_vendor,
 	/* Addresses */
 	address = json_object_new_object();
 	CKNULL(address, -ENOMEM);
-	CKINT(json_object_object_add(
-		address, "street1",
-		json_object_new_string(def_vendor->addr_street)));
-	CKINT(json_object_object_add(
-		address, "locality",
-		json_object_new_string(def_vendor->addr_locality)));
-	CKINT(json_object_object_add(
-		address, "region",
-		json_object_new_string(def_vendor->addr_region)));
-	CKINT(json_object_object_add(
-		address, "country",
-		json_object_new_string(def_vendor->addr_country)));
-	CKINT(json_object_object_add(
-		address, "postalCode",
-		json_object_new_string(def_vendor->addr_zipcode)));
-	array = json_object_new_array();
-	CKNULL(array, -ENOMEM);
-	CKINT(json_object_array_add(array, address));
-	address = NULL;
-	CKINT(json_object_object_add(vendor, "addresses", array));
-	array = NULL;
+	if (acvp_check_ignore(check_ignore_flag, def_vendor->addr_street_i)) {
+		CKINT(json_object_object_add(
+			address, "street1",
+			json_object_new_string(def_vendor->addr_street)));
+	}
+	if (acvp_check_ignore(check_ignore_flag, def_vendor->addr_locality_i)) {
+		CKINT(json_object_object_add(
+			address, "locality",
+			json_object_new_string(def_vendor->addr_locality)));
+	}
+	if (acvp_check_ignore(check_ignore_flag, def_vendor->addr_region_i)) {
+		CKINT(json_object_object_add(
+			address, "region",
+			!def_vendor->addr_region ? NULL :
+			 json_object_new_string(def_vendor->addr_region)));
+	}
+	if (acvp_check_ignore(check_ignore_flag, def_vendor->addr_country_i)) {
+		CKINT(json_object_object_add(
+			address, "country",
+			json_object_new_string(def_vendor->addr_country)));
+	}
+	if (acvp_check_ignore(check_ignore_flag, def_vendor->addr_zipcode_i)) {
+		CKINT(json_object_object_add(
+			address, "postalCode",
+			json_object_new_string(def_vendor->addr_zipcode)));
+	}
+
+	if (json_object_object_length(address) > 0) {
+		array = json_object_new_array();
+		CKNULL(array, -ENOMEM);
+		CKINT(json_object_array_add(array, address));
+		address = NULL;
+		CKINT(json_object_object_add(vendor, "addresses", array));
+		array = NULL;
+	}
 
 	json_logger(LOGGER_DEBUG2, LOGGER_C_ANY, vendor, "Vendor JSON object");
 
@@ -121,7 +141,7 @@ static int acvp_vendor_match(struct def_vendor *def_vendor,
 	struct json_object *tmp;
 	uint32_t vendor_id;
 	unsigned int i;
-	int ret;
+	int ret, ret2;
 	const char *str, *vendorurl;
 	bool found = false;
 
@@ -129,28 +149,54 @@ static int acvp_vendor_match(struct def_vendor *def_vendor,
 	CKINT(acvp_get_trailing_number(vendorurl, &vendor_id));
 
 	CKINT(json_get_string(json_vendor, "name", &str));
-	CKINT(acvp_str_match(def_vendor->vendor_name, str,
-			     def_vendor->acvp_vendor_id));
+	ret = acvp_str_match(def_vendor->vendor_name, str, vendor_id);
+	def_vendor->vendor_name_i = !ret;
+	ret2 = ret;
+
+	CKINT(json_get_string(json_vendor, "website", &str));
+	ret = acvp_str_match(def_vendor->vendor_url, str, vendor_id);
+	def_vendor->vendor_url_i = !ret;
+	ret2 |= ret;
 
 	CKINT(json_find_key(json_vendor, "addresses", &tmp, json_type_array));
 	for (i = 0; i < json_object_array_length(tmp); i++) {
 		struct json_object *contact = json_object_array_get_idx(tmp, i);
 		uint32_t id;
-		const char *postalcode, *addr_street, *addr_locality;
+		const char *postalcode, *addr_street, *addr_locality,
+			   *addr_region, *addr_country;
 
 		CKINT(json_get_string(contact, "postalCode", &postalcode));
 		CKINT(json_get_string(contact, "street1", &addr_street));
 		CKINT(json_get_string(contact, "locality", &addr_locality));
+		ret = json_get_string(contact, "region", &addr_region);
+		if (ret)
+			addr_region = NULL;
+		CKINT(json_get_string(contact, "country", &addr_country));
 		CKINT(json_get_string(contact, "url", &str));
 		/* Get the oe ID which is the last pathname component */
 		CKINT(acvp_get_trailing_number(str, &id));
 
-		if (!strncmp(def_vendor->addr_street, addr_street,
-			     strlen(def_vendor->addr_street)) &&
-		    !strncmp(def_vendor->addr_locality, addr_locality,
-			     strlen(def_vendor->addr_locality)) &&
-		    !strncmp(def_vendor->addr_zipcode, postalcode,
-			     strlen(def_vendor->addr_zipcode))) {
+		def_vendor->addr_street_i =
+			!acvp_str_match(def_vendor->addr_street, addr_street,
+					vendor_id);
+		def_vendor->addr_locality_i =
+			!acvp_str_match(def_vendor->addr_locality, addr_locality,
+					vendor_id);
+		def_vendor->addr_zipcode_i =
+			!acvp_str_match(def_vendor->addr_zipcode, postalcode,
+					vendor_id);
+		def_vendor->addr_region_i =
+			!acvp_str_match(def_vendor->addr_region, addr_region,
+					vendor_id);
+		def_vendor->addr_country_i =
+			!acvp_str_match(def_vendor->addr_country, addr_country,
+					vendor_id);
+
+		if (def_vendor->addr_street_i &&
+		    def_vendor->addr_locality_i &&
+		    def_vendor->addr_zipcode_i &&
+		    def_vendor->addr_region_i &&
+		    def_vendor->addr_country_i) {
 			def_vendor->acvp_addr_id = id;
 			found = true;
 			break;
@@ -161,11 +207,17 @@ static int acvp_vendor_match(struct def_vendor *def_vendor,
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Vendor address not found for vendor ID %u\n",
 		       vendor_id);
-		ret = -ENOENT;
-		goto out;
+		ret2 |= -ENOENT;
 	}
 
-	def_vendor->acvp_vendor_id = vendor_id;
+	if (!ret2)
+		def_vendor->acvp_vendor_id = vendor_id;
+
+	/*
+	 * Return the collected results - if one does not match, the match
+	 * fails.
+	 */
+	ret = ret2;
 
 out:
 	return ret;
@@ -218,7 +270,7 @@ static int acvp_vendor_register(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Build JSON object with the vendor specification */
 	if (type != acvp_http_delete) {
-		CKINT(acvp_vendor_build(def_vendor, &json_vendor));
+		CKINT(acvp_vendor_build(def_vendor, &json_vendor, asked));
 	}
 
 	if (!req_details->dump_register && !ctx_opts->register_new_vendor &&
@@ -273,7 +325,8 @@ static int acvp_vendor_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_VENDOR, ctx_opts,
 				       def_vendor->acvp_vendor_id, &http_type);
 	if (ret == -ENOENT) {
-		CKINT(acvp_vendor_build(def_vendor, &json_vendor));
+		CKINT(acvp_vendor_build(def_vendor, &json_vendor,
+					!!found_data));
 		if (json_vendor) {
 			logger_status(
 				LOGGER_C_ANY, "Data to be registered: %s\n",
@@ -313,7 +366,7 @@ static int acvp_vendor_validate_one(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	} else if (http_type == acvp_http_put) {
 		/* Update requested */
-		CKINT(acvp_vendor_build(def_vendor, &json_vendor));
+		CKINT(acvp_vendor_build(def_vendor, &json_vendor, true));
 		if (json_vendor) {
 			logger_status(
 				LOGGER_C_ANY, "Data to be registered: %s\n",
@@ -376,7 +429,6 @@ static int acvp_vendor_match_cb(void *private, struct json_object *json_vendor)
 	int ret;
 
 	ret = acvp_vendor_match(def_vendor, json_vendor);
-
 	/* We found a match */
 	if (!ret)
 		return EINTR;

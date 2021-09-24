@@ -41,11 +41,9 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 	struct json_object *certdata, *ea_array, *ea_entry;
 	int ret;
 
-	CKNULL_LOG(testid_ctx, -EINVAL,
-		   "ES building: testid_ctx missing\n");
+	CKNULL_LOG(testid_ctx, -EINVAL, "ES building: testid_ctx missing\n");
 	def = testid_ctx->def;
-	CKNULL_LOG(def, -EINVAL,
-		   "ES building: cipher definitions missing\n");
+	CKNULL_LOG(def, -EINVAL, "ES building: cipher definitions missing\n");
 	def_info = def->info;
 	CKNULL_LOG(def_info, -EINVAL,
 		   "ES building: module definitions missing\n");
@@ -53,8 +51,7 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 	CKNULL_LOG(def_vendor, -EINVAL,
 		   "ES building: vendor definitions missing\n");
 	def_oe = def->oe;
-	CKNULL_LOG(def_oe, -EINVAL,
-		   "ES building: OE definitions missing\n");
+	CKNULL_LOG(def_oe, -EINVAL, "ES building: OE definitions missing\n");
 
 	/* Array entry for version */
 	CKINT(acvp_req_add_version(certify));
@@ -102,10 +99,12 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-	CKINT_ULCK(json_object_object_add(certdata, "moduleId",
-			json_object_new_int((int)def_info->acvp_module_id)));
-	CKINT_ULCK(json_object_object_add(certdata, "vendorId",
-			json_object_new_int((int)def_vendor->acvp_vendor_id)));
+	CKINT_ULCK(json_object_object_add(
+		certdata, "moduleId",
+		json_object_new_int((int)def_info->acvp_module_id)));
+	CKINT_ULCK(json_object_object_add(
+		certdata, "vendorId",
+		json_object_new_int((int)def_vendor->acvp_vendor_id)));
 
 	CKINT_ULCK(esvp_build_sd(testid_ctx, certdata, false));
 
@@ -117,12 +116,14 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 	ea_entry = json_object_new_object();
 	CKNULL(ea_entry, -ENOMEM);
 	CKINT(json_object_array_add(ea_array, ea_entry));
-	CKINT(json_object_object_add(ea_entry, "eaId",
-				json_object_new_int((int)testid_ctx->testid)));
-	CKINT(json_object_object_add(ea_entry, "oeId",
-				json_object_new_int((int)def_oe->acvp_oe_id)));
+	CKINT(json_object_object_add(
+		ea_entry, "eaId",
+		json_object_new_int((int)testid_ctx->testid)));
+	CKINT(json_object_object_add(
+		ea_entry, "oeId",
+		json_object_new_int((int)def_oe->acvp_oe_id)));
 	CKINT(json_object_object_add(ea_entry, "accessToken",
-				json_object_new_string(auth->jwt_token)));
+				     json_object_new_string(auth->jwt_token)));
 
 unlock:
 	ret |= acvp_def_put_module_id(def_info);
@@ -182,8 +183,7 @@ int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 		  "Creation of request URL failed\n");
 
 	/* Send the data to the ESVP server. */
-	ret2 = acvp_net_op(testid_ctx, url, &submit, &response,
-			   acvp_http_post);
+	ret2 = acvp_net_op(testid_ctx, url, &submit, &response, acvp_http_post);
 
 	CKINT(acvp_request_error_handler(ret2));
 
@@ -194,4 +194,3 @@ out:
 	ACVP_JSON_PUT_NULL(certify);
 	return ret;
 }
-

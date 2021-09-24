@@ -698,7 +698,11 @@ static int acvp_respond_testid(struct acvp_testid_ctx *testid_ctx)
 	/* Get auth token for test session */
 	CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
 
-	CKINT(acvp_handle_open_requests(testid_ctx));
+	/*
+	 * We try to fetch open requests, but ignore the return code as at this
+	 * point, we do not actively handle meta data.
+	 */
+	acvp_handle_open_requests(testid_ctx);
 
 	sig_enqueue_ctx(testid_ctx);
 
@@ -1121,7 +1125,11 @@ static int acvp_fetch_verdict_vsid(struct acvp_testid_ctx *testid_ctx)
 	/* Get auth token for test session */
 	CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
 
-	CKINT(acvp_handle_open_requests(testid_ctx));
+	/*
+	 * We try to fetch open requests, but ignore the return code as at this
+	 * point, we do not actively handle meta data.
+	 */
+	acvp_handle_open_requests(testid_ctx);
 
 	sig_enqueue_ctx(testid_ctx);
 

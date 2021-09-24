@@ -1,3 +1,19 @@
+v1.7.4
+- fix: conditioning component definition: derived_len -> payload_len to match documentation
+- fix: use XTS protocol version 2.0 as default
+- fix: use SHA-3 protocol version 2.0
+- fix: use RFC7627 definition for TLS1.2 - NOTE: you now must use the definition of DEF_ALG_TYPE_KDF_TLS12 for TLS1.2 - all other configs can remain unchanged
+- enhancement: in case of an error, the offending code line is always printed in the debug log
+- fix: update NIST certificate in certs/
+- fix: compilation of lib/
+
+v1.7.3
+- enhancement: only update meta data on server that has changed
+- enhancement: add POWER OpenSSL
+- fix: allow undefined region definition for addresses
+- enhancement: add TPM KDF support
+- enhancement: add OpenSSL 3.0.0 definitions
+
 v1.7.2
 - fix: --fetch-validation-from-server-db uses OE config file version 2
 - add ESVP /certify endpoint handling

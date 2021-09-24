@@ -41,12 +41,12 @@ static int acvp_oe_proc_name(const struct def_dependency *def_dep, char *tmp,
 }
 
 static int acvp_oe_build_dep_proc(const struct def_dependency *def_dep,
-				  struct json_object **json_oe)
+				  struct json_object **json_oe,
+				  bool check_ignore_flag)
 {
 	struct json_object *dep = NULL;
 	const char *typename;
 	int ret = -EINVAL;
-	char tmp[1024];
 
 	/*
 	 * {
@@ -65,21 +65,38 @@ static int acvp_oe_build_dep_proc(const struct def_dependency *def_dep,
 	CKNULL(dep, -ENOMEM);
 
 	//TODO: SPEC says it is called "cpu", but this works as well!?
-	CKINT(json_object_object_add(dep, "type",
-				     json_object_new_string(typename)));
-	CKINT(json_object_object_add(
-		dep, "manufacturer",
-		json_object_new_string(def_dep->manufacturer)));
-	CKINT(json_object_object_add(
-		dep, "family", json_object_new_string(def_dep->proc_family)));
-	CKINT(json_object_object_add(
-		dep, "name", json_object_new_string(def_dep->proc_name)));
-	CKINT(json_object_object_add(
-		dep, "series", json_object_new_string(def_dep->proc_series)));
+	if (!check_ignore_flag) {
+		CKINT(json_object_object_add(dep, "type",
+					     json_object_new_string(typename)));
+	}
+	if (acvp_check_ignore(check_ignore_flag, def_dep->manufacturer_i)) {
+		CKINT(json_object_object_add(
+			dep, "manufacturer",
+			json_object_new_string(def_dep->manufacturer)));
+	}
+	if (acvp_check_ignore(check_ignore_flag, def_dep->proc_family_i)) {
+		CKINT(json_object_object_add(
+			dep, "family",
+			json_object_new_string(def_dep->proc_family)));
+	}
+	if (acvp_check_ignore(check_ignore_flag, def_dep->proc_name_i)) {
+		CKINT(json_object_object_add(
+			dep, "name",
+			json_object_new_string(def_dep->proc_name)));
+	}
+	if (acvp_check_ignore(check_ignore_flag, def_dep->proc_series_i)) {
+		CKINT(json_object_object_add(
+			dep, "series",
+			json_object_new_string(def_dep->proc_series)));
+	}
 
-	CKINT(acvp_oe_proc_name(def_dep, tmp, sizeof(tmp)));
-	CKINT(json_object_object_add(dep, "description",
-				     json_object_new_string(tmp)));
+	if (acvp_check_ignore(check_ignore_flag, def_dep->description_i)) {
+		char tmp[1024];
+
+		CKINT(acvp_oe_proc_name(def_dep, tmp, sizeof(tmp)));
+		CKINT(json_object_object_add(dep, "description",
+					     json_object_new_string(tmp)));
+	}
 
 	//TODO re-add features
 #if 0
@@ -112,7 +129,8 @@ out:
 }
 
 static int acvp_oe_build_dep_sw(const struct def_dependency *def_dep,
-				struct json_object **json_oe)
+				struct json_object **json_oe,
+				bool check_ignore_flag)
 {
 	struct json_object *dep = NULL;
 	const char *typename;
@@ -143,33 +161,49 @@ static int acvp_oe_build_dep_sw(const struct def_dependency *def_dep,
 	dep = json_object_new_object();
 	CKNULL(dep, -ENOMEM);
 
-	CKINT(json_object_object_add(dep, "type",
-				     json_object_new_string(typename)));
-	CKINT(json_object_object_add(dep, "name",
-				     json_object_new_string(def_dep->name)));
+	if (!check_ignore_flag) {
+		CKINT(json_object_object_add(dep, "type",
+					     json_object_new_string(typename)));
+	}
+	if (acvp_check_ignore(check_ignore_flag, def_dep->name_i)) {
+		CKINT(json_object_object_add(dep, "name",
+					json_object_new_string(def_dep->name)));
+	}
 
 	if (def_dep->cpe) {
-		CKINT(json_object_object_add(
-			dep, "cpe", json_object_new_string(def_dep->cpe)));
-		CKINT(json_object_object_add(dep, "swid", NULL));
+		if (acvp_check_ignore(check_ignore_flag, def_dep->cpe_i)) {
+			CKINT(json_object_object_add(
+				dep, "cpe",
+				json_object_new_string(def_dep->cpe)));
+			CKINT(json_object_object_add(dep, "swid", NULL));
+		}
 	} else if (def_dep->swid) {
-		CKINT(json_object_object_add(dep, "cpe", NULL));
-		CKINT(json_object_object_add(
-			dep, "swid", json_object_new_string(def_dep->swid)));
+		if (acvp_check_ignore(check_ignore_flag, def_dep->swid_i)) {
+			CKINT(json_object_object_add(dep, "cpe", NULL));
+			CKINT(json_object_object_add(
+				dep, "swid",
+				json_object_new_string(def_dep->swid)));
+		}
 	} else {
-		CKINT(json_object_object_add(dep, "cpe", NULL));
-		CKINT(json_object_object_add(dep, "swid", NULL));
+		if (acvp_check_ignore(check_ignore_flag, def_dep->cpe_i)) {
+			CKINT(json_object_object_add(dep, "cpe", NULL));
+		}
+		if (acvp_check_ignore(check_ignore_flag, def_dep->swid_i)) {
+			CKINT(json_object_object_add(dep, "swid", NULL));
+		}
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY, "No CPE or SWID found\n");
 	}
 
-	if (def_dep->description) {
-		CKINT(json_object_object_add(
-			dep, "description",
-			json_object_new_string(def_dep->description)));
-	} else {
-		CKINT(json_object_object_add(
-			dep, "description",
-			json_object_new_string(def_dep->name)));
+	if (acvp_check_ignore(check_ignore_flag, def_dep->cpe_i)) {
+		if (def_dep->description) {
+			CKINT(json_object_object_add(
+				dep, "description",
+				json_object_new_string(def_dep->description)));
+		} else {
+			CKINT(json_object_object_add(
+				dep, "description",
+				json_object_new_string(def_dep->name)));
+		}
 	}
 
 	json_logger(LOGGER_DEBUG2, LOGGER_C_ANY, dep, "Vendor JSON object");
@@ -223,7 +257,7 @@ static int acvp_str_match_zero(const char *exp, const char *found,
 static int acvp_oe_match_dep_sw(struct def_dependency *def_dep,
 				struct json_object *json_oe)
 {
-	int ret;
+	int ret, ret2;
 	const char *str;
 
 	if (!def_dep->name)
@@ -233,19 +267,26 @@ static int acvp_oe_match_dep_sw(struct def_dependency *def_dep,
 	 * no error check on remote data read -> if not existent, its string
 	 * is NULL
 	 */
+	/* commented-out checks are "not explicit" attributes */
 	json_get_string(json_oe, "name", &str);
-	CKINT(acvp_str_match_zero(def_dep->name, str, def_dep->acvp_dep_id));
+	ret = acvp_str_match_zero(def_dep->name, str, def_dep->acvp_dep_id);
+	def_dep->name_i = !ret;
+	ret2 = ret;
 
 	if (def_dep->cpe) {
 		json_get_string(json_oe, "cpe", &str);
-		CKINT(acvp_str_match_zero(def_dep->cpe, str,
-					  def_dep->acvp_dep_id));
+		ret = acvp_str_match_zero(def_dep->cpe, str,
+					  def_dep->acvp_dep_id);
+		//def_dep->cpe_i = !ret;
+		ret2 |= ret;
 	}
 
 	if (def_dep->swid) {
 		json_get_string(json_oe, "swid", &str);
-		CKINT(acvp_str_match_zero(def_dep->swid, str,
-					  def_dep->acvp_dep_id));
+		ret = acvp_str_match_zero(def_dep->swid, str,
+					  def_dep->acvp_dep_id);
+		//def_dep->swid_i = !ret;
+		ret2 |= ret;
 	}
 
 	/*
@@ -256,33 +297,39 @@ static int acvp_oe_match_dep_sw(struct def_dependency *def_dep,
 		ret = json_get_string(json_oe, "swid", &str);
 
 		/* Found one, we have a mismatch */
-		if (!ret) {
-			ret = -ENOENT;
-			goto out;
-		}
+		if (!ret)
+			ret2 |= -ENOENT;
+		//else
+		//	def_dep->swid_i = true;
 
 		ret = json_get_string(json_oe, "cpe", &str);
 
 		/* Found one, we have a mismatch */
-		if (!ret) {
-			ret = -ENOENT;
-			goto out;
-		}
+		if (!ret)
+			ret2 |= -ENOENT;
+		//else
+		//	def_dep->cpe_i = true;
 	}
 
 	json_get_string(json_oe, "description", &str);
 
 	if (def_dep->description) {
-		CKINT(acvp_str_match_zero(def_dep->description, str,
-					  def_dep->acvp_dep_id));
+		ret = acvp_str_match_zero(def_dep->description, str,
+					  def_dep->acvp_dep_id);
 	} else {
-		CKINT(acvp_str_match_zero(def_dep->name, str,
-					  def_dep->acvp_dep_id));
+		ret = acvp_str_match_zero(def_dep->name, str,
+					  def_dep->acvp_dep_id);
+	}
+	def_dep->description_i = !ret;
+	ret2 |= ret;
+
+	if (!ret2) {
+		/* Last step as we got a successful match: get the ID */
+		CKINT(json_get_string(json_oe, "url", &str));
+		CKINT(acvp_get_id_from_url(str, &def_dep->acvp_dep_id));
 	}
 
-	/* Last step as we got a successful match: get the ID */
-	CKINT(json_get_string(json_oe, "url", &str));
-	CKINT(acvp_get_id_from_url(str, &def_dep->acvp_dep_id));
+	ret = ret2;
 
 out:
 	return ret;
@@ -292,36 +339,52 @@ static int acvp_oe_match_dep_proc(struct def_dependency *def_dep,
 				  struct json_object *json_oe)
 {
 	char tmp[1024];
-	int ret;
+	int ret, ret2;
 	const char *str;
 
 	/*
 	 * no error check on remote data read -> if not existent, its string
 	 * is NULL
 	 */
+
+	/* commented-out checks are "not explicit" attributes */
 	json_get_string(json_oe, "manufacturer", &str);
-	CKINT(acvp_str_match_zero(def_dep->manufacturer, str,
-				  def_dep->acvp_dep_id));
+	ret = acvp_str_match_zero(def_dep->manufacturer, str,
+				  def_dep->acvp_dep_id);
+	//def_dep->manufacturer_i = !ret;
+	ret2 = ret;
 
 	json_get_string(json_oe, "family", &str);
-	CKINT(acvp_str_match_zero(def_dep->proc_family, str,
-				  def_dep->acvp_dep_id));
+	ret = acvp_str_match_zero(def_dep->proc_family, str,
+				  def_dep->acvp_dep_id);
+	//def_dep->proc_family_i = !ret;
+	ret2 |= ret;
 
 	json_get_string(json_oe, "name", &str);
-	CKINT(acvp_str_match_zero(def_dep->proc_name, str,
-				  def_dep->acvp_dep_id));
+	ret = acvp_str_match_zero(def_dep->proc_name, str,
+				  def_dep->acvp_dep_id);
+	def_dep->proc_name_i = !ret;
+	ret2 |= ret;
 
 	json_get_string(json_oe, "series", &str);
-	CKINT(acvp_str_match_zero(def_dep->proc_series, str,
-				  def_dep->acvp_dep_id));
+	ret = acvp_str_match_zero(def_dep->proc_series, str,
+				  def_dep->acvp_dep_id);
+	//def_dep->proc_series_i = !ret;
+	ret2 |= ret;
 
 	CKINT(acvp_oe_proc_name(def_dep, tmp, sizeof(tmp)));
 	json_get_string(json_oe, "description", &str);
-	CKINT(acvp_str_match_zero(tmp, str, def_dep->acvp_dep_id));
+	ret = acvp_str_match_zero(tmp, str, def_dep->acvp_dep_id);
+	def_dep->description_i = !ret;
+	ret2 |= ret;
 
-	/* Last step as we got a successful match: get the ID */
-	json_get_string(json_oe, "url", &str);
-	CKINT(acvp_get_id_from_url(str, &def_dep->acvp_dep_id));
+	if (!ret2) {
+		/* Last step as we got a successful match: get the ID */
+		json_get_string(json_oe, "url", &str);
+		CKINT(acvp_get_id_from_url(str, &def_dep->acvp_dep_id));
+	}
+
+	ret = ret2;
 
 out:
 	return ret;
@@ -395,20 +458,20 @@ out:
 
 static int acvp_oe_register_dep_build(struct def_dependency *def_dep,
 				      struct json_object **json_dep,
-				      uint32_t **id)
+				      uint32_t **id, bool check_ignore_flag)
 {
 	struct json_object *dep = NULL;
 	int ret = 0;
 
 	switch (def_dep->def_dependency_type) {
 	case def_dependency_hardware:
-		CKINT(acvp_oe_build_dep_proc(def_dep, &dep));
+		CKINT(acvp_oe_build_dep_proc(def_dep, &dep, check_ignore_flag));
 		*id = &def_dep->acvp_dep_id;
 		break;
 	case def_dependency_firmware:
 	case def_dependency_os:
 	case def_dependency_software:
-		CKINT(acvp_oe_build_dep_sw(def_dep, &dep));
+		CKINT(acvp_oe_build_dep_sw(def_dep, &dep, check_ignore_flag));
 		*id = &def_dep->acvp_dep_id;
 		break;
 	default:
@@ -440,7 +503,7 @@ static int acvp_oe_register_dep(const struct acvp_testid_ctx *testid_ctx,
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
-	CKINT(acvp_oe_register_dep_build(def_dep, &json_dep, &id));
+	CKINT(acvp_oe_register_dep_build(def_dep, &json_dep, &id, asked));
 
 	if (!json_dep)
 		goto out;
@@ -518,7 +581,8 @@ static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 	if (ret == -ENOENT) {
 		uint32_t *id;
 
-		CKINT(acvp_oe_register_dep_build(def_dep, &json_dep, &id));
+		CKINT(acvp_oe_register_dep_build(def_dep, &json_dep, &id,
+						 !!found_data));
 		if (json_dep) {
 			logger_status(
 				LOGGER_C_ANY, "Data to be registered: %s\n",
@@ -560,7 +624,7 @@ static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 		uint32_t *id;
 
 		/* Update requested */
-		CKINT(acvp_oe_register_dep_build(def_dep, &json_dep, &id));
+		CKINT(acvp_oe_register_dep_build(def_dep, &json_dep, &id, true));
 		if (json_dep) {
 			logger_status(
 				LOGGER_C_ANY, "Data to be registered: %s\n",
@@ -1138,7 +1202,8 @@ out:
  *****************************************************************************/
 
 static int acvp_oe_build_oe(const struct acvp_testid_ctx *testid_ctx,
-			    struct def_oe *def_oe, struct json_object **json_oe)
+			    struct def_oe *def_oe, struct json_object **json_oe,
+			    bool check_ignore_flag)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
@@ -1192,12 +1257,14 @@ static int acvp_oe_build_oe(const struct acvp_testid_ctx *testid_ctx,
 
 		switch (def_dep->def_dependency_type) {
 		case def_dependency_hardware:
-			CKINT(acvp_oe_build_dep_proc(def_dep, &dep));
+			CKINT(acvp_oe_build_dep_proc(def_dep, &dep,
+						     check_ignore_flag));
 			break;
 		case def_dependency_firmware:
 		case def_dependency_os:
 		case def_dependency_software:
-			CKINT(acvp_oe_build_dep_sw(def_dep, &dep));
+			CKINT(acvp_oe_build_dep_sw(def_dep, &dep,
+						   check_ignore_flag));
 			/*
 			 * It may happen that we have a SW ID but a NULL
 			 * environment name: Assume you have registered an OE
@@ -1257,7 +1324,7 @@ static int acvp_oe_register_oe(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Build JSON object with the oe specification */
 	if (type != acvp_http_delete) {
-		CKINT(acvp_oe_build_oe(testid_ctx, def_oe, &json_oe));
+		CKINT(acvp_oe_build_oe(testid_ctx, def_oe, &json_oe, asked));
 	}
 
 	if (!req_details->dump_register && !ctx_opts->register_new_oe &&
@@ -1318,7 +1385,8 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_OE, ctx_opts,
 				       def_oe->acvp_oe_id, &http_type);
 	if (ret == -ENOENT) {
-		CKINT(acvp_oe_build_oe(testid_ctx, def_oe, &json_oe));
+		CKINT(acvp_oe_build_oe(testid_ctx, def_oe, &json_oe,
+				       !!found_data));
 		if (json_oe) {
 			logger_status(
 				LOGGER_C_ANY, "Data to be registered: %s\n",

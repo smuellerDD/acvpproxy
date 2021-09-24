@@ -1,0 +1,10 @@
+{
+	"implementations": [
+		"SHA_VMX",
+		"SSH_VMX",
+		"AES_VMX",
+		"AES_VMX_ASM",
+		"AES_Altivec",
+		"AES_Altivec_ASM"
+	]
+}

@@ -109,7 +109,8 @@ out:
 }
 
 static int acvp_module_build(const struct def_info *def_info,
-			     struct json_object **json_module)
+			     struct json_object **json_module,
+			     bool check_ignore_flag)
 {
 	struct json_object *entry = NULL, *array = NULL;
 	int ret = -EINVAL;
@@ -129,37 +130,58 @@ static int acvp_module_build(const struct def_info *def_info,
 
 	entry = json_object_new_object();
 	CKNULL(entry, -ENOMEM);
-	CKINT(json_object_object_add(
-		entry, "name", json_object_new_string(def_info->module_name)));
-	CKINT(json_object_object_add(
-		entry, "version",
-		json_object_new_string(def_info->module_version)));
-	CKINT(acvp_module_set_oe_type(def_info->module_type, entry, "type"));
+	if (acvp_check_ignore(check_ignore_flag, def_info->module_name_i)) {
+		CKINT(json_object_object_add(
+			entry, "name",
+			json_object_new_string(def_info->module_name)));
+	}
+	if (acvp_check_ignore(check_ignore_flag, def_info->module_version_i)) {
+		CKINT(json_object_object_add(
+			entry, "version",
+			json_object_new_string(def_info->module_version)));
+	}
 
-	CKINT(acvp_create_urlpath(NIST_VAL_OP_VENDOR, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
-				 def_info->acvp_vendor_id));
-	CKINT(json_object_object_add(entry, "vendorUrl",
-				     json_object_new_string(url)));
+	if (acvp_check_ignore(check_ignore_flag, def_info->module_type_i)) {
+		CKINT(acvp_module_set_oe_type(def_info->module_type, entry,
+					      "type"));
+	}
 
-	CKINT(acvp_extend_string(url, sizeof(url), "/%s/%u",
-				 NIST_VAL_OP_ADDRESSES,
-				 def_info->acvp_addr_id));
-	CKINT(json_object_object_add(entry, "addressUrl",
-				     json_object_new_string(url)));
+	if (acvp_check_ignore(check_ignore_flag, def_info->acvp_vendor_id_i)) {
+		CKINT(acvp_create_urlpath(NIST_VAL_OP_VENDOR, url,
+					  sizeof(url)));
+		CKINT(acvp_extend_string(url, sizeof(url), "/%u",
+					 def_info->acvp_vendor_id));
+		CKINT(json_object_object_add(entry, "vendorUrl",
+					     json_object_new_string(url)));
+	}
 
-	CKINT(acvp_create_urlpath(NIST_VAL_OP_PERSONS, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
-				 def_info->acvp_person_id));
-	array = json_object_new_array();
-	CKNULL(array, -ENOMEM);
-	CKINT(json_object_array_add(array, json_object_new_string(url)));
-	CKINT(json_object_object_add(entry, "contactUrls", array));
-	array = NULL;
+	if (acvp_check_ignore(check_ignore_flag, def_info->acvp_addr_id_i)) {
+		CKINT(acvp_extend_string(url, sizeof(url), "/%s/%u",
+					 NIST_VAL_OP_ADDRESSES,
+					 def_info->acvp_addr_id));
+		CKINT(json_object_object_add(entry, "addressUrl",
+					     json_object_new_string(url)));
+	}
 
-	CKINT(acvp_module_description(def_info, desc, sizeof(desc)));
-	CKINT(json_object_object_add(entry, "description",
-				     json_object_new_string(desc)));
+	if (acvp_check_ignore(check_ignore_flag, def_info->acvp_person_id_i)) {
+		CKINT(acvp_create_urlpath(NIST_VAL_OP_PERSONS, url,
+					  sizeof(url)));
+		CKINT(acvp_extend_string(url, sizeof(url), "/%u",
+					 def_info->acvp_person_id));
+		array = json_object_new_array();
+		CKNULL(array, -ENOMEM);
+		CKINT(json_object_array_add(array,
+					    json_object_new_string(url)));
+		CKINT(json_object_object_add(entry, "contactUrls", array));
+		array = NULL;
+	}
+
+	if (acvp_check_ignore(check_ignore_flag,
+			      def_info->module_description_i)) {
+		CKINT(acvp_module_description(def_info, desc, sizeof(desc)));
+		CKINT(json_object_object_add(entry, "description",
+					json_object_new_string(desc)));
+	}
 
 	*json_module = entry;
 
@@ -200,7 +222,7 @@ static int acvp_module_match(struct def_info *def_info,
 	struct json_object *tmp;
 	uint32_t id = 0, module_id;
 	unsigned int i;
-	int ret;
+	int ret, ret2;
 	const char *str, *type_string, *moduleurl;
 	char desc[FILENAME_MAX];
 	bool found = false;
@@ -209,21 +231,30 @@ static int acvp_module_match(struct def_info *def_info,
 	CKINT(acvp_get_trailing_number(moduleurl, &module_id));
 
 	CKINT(json_get_string(json_module, "name", &str));
-	CKINT(acvp_str_match(def_info->module_name, str,
-			     def_info->acvp_module_id));
+	ret = acvp_str_match(def_info->module_name, str, module_id);
+	def_info->module_name_i = !ret;
+	ret2 = ret;
 
 	CKINT(json_get_string(json_module, "version", &str));
-	CKINT(acvp_str_match(def_info->module_version, str,
-			     def_info->acvp_module_id));
+	ret = acvp_str_match(def_info->module_version, str, module_id);
+	def_info->module_version_i = !ret;
+	ret2 |= ret;
 
 	CKINT(acvp_module_oe_type(def_info->module_type, &type_string));
 	CKINT(json_get_string(json_module, "type", &str));
-	CKINT(acvp_str_match(type_string, str, def_info->acvp_module_id));
+	ret = acvp_str_match(type_string, str, def_info->acvp_module_id);
+	def_info->module_type_i = !ret;
+	ret2 |= ret;
 
-	CKINT(acvp_module_check_id(json_module, "vendorUrl",
-				   def_info->acvp_vendor_id));
-	CKINT(acvp_module_check_id(json_module, "addressUrl",
-				   def_info->acvp_addr_id));
+	ret = acvp_module_check_id(json_module, "vendorUrl",
+				   def_info->acvp_vendor_id);
+	def_info->acvp_vendor_id_i = !ret;
+	ret2 |= ret;
+
+	ret = acvp_module_check_id(json_module, "addressUrl",
+				   def_info->acvp_addr_id);
+	def_info->acvp_addr_id_i = !ret;
+	ret2 |= ret;
 
 	CKINT(json_find_key(json_module, "contactUrls", &tmp, json_type_array));
 	for (i = 0; i < json_object_array_length(tmp); i++) {
@@ -235,22 +266,27 @@ static int acvp_module_match(struct def_info *def_info,
 
 		if (id == def_info->acvp_person_id) {
 			found = true;
+			def_info->acvp_person_id_i = true;
 			break;
 		}
 	}
 
 	CKINT(json_get_string(json_module, "description", &str));
 	CKINT(acvp_module_description(def_info, desc, sizeof(desc)));
-	CKINT(acvp_str_match(desc, str, def_info->acvp_module_id));
+	ret = acvp_str_match(desc, str, def_info->acvp_module_id);
+	def_info->module_description_i = !ret;
+	ret2 |= ret;
 
 	if (!found) {
 		logger(LOGGER_WARN, LOGGER_C_ANY, "Module ID %u not found\n",
 		       module_id);
-		ret = -ENOENT;
-		goto out;
+		ret2 |= -ENOENT;
 	}
 
-	def_info->acvp_module_id = module_id;
+	if (!ret2)
+		def_info->acvp_module_id = module_id;
+
+	ret = ret2;
 
 out:
 	return ret;
@@ -302,7 +338,7 @@ static int acvp_module_register(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Build JSON object with the oe specification */
 	if (type != acvp_http_delete) {
-		CKINT(acvp_module_build(def_info, &json_info));
+		CKINT(acvp_module_build(def_info, &json_info, asked));
 	}
 
 	if (!req_details->dump_register && !ctx_opts->register_new_module &&
@@ -349,7 +385,7 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_MODULE, ctx_opts,
 				       def_info->acvp_module_id, &http_type);
 	if (ret == -ENOENT) {
-		CKINT(acvp_module_build(def_info, &json_info));
+		CKINT(acvp_module_build(def_info, &json_info, !!found_data));
 		if (json_info) {
 			logger_status(
 				LOGGER_C_ANY, "Data to be registered: %s\n",
@@ -389,7 +425,7 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	} else if (http_type == acvp_http_put) {
 		/* Update requested */
-		CKINT(acvp_module_build(def_info, &json_info));
+		CKINT(acvp_module_build(def_info, &json_info, true));
 		if (json_info) {
 			logger_status(
 				LOGGER_C_ANY, "Data to be registered: %s\n",

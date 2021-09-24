@@ -14,6 +14,10 @@ endif
 
 NAME		:= base64
 
+ifneq '' '$(findstring clang,$(CC))'
+CFLAGS		+= -Wno-gnu-zero-variadic-macro-arguments
+endif
+
 DESTDIR		:=
 ETCDIR		:= /etc
 BINDIR		:= /bin

@@ -410,10 +410,14 @@ bool acvp_find_match(const char *searchstr, const char *defstr,
 		logger(LOGGER_DEBUG2, LOGGER_C_ANY,
 		       "Fuzzy search for %s in string %s\n", searchstr, defstr);
 
-		if (strstr(defstr, searchstr))
+		if (strstr(defstr, searchstr)) {
+			logger(LOGGER_DEBUG2, LOGGER_C_ANY, "Strings match\n");
 			return true;
-		else
+		} else {
+			logger(LOGGER_DEBUG2, LOGGER_C_ANY,
+			       "Strings mismatch\n");
 			return false;
+		}
 	} else {
 		size_t defstr_len = strlen(defstr);
 		size_t searchstr_len = strlen(searchstr);
@@ -422,13 +426,21 @@ bool acvp_find_match(const char *searchstr, const char *defstr,
 		logger(LOGGER_DEBUG2, LOGGER_C_ANY,
 		       "Exact search for %s in string %s\n", searchstr, defstr);
 
-		if (defstr_len != searchstr_len)
+		if (defstr_len != searchstr_len) {
+			logger(LOGGER_DEBUG2, LOGGER_C_ANY,
+			       "Length mismatch: search string length %zu, base string length %zu\n",
+			       searchstr_len, defstr_len);
 			return false;
+		}
 
-		if (strncmp(searchstr, defstr, defstr_len))
+		if (strncmp(searchstr, defstr, defstr_len)) {
+			logger(LOGGER_DEBUG2, LOGGER_C_ANY,
+			       "Strings mismatch\n");
 			return false;
-		else
+		} else {
+			logger(LOGGER_DEBUG2, LOGGER_C_ANY, "Strings match\n");
 			return true;
+		}
 	}
 }
 

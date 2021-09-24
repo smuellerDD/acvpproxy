@@ -127,16 +127,28 @@ static const struct def_algo_prereqs tests_kdf_prereqs[] = {
 	},
 };
 
-#define TESTS_TLS							\
+#define TESTS_TLS_11							\
 	{								\
 	.type = DEF_ALG_TYPE_KDF_TLS,					\
 	.algo.kdf_tls = {						\
 		DEF_PREREQS(tests_kdf_prereqs),				\
-		.tls_version = DEF_ALG_KDF_TLS_1_0_1_1 |		\
-			       DEF_ALG_KDF_TLS_1_2,			\
+		.tls_version = DEF_ALG_KDF_TLS_1_0_1_1			\
+		}							\
+	}
+
+#define TESTS_TLS_12							\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_TLS12,					\
+	.algo.kdf_tls = {						\
+		DEF_PREREQS(tests_kdf_prereqs),				\
+		.tls_version = DEF_ALG_KDF_TLS_1_2,			\
 		.hashalg = ACVP_SHA256 | ACVP_SHA384			\
 		}							\
 	}
+
+#define TESTS_TLS							\
+	TESTS_TLS_11,							\
+	TESTS_TLS_12
 
 /**************************************************************************
  * IKEv2 Definitions

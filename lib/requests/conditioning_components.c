@@ -95,7 +95,7 @@ int acvp_req_set_algo_cond_comp(const struct def_algo_cond_comp *cond_comp,
 	CKINT(acvp_req_cipher_to_string(entry, cond_comp->mode,
 					ACVP_CIPHERTYPE_COND, "mode"));
 
-	if (cond_comp->mode & ACVP_COND_COMP_HASH_DF) {
+	if (cond_comp->mode == ACVP_COND_COMP_HASH_DF) {
 		struct json_object * cap = json_object_new_array();
 		struct json_object *new;
 
@@ -109,12 +109,12 @@ int acvp_req_set_algo_cond_comp(const struct def_algo_cond_comp *cond_comp,
 		CKINT(acvp_req_cipher_to_array(new, cond_comp->hashalg,
 					       ACVP_CIPHERTYPE_HASH,
 					       "hashAlg"));
-		CKINT(acvp_req_algo_int_array(new, cond_comp->derived_len,
+		CKINT(acvp_req_algo_int_array(new, cond_comp->payload_len,
 					      "payloadLen"));
 	} else {
 		CKINT(acvp_req_sym_keylen(entry, cond_comp->keylen));
-		CKINT(acvp_req_algo_int_array(entry, cond_comp->derived_len,
-				      "payloadLen"));
+		CKINT(acvp_req_algo_int_array(entry, cond_comp->payload_len,
+					      "payloadLen"));
 	}
 
 out:

@@ -85,7 +85,7 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 
 	for (i = 0; i < json_object_array_length(array); i++) {
 		struct json_object *sd_entry =
-					json_object_array_get_idx(array, i);
+			json_object_array_get_idx(array, i);
 
 		sd = calloc(1, sizeof(struct esvp_sd_def));
 		CKNULL(sd, -ENOMEM);
@@ -99,11 +99,11 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 			  "Cannot set the new JWT token\n");
 
 		CKINT(json_get_uint64(sd_entry, "accessTokenGenerated",
-				(uint64_t *)&auth->jwt_token_generated));
+				      (uint64_t *)&auth->jwt_token_generated));
 
 		CKINT(json_get_uint(sd_entry, "sdId", &sd->sd_id));
 		CKINT(json_get_string(sd_entry, "filename", &str);
-		CKINT(acvp_duplicate(&sd->filename, str)));
+		      CKINT(acvp_duplicate(&sd->filename, str)));
 
 		/*
 		 * Append the new conditioning component entry at the end of the list
@@ -153,16 +153,18 @@ int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
 		sd_data = json_object_new_object();
 		CKNULL(sd_data, -ENOMEM);
 		CKINT(json_object_array_add(sd_array, sd_data));
-		CKINT(json_object_object_add(sd_data, "sdId",
-				json_object_new_int((int)sd->sd_id)));
-		CKINT(json_object_object_add(sd_data, "accessToken",
-				json_object_new_string(auth->jwt_token)));
+		CKINT(json_object_object_add(
+			sd_data, "sdId", json_object_new_int((int)sd->sd_id)));
+		CKINT(json_object_object_add(
+			sd_data, "accessToken",
+			json_object_new_string(auth->jwt_token)));
 		if (write_extended) {
-			CKINT(json_object_object_add(sd_data,
-				"accessTokenGenerated",
+			CKINT(json_object_object_add(
+				sd_data, "accessTokenGenerated",
 				json_object_new_int64(
-						auth->jwt_token_generated)));
-			CKINT(json_object_object_add(sd_data, "filename",
+					auth->jwt_token_generated)));
+			CKINT(json_object_object_add(
+				sd_data, "filename",
 				json_object_new_string(sd->filename)));
 		}
 	}
@@ -201,9 +203,11 @@ int esvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 
 	auth = es->es_auth;
 	if (auth) {
-		CKINT(json_object_object_add(stat, "eaAccessToken",
-				json_object_new_string(auth->jwt_token)));
-		CKINT(json_object_object_add(stat, "eaAccessTokenGenerated",
+		CKINT(json_object_object_add(
+			stat, "eaAccessToken",
+			json_object_new_string(auth->jwt_token)));
+		CKINT(json_object_object_add(
+			stat, "eaAccessTokenGenerated",
 			json_object_new_int64(auth->jwt_token_generated)));
 	}
 
@@ -240,9 +244,8 @@ int esvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 	stat_buf.len = (uint32_t)strlen(stat_str);
 
 	/* Store the testID meta data */
-	CKINT(ds->acvp_datastore_write_testid(testid_ctx,
-					      datastore->esvp_statusfile,
-					      true, &stat_buf));
+	CKINT(ds->acvp_datastore_write_testid(
+		testid_ctx, datastore->esvp_statusfile, true, &stat_buf));
 
 out:
 	ACVP_JSON_PUT_NULL(stat);

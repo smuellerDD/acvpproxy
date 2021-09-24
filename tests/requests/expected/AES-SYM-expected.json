@@ -21,6 +21,13 @@
           128,
           192,
           256
+        ],
+        "payloadLen":[
+          {
+            "min":128,
+            "max":65536,
+            "increment":128
+          }
         ]
       },
       {
@@ -34,6 +41,13 @@
           128,
           192,
           256
+        ],
+        "payloadLen":[
+          {
+            "min":128,
+            "max":65536,
+            "increment":128
+          }
         ],
         "ivLen":[
           128
@@ -140,7 +154,7 @@
         "tweakMode":[
           "hex"
         ],
-        "dataUnitLenMatchesPayload":false
+        "dataUnitLenMatchesPayload":true
       },
       {
         "revision":"1.0",
@@ -153,6 +167,13 @@
           128,
           192,
           256
+        ],
+        "payloadLen":[
+          {
+            "min":128,
+            "max":65536,
+            "increment":128
+          }
         ],
         "ivLen":[
           128
@@ -170,6 +191,13 @@
           192,
           256
         ],
+        "payloadLen":[
+          {
+            "min":1,
+            "max":65536,
+            "increment":1
+          }
+        ],
         "ivLen":[
           128
         ]
@@ -186,6 +214,13 @@
           192,
           256
         ],
+        "payloadLen":[
+          {
+            "min":8,
+            "max":65536,
+            "increment":8
+          }
+        ],
         "ivLen":[
           128
         ]
@@ -201,6 +236,13 @@
           128,
           192,
           256
+        ],
+        "payloadLen":[
+          {
+            "min":128,
+            "max":65536,
+            "increment":128
+          }
         ],
         "ivLen":[
           128

@@ -271,6 +271,10 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 			CKINT(acvp_req_set_prereq_kdf_tls(
 				&def_algo->algo.kdf_tls, deps, entry, true));
 			break;
+		case DEF_ALG_TYPE_KDF_TLS12:
+			CKINT(acvp_req_set_prereq_kdf_tls12(
+				&def_algo->algo.kdf_tls, deps, entry, true));
+			break;
 		case DEF_ALG_TYPE_KDF_TLS13:
 			CKINT(acvp_req_set_prereq_kdf_tls13(
 				&def_algo->algo.kdf_tls13, deps, entry, true));
@@ -316,6 +320,9 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 			CKINT(acvp_req_set_prereq_kdf_twostep(
 				&def_algo->algo.kdf_twostep, deps, entry,
 				true));
+		case DEF_ALG_TYPE_KDF_TPM:
+			CKINT(acvp_req_set_prereq_kdf_tpm(
+				&def_algo->algo.kdf_tpm, deps, entry, true));
 
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,

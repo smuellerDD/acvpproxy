@@ -101,7 +101,9 @@ static int acvp_store_cert_sorted(const struct acvp_vsid_ctx *vsid_ctx)
 	CKNULL(certificate, -EINVAL);
 
 	if (!verdict->cipher_name) {
-		logger(LOGGER_WARN, LOGGER_C_ANY, "Something is wrong with vsID %u - no cipher name! Ignoring.\n", vsid_ctx->vsid);
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "Something is wrong with vsID %u - no cipher name! Ignoring.\n",
+		       vsid_ctx->vsid);
 		return 0;
 	}
 

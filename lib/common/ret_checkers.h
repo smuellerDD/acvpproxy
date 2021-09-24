@@ -20,6 +20,8 @@
 #ifndef RET_CHECKERS_H
 #define RET_CHECKERS_H
 
+#include "logger.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -27,15 +29,21 @@ extern "C" {
 #define CKINT(x)                                                               \
 	{                                                                      \
 		ret = x;                                                       \
-		if (ret < 0)                                                   \
+		if (ret < 0) {                                                 \
+			logger(LOGGER_DEBUG, LOGGER_C_ANY,                      \
+			       "Failure with return code %d\n", ret);          \
 			goto out;                                              \
+		}                                                              \
 	}
 
 #define CKINT_ULCK(x)                                                          \
 	{                                                                      \
 		ret = x;                                                       \
-		if (ret < 0)                                                   \
+		if (ret < 0) {                                                 \
+			logger(LOGGER_DEBUG, LOGGER_C_ANY,                     \
+			       "Failure with return code %d\n", ret);          \
 			goto unlock;                                           \
+		}                                                              \
 	}
 
 #define CKINT_LOG(x, ...)                                                      \
@@ -51,6 +59,10 @@ extern "C" {
 	{                                                                      \
 		if (!v) {                                                      \
 			ret = r;                                               \
+			if (ret) {                                             \
+				logger(LOGGER_DEBUG, LOGGER_C_ANY,             \
+				       "Failure with return code %d\n", ret);  \
+			}                                                      \
 			goto out;                                              \
 		}                                                              \
 	}

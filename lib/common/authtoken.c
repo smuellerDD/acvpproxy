@@ -543,7 +543,10 @@ acvp_process_login_refresh(const struct acvp_testid_ctx *testid_ctx_head,
 			   struct acvp_buf *response)
 {
 	const struct acvp_testid_ctx *testid_ctx = testid_ctx_head;
+	const struct esvp_es_def *es = testid_ctx->es_def;
+	const struct esvp_sd_def *sd;
 	struct json_object *req = NULL, *entry = NULL, *jauth_array, *jauth;
+	struct acvp_auth_ctx *auth;
 	char logbuf[FILENAME_MAX];
 	unsigned int max_reg_msg_size = UINT_MAX;
 	unsigned int i;
@@ -576,13 +579,10 @@ acvp_process_login_refresh(const struct acvp_testid_ctx *testid_ctx_head,
 	CKINT(json_find_key(entry, "accessToken", &jauth_array,
 			    json_type_array));
 
+	auth = testid_ctx->server_auth;
 	for (i = 0; i < json_object_array_length(jauth_array); i++) {
-		struct acvp_auth_ctx *auth;
-
 		CKNULL_LOG(testid_ctx, -EFAULT,
 			   "No testid authentication context found\n");
-
-		auth = testid_ctx->server_auth;
 
 		/*
 		 * In case we have a NULL auth, try to use the next
@@ -590,9 +590,11 @@ acvp_process_login_refresh(const struct acvp_testid_ctx *testid_ctx_head,
 		 */
 		while (!auth) {
 			testid_ctx = testid_ctx->next;
+			es = testid_ctx->es_def;
 
-			CKNULL_LOG(testid_ctx, -EFAULT,
-				   "No testid authentication context found\n");
+			if (!testid_ctx)
+				goto out;
+
 			auth = testid_ctx->server_auth;
 		}
 
@@ -610,12 +612,51 @@ acvp_process_login_refresh(const struct acvp_testid_ctx *testid_ctx_head,
 		if (max_reg_msg_size != UINT_MAX)
 			auth->max_reg_msg_size = max_reg_msg_size;
 
-		CKINT(acvp_set_authtoken(testid_ctx,
-					 json_object_get_string(jauth)));
+		/*
+		 * testid_ctx auth token is stored permanently, others just
+		 * temporary.
+		 */
+		if (auth == testid_ctx->server_auth) {
+			CKINT(acvp_set_authtoken(testid_ctx,
+					json_object_get_string(jauth)));
+		} else {
+			CKINT(acvp_set_authtoken_temp(auth,
+					json_object_get_string(jauth)));
+		}
 		CKINT(acvp_extend_string(logbuf, sizeof(logbuf), "%u ",
 					 testid_ctx->testid));
 
-		testid_ctx = testid_ctx->next;
+		/* we handled the es auth, refresh sd auth */
+		if (auth != testid_ctx->server_auth && es && es->sd) {
+			/*
+			 * We just processed an es auth, take the first SD auth.
+			 */
+			if (auth == es->es_auth) {
+				sd = es->sd;
+				auth = sd->sd_auth;
+			} else {
+				/*
+				 * Iterate through SDs and find the one
+				 * we currently process.
+				 */
+				for (sd = es->sd; sd; sd = sd->next) {
+					if (auth == sd->sd_auth && sd->next)
+						auth = sd->next->sd_auth;
+					else
+						auth = NULL;
+				}
+			}
+		/* we handled our global auth, refresh es auth */
+		} else if (auth == testid_ctx->server_auth &&
+			   es && es->es_auth) {
+			auth = es->es_auth;
+		} else {
+			testid_ctx = testid_ctx->next;
+			if (!testid_ctx)
+				break;
+			es = testid_ctx->es_def;
+			auth = testid_ctx->server_auth;
+		}
 	}
 
 	logger_status(LOGGER_C_ANY,
@@ -631,6 +672,8 @@ int acvp_login_refresh(const struct acvp_testid_ctx *testid_ctx_head)
 {
 	const struct acvp_ctx *ctx;
 	const struct acvp_testid_ctx *testid_ctx;
+	const struct esvp_es_def *es = NULL;
+	const struct esvp_sd_def *sd;
 	struct json_object *login = NULL, *entry, *jauth;
 	struct acvp_auth_ctx *auth;
 	ACVP_BUFFER_INIT(response_buf);
@@ -664,16 +707,33 @@ int acvp_login_refresh(const struct acvp_testid_ctx *testid_ctx_head)
 
 	for (testid_ctx = testid_ctx_head; testid_ctx != NULL;
 	     testid_ctx = testid_ctx->next) {
+		es = testid_ctx->es_def;
 		auth = testid_ctx->server_auth;
 
-		if (!auth)
-			continue;
+		if (auth) {
+			mutex_lock(&auth->mutex);
+			json_object_array_add(jauth,
+				json_object_new_string(auth->jwt_token));
+			counter++;
+		}
 
-		mutex_lock(&auth->mutex);
-		json_object_array_add(jauth,
-				      json_object_new_string(auth->jwt_token));
+		if (es && es->es_auth) {
+			auth = es->es_auth;
+			mutex_lock(&auth->mutex);
+			json_object_array_add(jauth,
+				json_object_new_string(auth->jwt_token));
+			counter++;
+		}
 
-		counter++;
+		if (es && es->sd) {
+			for (sd = es->sd; sd; sd = sd->next) {
+				auth = sd->sd_auth;
+				mutex_lock(&auth->mutex);
+				json_object_array_add(jauth,
+					json_object_new_string(auth->jwt_token));
+				counter++;
+			}
+		}
 
 		CKINT(acvp_extend_string(logbuf, sizeof(logbuf), "%u ",
 					 testid_ctx->testid));
@@ -713,9 +773,20 @@ out:
 	for (testid_ctx = testid_ctx_head; testid_ctx != NULL;
 	     testid_ctx = testid_ctx->next) {
 		auth = testid_ctx->server_auth;
-		if (!auth)
-			continue;
-		mutex_unlock(&auth->mutex);
+		if (auth)
+			mutex_unlock(&auth->mutex);
+
+		if (es && es->es_auth) {
+			auth = es->es_auth;
+			mutex_unlock(&auth->mutex);
+		}
+
+		if (es && es->sd) {
+			for (sd = es->sd; sd; sd = sd->next) {
+				auth = sd->sd_auth;
+				mutex_unlock(&auth->mutex);
+			}
+		}
 	}
 
 	ACVP_JSON_PUT_NULL(login);

@@ -581,41 +581,44 @@ static int acvp_server_db_write_def(const struct def_dependency *def_dep,
 	case def_dependency_os:
 	case def_dependency_software:
 		if (def_dep->name) {
-			CKINT(json_object_object_add(dep_entry, "oeEnvName",
-					json_object_new_string(def_dep->name)));
+			CKINT(json_object_object_add(
+				dep_entry, "oeEnvName",
+				json_object_new_string(def_dep->name)));
 		} else {
 			CKINT(json_object_object_add(dep_entry, "oeEnvName",
 						     NULL));
 		}
 
 		if (def_dep->cpe)
-			CKINT(json_object_object_add(dep_entry, "cpe",
-					json_object_new_string(def_dep->cpe)));
+			CKINT(json_object_object_add(
+				dep_entry, "cpe",
+				json_object_new_string(def_dep->cpe)));
 		if (def_dep->swid)
-			CKINT(json_object_object_add(dep_entry, "swid",
-					json_object_new_string(def_dep->swid)));
+			CKINT(json_object_object_add(
+				dep_entry, "swid",
+				json_object_new_string(def_dep->swid)));
 
 		if (def_dep->description)
-			CKINT(json_object_object_add(dep_entry,
-				"oe_description",
+			CKINT(json_object_object_add(
+				dep_entry, "oe_description",
 				json_object_new_string(def_dep->description)));
 		break;
 	case def_dependency_hardware:
 		if (def_dep->manufacturer)
-			CKINT(json_object_object_add(dep_entry,
-				"manufacturer",
+			CKINT(json_object_object_add(
+				dep_entry, "manufacturer",
 				json_object_new_string(def_dep->manufacturer)));
 		if (def_dep->proc_family)
-			CKINT(json_object_object_add(dep_entry,
-				"procFamily",
+			CKINT(json_object_object_add(
+				dep_entry, "procFamily",
 				json_object_new_string(def_dep->proc_family)));
 		if (def_dep->proc_name)
-			CKINT(json_object_object_add(dep_entry,
-				"procName",
+			CKINT(json_object_object_add(
+				dep_entry, "procName",
 				json_object_new_string(def_dep->proc_name)));
 		if (def_dep->proc_series)
-			CKINT(json_object_object_add(dep_entry,
-				"procSeries",
+			CKINT(json_object_object_add(
+				dep_entry, "procSeries",
 				json_object_new_string(def_dep->proc_series)));
 
 		//TODO features is not created
@@ -731,7 +734,7 @@ static int acvp_server_db_process_one_oe(struct acvp_ctx *ctx,
 				       "dependencyType %s is unknown - using default of hardware!\n",
 				       str);
 				def_dep->def_dependency_type =
-							def_dependency_hardware;
+					def_dependency_hardware;
 			}
 		}
 
@@ -749,9 +752,10 @@ static int acvp_server_db_process_one_oe(struct acvp_ctx *ctx,
 			if (!json_get_string(dep, "description", &str)) {
 				CKINT(acvp_duplicate(&def_dep->description,
 						     str));
-			if (!json_get_string(dep, "name", &str))
-				CKINT(acvp_duplicate(&def_dep->name, str));
-		}
+				if (!json_get_string(dep, "name", &str))
+					CKINT(acvp_duplicate(&def_dep->name,
+							     str));
+			}
 			break;
 		case def_dependency_hardware:
 			if (!json_get_string(dep, "manufacturer", &str))
@@ -770,7 +774,7 @@ static int acvp_server_db_process_one_oe(struct acvp_ctx *ctx,
 			break;
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,
-			"Unknown OE dependency type\n");
+			       "Unknown OE dependency type\n");
 			ret = -EFAULT;
 			goto out;
 		}

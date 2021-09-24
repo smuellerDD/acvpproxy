@@ -55,7 +55,13 @@ enum kas_kdf_fixedinfo_pattern {
 	DEF_ALG_KAS_KDF_FI_PATTERN_ALGORITHM_ID,
 
 	/* Random value chosen by ACVP server to represent the label. */
-	DEF_ALG_KAS_KDF_FI_PATTERN_LABEL
+	DEF_ALG_KAS_KDF_FI_PATTERN_LABEL,
+
+	/*
+	 * The length of the derived keying material in bits, *MUST* be
+	 * represented in 32 bits for ACVP testing.
+	 */
+	DEF_ALG_KAS_KDF_FI_PATTERN_DKMLENGTH
 };
 
 enum kas_kdf_fixedinfo_encoding {

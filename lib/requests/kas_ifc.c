@@ -164,6 +164,12 @@ acvp_req_kas_ifc_kts_method(const struct def_algo_kts_method *kts_method,
 	CKINT(json_object_object_add(entry, "supportsNullAssociatedData",
 			json_object_new_boolean(
 				kts_method->supports_null_association_data)));
+
+	/* It is permissible to support NULL data and have no fixed info */
+	if (kts_method->supports_null_association_data &&
+	    !kts_method->associated_data_pattern_type[0])
+		goto out;
+
 	CKINT(acvp_req_kas_kdf_fi(kts_method->associated_data_pattern_type,
 				  kts_method->literal,
 				  kts_method->associated_data_pattern_encoding,

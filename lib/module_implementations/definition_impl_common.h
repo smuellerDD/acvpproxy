@@ -218,6 +218,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
 	.algo.sym.tweakformat = DEF_ALG_SYM_XTS_TWEAK_128HEX,		\
 	.algo.sym.tweakmode = DEF_ALG_SYM_XTS_TWEAK_HEX,		\
+	.algo.sym.xts_data_unit_len_matches_payload = true		\
 	}
 
 /**

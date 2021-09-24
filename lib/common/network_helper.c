@@ -119,6 +119,11 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx, const char *url,
 	if (code != ACVP_ERR_NO_ERR)
 		ret = (int)code;
 
+	if (ret && response && response->buf && response->len) {
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Server error response: %s\n",
+		       response->buf);
+	}
+
 out:
 	return ret;
 }

@@ -55,6 +55,9 @@ struct def_algo_kdf_tls {
 	/*
 	 * The version of the TLS supported.
 	 *
+	 * NOTE: For TLS version 1.0 / 1.1 you MUST use DEF_ALG_TYPE_KDF_TLS;
+	 *	 for TLS version 1.2 you MUST use DEF_ALG_TYPE_KDF_TLS12
+	 *
 	 * required: always
 	 */
 #define DEF_ALG_KDF_TLS_1_0_1_1 (1 << 0)

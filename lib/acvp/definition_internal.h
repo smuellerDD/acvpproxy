@@ -123,6 +123,15 @@ struct def_info {
 	char *module_version_filesafe;
 	char *module_description;
 
+	/* Flags to ignore the respective entries during building */
+	bool module_name_i;
+	bool module_version_i;
+	bool module_description_i;
+	bool acvp_vendor_id_i;
+	bool acvp_person_id_i;
+	bool acvp_addr_id_i;
+	bool module_type_i;
+
 	char *def_module_file;
 	uint32_t acvp_vendor_id;
 	uint32_t acvp_person_id;
@@ -180,6 +189,18 @@ struct def_vendor {
 	char *addr_country;
 	char *addr_zipcode;
 	uint32_t acvp_addr_id;
+
+	/* Flags to ignore the respective entries during building */
+	bool vendor_name_i;
+	bool vendor_url_i;
+	bool contact_name_i;
+	bool contact_email_i;
+	bool contact_phone_i;
+	bool addr_street_i;
+	bool addr_locality_i;
+	bool addr_region_i;
+	bool addr_country_i;
+	bool addr_zipcode_i;
 
 	char *def_vendor_file;
 
@@ -241,6 +262,16 @@ struct def_dependency {
 	char *proc_name;
 	char *proc_series;
 	uint64_t features;
+
+	/* Flags to ignore the respective entries during building */
+	bool name_i;
+	bool description_i;
+	bool cpe_i;
+	bool swid_i;
+	bool manufacturer_i;
+	bool proc_family_i;
+	bool proc_name_i;
+	bool proc_series_i;
 
 	struct def_dependency *next;
 };

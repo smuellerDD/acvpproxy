@@ -650,13 +650,13 @@ int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 		if (found)
 			fprintf(stderr, " | ");
 		else
-			fprintf(stderr, "%*s |", o_len, "");
+			fprintf(stderr, " %*s |", o_len, "");
 
 		found = false;
 		for (def_dep = oe->def_dep; def_dep; def_dep = def_dep->next) {
 			if (def_dep->proc_name) {
 				if (found)
-					fprintf(stderr, " +");
+					fprintf(stderr, " + ");
 				fprintf(stderr, "%*s", p_len,
 					def_dep->proc_name);
 				found = true;
@@ -2385,7 +2385,6 @@ static int acvp_def_load_config_module(const struct json_object *info_config,
 		const char *str;
 		CKINT(json_get_string(info_config, "moduleType", &str));
 		CKINT(acvp_module_type_name_to_enum(str, &info->module_type));
-
 	}
 	CKINT(acvp_module_oe_type(info->module_type, NULL));
 
@@ -2421,8 +2420,10 @@ static int acvp_def_load_config_vendor(const struct json_object *vendor_config,
 			      (const char **)&vendor->addr_street));
 	CKINT(json_get_string(vendor_config, "addressCity",
 			      (const char **)&vendor->addr_locality));
-	CKINT(json_get_string(vendor_config, "addressState",
-			      (const char **)&vendor->addr_region));
+	ret = json_get_string(vendor_config, "addressState",
+			      (const char **)&vendor->addr_region);
+	if (ret)
+		vendor->addr_region = NULL;
 	CKINT(json_get_string(vendor_config, "addressCountry",
 			      (const char **)&vendor->addr_country));
 	CKINT(json_get_string(vendor_config, "addressZip",
@@ -2463,13 +2464,12 @@ static int acvp_def_load_config(const char *basedir, const char *oe_file,
 	CKNULL_LOG(
 		info_file, -EINVAL,
 		"No module information file name given for definition config\n");
-	CKNULL_LOG(
-		impl_file, -EINVAL,
-		"No module implementation definition file name given for definition config\n");
+	/* It is permissible to have a NULL impl_file */
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY,
 	       "Reading module definitions from %s, %s, %s, %s\n", oe_file,
-	       vendor_file, info_file, impl_file);
+	       vendor_file, info_file, impl_file ? impl_file :
+				"Implementation definition not provided");
 
 	/* Load OE configuration */
 	CKINT_LOG(acvp_def_read_json(&oe_config, oe_file),
@@ -2503,16 +2503,22 @@ static int acvp_def_load_config(const char *basedir, const char *oe_file,
 	/* Unconstify harmless, because data will be duplicated */
 	vendor.def_vendor_file = (char *)vendor_file;
 
-	CKINT_LOG(acvp_def_read_json(&impl_config, impl_file),
-		  "Cannot parse cipher implementations config file %s\n",
-		  impl_file);
-	CKINT(json_find_key(impl_config, "implementations", &impl_array,
-			    json_type_array));
+	/* Allow an empty impl file, for example when we simply sync-meta */
+	if (impl_file) {
+		CKINT_LOG(acvp_def_read_json(&impl_config, impl_file),
+			  "Cannot parse cipher implementations config file %s\n",
+			  impl_file);
+		CKINT(json_find_key(impl_config, "implementations", &impl_array,
+				    json_type_array));
+	}
 
 	mutex_lock(&def_uninstantiated_mutex);
 
 	for (map = def_uninstantiated_head; map != NULL; map = map->next) {
 		size_t i, found = 0;
+
+		if (!impl_array)
+			break;
 
 		/* Ensure that configuration applies to map. */
 		if (strncmp(map->algo_name, local_module_name,
@@ -2660,8 +2666,11 @@ int acvp_def_config(const char *directory)
 	snprintf(impl_pathname, sizeof(impl_pathname) - 256, "%s/%s", directory,
 		 ACVP_DEF_DIR_IMPLEMENTATIONS);
 	impl_dir = opendir(impl_pathname);
-	CKNULL_LOG(impl_dir, -errno, "Failed to open directory %s\n",
-		   impl_pathname);
+	/* we allow implementation to be non-existant */
+	if (!impl_dir) {
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "No implementation directory found - only meta data synchronization possible!\n");
+	}
 
 	/* Process all permutations of configuration files. */
 	while ((vendor_dirent = readdir(vendor_dir)) != NULL) {
@@ -2679,17 +2688,28 @@ int acvp_def_config(const char *directory)
 				 info_dirent->d_name);
 
 			while ((oe_dirent = readdir(oe_dir)) != NULL) {
+				bool impl_found = false;
+
 				if (!acvp_def_usable_dirent(oe_dirent))
 					continue;
 
 				snprintf(oe, sizeof(oe), "%s/%s", oe_pathname,
 					 oe_dirent->d_name);
 
+				if (!impl_dir) {
+					CKINT(acvp_def_load_config(directory,
+								   oe, vendor,
+								   info, NULL));
+					continue;
+				}
+
 				while ((impl_dirent = readdir(impl_dir)) !=
 				       NULL) {
 					if (!acvp_def_usable_dirent(
 						    impl_dirent))
 						continue;
+
+					impl_found = true;
 
 					snprintf(impl, sizeof(impl), "%s/%s",
 						 impl_pathname,
@@ -2698,6 +2718,13 @@ int acvp_def_config(const char *directory)
 								   oe, vendor,
 								   info, impl));
 				}
+
+				if (!impl_found) {
+					CKINT(acvp_def_load_config(directory,
+								   oe, vendor,
+								   info, NULL));
+				}
+
 				rewinddir(impl_dir);
 			}
 			rewinddir(oe_dir);
