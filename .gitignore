@@ -1,3 +1,20 @@
+# downloaded test vector
+secure-datastore/
+testvectors/
+
+# object files
+*.o
+
+# files being edited
+*~
+
+# logs
 *logs
 *actual
+
+# code coverage
 gcov
+
+# binaries
+acvp-proxy
+esvp-proxy
