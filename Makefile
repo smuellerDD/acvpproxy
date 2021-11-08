@@ -232,6 +232,7 @@ ifeq ($(UNAME_S),Linux)
 	install -m 0644 $(SRCDIR)lib/definition_cipher*.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
 	install -m 0644 $(SRCDIR)lib/definition*.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
 	install -m 0644 $(SRCDIR)lib/constructor*.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
+	install -m 0644 $(SRCDIR)lib/aux_helper.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
 	install -m 0644 $(SRCDIR)lib/bool.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
 	install -m 0644 $(SRCDIR)lib/cipher_definitions.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/
 	install -m 0644 $(SRCDIR)lib/module_implementations/*.h -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/

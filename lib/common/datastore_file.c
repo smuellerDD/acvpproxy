@@ -316,6 +316,7 @@ acvp_datastore_file_rename_version(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_datastore_file_vectordir(testid_ctx, pathname,
 					    sizeof(pathname), false, true));
 	info->module_version_filesafe = newversion;
+	CKINT(acvp_sanitize_string(info->module_version_filesafe));
 	CKINT(acvp_datastore_file_vectordir(testid_ctx, newpathname,
 					    sizeof(pathname), true, true));
 	info->module_version_filesafe = currver;
@@ -329,6 +330,7 @@ acvp_datastore_file_rename_version(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_datastore_file_vectordir(testid_ctx, pathname,
 					    sizeof(pathname), false, false));
 	info->module_version_filesafe = newversion;
+	CKINT(acvp_sanitize_string(info->module_version_filesafe));
 	CKINT(acvp_datastore_file_vectordir(testid_ctx, newpathname,
 					    sizeof(pathname), true, false));
 	info->module_version_filesafe = currver;
@@ -364,6 +366,7 @@ acvp_datastore_file_rename_name(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_datastore_file_vectordir(testid_ctx, pathname,
 					    sizeof(pathname), false, true));
 	info->module_name_filesafe = newname;
+	CKINT(acvp_sanitize_string(info->module_name_filesafe));
 	CKINT(acvp_datastore_file_vectordir(testid_ctx, newpathname,
 					    sizeof(pathname), true, true));
 	info->module_name_filesafe = currname;
@@ -377,6 +380,7 @@ acvp_datastore_file_rename_name(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_datastore_file_vectordir(testid_ctx, pathname,
 					    sizeof(pathname), false, false));
 	info->module_name_filesafe = newname;
+	CKINT(acvp_sanitize_string(info->module_name_filesafe));
 	CKINT(acvp_datastore_file_vectordir(testid_ctx, newpathname,
 					    sizeof(pathname), true, false));
 	info->module_name_filesafe = currname;

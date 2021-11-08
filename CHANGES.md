@@ -1,3 +1,9 @@
+v1.7.5
+- enhancement: switch threading from poll to push wait
+- fix: --sync-meta OE: first check deps followed by OE
+- enhancement: separate OpenSSL ECC K/B curves out
+- enhancement: add ANSI X9.63 support
+
 v1.7.4
 - fix: conditioning component definition: derived_len -> payload_len to match documentation
 - fix: use XTS protocol version 2.0 as default

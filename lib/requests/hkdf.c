@@ -99,7 +99,7 @@ static int acvp_req_set_algo_hkdf_details(const struct def_algo_hkdf *hkdf,
 	CKINT(acvp_req_kas_kdf_fi(hkdf->fixed_info_pattern_type,
 				  hkdf->literal,
 				  hkdf->fixed_info_encoding,
-				  entry));
+				  "fixedInfoPattern", entry));
 
 out:
 	return ret;

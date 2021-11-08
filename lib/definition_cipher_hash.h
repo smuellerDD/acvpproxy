@@ -64,7 +64,7 @@ struct def_algo_sha {
 	int messagelength[DEF_ALG_MAX_INT];
 
 	/*
-	 * Implementation does not accept bit-oriented messages
+	 * Implementation accepts bit-oriented messages
 	 * required: always
 	 */
 	bool inbit;
@@ -100,7 +100,7 @@ struct def_algo_shake {
 	cipher_t algorithm;
 
 	/*
-	 * Implementation does not accept bit-oriented messages
+	 * Implementation accepts bit-oriented messages
 	 * required: always
 	 */
 	bool inbit;

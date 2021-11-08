@@ -148,9 +148,6 @@
             "increment":128
           }
         ],
-        "tweakFormat":[
-          "128hex"
-        ],
         "tweakMode":[
           "hex"
         ],

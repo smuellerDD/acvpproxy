@@ -609,81 +609,81 @@ const struct def_algo_kas_ifc_schema openssl_kas_ifc_schema_kts[] = { {
 #define NISTK_CURVES 	ACVP_NISTK233 | ACVP_NISTK283 |			\
 			ACVP_NISTK409 | ACVP_NISTK571
 
-#define OPENSSL_ECDSA_KEYGEN						\
+#define OPENSSL_ECDSA_KEYGEN(curves)					\
 	{								\
 	.type = DEF_ALG_TYPE_ECDSA,					\
 	.algo = {							\
 		.ecdsa = {						\
 			.ecdsa_mode = DEF_ALG_ECDSA_MODE_KEYGEN,	\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
-			.curve = NISTP_CURVES | NISTB_CURVES | NISTK_CURVES,\
+			.curve = curves,				\
 			.secretgenerationmode = DEF_ALG_ECDSA_TESTING_CANDIDATES \
 			}						\
 		}							\
 	}
 
-#define OPENSSL_ECDSA_KEYVER						\
+#define OPENSSL_ECDSA_KEYVER(curves)					\
 	{								\
 	.type = DEF_ALG_TYPE_ECDSA,					\
 	.algo = {							\
 		.ecdsa = {						\
 			.ecdsa_mode = DEF_ALG_ECDSA_MODE_KEYVER,	\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
-			.curve = NISTP_CURVES | NISTB_CURVES | NISTK_CURVES,\
+			.curve = curves,				\
 			}						\
 		}							\
 	}
 
-#define OPENSSL_ECDSA_SIGGEN						\
+#define OPENSSL_ECDSA_SIGGEN(curves)					\
 	{								\
 	.type = DEF_ALG_TYPE_ECDSA,					\
 	.algo = {							\
 		.ecdsa = {						\
 			.ecdsa_mode = DEF_ALG_ECDSA_MODE_SIGGEN,	\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
-			.curve = NISTP_CURVES | NISTB_CURVES | NISTK_CURVES,\
+			.curve = curves,				\
 			.hashalg = ACVP_SHA224 | ACVP_SHA256 |		\
 				   ACVP_SHA384 | ACVP_SHA512,		\
 			}						\
 		}							\
 	}
 
-#define OPENSSL_ECDSA_SIGVER						\
+#define OPENSSL_ECDSA_SIGVER(curves)					\
 	{								\
 	.type = DEF_ALG_TYPE_ECDSA,					\
 	.algo = {							\
 		.ecdsa = {						\
 			.ecdsa_mode = DEF_ALG_ECDSA_MODE_SIGVER,	\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
-			.curve = NISTP_CURVES | NISTB_CURVES | NISTK_CURVES,\
+			.curve = curves,				\
 			.hashalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 | \
 				   ACVP_SHA384 | ACVP_SHA512,		\
 			}						\
 		}							\
 	}
 
-#define OPENSSL_ECDSA_SIGGEN_SHA3						\
+#define OPENSSL_ECDSA_SIGGEN_SHA3(curves)				\
 	{								\
 	.type = DEF_ALG_TYPE_ECDSA,					\
 	.algo = {							\
 		.ecdsa = {						\
 			.ecdsa_mode = DEF_ALG_ECDSA_MODE_SIGGEN,	\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
-			.curve = NISTP_CURVES | NISTB_CURVES | NISTK_CURVES,\
+			.curve = curves,				\
 			.hashalg = ACVP_SHA3_224 | ACVP_SHA3_256 |	\
 				   ACVP_SHA3_384 | ACVP_SHA3_512,	\
 			}						\
 		}							\
 	}
 
-#define OPENSSL_ECDSA_SIGVER_SHA3					\
+#define OPENSSL_ECDSA_SIGVER_SHA3(curves)				\
 	{								\
 	.type = DEF_ALG_TYPE_ECDSA,					\
 	.algo = {							\
 		.ecdsa = {						\
 			.ecdsa_mode = DEF_ALG_ECDSA_MODE_SIGVER,	\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
-			.curve = NISTP_CURVES | NISTB_CURVES | NISTK_CURVES,\
+			.curve = curves,				\
 			.hashalg = ACVP_SHA3_224 | ACVP_SHA3_256 |	\
 				   ACVP_SHA3_384 | ACVP_SHA3_512,	\
 			}						\
@@ -898,8 +898,8 @@ static const struct def_algo_kas_ecc_cdh_component openssl_kas_ecc_cdh = {
 /**************************************************************************
  * SP800-56A REV3
  **************************************************************************/
-#define OPENSSL_KAS_ECC_SSC_R3						\
-	GENERIC_KAS_ECC_SSC_R3(NISTP_CURVES | NISTB_CURVES | NISTK_CURVES)
+#define OPENSSL_KAS_ECC_SSC_R3(curves)					\
+	GENERIC_KAS_ECC_SSC_R3(curves)
 
 #define OPENSSL_KAS_FFC_SSC_R3						\
 	GENERIC_KAS_FFC_SSC_R3(ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |	\
@@ -1184,10 +1184,10 @@ static const struct def_algo openssl_ffcdh [] = {
 	OPENSSL_RSA_SIGVER,						\
 	OPENSSL_RSA_OAEP,						\
 									\
-	OPENSSL_ECDSA_KEYGEN,						\
-	OPENSSL_ECDSA_KEYVER,						\
-	OPENSSL_ECDSA_SIGGEN,						\
-	OPENSSL_ECDSA_SIGVER,						\
+	OPENSSL_ECDSA_KEYGEN(NISTP_CURVES),				\
+	OPENSSL_ECDSA_KEYVER(NISTP_CURVES),				\
+	OPENSSL_ECDSA_SIGGEN(NISTP_CURVES),				\
+	OPENSSL_ECDSA_SIGVER(NISTP_CURVES),				\
 									\
 	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224,	\
 			   ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |	\
@@ -1234,7 +1234,7 @@ static const struct def_algo openssl_ffcdh [] = {
 	OPENSSL_KDF,							\
 	/* OPENSSL_KAS_ECC, */						\
 	/* OPENSSL_KAS_ECC_CDH, */					\
-	OPENSSL_KAS_ECC_SSC_R3,						\
+	OPENSSL_KAS_ECC_SSC_R3(NISTP_CURVES),				\
 									\
 	OPENSSL_PBKDF(ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 |		\
 		      ACVP_SHA384 | ACVP_SHA512)
@@ -1288,8 +1288,8 @@ static const struct def_algo openssl_sha3 [] = {
 	OPENSSL_PBKDF(ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |
 		      ACVP_SHA3_512),
 		      
-	OPENSSL_ECDSA_SIGGEN_SHA3,
-	OPENSSL_ECDSA_SIGVER_SHA3,
+	OPENSSL_ECDSA_SIGGEN_SHA3(NISTP_CURVES),
+	OPENSSL_ECDSA_SIGVER_SHA3(NISTP_CURVES),
 };
 
 static const struct def_algo openssl_10x_drbg [] = {
@@ -1313,6 +1313,22 @@ static const struct def_algo openssl_neon [] = {
 static const struct def_algo openssl_tls13 [] = {
 	//OPENSSL_TLS13_KDF,
 	OPENSSL_HKDF
+};
+
+static const struct def_algo openssl_ecdsa_BK_curves [] = {
+	OPENSSL_ECDSA_KEYGEN(NISTB_CURVES | NISTK_CURVES),		\
+	OPENSSL_ECDSA_KEYVER(NISTB_CURVES | NISTK_CURVES),		\
+	OPENSSL_ECDSA_SIGGEN(NISTB_CURVES | NISTK_CURVES),		\
+	OPENSSL_ECDSA_SIGVER(NISTB_CURVES | NISTK_CURVES),
+};
+
+static const struct def_algo openssl_ecdsa_sha3_BK_curves [] = {
+	OPENSSL_ECDSA_SIGGEN_SHA3(NISTB_CURVES | NISTK_CURVES),		\
+	OPENSSL_ECDSA_SIGVER_SHA3(NISTB_CURVES | NISTK_CURVES),
+};
+
+static const struct def_algo openssl_ecdh_BK_curves [] = {
+	OPENSSL_KAS_ECC_SSC_R3(NISTB_CURVES | NISTK_CURVES),
 };
 
 /*
@@ -1347,6 +1363,15 @@ static struct def_algo_map openssl_algo_map [] = {
 	/* OpenSSL KBKDF implementation **********************/
 	OPENSSL_IMPL_COMMON(openssl_kbkdf, openssl_kbkdf, "", "KBKDF",
 			    "Generic C non-optimized KBKDF implementation"),
+	/* OpenSSL ECC all curves implementation **********************/
+	OPENSSL_IMPL_COMMON(openssl_ecdsa_BK_curves, openssl_ecdsa_BK_curves,
+			    "", "ECDSA K/B", "ECDSA with K and B curves"),
+	OPENSSL_IMPL_COMMON(openssl_ecdsa_sha3_BK_curves,
+			    openssl_ecdsa_sha3_BK_curves,
+			    "", "ECDSA SHA3 K/B",
+			    "ECDSA with SHA3 and K and B curves"),
+	OPENSSL_IMPL_COMMON(openssl_ecdh_BK_curves, openssl_ecdh_BK_curves,
+			    "", "ECDH K/B", "ECDH with K and B curves"),
 	/* OpenSSL TLS 1.3 implementation **********************/
 	OPENSSL_IMPL_COMMON(openssl_tls13, openssl_tls13, "",
 			    "TLS v1.3", "TLS v1.3 implementation"),

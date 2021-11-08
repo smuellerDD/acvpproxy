@@ -173,7 +173,7 @@ acvp_req_kas_ifc_kts_method(const struct def_algo_kts_method *kts_method,
 	CKINT(acvp_req_kas_kdf_fi(kts_method->associated_data_pattern_type,
 				  kts_method->literal,
 				  kts_method->associated_data_pattern_encoding,
-				  entry));
+				  "associatedDataPattern", entry));
 
 out:
 	return ret;

@@ -1605,12 +1605,12 @@ int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx)
 		goto unlock;
 
 	if (!opts->show_db_entries) {
+		/* Validating all dependencies if ID is not present */
+		CKINT_ULCK(acvp_oe_validate_all_dep(testid_ctx, def_oe));
 		/* Validating OE if ID is present */
 		CKINT_ULCK(acvp_oe_validate_one_oe(testid_ctx, def_oe));
 		/* Validating OE if ID is not present */
 		CKINT_ULCK(acvp_oe_validate_all_oe(testid_ctx, def_oe));
-		/* Validating all dependencies if ID is not present */
-		CKINT_ULCK(acvp_oe_validate_all_dep(testid_ctx, def_oe));
 	}
 
 unlock:

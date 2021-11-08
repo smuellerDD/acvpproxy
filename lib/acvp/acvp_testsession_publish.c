@@ -323,6 +323,9 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 		case DEF_ALG_TYPE_KDF_TPM:
 			CKINT(acvp_req_set_prereq_kdf_tpm(
 				&def_algo->algo.kdf_tpm, deps, entry, true));
+		case DEF_ALG_TYPE_ANSI_X963:
+			CKINT(acvp_req_set_prereq_ansi_x963(
+				&def_algo->algo.ansi_x963, deps, entry, true));
 
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,

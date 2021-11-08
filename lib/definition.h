@@ -24,6 +24,7 @@
 #include "aux_helper.h"
 #include "constructor.h"
 
+#include "definition_cipher_ansi_x963.h"
 #include "definition_cipher_drbg.h"
 #include "definition_cipher_hash.h"
 #include "definition_cipher_mac.h"
@@ -123,6 +124,8 @@ struct def_algo {
 		DEF_ALG_TYPE_KDF_TWOSTEP,
 		/** SP800-135 TPM KDF */
 		DEF_ALG_TYPE_KDF_TPM,
+		/** ANSI X9.63 */
+		DEF_ALG_TYPE_ANSI_X963,
 	} type;
 	union {
 		/** DEF_ALG_TYPE_SYM */
@@ -181,6 +184,8 @@ struct def_algo {
 		struct def_algo_kdf_twostep kdf_twostep;
 		/** DEF_ALG_TYPE_KDF_TPM */
 		struct def_algo_kdf_tpm kdf_tpm;
+		/** DEF_ALG_TYPE_ANSI_X963 */
+		struct def_algo_ansi_x963 ansi_x963;
 	} algo;
 };
 

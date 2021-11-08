@@ -9,7 +9,10 @@
 		"SSH_ASM",
 		"FFC_DH",
 		"KBKDF",
-		"TLS v1.3"
+		"TLS v1.3",
+		"ECDSA K/B",
+		"ECDSA SHA3 K/B",
+		"ECDH K/B",
 	],
 	"dependencies-internal": {
 		"FFC_DH": {

@@ -350,25 +350,6 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		tmp_array = NULL;
 	}
 
-	if (acvp_match_cipher(sym->algorithm, ACVP_XTS) && !sym->tweakformat) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "XTS mode definition: tweakformat setting missing\n");
-		ret = -EINVAL;
-		goto out;
-	}
-	if (sym->tweakformat) {
-		tmp_array = json_object_new_array();
-		CKNULL(tmp_array, -ENOMEM);
-		if (sym->tweakformat & DEF_ALG_SYM_XTS_TWEAK_128HEX)
-			CKINT(json_object_array_add(tmp_array,
-					json_object_new_string("128hex")));
-		if (sym->tweakformat & DEF_ALG_SYM_XTS_TWEAK_DUSEQUENCE)
-			CKINT(json_object_array_add(tmp_array,
-					json_object_new_string("duSequence")));
-		CKINT(json_object_object_add(entry, "tweakFormat", tmp_array));
-		tmp_array = NULL;
-	}
-
 	if (acvp_match_cipher(sym->algorithm, ACVP_XTS) && !sym->tweakmode) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "XTS mode definition: tweakmode setting missing\n");
@@ -378,10 +359,10 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	if (sym->tweakmode) {
 		tmp_array = json_object_new_array();
 		CKNULL(tmp_array, -ENOMEM);
-		if (sym->tweakformat & DEF_ALG_SYM_XTS_TWEAK_HEX)
+		if (sym->tweakmode & DEF_ALG_SYM_XTS_TWEAK_HEX)
 			CKINT(json_object_array_add(tmp_array,
 					json_object_new_string("hex")));
-		if (sym->tweakformat & DEF_ALG_SYM_XTS_TWEAK_NUM)
+		if (sym->tweakmode & DEF_ALG_SYM_XTS_TWEAK_NUM)
 			CKINT(json_object_array_add(tmp_array,
 					json_object_new_string("number")));
 		CKINT(json_object_object_add(entry, "tweakMode", tmp_array));

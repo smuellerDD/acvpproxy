@@ -870,12 +870,14 @@ static int acvp_def_add_info(struct definition *def, const struct def_info *src,
 	CKINT(acvp_duplicate(&info->impl_description, impl_description));
 	CKINT(acvp_duplicate(&info->orig_module_name, src->module_name));
 	CKINT(acvp_duplicate(&info->module_name_filesafe, info->module_name));
+	CKINT(acvp_sanitize_string(info->module_name_filesafe));
 	CKINT(acvp_duplicate(&info->module_name_internal,
 			     info->module_name_internal));
 
 	CKINT(acvp_duplicate(&info->module_version, src->module_version));
 	CKINT(acvp_duplicate(&info->module_version_filesafe,
 			     info->module_version));
+	CKINT(acvp_sanitize_string(info->module_version_filesafe));
 
 	CKINT(acvp_duplicate(&info->module_description,
 			     src->module_description));

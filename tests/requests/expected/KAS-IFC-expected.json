@@ -200,7 +200,7 @@
                 "SHA3-384"
               ],
               "supportsNullAssociatedData":true,
-              "fixedInfoPattern":"uPartyInfo||vPartyInfo||literal[affeaffeaffe]",
+              "associatedDataPattern":"uPartyInfo||vPartyInfo||literal[affeaffeaffe]",
               "encoding":[
                 "concatenation"
               ]

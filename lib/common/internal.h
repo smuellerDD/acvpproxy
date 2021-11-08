@@ -54,7 +54,7 @@ extern "C" {
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
  */
-#define PATCHLEVEL 4
+#define PATCHLEVEL 5
 
 struct acvp_test_deps {
 	char *dep_cipher;
@@ -308,6 +308,14 @@ int acvp_req_set_prereq_kdf_tpm(const struct def_algo_kdf_tpm *kdf_tpm,
 				struct json_object *entry, bool publish);
 int acvp_list_algo_kdf_tpm(const struct def_algo_kdf_tpm *kdf_tpm,
 			   struct acvp_list_ciphers **new);
+
+int acvp_req_set_algo_ansi_x963(const struct def_algo_ansi_x963 *ansi_x963,
+				struct json_object *entry);
+int acvp_req_set_prereq_ansi_x963(const struct def_algo_ansi_x963 *ansi_x963,
+				  const struct acvp_test_deps *deps,
+				  struct json_object *entry, bool publish);
+int acvp_list_algo_ansi_x963(const struct def_algo_ansi_x963 *ansi_x963,
+			     struct acvp_list_ciphers **new);
 
 struct acvp_net_proto {
 	char *url_base; /* Base path of URL */
@@ -1087,7 +1095,7 @@ int acvp_req_kas_kdf_fi(
 		fixed_info_pattern_type[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN],
 	const char *literal,
 	enum kas_kdf_fixedinfo_encoding fixed_info_encoding,
-	struct json_object *entry);
+	const char *key, struct json_object *entry);
 int acvp_req_kas_mac_salt(unsigned int mac_salt_method, int saltlen,
 			  struct json_object *entry);
 int acvp_req_kas_kdf_twostep_impl(

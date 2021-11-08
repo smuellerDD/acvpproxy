@@ -31,7 +31,7 @@ acvp_req_kas_kdf_fi(const enum kas_kdf_fixedinfo_pattern
 		    fixed_info_pattern_type[DEF_ALG_KAS_KDF_MAX_FIXED_INFO_PATTERN],
 		    const char *literal,
 		    enum kas_kdf_fixedinfo_encoding fixed_info_encoding,
-		    struct json_object *entry)
+		    const char *key, struct json_object *entry)
 {
 	struct json_object *array;
 	char buf[1024];
@@ -105,8 +105,7 @@ acvp_req_kas_kdf_fi(const enum kas_kdf_fixedinfo_pattern
 		first_in = true;
 	}
 
-	CKINT(json_object_object_add(entry, "fixedInfoPattern",
-				     json_object_new_string(buf)));
+	CKINT(json_object_object_add(entry, key, json_object_new_string(buf)));
 
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);
@@ -196,7 +195,7 @@ acvp_req_kas_kdf_twostep_def(const struct def_algo_kas_kdf_twostepkdf *twostep,
 		CKINT(acvp_req_kas_kdf_fi(two->fixed_info_pattern_type,
 					  two->literal,
 					  two->fixed_info_encoding,
-					  cap));
+					  "fixedInfoPattern", cap));
 
 		CKINT(acvp_req_set_algo_kdf_108_details(kdf_108, cap));
 
@@ -269,7 +268,7 @@ acvp_req_kas_kdf_onestep_def(const struct def_algo_kas_kdf_onestepkdf *onestep,
 
 	CKINT(acvp_req_kas_kdf_fi(onestep->fixed_info_pattern_type,
 				  onestep->literal, onestep->fixed_info_encoding,
-				  os));
+				  "fixedInfoPattern", os));
 
 out:
 	return ret;

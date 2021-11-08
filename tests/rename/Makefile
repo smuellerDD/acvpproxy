@@ -49,6 +49,7 @@ LIBRARY_DIRS	+=
 LIBRARIES	+= pthread dl
 
 ifeq ($(UNAME_S),Darwin)
+CFLAGS		+= -mmacosx-version-min=10.14 -Wno-gnu-zero-variadic-macro-arguments
 LDFLAGS		+= -framework Foundation -framework Security
 EXCLUDED	+= $(SRCDIR)lib/common/network_backend_curl.c $(SRCDIR)lib/common/openssl_thread_support.c
 M_SRCS		:= $(wildcard $(SRCDIR)apps/*.m)

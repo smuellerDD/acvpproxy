@@ -252,7 +252,7 @@ struct def_algo_sym {
 
 	/*
 	 * The format of tweak value for AES-XTS
-	 * required: only for AES-XTS mode
+	 * required: unused in current ACVP
 	 */
 #define DEF_ALG_SYM_XTS_TWEAK_128HEX (1 << 0)
 #define DEF_ALG_SYM_XTS_TWEAK_DUSEQUENCE (1 << 1)

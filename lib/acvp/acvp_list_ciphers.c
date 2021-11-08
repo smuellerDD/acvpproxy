@@ -221,7 +221,7 @@ static int acvp_list_cipher_gatherer(const struct definition *def,
 		CKINT(acvp_list_algo_kdf_tls(&def_algo->algo.kdf_tls, &new));
 		break;
 	case DEF_ALG_TYPE_KDF_TLS12:
-		CKINT(acvp_list_algo_kdf_tls(&def_algo->algo.kdf_tls, &new));
+		CKINT(acvp_list_algo_kdf_tls12(&def_algo->algo.kdf_tls, &new));
 		break;
 	case DEF_ALG_TYPE_KDF_TLS13:
 		CKINT(acvp_list_algo_kdf_tls13(&def_algo->algo.kdf_tls13,
@@ -265,6 +265,10 @@ static int acvp_list_cipher_gatherer(const struct definition *def,
 		break;
 	case DEF_ALG_TYPE_KDF_TPM:
 		CKINT(acvp_list_algo_kdf_tpm(&def_algo->algo.kdf_tpm, &new));
+		break;
+	case DEF_ALG_TYPE_ANSI_X963:
+		CKINT(acvp_list_algo_ansi_x963(&def_algo->algo.ansi_x963,
+					       &new));
 		break;
 
 	default:

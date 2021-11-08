@@ -94,12 +94,17 @@ gcov_analysis()
 	gcov_analyze "../../lib/requests/kdf_ikev2.c" "test_common"
 	gcov_analyze "../../lib/requests/kdf_ssh.c" "test_common"
 	gcov_analyze "../../lib/requests/kdf_tls.c" "test_common"
+	gcov_analyze "../../lib/requests/kdf_tls12.c" "test_common"
+	gcov_analyze "../../lib/requests/kdf_tls13.c" "test_common"
 	gcov_analyze "../../lib/requests/pbkdf.c" "test_common"
 	gcov_analyze "../../lib/requests/eddsa.c" "test_common"
 	gcov_analyze "../../lib/requests/kas_ecc_r3.c" "test_common"
 	gcov_analyze "../../lib/requests/kas_ffc_r3.c" "test_common"
 	gcov_analyze "../../lib/requests/kas_ifc.c" "test_common"
 	gcov_analyze "../../lib/requests/safeprimes.c" "test_common"
+	gcov_analyze "../../lib/requests/onestep.c" "test_common"
+	gcov_analyze "../../lib/requests/twostep.c" "test_common"
+	gcov_analyze "../../lib/requests/ansi_x963.c" "test_common"
 }
 
 init_common
@@ -129,6 +134,7 @@ test_common "KAS-IFC"
 test_common "TLS v1.3"
 test_common "Onestep"
 test_common "Twostep"
+test_common "ANSI X9.63"
 
 gcov_analysis
 
