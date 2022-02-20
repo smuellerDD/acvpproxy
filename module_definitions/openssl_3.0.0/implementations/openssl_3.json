@@ -1,6 +1,7 @@
 {
 	"implementations": [
 		"TDES_C",
+		"3_TDES_C",
 		"AESNI",
 		"AESNI_AVX",
 		"AESNI_CLMULNI",

@@ -1,3 +1,7 @@
+v1.7.6
+- fix: revert switch threading from poll to push wait - makes problems on macOS
+- enhancement: as requested by NIST: KAS-KDF -> KDA
+
 v1.7.5
 - enhancement: switch threading from poll to push wait
 - fix: --sync-meta OE: first check deps followed by OE

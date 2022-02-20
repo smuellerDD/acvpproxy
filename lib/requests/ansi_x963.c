@@ -1,6 +1,6 @@
 /* JSON request generator for ANSI X9.63 KDF
  *
- * Copyright (C) 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -108,15 +108,18 @@ int acvp_req_set_algo_ansi_x963(const struct def_algo_ansi_x963 *ansi_x963,
 
 	CKINT_LOG(acvp_ansi_x963_fieldsize(ansi_x963->field_size[0]),
 		  "ANSI X9.63: Minimum field size contains invalid entry\n");
-	CKINT_LOG(acvp_ansi_x963_fieldsize(ansi_x963->field_size[1]),
-		  "ANSI X9.63: Maximum field size contains invalid entry\n");
 	tmp_array = json_object_new_array();
 	CKNULL(tmp_array, -ENOMEM);
 	CKINT(json_object_object_add(entry, "fieldSize", tmp_array));
 	CKINT(json_object_array_add(tmp_array,
 				json_object_new_int(ansi_x963->field_size[0])));
-	CKINT(json_object_array_add(tmp_array,
+
+	if (ansi_x963->field_size[1]) {
+		CKINT_LOG(acvp_ansi_x963_fieldsize(ansi_x963->field_size[1]),
+			  "ANSI X9.63: Maximum field size contains invalid entry\n");
+		CKINT(json_object_array_add(tmp_array,
 				json_object_new_int(ansi_x963->field_size[1])));
+	}
 
 	CKINT(acvp_req_algo_int_array(entry, ansi_x963->key_data_len,
 				      "keyDataLength"));

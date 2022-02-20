@@ -1,6 +1,6 @@
 /* JSON generator for DSA ciphers
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -173,7 +173,7 @@ static int acvp_req_dsa_pqggen(const struct def_algo_dsa *dsa,
 					json_object_new_string("probable")));
 		found = 1;
 	}
-	if (dsa->dsa_pq_gen_method == DEF_ALG_DSA_PROVABLE_PQ_GEN) {
+	if (dsa->dsa_pq_gen_method & DEF_ALG_DSA_PROVABLE_PQ_GEN) {
 		CKINT(json_object_array_add(array,
 					json_object_new_string("provable")));
 		found = 1;
@@ -194,7 +194,7 @@ static int acvp_req_dsa_pqggen(const struct def_algo_dsa *dsa,
 					json_object_new_string("canonical")));
 		found = 1;
 	}
-	if (dsa->dsa_g_gen_method == DEF_ALG_DSA_UNVERIFIABLE_G_GEN) {
+	if (dsa->dsa_g_gen_method & DEF_ALG_DSA_UNVERIFIABLE_G_GEN) {
 		CKINT(json_object_array_add(array,
 				json_object_new_string("unverifiable")));
 		found = 1;

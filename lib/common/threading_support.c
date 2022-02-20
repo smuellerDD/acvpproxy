@@ -1,6 +1,6 @@
 /* Threading support - implementation
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -69,9 +69,6 @@ struct thread_ctx {
 	atomic_bool_t shutdown; /* Shall the thread be shut down? */
 	bool scheduled; /* Is/was a job executed and return code
 					 * is ready for pickup? */
-
-	pthread_cond_t worker_cv;
-	pthread_mutex_t worker_lock;
 };
 
 /*
@@ -102,14 +99,6 @@ static atomic_bool_t threads_in_cancel = ATOMIC_BOOL_INIT(false);
  */
 static DEFINE_MUTEX_W_UNLOCKED(threads_cleanup);
 
-/* Waiting helper for the thread_schedule function */
-static pthread_cond_t thread_schedule_cv;
-static pthread_mutex_t thread_schedule_lock = PTHREAD_MUTEX_INITIALIZER;
-
-/* Waiting helper for the thread_wait function */
-static pthread_cond_t thread_wait_cv;
-static pthread_mutex_t thread_wait_lock = PTHREAD_MUTEX_INITIALIZER;
-
 static inline unsigned int thread_get_special_slot(unsigned int thread_group)
 {
 	if (thread_group <= THREADING_MAX_THREADS)
@@ -122,14 +111,6 @@ static inline unsigned int thread_get_special_slot(unsigned int thread_group)
 static inline bool thread_is_special(struct thread_ctx *tctx)
 {
 	return (tctx->thread_num >= THREADING_MAX_THREADS) ? true : false;
-}
-
-static inline void thread_block(pthread_cond_t *cv, pthread_mutex_t *lock)
-{
-	/* Wait */
-	pthread_mutex_lock(lock);
-	pthread_cond_wait(cv, lock);
-	pthread_mutex_unlock(lock);
 }
 
 int thread_init(uint32_t groups)
@@ -158,7 +139,6 @@ int thread_init(uint32_t groups)
 	for (i = 0; i < THREADING_REALLY_ALL_THREADS; i++) {
 		mutex_w_init(&threads[i].inuse, false);
 		atomic_bool_set_false(&threads[i].shutdown);
-		pthread_mutex_init(&threads[i].worker_lock, NULL);
 	}
 
 	threads_groups = groups;
@@ -178,6 +158,13 @@ out:
 	return 0;
 }
 
+static inline void thread_block(void)
+{
+	const struct timespec sleeptime = { .tv_sec = 0, .tv_nsec = 1 << 27 };
+
+	nanosleep(&sleeptime, NULL);
+}
+
 static inline bool thread_dirty(unsigned int slot)
 {
 	return (atomic_bool_read(&threads[slot].thread_pending));
@@ -188,8 +175,6 @@ static inline void thread_cleanup(struct thread_ctx *tctx)
 {
 	tctx->data = NULL;
 	tctx->start_routine = NULL;
-	pthread_cond_signal(&thread_schedule_cv);
-	pthread_cond_signal(&thread_wait_cv);
 
 	/* Return values of special threads is irrelevant */
 	if (thread_is_special(tctx))
@@ -205,7 +190,6 @@ static inline void thread_cleanup_full(struct thread_ctx *tctx)
 	tctx->scheduled = false;
 	tctx->ret_ancestor = 0;
 	mutex_w_destroy(&tctx->inuse);
-	pthread_mutex_destroy(&tctx->worker_lock);
 }
 
 /* Worker loop of a thread */
@@ -244,12 +228,10 @@ static void *thread_worker(void *arg)
 			logger(LOGGER_VERBOSE, LOGGER_C_THREADING,
 			       "Thread %u completed\n", tctx->thread_num);
 			mutex_w_unlock(&tctx->inuse);
-			pthread_cond_signal(&thread_wait_cv);
 		} else {
 			/* Idle */
 			mutex_w_unlock(&tctx->inuse);
-			pthread_cond_signal(&thread_wait_cv);
-			thread_block(&tctx->worker_cv, &tctx->worker_lock);
+			thread_block();
 		}
 	}
 
@@ -358,9 +340,6 @@ static int thread_schedule(int (*start_routine)(void *), void *tdata,
 			threads[i].parent = pthread_self();
 			threads[i].scheduled = true;
 			mutex_w_unlock(&threads[i].inuse);
-			pthread_cond_signal(&thread_wait_cv);
-			pthread_cond_signal(&threads[i].worker_cv);
-
 			return 0;
 		}
 	}
@@ -394,7 +373,7 @@ int thread_wait(void)
 			if (!pthread_equal(threads[i].parent, self))
 				continue;
 
-			/* If the thread executes a job, skip but wait. */
+			/* If the thread executes a job, skip but wait wait. */
 			if (!mutex_w_trylock(&threads[i].inuse)) {
 				wait = true;
 				continue;
@@ -416,7 +395,7 @@ int thread_wait(void)
 		}
 
 		if (wait)
-			thread_block(&thread_wait_cv, &thread_wait_lock);
+			thread_block();
 	}
 
 	return ret;
@@ -466,11 +445,8 @@ static int thread_wait_all(bool system_threads)
 	mutex_w_lock(&threads_cleanup);
 
 	/* Ensure that no new thread is spawned. */
-	for (i = 0; i < upper; i++) {
+	for (i = 0; i < upper; i++)
 		atomic_bool_set_true(&threads[i].shutdown);
-		pthread_cond_signal(&threads[i].worker_cv);
-	}
-	pthread_cond_signal(&thread_wait_cv);
 
 	/* Wait for all worker threads. */
 	for (i = 0; i < upper; i++) {
@@ -506,9 +482,7 @@ static void thread_cancel(bool system_threads)
 	for (i = 0; i < upper; i++) {
 		atomic_bool_set_true(&threads[i].shutdown);
 		threads[i].start_routine = NULL;
-		pthread_cond_signal(&threads[i].worker_cv);
 	}
-	pthread_cond_signal(&thread_wait_cv);
 
 	/* Kill all worker threads. */
 	for (i = 0; i < upper; i++) {
@@ -538,8 +512,7 @@ int thread_start(int (*start_routine)(void *), void *tdata,
 		ret = thread_schedule(start_routine, tdata, thread_group,
 				      ret_ancestor);
 		if (ret == -EAGAIN)
-			thread_block(&thread_schedule_cv,
-				     &thread_schedule_lock);
+			thread_block();
 		else
 			return ret;
 	}

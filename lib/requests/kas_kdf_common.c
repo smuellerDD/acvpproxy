@@ -1,6 +1,6 @@
 /* JSON request generator for KAS KDF (onestep, twostep) and MAC methods
  *
- * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

@@ -201,7 +201,7 @@ compileExtension() {
 			local libfile=$(basename $file)
 			libfile_noext=${libfile%%.c}
 			#CFLAGS="-I${dir}/lib -I${dir}/lib/module_implementations" C_SRCS=$libfile SONAME=${libfile_noext}.so LIBNAME=${libfile_noext}.so make -s -C "$TARGETDIR/$EXTENSION_DIR" show_vars
-			CFLAGS="-I${dir}/lib -I${dir}/lib/module_implementations" C_SRCS=$libfile SONAME=${libfile_noext}.so LIBNAME=${libfile_noext}.so make -s -C "$TARGETDIR/$EXTENSION_DIR"
+			CFLAGS="-I${dir}/lib -I${dir}/lib/module_implementations" C_SRCS=$libfile SONAME=${libfile_noext}.so LIBNAME=${libfile_noext}.$LIBEXT make -s -C "$TARGETDIR/$EXTENSION_DIR"
 			if [ $? -ne 0 ]
 			then
 				echo "Compilation of extension failed"

@@ -25,7 +25,7 @@
             "valValue":"same"
           }
         ],
-        "algorithm":"KAS-KDF",
+        "algorithm":"KDA",
         "mode":"TwoStep",
         "revision":"Sp800-56Cr1",
         "capabilities":[

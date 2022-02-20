@@ -1,6 +1,6 @@
 /* Development module definition
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -494,7 +494,7 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 			},
 		.associated_data_pattern_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,
 		},
-	.length = 1024,
+	.length = 768,
 } };
 
 #define DEVEL_RSA_OAEP							\
@@ -519,7 +519,7 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 #define DEVEL_RSA_OAEP
 #endif
 
-#if 0
+#if 1
 static const struct def_algo_prereqs devel_kas_ifc_ssc_prereqs[] = {
 	{
 		.algorithm = "RSA",
@@ -541,7 +541,7 @@ const struct def_algo_kas_ifc_ssc_schema devel_kas_ifc_ssc_schema_kts[] = { {
 			DEF_ALG_KAS_IFC_RESPONDER
 } };
 
-#define DEVEL_RSA_SSC						\
+#define DEVEL_RSA_SSC							\
 	{								\
 	.type = DEF_ALG_TYPE_KAS_IFC,					\
 	.algo.kas_ifc = {						\
@@ -557,7 +557,6 @@ const struct def_algo_kas_ifc_ssc_schema devel_kas_ifc_ssc_schema_kts[] = { {
 		.keygen.fixedpubexp = "010001",				\
 		.ssc_schema = devel_kas_ifc_ssc_schema_kts,		\
 		.ssc_schema_num = ARRAY_SIZE(devel_kas_ifc_ssc_schema_kts),\
-		.hash_z = ACVP_SHA512					\
 		},							\
 	}
 #else
@@ -732,7 +731,7 @@ const struct def_algo_kas_kdf_twostepkdf devel_kdf_twostepkdf[] = { {
 #endif
 
 /**************************************************************************
- * RSA decryption primtiive
+ * RSA decryption primtive
  **************************************************************************/
 #if 0
 
@@ -867,7 +866,7 @@ static const struct def_algo_prereqs devell_kdf_prereqs[] = {
 /**************************************************************************
  * ANSI X963 Definitions
  **************************************************************************/
-#if 1
+#if 0
 #define DEVEL_ANSI_X963							\
 	{								\
 	.type = DEF_ALG_TYPE_ANSI_X963,					\
@@ -876,7 +875,6 @@ static const struct def_algo_prereqs devell_kdf_prereqs[] = {
 		DEF_ALG_DOMAIN(.shared_info_len, 0, 1024, 8),		\
 		DEF_ALG_DOMAIN(.key_data_len, 128, 4096, 8),		\
 		.field_size[0] = 256,					\
-		.field_size[1] = 283,					\
 		}							\
 	}
 
@@ -884,6 +882,29 @@ static const struct def_algo_prereqs devell_kdf_prereqs[] = {
 #define DEVEL_ANSI_X963
 #endif
 
+/**************************************************************************
+ * Generic definitions
+ **************************************************************************/
+
+#if 0
+#define DEVEL_AES_XTS							\
+	{								\
+	.type = DEF_ALG_TYPE_SYM,					\
+	.algo.sym.algorithm = ACVP_XTS,					\
+	.algo.sym.direction = DEF_ALG_SYM_DIRECTION_ENCRYPTION |	\
+			      DEF_ALG_SYM_DIRECTION_DECRYPTION,		\
+	.algo.sym.keylen = DEF_ALG_SYM_KEYLEN_128 |			\
+			   DEF_ALG_SYM_KEYLEN_256,			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
+	.algo.sym.tweakformat = DEF_ALG_SYM_XTS_TWEAK_128HEX,		\
+	.algo.sym.tweakmode = DEF_ALG_SYM_XTS_TWEAK_HEX,		\
+	.algo.sym.xts_data_unit_len_matches_payload = false,		\
+	.algo.sym.xts_data_unit_len = { 256, 1024 }			\
+	}
+
+#else
+#define DEVEL_AES_XTS
+#endif
 /**************************************************************************
  * Devel Implementation Definitions
  **************************************************************************/
@@ -919,6 +940,8 @@ static const struct def_algo devel[] = {
 	DEVEL_KDF
 
 	DEVEL_ANSI_X963
+
+	DEVEL_AES_XTS
 };
 
 /**************************************************************************

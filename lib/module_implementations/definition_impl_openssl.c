@@ -1,6 +1,6 @@
 /* OpenSSL module definition
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -1133,6 +1133,13 @@ static const struct def_algo openssl_tdes [] = {
 	OPENSSL_CMAC_TDES
 };
 
+static const struct def_algo openssl_3_tdes [] = {
+	OPENSSL_TDES_CBC,
+	OPENSSL_TDES_ECB,
+
+	OPENSSL_CMAC_TDES
+};
+
 static const struct def_algo openssl_aes [] = {
 	OPENSSL_AES_OFB,
 	OPENSSL_AES_CFB1,
@@ -1359,6 +1366,9 @@ static const struct def_algo openssl_ecdh_BK_curves [] = {
 static struct def_algo_map openssl_algo_map [] = {
 	/* OpenSSL TDES C implementation **************************************/
 	OPENSSL_IMPL_COMMON(openssl_tdes, openssl_tdes, "", "TDES_C",
+			    "Generic C non-optimized TDES implementation"),
+	/* OpenSSL 3 TDES C implementation **************************************/
+	OPENSSL_IMPL_COMMON(openssl_3_tdes, openssl_3_tdes, "", "3_TDES_C",
 			    "Generic C non-optimized TDES implementation"),
 	/* OpenSSL KBKDF implementation **********************/
 	OPENSSL_IMPL_COMMON(openssl_kbkdf, openssl_kbkdf, "", "KBKDF",

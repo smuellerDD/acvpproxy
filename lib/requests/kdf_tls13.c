@@ -1,6 +1,6 @@
 /* JSON request generator for RFC8446 KDF TLS 1.3
  *
- * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

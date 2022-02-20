@@ -1,6 +1,6 @@
 /* JSON request generator for KAS FFC
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -511,6 +511,13 @@ int acvp_list_algo_kas_ffc(const struct def_algo_kas_ffc *kas_ffc,
 	tmp->prereqs = kas_ffc->prereqvals;
 	tmp->prereq_num = kas_ffc->prereqvals_num;
 
+	/*
+	 * TODO --list-cipher-options will fail when more than one option is
+	 * defined here as we allocate the same buffer multiple times. A kind of
+	 * realloc would be needed here to extend the string once allocated.
+	 *
+	 * We leave it unfixed for now as this algo is sunset anyways.
+	 */
 	if (kas_ffc->kas_ffc_function & DEF_ALG_KAS_FFC_DPGEN) {
 		CKINT(acvp_duplicate(&tmp->cipher_mode, "dpGen"));
 		found = true;

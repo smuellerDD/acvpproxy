@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -394,6 +394,7 @@ struct def_algo_kas_ecc {
 #define DEF_ALG_KAS_ECC_KEYPAIRGEN (1 << 2)
 #define DEF_ALG_KAS_ECC_FULLVAL (1 << 3)
 #define DEF_ALG_KAS_ECC_PARTIALVAL (1 << 4)
+#define DEF_ALG_KAS_ECC_KEYREGEN (1 << 5)
 	unsigned int kas_ecc_function;
 
 	/*

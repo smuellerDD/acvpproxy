@@ -1,6 +1,6 @@
 /* Object encapsulating TLS client credential and server certificate
  *
- * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

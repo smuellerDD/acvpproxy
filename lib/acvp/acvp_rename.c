@@ -1,6 +1,6 @@
 /* Rename of module references that occur on different places
  *
- * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -220,7 +220,7 @@ static int acvp_rename_name(const struct acvp_testid_ctx *testid_ctx,
 
 	logger_status(LOGGER_C_ANY,
 		      "Rename of name for testID %u from %s to %s completed\n",
-		      testid_ctx->testid, curr_name, newname_modify);
+		      testid_ctx->testid, curr_name, newname_unmodify);
 
 	/*
 	 * We deliberately do not touch the module definition JSON files
@@ -282,7 +282,7 @@ static int acvp_rename_version(const struct acvp_testid_ctx *testid_ctx,
 	logger_status(
 		LOGGER_C_ANY,
 		"Rename of version for testID %u from %s to %s completed\n",
-		testid_ctx->testid, curr_version, newversion_modify);
+		testid_ctx->testid, curr_version, newversion_unmodify);
 
 	/*
 	 * We deliberately do not touch the module definition JSON files

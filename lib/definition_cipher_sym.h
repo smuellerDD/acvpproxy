@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+* Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
 *
 * License: see LICENSE file in root directory
 *
@@ -278,18 +278,15 @@ struct def_algo_sym {
 	 *
 	 * You may define a range with DEF_ALG_DOMAIN.
 	 *
-	 * NOTE: This definition is only applied if
-	 * xts_data_unit_len_matches_payload is set to true
+	 * Without this option, the test vectors will always have the same
+	 * data unit length as the payload.
 	 *
 	 * required: optional for XTS
 	 */
 	int xts_data_unit_len[DEF_ALG_MAX_INT];
 
 	/*
-	 * XTS: Boolean to indicate whether or not the length of the data unit
-	 * always matches the length of the payload.
-	 *
-	 * required: required for XTS
+	 * unused
 	 */
 	bool xts_data_unit_len_matches_payload;
 

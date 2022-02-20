@@ -1,6 +1,6 @@
 /* JSON generator for symmetric ciphers
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -375,9 +375,14 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 			CKINT(acvp_req_algo_int_array(entry,
 						      sym->xts_data_unit_len,
 						      "dataUnitLen"));
+			CKINT(json_object_object_add(entry,
+					"dataUnitLenMatchesPayload",
+					json_object_new_boolean(false)));
+		} else {
+			CKINT(json_object_object_add(entry,
+					"dataUnitLenMatchesPayload",
+					json_object_new_boolean(true)));
 		}
-		CKINT(json_object_object_add(entry, "dataUnitLenMatchesPayload",
-					     json_object_new_boolean(sym->xts_data_unit_len_matches_payload)));
 	}
 
 	CKINT(acvp_req_algo_int_array(entry, sym->taglen, "tagLen"));

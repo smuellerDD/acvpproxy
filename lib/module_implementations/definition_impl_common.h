@@ -1,6 +1,6 @@
 /* ACVP Proxy common cipher definitions
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -502,6 +502,22 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 	.algo.sym.ctrsource = DEF_ALG_SYM_CTR_EXTERNAL,			\
 	.algo.sym.ctroverflow = DEF_ALG_SYM_CTROVERFLOW_UNHANDLED,	\
 	.algo.sym.ctrincrement = DEF_ALG_SYM_CTRINCREMENT_INCREMENT	\
+	}
+
+/**
+ * @brief Triple-DES KeyWrap No-Padding definition.
+ *
+ * Cipher definition properties
+ *	* encryption / decryption
+ *	* key sizes: 192
+ * 	* arbitrary plaintext length
+ */
+#define GENERIC_TDES_KW							\
+	{								\
+	GENERIC_TDES_GEN(ACVP_TDESKW),					\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 4096, 128),		\
+	.algo.sym.ivlen = { 64, },					\
+	.algo.sym.kwcipher = DEF_ALG_SYM_KW_CIPHER,			\
 	}
 
 /**************************************************************************

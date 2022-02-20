@@ -1,6 +1,6 @@
 /* JSON request generator for KAS ECC
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -422,6 +422,11 @@ static int _acvp_req_set_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 					json_object_new_string("partialVal")));
 		found = true;
 	}
+	if (kas_ecc->kas_ecc_function & DEF_ALG_KAS_ECC_KEYREGEN) {
+		CKINT(json_object_array_add(tmp,
+					json_object_new_string("keyRegen")));
+		found = true;
+	}
 	CKNULL_LOG(found, -EINVAL,
 		   "KAS ECC: No applicable entry for kas_ecc_function found\n");
 
@@ -525,6 +530,13 @@ int acvp_list_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 	tmp->prereqs = kas_ecc->prereqvals;
 	tmp->prereq_num = kas_ecc->prereqvals_num;
 
+	/*
+	 * TODO --list-cipher-options will fail when more than one option is
+	 * defined here as we allocate the same buffer multiple times. A kind of
+	 * realloc would be needed here to extend the string once allocated.
+	 *
+	 * We leave it unfixed for now as this algo is sunset anyways.
+	 */
 	if (kas_ecc->kas_ecc_function & DEF_ALG_KAS_ECC_DPGEN) {
 		CKINT(acvp_duplicate(&tmp->cipher_mode, "dpGen"));
 		found = true;
@@ -543,6 +555,10 @@ int acvp_list_algo_kas_ecc(const struct def_algo_kas_ecc *kas_ecc,
 	}
 	if (kas_ecc->kas_ecc_function & DEF_ALG_KAS_ECC_PARTIALVAL) {
 		CKINT(acvp_duplicate(&tmp->cipher_mode, "partialVal"));
+		found = true;
+	}
+	if (kas_ecc->kas_ecc_function & DEF_ALG_KAS_ECC_KEYREGEN) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyRegen"));
 		found = true;
 	}
 	CKNULL_LOG(found, -EINVAL,

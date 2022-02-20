@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the person information
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -84,16 +84,28 @@ static int acvp_person_build(const struct def_vendor *def_vendor,
 	}
 
 	/* Phone numbers */
-	if (def_vendor->contact_phone) {
-		if (acvp_check_ignore(check_ignore_flag,
-				      def_vendor->contact_phone_i)) {
+	if (def_vendor->contact_phone ||
+	    (acvp_check_ignore(check_ignore_flag,
+			       def_vendor->contact_phone_i))) {
+		if (def_vendor->contact_phone) {
+			/*
+			 * {
+			 *    "vendorUrl":"/acvp/v1/vendors/12666",
+			 *    "phoneNumbers": [
+			 *       {
+			 *          "number":"12345678",
+			 *          "type":"voice"
+			 *       }
+			 *    ]
+			 * }
+			 */
 			phone = json_object_new_object();
 			CKNULL(phone, -ENOMEM);
 			CKINT(json_object_object_add(
-				phone, "number",
-				json_object_new_string(def_vendor->contact_phone)));
+			      phone, "number",
+			      json_object_new_string(def_vendor->contact_phone)));
 			CKINT(json_object_object_add(phone, "type",
-					json_object_new_string("voice")));
+					     json_object_new_string("voice")));
 			array = json_object_new_array();
 			CKNULL(array, -ENOMEM);
 			CKINT(json_object_array_add(array, phone));
@@ -101,6 +113,15 @@ static int acvp_person_build(const struct def_vendor *def_vendor,
 			CKINT(json_object_object_add(person, "phoneNumbers",
 						     array));
 			array = NULL;
+		} else {
+			/*
+			 * {
+			 *    "vendorUrl":"/acvp/v1/vendors/12666",
+			 *    "phoneNumbers": null
+			 * }
+			 */
+			CKINT(json_object_object_add(person, "phoneNumbers",
+						     NULL));
 		}
 	}
 

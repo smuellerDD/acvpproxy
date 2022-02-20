@@ -1,6 +1,6 @@
 /* ACVP authentication token processing
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -590,10 +590,11 @@ acvp_process_login_refresh(const struct acvp_testid_ctx *testid_ctx_head,
 		 */
 		while (!auth) {
 			testid_ctx = testid_ctx->next;
-			es = testid_ctx->es_def;
 
 			if (!testid_ctx)
 				goto out;
+
+			es = testid_ctx->es_def;
 
 			auth = testid_ctx->server_auth;
 		}

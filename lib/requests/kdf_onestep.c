@@ -1,6 +1,6 @@
 /* JSON request generator for KAS ECC rev 3 (SP800-56A rev. 3)
  *
- * Copyright (C) 2020 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -42,7 +42,7 @@ _acvp_req_set_algo_kdf_onestep(const struct def_algo_kdf_onestep *kdf_onestep,
 				  publish));
 
 	CKINT(json_object_object_add(entry, "algorithm",
-				     json_object_new_string("KAS-KDF")));
+				     json_object_new_string("KDA")));
 	CKINT(json_object_object_add(entry, "mode",
 				     json_object_new_string("OneStep")));
 	switch (kdf_onestep->kdf_spec) {
@@ -91,7 +91,7 @@ int acvp_list_algo_kdf_onestep(const struct def_algo_kdf_onestep *kdf_onestep,
 	CKNULL(tmp, -ENOMEM);
 	*new = tmp;
 
-	CKINT(acvp_duplicate(&tmp->cipher_name, "KAS-KDF Sp800-56Cr1"));
+	CKINT(acvp_duplicate(&tmp->cipher_name, "KDA Sp800-56Cr1"));
 	CKINT(acvp_duplicate(&tmp->cipher_mode, "OneStep"));
 
 	tmp->prereqs = kdf_onestep->prereqvals;

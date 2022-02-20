@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -28,8 +28,15 @@ int acvp_str_match(const char *exp, const char *found, const uint32_t id)
 {
 	size_t len;
 
-	if (!exp || !found)
+	if (!exp && !found)
 		return 0;
+
+	/*
+	 * It is possible to have a JSON NULL value - on one side. In this
+	 * case, we have a mismatch.
+	 */
+	if ((!exp && found) || (exp && !found))
+		return -ENOENT;
 
 	len = strlen(exp);
 

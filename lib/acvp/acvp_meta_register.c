@@ -1,6 +1,6 @@
 /* ACVP operation for registering vendor, modules, persons, OE
  *
- * Copyright (C) 2019 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

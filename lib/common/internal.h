@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -54,7 +54,7 @@ extern "C" {
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
  */
-#define PATCHLEVEL 5
+#define PATCHLEVEL 6
 
 struct acvp_test_deps {
 	char *dep_cipher;

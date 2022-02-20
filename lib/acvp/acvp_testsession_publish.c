@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for publishing test results
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -59,7 +59,7 @@ out:
 }
 
 static int acvp_publish_write_id(const struct acvp_testid_ctx *testid_ctx,
-				 const uint32_t validation_id)
+				 const uint32_t validation_id, bool write_zero)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
@@ -68,7 +68,7 @@ static int acvp_publish_write_id(const struct acvp_testid_ctx *testid_ctx,
 	int ret;
 	char msgid[12];
 
-	if (!validation_id)
+	if (!write_zero && !validation_id)
 		return 0;
 
 	if (req_details->dump_register)
@@ -134,7 +134,7 @@ static int acvp_publish_request(const struct acvp_testid_ctx *testid_ctx,
 	 * will not write it. In case of success (valid ID returned) or -EAGAIN
 	 * (a request ID is returned), the ID is written to disk.
 	 */
-	ret |= acvp_publish_write_id(testid_ctx, certificate_id);
+	ret |= acvp_publish_write_id(testid_ctx, certificate_id, false);
 
 	if (ret)
 		goto out;
@@ -629,7 +629,7 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 	ret2 = acvp_meta_obtain_request_result(
 		testid_ctx, &auth->testsession_certificate_id);
 	CKINT(acvp_publish_write_id(testid_ctx,
-				    auth->testsession_certificate_id));
+				    auth->testsession_certificate_id, true));
 	if (ret2 < 0) {
 		ret = ret2;
 		goto out;

@@ -1,6 +1,6 @@
 /* JSON generator for RSA ciphers
  *
- * Copyright (C) 2018 - 2021, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -288,7 +288,8 @@ static int acvp_req_rsa_keygen_caps(enum rsa_mode rsa_mode,
 	CKINT(acvp_req_rsa_modulo(rsa_mode, caps->rsa_modulo, caps_entry));
 
 	/* Hashes are not needed for probable primes */
-	if (rsa_randpq != DEF_ALG_RSA_PQ_B33_PRIMES) {
+	if (rsa_randpq != DEF_ALG_RSA_PQ_B33_PRIMES &&
+	    rsa_randpq != DEF_ALG_RSA_PQ_B36_PRIMES) {
 		CKINT(acvp_req_cipher_to_array(caps_entry, caps->hashalg,
 					       ACVP_CIPHERTYPE_HASH,
 					       "hashAlg"));
