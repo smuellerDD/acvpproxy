@@ -68,13 +68,13 @@ void _logger_binary(const enum logger_verbosity severity,
  * @param class logging class
  * @param fmt format string as defined by fprintf(3)
  */
-#define logger(severity, class, fmt...)                                        \
-	do {                                                                   \
+#define logger(severity, class, fmt...)					       \
+	do {								       \
 		_Pragma("GCC diagnostic push")                                 \
-			_Pragma("GCC diagnostic ignored \"-Wpedantic\"")       \
-				_logger(severity, class, __FILE__,             \
-					__FUNCTION__, __LINE__, ##fmt);        \
-		_Pragma("GCC diagnostic pop")                                  \
+		_Pragma("GCC diagnostic ignored \"-Wpedantic\"") 	       \
+		_logger(severity, class, __FILE__, 		   	       \
+			__FUNCTION__, __LINE__, ##fmt);			       \
+		_Pragma("GCC diagnostic pop")				       \
 	} while (0);
 
 /**
@@ -92,14 +92,13 @@ void _logger_binary(const enum logger_verbosity severity,
  * @param binlen length of binary string
  * @param str string that is prepended to hex-converted binary string
  */
-#define logger_binary(severity, class, bin, binlen, str)                       \
+#define logger_binary(severity, class, bin, binlen, str)		       \
 	do {                                                                   \
 		_Pragma("GCC diagnostic push")                                 \
-			_Pragma("GCC diagnostic ignored \"-Wpedantic\"")       \
-				_logger_binary(severity, class, bin, binlen,   \
-					       str, __FILE__, __FUNCTION__,    \
-					       __LINE__);                      \
-		_Pragma("GCC diagnostic pop")                                  \
+		_Pragma("GCC diagnostic ignored \"-Wpedantic\"")	       \
+		_logger_binary(severity, class, bin, binlen,		       \
+			       str, __FILE__, __FUNCTION__, __LINE__);	       \
+		_Pragma("GCC diagnostic pop")				       \
 	} while (0);
 
 /**

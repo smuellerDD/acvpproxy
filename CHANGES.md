@@ -1,3 +1,8 @@
+v1.7.7
+- enhancement: update ESV implementation to match latest definitions
+- enhancement: add leancrypto definition
+- enhancement: add XOF, X9.42, SRTP
+
 v1.7.6
 - fix: revert switch threading from poll to push wait - makes problems on macOS
 - enhancement: as requested by NIST: KAS-KDF -> KDA

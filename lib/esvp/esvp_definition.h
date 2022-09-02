@@ -30,6 +30,7 @@ struct esvp_sd_def {
 	struct acvp_auth_ctx *sd_auth;
 	unsigned int sd_id;
 	char *filename;
+ 	bool submitted;
 
 	struct esvp_sd_def *next;
 };
@@ -73,6 +74,7 @@ struct esvp_es_def {
 	unsigned int restart_id;
 
 	char *primary_noise_source_desc;
+	char *lab_test_id;
 
 	char *config_dir;
 

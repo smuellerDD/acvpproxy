@@ -1,5 +1,6 @@
 {
 	"primaryNoiseSource": "Interrupt noise source from LRNG - Linux Random Number Generator",
+	"labTestId":"LRNG",
 	"bitsPerSample": 8,
 	"alphabetSize": 256,
 	"hminEstimate": 1,

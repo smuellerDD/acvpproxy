@@ -24,6 +24,7 @@
 #include "aux_helper.h"
 #include "constructor.h"
 
+#include "definition_cipher_ansi_x942.h"
 #include "definition_cipher_ansi_x963.h"
 #include "definition_cipher_drbg.h"
 #include "definition_cipher_hash.h"
@@ -37,6 +38,7 @@
 #include "definition_cipher_kas_ecc_r3.h"
 #include "definition_cipher_kas_ffc.h"
 #include "definition_cipher_kas_ffc_r3.h"
+#include "definition_cipher_kdf_srtp.h"
 #include "definition_cipher_kdf_ssh.h"
 #include "definition_cipher_kdf_tpm.h"
 #include "definition_cipher_kdf_ikev1.h"
@@ -51,6 +53,7 @@
 #include "definition_cipher_conditioning_components.h"
 #include "definition_cipher_kdf_onestep.h"
 #include "definition_cipher_kdf_twostep.h"
+#include "definition_cipher_xof.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -126,6 +129,12 @@ struct def_algo {
 		DEF_ALG_TYPE_KDF_TPM,
 		/** ANSI X9.63 */
 		DEF_ALG_TYPE_ANSI_X963,
+		/** SP800-135 KDF: SRTP */
+		DEF_ALG_TYPE_KDF_SRTP,
+		/** SP800-185: XOF */
+		DEF_ALG_TYPE_XOF,
+		/** ANSI X9.42 */
+		DEF_ALG_TYPE_ANSI_X942,
 	} type;
 	union {
 		/** DEF_ALG_TYPE_SYM */
@@ -186,6 +195,12 @@ struct def_algo {
 		struct def_algo_kdf_tpm kdf_tpm;
 		/** DEF_ALG_TYPE_ANSI_X963 */
 		struct def_algo_ansi_x963 ansi_x963;
+		/** DEF_ALG_TYPE_KDF_SRTP */
+		struct def_algo_kdf_srtp kdf_srtp;
+		/** DEF_ALG_TYPE_XOF */
+		struct def_algo_xof xof;
+		/** DEF_ALG_TYPE_ANSI_X942 */
+		struct def_algo_ansi_x942 ansi_x942;
 	} algo;
 };
 

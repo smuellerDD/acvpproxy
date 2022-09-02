@@ -542,6 +542,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 			.inbit = false,					\
 			.inempty = true,				\
 			DEF_ALG_DOMAIN(.messagelength, DEF_ALG_ZERO_VALUE, 65536, 8),\
+			.largetest = { 1, 2, 4, 8 },			\
 			}						\
 		},							\
 	}
@@ -565,6 +566,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 			.inbit = false,					\
 			.inempty = true,				\
 			.outbit = false,				\
+			DEF_ALG_DOMAIN(.messagelength, 16, 65536, 8),	\
 			DEF_ALG_DOMAIN(.outlength, 16, 65536, 8),	\
 			}						\
 		},							\
@@ -589,7 +591,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 				.algorithm = "SHA",			\
 				.valvalue = "same"			\
 				},					\
-			DEF_ALG_DOMAIN(.keylen, 8, 524288, 8),		\
+			DEF_ALG_DOMAIN(.keylen, 112, 524288, 8),	\
 			}						\
 		},							\
 	}

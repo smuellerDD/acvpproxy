@@ -136,6 +136,7 @@ acvp_req_kas_ifc_keygen_method(const struct def_algo_kas_ifc_keygen *keygen,
 			break;
 		case DEF_ALG_RSA_MODULO_UNDEF:
 		case DEF_ALG_RSA_MODULO_1024:
+		case DEF_ALG_RSA_MODULO_1536:
 		default:
 			logger(LOGGER_WARN, LOGGER_C_ANY,
 			       "Unknown RSA modulo definition\n");
@@ -515,6 +516,23 @@ out:
 }
 
 static int
+acvp_list_algo_kas_ssc_ifc_one(const struct def_algo_kas_ifc_ssc_schema *schema,
+			       struct acvp_list_ciphers *new)
+{
+	unsigned int entry = 0;
+	int ret;
+
+	(void)schema;
+
+	CKINT(acvp_duplicate(&new->cipher_name, "KAS-IFC-SSC"));
+	if (entry < DEF_ALG_MAX_INT)
+		new->keylen[entry] = DEF_ALG_ZERO_VALUE;
+
+out:
+	return ret;
+}
+
+static int
 acvp_list_algo_kas_ifc_modulo(const struct def_algo_kas_ifc *kas_ifc,
 			      struct acvp_list_ciphers *new)
 {
@@ -553,6 +571,7 @@ acvp_list_algo_kas_ifc_modulo(const struct def_algo_kas_ifc *kas_ifc,
 			break;
 		case DEF_ALG_RSA_MODULO_UNDEF:
 		case DEF_ALG_RSA_MODULO_1024:
+		case DEF_ALG_RSA_MODULO_1536:
 		default:
 			logger(LOGGER_WARN, LOGGER_C_ANY,
 				"Unknown RSA modulo definition\n");
@@ -572,13 +591,25 @@ acvp_list_algo_kas_ifc_modulo(const struct def_algo_kas_ifc *kas_ifc,
 int acvp_list_algo_kas_ifc(const struct def_algo_kas_ifc *kas_ifc,
 			   struct acvp_list_ciphers **new)
 {
+	const struct def_algo_kas_ifc_schema *schema = kas_ifc->schema;
+	const struct def_algo_kas_ifc_ssc_schema *ssc_schema =
+							kas_ifc->ssc_schema;
 	struct acvp_list_ciphers *tmp = NULL, *prev;
 	unsigned int i;
 	int ret = 0;
 
+	if (ssc_schema &&
+	    (ssc_schema->schema == DEF_ALG_KAS_IFC_SSC_KAS1 ||
+	     ssc_schema->schema == DEF_ALG_KAS_IFC_SSC_KAS2)) {
+		CKNULL_LOG(kas_ifc->ssc_schema_num, -EINVAL,
+			   "KAS-IFC-SSC: At least one schema definition required\n");
+	} else {
+		CKNULL_LOG(kas_ifc->schema_num, -EINVAL,
+			   "KAS-IFC: At least one schema definition required\n");
+	}
+
 	for (i = 0; i < kas_ifc->schema_num; i++) {
-		const struct def_algo_kas_ifc_schema *schema =
-							kas_ifc->schema + i;
+		schema = kas_ifc->schema + i;
 
 		if (kas_ifc->function & DEF_ALG_KAS_IFC_KEYPAIRGEN) {
 			prev = tmp;
@@ -610,6 +641,23 @@ int acvp_list_algo_kas_ifc(const struct def_algo_kas_ifc *kas_ifc,
 		}
 		CKNULL_LOG(tmp, -EINVAL,
 			   "KAS IFC: No applicable entry for function found\n");
+	}
+
+	for (i = 0; i < kas_ifc->ssc_schema_num; i++) {
+		ssc_schema = kas_ifc->ssc_schema + i;
+
+		prev = tmp;
+		tmp = calloc(1, sizeof(struct acvp_list_ciphers));
+		CKNULL(tmp, -ENOMEM);
+		*new = tmp;
+		tmp->next = prev;
+
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "rsa_primitive"));
+		tmp->prereqs = kas_ifc->prereqvals;
+		tmp->prereq_num = kas_ifc->prereqvals_num;
+
+		CKINT(acvp_list_algo_kas_ssc_ifc_one(ssc_schema, tmp));
+		CKINT(acvp_list_algo_kas_ifc_modulo(kas_ifc, tmp));
 	}
 
 out:

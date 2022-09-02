@@ -519,7 +519,7 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 #define DEVEL_RSA_OAEP
 #endif
 
-#if 1
+#if 0
 static const struct def_algo_prereqs devel_kas_ifc_ssc_prereqs[] = {
 	{
 		.algorithm = "RSA",
@@ -871,6 +871,10 @@ static const struct def_algo_prereqs devell_kdf_prereqs[] = {
 	{								\
 	.type = DEF_ALG_TYPE_ANSI_X963,					\
 	.algo.ansi_x963 = {						\
+		.prereqvals = {						\
+			.algorithm = "SHA",				\
+			.valvalue = "same"				\
+			},						\
 		.hashalg = ACVP_SHA256 | ACVP_SHA384,			\
 		DEF_ALG_DOMAIN(.shared_info_len, 0, 1024, 8),		\
 		DEF_ALG_DOMAIN(.key_data_len, 128, 4096, 8),		\
@@ -880,6 +884,72 @@ static const struct def_algo_prereqs devell_kdf_prereqs[] = {
 
 #else
 #define DEVEL_ANSI_X963
+#endif
+
+/**************************************************************************
+ * TLS 1.3 Definitions
+ **************************************************************************/
+#if 0
+static const struct def_algo_prereqs devel_kdf_prereqs[] = {
+	{
+		.algorithm = "HMAC",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+};
+
+#define DEVEL_TLS13_KDF							\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_TLS13,					\
+	.algo.kdf_tls13 = {						\
+		DEF_PREREQS(devel_kdf_prereqs),				\
+		.hashalg = ACVP_SHA256 | ACVP_SHA384,			\
+		.running_mode = DEF_ALG_KDF_TLS13_MODE_DHE		\
+		}							\
+	}
+#else
+#define DEVEL_TLS13_KDF
+#endif
+
+/**************************************************************************
+ * XOF definitions
+ **************************************************************************/
+#if 0
+#define DEVEL_XOF(shake_def)						\
+	{								\
+	.type = DEF_ALG_TYPE_XOF,					\
+	.algo = {							\
+		.xof = {						\
+			.algorithm = shake_def,				\
+			.hex = true,					\
+			DEF_ALG_DOMAIN(.messagelength, 16, 65536, 8),	\
+			DEF_ALG_DOMAIN(.outlength, 16, 65536, 8),	\
+			}						\
+		},							\
+	}
+
+#define DEVEL_KMAC(kmac_def)						\
+	{								\
+	.type = DEF_ALG_TYPE_XOF,					\
+	.algo = {							\
+		.xof = {						\
+			.algorithm = kmac_def,				\
+			.xof = DEF_ALG_XOF_NOT_PRESENT |		\
+			       DEF_ALG_XOF_PRESENT,			\
+			.hex = true,					\
+			DEF_ALG_DOMAIN(.messagelength, 16, 65536, 8),	\
+			DEF_ALG_DOMAIN(.outlength, 16, 65536, 8),	\
+			DEF_ALG_DOMAIN(.keylength, 128, 524288, 8),	\
+			DEF_ALG_DOMAIN(.maclength, 32, 65536, 8),	\
+			}						\
+		},							\
+	}
+#else
+#define DEVEL_KMAC(kmac_def)
+#define DEVEL_XOF(shake_def)
 #endif
 
 /**************************************************************************
@@ -905,6 +975,36 @@ static const struct def_algo_prereqs devell_kdf_prereqs[] = {
 #else
 #define DEVEL_AES_XTS
 #endif
+
+static const struct def_algo_prereqs nss_kdf_prereqs[] = {
+	{
+		.algorithm = "HMAC",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+};
+#define NSS_HKDF							\
+	{								\
+	.type = DEF_ALG_TYPE_HKDF,					\
+	.algo.hkdf = {							\
+		DEF_PREREQS(nss_kdf_prereqs),			\
+		.mac_salt_method = DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT |	\
+				   DEF_ALG_KAS_KDF_MAC_SALT_RANDOM,	\
+		.fixed_info_pattern_type = {				\
+				DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,\
+				DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO },\
+		.cipher_spec = {					\
+			.macalg = ACVP_SHA224 | ACVP_SHA256 |		\
+				  ACVP_SHA384 | ACVP_SHA512,		\
+			DEF_ALG_DOMAIN(.z, 224, 65336, 8),		\
+			.l = 2048,					\
+			}						\
+		}							\
+	}
+
 /**************************************************************************
  * Devel Implementation Definitions
  **************************************************************************/
@@ -942,6 +1042,13 @@ static const struct def_algo devel[] = {
 	DEVEL_ANSI_X963
 
 	DEVEL_AES_XTS
+
+	DEVEL_TLS13_KDF
+
+	DEVEL_XOF(ACVP_CSHAKE256)
+	DEVEL_KMAC(ACVP_KMAC256)
+
+	NSS_HKDF
 };
 
 /**************************************************************************

@@ -1,0 +1,12 @@
+{
+  "oeEnvName":"Fedora 28",
+  "manufacturer":"Intel",
+  "procFamily":"X86",
+  "procName":"i7",
+  "procSeries":"Broadwell",
+  "features":7,
+  "envType":0,
+  "acvpOeDepProcId":22920,
+  "acvpOeDepSwId":23360,
+  "acvpOeId":21551
+}

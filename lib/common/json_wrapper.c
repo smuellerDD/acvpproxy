@@ -20,6 +20,7 @@
 
 #include <limits.h>
 #include <errno.h>
+#include <string.h>
 
 #include "binhexbin.h"
 #include "json_wrapper.h"
@@ -81,6 +82,24 @@ int json_get_string(const struct json_object *obj, const char *name,
 	*outbuf = string;
 
 	return 0;
+}
+
+int json_get_string_zero_to_null(const struct json_object *obj,
+				 const char *name, const char **outbuf)
+{
+	int ret;
+
+	CKINT(json_get_string(obj, name, outbuf));
+
+	/*
+	 * The ACVP server will discard zero length strings. This implies that
+	 * suddenly we have a mismatch between our database and the server.
+	 * Thus, replicate the ACVP server behavior here, too.
+	 */
+	if (strlen(*outbuf) == 0)
+		*outbuf = NULL;
+out:
+	return ret;
 }
 
 int json_get_uint(const struct json_object *obj, const char *name,

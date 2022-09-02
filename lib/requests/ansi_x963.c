@@ -44,8 +44,8 @@ int acvp_list_algo_ansi_x963(const struct def_algo_ansi_x963 *ansi_x963,
 	CKINT(acvp_req_cipher_to_stringarray(ansi_x963->hashalg,
 					     ACVP_CIPHERTYPE_HASH,
 					     &tmp->cipher_aux));
-	//tmp->prereqs = ansi_x963->prereqvals;
-	//tmp->prereq_num = ansi_x963->prereqvals_num;
+	tmp->prereqs = &ansi_x963->prereqvals;
+	tmp->prereq_num = 1;
 	tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
 
 out:
@@ -58,17 +58,13 @@ int acvp_req_set_prereq_ansi_x963(const struct def_algo_ansi_x963 *ansi_x963,
 {
 	int ret;
 
-	(void)ansi_x963;
-	(void)deps;
-	(void)publish;
-
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("kdf-components")));
 	CKINT(json_object_object_add(entry, "mode",
 				     json_object_new_string("ansix9.63")));
 
-	//CKINT(acvp_req_gen_prereq(&ansi_x963->prereqvals, 1, deps, entry,
-	//publish));
+	CKINT(acvp_req_gen_prereq(&ansi_x963->prereqvals, 1, deps, entry,
+				  publish));
 
 out:
 	return ret;

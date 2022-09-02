@@ -1641,6 +1641,8 @@ static int esvp_proxy_handling(struct opt_data *opts)
 	struct acvp_ctx *ctx = NULL;
 	int ret;
 
+	opts->acvp_ctx_options.esv_certify = opts->publish;
+
 	CKINT(initialize_ctx(&ctx, opts, true));
 
 	ctx->req_details.dump_register = opts->dump_register;

@@ -36,7 +36,7 @@ int acvp_req_set_prereq_hkdf(const struct def_algo_hkdf *hkdf,
 	int ret;
 
 	CKINT(json_object_object_add(entry, "algorithm",
-				     json_object_new_string("KAS-KDF")));
+				     json_object_new_string("KDA")));
 	CKINT(json_object_object_add(entry, "mode",
 				     json_object_new_string("HKDF")));
 
@@ -106,7 +106,7 @@ out:
 }
 
 /*
- * Generate algorithm entry for SP800-108 KDF
+ * Generate algorithm entry for HKDF
  */
 int acvp_req_set_algo_hkdf(const struct def_algo_hkdf *hkdf,
 			   struct json_object *entry)

@@ -308,6 +308,12 @@ out:
 	return tmp_def;
 }
 
+static inline struct json_object *
+acvp_export_string_to_json(const char *str)
+{
+	return str ? json_object_new_string(str) : NULL;
+}
+
 static int acvp_export_def_search_dep_v1(const struct def_oe *oe,
 					 struct json_object *s)
 {
@@ -319,7 +325,7 @@ static int acvp_export_def_search_dep_v1(const struct def_oe *oe,
 		if (def_dep->name && !execenv_done) {
 			CKINT(json_object_object_add(
 				s, "execenv",
-				json_object_new_string(def_dep->name)));
+				acvp_export_string_to_json(def_dep->name)));
 			/* we only store one */
 			execenv_done = true;
 		}
@@ -328,13 +334,13 @@ static int acvp_export_def_search_dep_v1(const struct def_oe *oe,
 		    def_dep->proc_series && !cpu_done) {
 			CKINT(json_object_object_add(
 				s, "processor",
-				json_object_new_string(def_dep->proc_name)));
+				acvp_export_string_to_json(def_dep->proc_name)));
 			CKINT(json_object_object_add(
 				s, "processorFamily",
-				json_object_new_string(def_dep->proc_family)));
+				acvp_export_string_to_json(def_dep->proc_family)));
 			CKINT(json_object_object_add(
 				s, "processorSeries",
-				json_object_new_string(def_dep->proc_series)));
+				acvp_export_string_to_json(def_dep->proc_series)));
 			cpu_done = true;
 		}
 
@@ -369,18 +375,18 @@ static int acvp_export_def_search_dep_v2(const struct def_oe *oe,
 		case def_dependency_software:
 			CKINT(json_object_object_add(
 				entry, "execenv",
-				json_object_new_string(def_dep->name)));
+				acvp_export_string_to_json(def_dep->name)));
 			break;
 		case def_dependency_hardware:
 			CKINT(json_object_object_add(
 				entry, "processor",
-				json_object_new_string(def_dep->proc_name)));
+				acvp_export_string_to_json(def_dep->proc_name)));
 			CKINT(json_object_object_add(
 				entry, "processorFamily",
-				json_object_new_string(def_dep->proc_family)));
+				acvp_export_string_to_json(def_dep->proc_family)));
 			CKINT(json_object_object_add(
 				entry, "processorSeries",
-				json_object_new_string(def_dep->proc_series)));
+				acvp_export_string_to_json(def_dep->proc_series)));
 			break;
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -415,12 +421,13 @@ int acvp_export_def_search(const struct acvp_testid_ctx *testid_ctx)
 
 	CKINT(json_object_object_add(
 		s, "moduleName",
-		json_object_new_string(mod_info->module_name)));
+		acvp_export_string_to_json(mod_info->module_name)));
 	CKINT(json_object_object_add(
 		s, "moduleVersion",
-		json_object_new_string(mod_info->module_version)));
+		acvp_export_string_to_json(mod_info->module_version)));
 	CKINT(json_object_object_add(
-		s, "vendorName", json_object_new_string(vendor->vendor_name)));
+		s, "vendorName",
+		acvp_export_string_to_json(vendor->vendor_name)));
 
 	switch (oe->config_file_version) {
 	case 0:
@@ -463,8 +470,8 @@ static int acvp_match_def_v1(const struct acvp_testid_ctx *testid_ctx,
 	memset(&search, 0, sizeof(search));
 	CKINT(json_get_string(def_config, "moduleName",
 			      (const char **)&search.modulename));
-	CKINT(json_get_string(def_config, "moduleVersion",
-			      (const char **)&search.moduleversion));
+	json_get_string(def_config, "moduleVersion",
+			(const char **)&search.moduleversion);
 	CKINT(json_get_string(def_config, "vendorName",
 			      (const char **)&search.vendorname));
 	ret = json_get_string(def_config, "execenv",
@@ -504,8 +511,8 @@ static int acvp_match_def_v2(const struct acvp_testid_ctx *testid_ctx,
 	memset(&search, 0, sizeof(search));
 	CKINT(json_get_string(def_config, "moduleName",
 			      (const char **)&search.modulename));
-	CKINT(json_get_string(def_config, "moduleVersion",
-			      (const char **)&search.moduleversion));
+	json_get_string(def_config, "moduleVersion",
+			(const char **)&search.moduleversion);
 	CKINT(json_get_string(def_config, "vendorName",
 			      (const char **)&search.vendorname));
 	CKINT(acvp_match_def_search(&search, def));
@@ -2204,8 +2211,8 @@ static int acvp_def_load_config_dep_typed(const struct json_object *dep_entry,
 	case def_dependency_firmware:
 	case def_dependency_os:
 	case def_dependency_software:
-		ret = json_get_string(dep_entry, "oeEnvName",
-				      (const char **)&def_dep->name);
+		ret = json_get_string_zero_to_null(dep_entry, "oeEnvName",
+						(const char **)&def_dep->name);
 		if (ret < 0) {
 			struct json_object *o = NULL;
 
@@ -2216,24 +2223,25 @@ static int acvp_def_load_config_dep_typed(const struct json_object *dep_entry,
 		/*
 		* No error handling - one or more may not exist.
 		*/
-		json_get_string(dep_entry, "cpe", (const char **)&def_dep->cpe);
-		json_get_string(dep_entry, "swid",
-				(const char **)&def_dep->swid);
-		json_get_string(dep_entry, "oe_description",
-				(const char **)&def_dep->description);
+		json_get_string_zero_to_null(dep_entry, "cpe",
+					     (const char **)&def_dep->cpe);
+		json_get_string_zero_to_null(dep_entry, "swid",
+					     (const char **)&def_dep->swid);
+		json_get_string_zero_to_null(dep_entry, "oe_description",
+					(const char **)&def_dep->description);
 		break;
 	case def_dependency_hardware:
-		CKINT(json_get_string(dep_entry, "manufacturer",
-				      (const char **)&def_dep->manufacturer));
-		CKINT(json_get_string(dep_entry, "procFamily",
-				      (const char **)&def_dep->proc_family));
+		CKINT(json_get_string_zero_to_null(dep_entry, "manufacturer",
+					(const char **)&def_dep->manufacturer));
+		CKINT(json_get_string_zero_to_null(dep_entry, "procFamily",
+					(const char **)&def_dep->proc_family));
 		/* This is an option */
-		json_get_string(dep_entry, "procFamilyInternal",
+		json_get_string_zero_to_null(dep_entry, "procFamilyInternal",
 				(const char **)&def_dep->proc_family_internal);
-		CKINT(json_get_string(dep_entry, "procName",
-				      (const char **)&def_dep->proc_name));
-		CKINT(json_get_string(dep_entry, "procSeries",
-				      (const char **)&def_dep->proc_series));
+		CKINT(json_get_string_zero_to_null(dep_entry, "procName",
+					(const char **)&def_dep->proc_name));
+		json_get_string_zero_to_null(dep_entry, "procSeries",
+					(const char **)&def_dep->proc_series);
 		CKINT(json_get_uint(dep_entry, "features",
 				    (uint32_t *)&def_dep->features));
 		CKINT(acvp_check_features(def_dep->features));
@@ -2372,15 +2380,15 @@ static int acvp_def_load_config_module(const struct json_object *info_config,
 	int ret;
 
 	CKINT(acvp_def_alloc_lock(&info->def_lock));
-	CKINT(json_get_string(info_config, "moduleName",
-			      (const char **)&info->module_name));
+	CKINT(json_get_string_zero_to_null(info_config, "moduleName",
+					   (const char **)&info->module_name));
 	/* This is an option */
-	json_get_string(info_config, "moduleNameInternal",
-			(const char **)&info->module_name_internal);
-	CKINT(json_get_string(info_config, "moduleVersion",
-			      (const char **)&info->module_version));
-	CKINT(json_get_string(info_config, "moduleDescription",
-			      (const char **)&info->module_description));
+	json_get_string_zero_to_null(info_config, "moduleNameInternal",
+				(const char **)&info->module_name_internal);
+	CKINT(json_get_string_zero_to_null(info_config, "moduleVersion",
+				(const char **)&info->module_version));
+	CKINT(json_get_string_zero_to_null(info_config, "moduleDescription",
+				(const char **)&info->module_description));
 	ret = json_get_uint(info_config, "moduleType",
 			    (uint32_t *)&info->module_type);
 	if (ret < 0) {
@@ -2407,29 +2415,29 @@ static int acvp_def_load_config_vendor(const struct json_object *vendor_config,
 	int ret;
 
 	CKINT(acvp_def_alloc_lock(&vendor->def_lock));
-	CKINT(json_get_string(vendor_config, "vendorName",
-			      (const char **)&vendor->vendor_name));
-	CKINT(json_get_string(vendor_config, "vendorUrl",
-			      (const char **)&vendor->vendor_url));
-	CKINT(json_get_string(vendor_config, "contactName",
-			      (const char **)&vendor->contact_name));
-	CKINT(json_get_string(vendor_config, "contactEmail",
-			      (const char **)&vendor->contact_email));
+	CKINT(json_get_string_zero_to_null(vendor_config, "vendorName",
+					(const char **)&vendor->vendor_name));
+	CKINT(json_get_string_zero_to_null(vendor_config, "vendorUrl",
+					(const char **)&vendor->vendor_url));
+	CKINT(json_get_string_zero_to_null(vendor_config, "contactName",
+					(const char **)&vendor->contact_name));
+	CKINT(json_get_string_zero_to_null(vendor_config, "contactEmail",
+					(const char **)&vendor->contact_email));
 	/* no error handling */
-	json_get_string(vendor_config, "contactPhone",
-			(const char **)&vendor->contact_phone);
-	CKINT(json_get_string(vendor_config, "addressStreet",
-			      (const char **)&vendor->addr_street));
-	CKINT(json_get_string(vendor_config, "addressCity",
-			      (const char **)&vendor->addr_locality));
-	ret = json_get_string(vendor_config, "addressState",
-			      (const char **)&vendor->addr_region);
+	json_get_string_zero_to_null(vendor_config, "contactPhone",
+					(const char **)&vendor->contact_phone);
+	CKINT(json_get_string_zero_to_null(vendor_config, "addressStreet",
+					(const char **)&vendor->addr_street));
+	CKINT(json_get_string_zero_to_null(vendor_config, "addressCity",
+					(const char **)&vendor->addr_locality));
+	ret = json_get_string_zero_to_null(vendor_config, "addressState",
+					(const char **)&vendor->addr_region);
 	if (ret)
 		vendor->addr_region = NULL;
-	CKINT(json_get_string(vendor_config, "addressCountry",
-			      (const char **)&vendor->addr_country));
-	CKINT(json_get_string(vendor_config, "addressZip",
-			      (const char **)&vendor->addr_zipcode));
+	CKINT(json_get_string_zero_to_null(vendor_config, "addressCountry",
+					(const char **)&vendor->addr_country));
+	CKINT(json_get_string_zero_to_null(vendor_config, "addressZip",
+					(const char **)&vendor->addr_zipcode));
 
 	/* We do not read the vendor and person IDs here */
 

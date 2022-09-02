@@ -16,6 +16,13 @@
         "inBit":false,
         "inEmpty":true,
         "outBit":false,
+        "messageLength":[
+          {
+            "min":16,
+            "max":65536,
+            "increment":8
+          }
+        ],
         "outputLen":[
           {
             "min":16,
@@ -30,6 +37,13 @@
         "inBit":false,
         "inEmpty":true,
         "outBit":false,
+        "messageLength":[
+          {
+            "min":16,
+            "max":65536,
+            "increment":8
+          }
+        ],
         "outputLen":[
           {
             "min":16,

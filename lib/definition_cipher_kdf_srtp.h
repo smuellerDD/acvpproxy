@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2022 - 2022, Joachim Vandersmissen <joachim@atsec.com>
  *
  * License: see LICENSE file in root directory
  *
@@ -18,13 +18,13 @@
  */
 
 /**
- * This header file defines the required data for ANSI X9.63 KDF ciphers.
+ * This header file defines the required data for SRTP KDF ciphers.
  * In order to define a given implementation, the following data structure must
- * be instantiated. The root of the data structure is @struct def_algo_ansi_x963.
+ * be instantiated. The root of the data structure is @struct def_algo_kdf_srtp.
  */
 
-#ifndef DEFINITION_CIPHER_ANSI_X963_H
-#define DEFINITION_CIPHER_ANSI_X963_H
+#ifndef DEFINITION_CIPHER_KDF_SRTP_H
+#define DEFINITION_CIPHER_KDF_SRTP_H
 
 #include "definition_common.h"
 
@@ -32,53 +32,38 @@
 extern "C" {
 #endif
 
-struct def_algo_ansi_x963 {
+struct def_algo_kdf_srtp {
 	/*
-	 * Prerequisites to ANSI X9.63 KDF
+	 * Prerequisites to KDF SRTP
 	 * required: always
-	 * SHA
+	 * AES
 	 */
 	const struct def_algo_prereqs prereqvals;
 
 	/*
-	 * ACVP_SHA224
-	 * ACVP_SHA256
-	 * ACVP_SHA384
-	 * ACVP_SHA512
+	 * AES key length in bits
 	 * required: always
 	 */
-	cipher_t hashalg;
+#define DEF_ALG_KDF_SRTP_KEYLEN_128 (1 << 0)
+#define DEF_ALG_KDF_SRTP_KEYLEN_192 (1 << 1)
+#define DEF_ALG_KDF_SRTP_KEYLEN_256 (1 << 2)
+	unsigned int aes_key_length;
 
 	/*
-	 * Shared Info length supported by the KDF in bits between 0 and 1024
-	 *
-	 * This can be a domain definition.
-	 *
+	 * Whether or not the IUT supports an empty KDR
 	 * required: always
 	 */
-	int shared_info_len[DEF_ALG_MAX_INT];
+	bool supports_zero_kdr;
 
 	/*
-	 * Minimum and Maximum field size in bits
-	 *
-	 * Any non-empty subset of {224, 233, 256, 283, 384, 409, 521, 571}
-	 *
-	 * required: always
+	 * Key Derivation Rate as an exponent of 2
+	 * required: only if supports_zero_kdr is set to false
 	 */
-	int field_size[2];
-
-	/*
-	 * Key length minimum and maximum between 128 and 4096
-	 *
-	 * This can be a domain definition.
-	 *
-	 * required: always
-	 */
-	int key_data_len[DEF_ALG_MAX_INT];
+	int kdr_exponent[25];
 };
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* DEFINITION_CIPHER_ANSI_X963_H */
+#endif /* DEFINITION_CIPHER_KDF_SRTP_H */

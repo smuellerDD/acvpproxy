@@ -232,6 +232,11 @@ struct acvp_req_ctx {
 
 struct acvp_opts_ctx {
 	/*
+	 * Certify request for ESVP proxy
+	 */
+	bool esv_certify;
+
+	/*
 	 * Resubmit an already submitted vsID result.
 	 */
 	bool resubmit_result;

@@ -21,7 +21,7 @@
         ],
         "keyLen":[
           {
-            "min":8,
+            "min":112,
             "max":524288,
             "increment":8
           }
@@ -41,7 +41,7 @@
         ],
         "keyLen":[
           {
-            "min":8,
+            "min":112,
             "max":524288,
             "increment":8
           }
@@ -61,7 +61,7 @@
         ],
         "keyLen":[
           {
-            "min":8,
+            "min":112,
             "max":524288,
             "increment":8
           }
@@ -81,7 +81,7 @@
         ],
         "keyLen":[
           {
-            "min":8,
+            "min":112,
             "max":524288,
             "increment":8
           }
@@ -101,7 +101,7 @@
         ],
         "keyLen":[
           {
-            "min":8,
+            "min":112,
             "max":524288,
             "increment":8
           }
@@ -121,7 +121,7 @@
         ],
         "keyLen":[
           {
-            "min":8,
+            "min":112,
             "max":524288,
             "increment":8
           }
@@ -141,7 +141,7 @@
         ],
         "keyLen":[
           {
-            "min":8,
+            "min":112,
             "max":524288,
             "increment":8
           }
@@ -161,7 +161,7 @@
         ],
         "keyLen":[
           {
-            "min":8,
+            "min":112,
             "max":524288,
             "increment":8
           }
@@ -181,7 +181,7 @@
         ],
         "keyLen":[
           {
-            "min":8,
+            "min":112,
             "max":524288,
             "increment":8
           }

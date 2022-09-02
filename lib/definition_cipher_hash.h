@@ -100,6 +100,15 @@ struct def_algo_shake {
 	cipher_t algorithm;
 
 	/*
+	 * Minimum and maximum message length (0 - 65536)
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * required: always
+	 */
+	int messagelength[DEF_ALG_MAX_INT];
+
+	/*
 	 * Implementation accepts bit-oriented messages
 	 * required: always
 	 */
@@ -125,6 +134,18 @@ struct def_algo_shake {
 	 * required: always
 	 */
 	bool outbit;
+
+	/*
+	 * Implementation shall be tested with large messages.
+	 * Note, the test data must be processed with a single hash
+	 * operation or single hash update operation!
+	 *
+	 * The supported message sizes in multiples of GiBytes (2^30 bytes or
+	 * 2^33 bits) must be specified.
+	 *
+	 * required: optional
+	 */
+	int largetest[DEF_ALG_MAX_INT];
 };
 
 #ifdef __cplusplus

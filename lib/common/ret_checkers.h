@@ -30,7 +30,7 @@ extern "C" {
 	{                                                                      \
 		ret = x;                                                       \
 		if (ret < 0) {                                                 \
-			logger(LOGGER_DEBUG, LOGGER_C_ANY,                      \
+			logger(LOGGER_DEBUG, LOGGER_C_ANY,                     \
 			       "Failure with return code %d\n", ret);          \
 			goto out;                                              \
 		}                                                              \

@@ -39,11 +39,21 @@ static int acvp_req_rsa_modulo(enum rsa_mode rsa_mode, enum rsa_modulo modulo,
 		if (rsa_mode != DEF_ALG_RSA_MODE_SIGVER &&
 		    rsa_mode != DEF_ALG_RSA_MODE_LEGACY_SIGVER) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "RSA: modulo 1024 only allowed for (legacy and regulars) signature verification\n");
+			       "RSA: modulo 1024 only allowed for (legacy) signature verification\n");
 			return -EINVAL;
 		}
 		CKINT(json_object_object_add(entry, "modulo",
 					     json_object_new_int(1024)));
+		break;
+	case DEF_ALG_RSA_MODULO_1536:
+		if (rsa_mode != DEF_ALG_RSA_MODE_SIGVER &&
+		    rsa_mode != DEF_ALG_RSA_MODE_LEGACY_SIGVER) {
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			       "RSA: modulo 1536 only allowed for (legacy) signature verification\n");
+			return -EINVAL;
+		}
+		CKINT(json_object_object_add(entry, "modulo",
+					     json_object_new_int(1536)));
 		break;
 	case DEF_ALG_RSA_MODULO_2048:
 		CKINT(json_object_object_add(entry, "modulo",
@@ -91,6 +101,9 @@ static int acvp_req_rsa_modulo_list(enum rsa_modulo modulo, cipher_t *keylen)
 	switch (modulo) {
 	case DEF_ALG_RSA_MODULO_1024:
 		*keylen = 1024;
+		break;
+	case DEF_ALG_RSA_MODULO_1536:
+		*keylen = 1536;
 		break;
 	case DEF_ALG_RSA_MODULO_2048:
 		*keylen = 2048;

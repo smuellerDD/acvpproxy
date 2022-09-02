@@ -54,7 +54,7 @@ extern "C" {
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
  */
-#define PATCHLEVEL 6
+#define PATCHLEVEL 7
 
 struct acvp_test_deps {
 	char *dep_cipher;
@@ -315,6 +315,27 @@ int acvp_req_set_prereq_ansi_x963(const struct def_algo_ansi_x963 *ansi_x963,
 				  const struct acvp_test_deps *deps,
 				  struct json_object *entry, bool publish);
 int acvp_list_algo_ansi_x963(const struct def_algo_ansi_x963 *ansi_x963,
+			     struct acvp_list_ciphers **new);
+
+int acvp_req_set_algo_kdf_srtp(const struct def_algo_kdf_srtp *kdf_srtp,
+			       struct json_object *entry);
+int acvp_req_set_prereq_kdf_srtp(const struct def_algo_kdf_srtp *kdf_srtp,
+				 const struct acvp_test_deps *deps,
+				 struct json_object *entry, bool publish);
+int acvp_list_algo_kdf_srtp(const struct def_algo_kdf_srtp *kdf_srtp,
+			    struct acvp_list_ciphers **new);
+
+int acvp_req_set_algo_xof(const struct def_algo_xof *xof,
+			  struct json_object *entry);
+int acvp_list_algo_xof(const struct def_algo_xof *xof,
+		       struct acvp_list_ciphers **new);
+
+int acvp_req_set_algo_ansi_x942(const struct def_algo_ansi_x942 *ansi_x942,
+				struct json_object *entry);
+int acvp_req_set_prereq_ansi_x942(const struct def_algo_ansi_x942 *ansi_x942,
+				  const struct acvp_test_deps *deps,
+				  struct json_object *entry, bool publish);
+int acvp_list_algo_ansi_x942(const struct def_algo_ansi_x942 *ansi_x942,
 			     struct acvp_list_ciphers **new);
 
 struct acvp_net_proto {

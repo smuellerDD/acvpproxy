@@ -38,6 +38,26 @@ static const struct def_algo_prereqs openssl_gcm_prereqs[] = {
 
 #define OPENSSL_AES_ECB		GENERIC_AES_ECB
 #define OPENSSL_AES_CBC		GENERIC_AES_CBC
+#define OPENSSL_AES_CBC_CS1						\
+	{								\
+	GENERIC_AES_ALGO_GEN(ACVP_CBC_CS1),				\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 8),			\
+	.algo.sym.ivlen = { 128, },					\
+	}
+
+#define OPENSSL_AES_CBC_CS2						\
+	{								\
+	GENERIC_AES_ALGO_GEN(ACVP_CBC_CS2),				\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 8),			\
+	.algo.sym.ivlen = { 128, },					\
+	}
+
+#define OPENSSL_AES_CBC_CS3						\
+	{								\
+	GENERIC_AES_ALGO_GEN(ACVP_CBC_CS3),				\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 8),			\
+	.algo.sym.ivlen = { 128, },					\
+	}
 #define OPENSSL_AES_CTR		GENERIC_AES_CTR
 #define OPENSSL_AES_KW		GENERIC_AES_KW
 #define OPENSSL_AES_KWP		GENERIC_AES_KWP
@@ -362,31 +382,16 @@ static const struct def_algo_rsa_keygen_caps openssl_rsa_keygen_caps[] = { {
 	OPENSSL_RSA_KEYGEN_CAPS_COMMON
 } };
 
-static const struct def_algo_rsa_keygen openssl1_rsa_keygen = {
+static const struct def_algo_rsa_keygen openssl_rsa_keygen = {
 	.rsa_randpq = DEF_ALG_RSA_PQ_B33_PRIMES,
 	.capabilities = openssl_rsa_keygen_caps,
 	.capabilities_num = ARRAY_SIZE(openssl_rsa_keygen_caps),
 };
 
-#define OPENSSL_RSA_KEYGEN_CAPS_COMMON_OPENSSL3				\
-	.hashalg = ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512,\
-	.rsa_primetest = DEF_ALG_RSA_PRIMETEST_C2,
-
-static const struct def_algo_rsa_keygen_caps openssl3_rsa_keygen_caps[] = { {
-	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
-	OPENSSL_RSA_KEYGEN_CAPS_COMMON_OPENSSL3
-}, {
-	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
-	OPENSSL_RSA_KEYGEN_CAPS_COMMON_OPENSSL3
-}, {
-	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
-	OPENSSL_RSA_KEYGEN_CAPS_COMMON_OPENSSL3
-} };
-
-static const struct def_algo_rsa_keygen openssl3_rsa_keygen = {
+static const struct def_algo_rsa_keygen openssl_3_rsa_keygen = {
 	.rsa_randpq = DEF_ALG_RSA_PQ_B36_PRIMES,
-	.capabilities = openssl3_rsa_keygen_caps,
-	.capabilities_num = ARRAY_SIZE(openssl3_rsa_keygen_caps),
+	.capabilities = openssl_rsa_keygen_caps,
+	.capabilities_num = ARRAY_SIZE(openssl_rsa_keygen_caps),
 };
 
 static const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
@@ -394,7 +399,7 @@ static const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
 	.keyformat = DEF_ALG_RSA_KEYFORMAT_STANDARD,
 };
 
-#define OPENSSL1_RSA_KEYGEN						\
+#define OPENSSL_RSA_KEYGEN						\
 	{								\
 	.type = DEF_ALG_TYPE_RSA,					\
 	.algo = {							\
@@ -402,13 +407,13 @@ static const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
 			.rsa_mode = DEF_ALG_RSA_MODE_KEYGEN,		\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.gen_info.keygen = &openssl_rsa_keygen_gen,	\
-			.algspecs.keygen = &openssl1_rsa_keygen,	\
+			.algspecs.keygen = &openssl_rsa_keygen,	\
 			.algspecs_num = 1,				\
 			}						\
 		}							\
 	}
 
-#define OPENSSL3_RSA_KEYGEN						\
+#define OPENSSL_3_RSA_KEYGEN						\
 	{								\
 	.type = DEF_ALG_TYPE_RSA,					\
 	.algo = {							\
@@ -416,7 +421,7 @@ static const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
 			.rsa_mode = DEF_ALG_RSA_MODE_KEYGEN,		\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.gen_info.keygen = &openssl_rsa_keygen_gen,	\
-			.algspecs.keygen = &openssl3_rsa_keygen,	\
+			.algspecs.keygen = &openssl_3_rsa_keygen,	\
 			.algspecs_num = 1,				\
 			}						\
 		}							\
@@ -425,8 +430,9 @@ static const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
 #define OPENSSL_RSA_SIGGEN_CAPS_COMMON					\
 	.hashalg = ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512
 
-#define OPENSSL_RSA_SIGGEN_CAPS_X931					\
-	.hashalg = ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512
+#define OPENSSL_3_RSA_SIGGEN_CAPS_COMMON				\
+	.hashalg = ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512 |\
+		   ACVP_SHA512224 | ACVP_SHA512256
 
 static const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
@@ -451,6 +457,31 @@ static const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps_pss[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
 	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
 	OPENSSL_RSA_SIGGEN_CAPS_COMMON
+} };
+
+static const struct def_algo_rsa_siggen_caps openssl_3_rsa_siggen_caps[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	OPENSSL_3_RSA_SIGGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	OPENSSL_3_RSA_SIGGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	OPENSSL_3_RSA_SIGGEN_CAPS_COMMON
+} };
+
+static const struct def_algo_rsa_siggen_caps openssl_3_rsa_siggen_caps_pss[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
+	OPENSSL_3_RSA_SIGGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
+	OPENSSL_3_RSA_SIGGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
+	OPENSSL_3_RSA_SIGGEN_CAPS_COMMON
 } };
 
 #define OPENSSL_RSA_SIGGEN_CAPS_X931					\
@@ -481,6 +512,20 @@ static const struct def_algo_rsa_siggen openssl_rsa_siggen[] = { {
 	.capabilities_num = ARRAY_SIZE(openssl_rsa_siggen_caps_x931),
 } };
 
+static const struct def_algo_rsa_siggen openssl_3_rsa_siggen[] = { {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_PKCS1V15,
+	.capabilities = openssl_3_rsa_siggen_caps,
+	.capabilities_num = ARRAY_SIZE(openssl_3_rsa_siggen_caps),
+}, {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_PSS,
+	.capabilities = openssl_3_rsa_siggen_caps_pss,
+	.capabilities_num = ARRAY_SIZE(openssl_3_rsa_siggen_caps_pss),
+}, {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_ANSIX931,
+	.capabilities = openssl_rsa_siggen_caps_x931,
+	.capabilities_num = ARRAY_SIZE(openssl_rsa_siggen_caps_x931),
+} };
+
 #define OPENSSL_RSA_SIGGEN						\
 	{								\
 	.type = DEF_ALG_TYPE_RSA,					\
@@ -494,9 +539,26 @@ static const struct def_algo_rsa_siggen openssl_rsa_siggen[] = { {
 		}							\
 	}
 
+#define OPENSSL_3_RSA_SIGGEN						\
+	{								\
+	.type = DEF_ALG_TYPE_RSA,					\
+	.algo = {							\
+		.rsa = {						\
+			.rsa_mode = DEF_ALG_RSA_MODE_SIGGEN,		\
+			DEF_PREREQS(openssl_rsa_prereqs),		\
+			.algspecs.siggen = openssl_3_rsa_siggen,	\
+			.algspecs_num = ARRAY_SIZE(openssl_3_rsa_siggen),\
+			}						\
+		}							\
+	}
+
 #define OPENSSL_RSA_SIGVER_CAPS_COMMON					\
 	.hashalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |\
 		   ACVP_SHA512
+
+#define OPENSSL_3_RSA_SIGVER_CAPS_COMMON				\
+	.hashalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |\
+		   ACVP_SHA512 | ACVP_SHA512224 | ACVP_SHA512256
 
 static const struct def_algo_rsa_sigver_caps openssl_rsa_sigver_caps[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_1024,
@@ -512,9 +574,22 @@ static const struct def_algo_rsa_sigver_caps openssl_rsa_sigver_caps[] = { {
 	OPENSSL_RSA_SIGVER_CAPS_COMMON,
 } };
 
+static const struct def_algo_rsa_sigver_caps openssl_3_rsa_sigver_caps[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_1024,
+	OPENSSL_3_RSA_SIGVER_CAPS_COMMON,
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	OPENSSL_3_RSA_SIGVER_CAPS_COMMON,
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	OPENSSL_3_RSA_SIGVER_CAPS_COMMON,
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	OPENSSL_3_RSA_SIGVER_CAPS_COMMON,
+} };
+
 #define OPENSSL_RSA_SIGVER_CAPS_COMMON_X931				\
-	.hashalg = ACVP_SHA1 | ACVP_SHA256 | ACVP_SHA384 |		\
-		   ACVP_SHA512
+	.hashalg = ACVP_SHA1 | ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512	\
 
 static const struct def_algo_rsa_sigver_caps openssl_rsa_sigver_caps_x931[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_1024,
@@ -544,6 +619,20 @@ static const struct def_algo_rsa_sigver openssl_rsa_sigver[] = { {
 	.capabilities_num = ARRAY_SIZE(openssl_rsa_sigver_caps_x931),
 } };
 
+static const struct def_algo_rsa_sigver openssl_3_rsa_sigver[] = { {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_PKCS1V15,
+	.capabilities = openssl_3_rsa_sigver_caps,
+	.capabilities_num = ARRAY_SIZE(openssl_3_rsa_sigver_caps),
+}, {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_PSS,
+	.capabilities = openssl_3_rsa_sigver_caps,
+	.capabilities_num = ARRAY_SIZE(openssl_3_rsa_sigver_caps),
+}, {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_ANSIX931,
+	.capabilities = openssl_rsa_sigver_caps_x931,
+	.capabilities_num = ARRAY_SIZE(openssl_rsa_sigver_caps_x931),
+} };
+
 static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
 	.pubexpmode = DEF_ALG_RSA_PUBEXTMODE_RANDOM,
 };
@@ -557,7 +646,21 @@ static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.gen_info.sigver = &openssl_rsa_sigver_gen,	\
 			.algspecs.sigver = openssl_rsa_sigver,		\
-			.algspecs_num = ARRAY_SIZE(openssl_rsa_sigver),	\
+			.algspecs_num = ARRAY_SIZE(openssl_rsa_sigver),\
+			}						\
+		}							\
+	}
+
+#define OPENSSL_3_RSA_SIGVER						\
+	{								\
+	.type = DEF_ALG_TYPE_RSA,					\
+	.algo = {							\
+		.rsa = {						\
+			.rsa_mode = DEF_ALG_RSA_MODE_SIGVER,		\
+			DEF_PREREQS(openssl_rsa_prereqs),		\
+			.gen_info.sigver = &openssl_rsa_sigver_gen,	\
+			.algspecs.sigver = openssl_3_rsa_sigver,	\
+			.algspecs_num = ARRAY_SIZE(openssl_3_rsa_sigver),\
 			}						\
 		}							\
 	}
@@ -567,9 +670,15 @@ const struct def_algo_kas_ifc_schema openssl_kas_ifc_schema_kts[] = { {
 	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
 			DEF_ALG_KAS_IFC_RESPONDER,
 	.kts_method = {
+		// Normally, we have a distinct OPENSSL_3 definition when
+		// ACVP_SHA512224 or ACVP_SHA512256 are used (preserving
+		// backwards-compatibility with OpenSSL 1.0.x). However, because
+		// these truncated hashes were actually added in OpenSSL 1.1.1,
+		// the same release as OAEP, we can get away with it here.
 		.hashalg = ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |
-			   ACVP_SHA512 | ACVP_SHA3_224 | ACVP_SHA3_256 |
-			   ACVP_SHA3_384 | ACVP_SHA3_512,
+			   ACVP_SHA512 | ACVP_SHA512224 | ACVP_SHA512256 |
+			   ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |
+			   ACVP_SHA3_512,
 		.supports_null_association_data = true,
 		.associated_data_pattern_type = {
 			DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,
@@ -634,7 +743,7 @@ const struct def_algo_kas_ifc_schema openssl_kas_ifc_schema_kts[] = { {
 		}							\
 	}
 
-#define OPENSSL_ECDSA_SIGGEN(curves)					\
+#define OPENSSL_ECDSA_SIGGEN_COMMON(curves, hashes)			\
 	{								\
 	.type = DEF_ALG_TYPE_ECDSA,					\
 	.algo = {							\
@@ -642,13 +751,12 @@ const struct def_algo_kas_ifc_schema openssl_kas_ifc_schema_kts[] = { {
 			.ecdsa_mode = DEF_ALG_ECDSA_MODE_SIGGEN,	\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.curve = curves,				\
-			.hashalg = ACVP_SHA224 | ACVP_SHA256 |		\
-				   ACVP_SHA384 | ACVP_SHA512,		\
+			.hashalg = hashes,				\
 			}						\
 		}							\
 	}
 
-#define OPENSSL_ECDSA_SIGVER(curves)					\
+#define OPENSSL_ECDSA_SIGVER_COMMON(curves, hashes)			\
 	{								\
 	.type = DEF_ALG_TYPE_ECDSA,					\
 	.algo = {							\
@@ -656,44 +764,41 @@ const struct def_algo_kas_ifc_schema openssl_kas_ifc_schema_kts[] = { {
 			.ecdsa_mode = DEF_ALG_ECDSA_MODE_SIGVER,	\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.curve = curves,				\
-			.hashalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 | \
-				   ACVP_SHA384 | ACVP_SHA512,		\
+			.hashalg = hashes,				\
 			}						\
 		}							\
 	}
+
+#define OPENSSL_ECDSA_SIGGEN(curves)					\
+	OPENSSL_ECDSA_SIGGEN_COMMON(curves, ACVP_SHA224 | ACVP_SHA256 |	\
+				     ACVP_SHA384 | ACVP_SHA512)
+#define OPENSSL_ECDSA_SIGVER(curves)					\
+	OPENSSL_ECDSA_SIGVER_COMMON(curves, ACVP_SHA1 | ACVP_SHA224 |	\
+					    ACVP_SHA256 | ACVP_SHA384 |	\
+					    ACVP_SHA512)
+
+#define OPENSSL_3_ECDSA_SIGGEN(curves)					\
+	OPENSSL_ECDSA_SIGGEN_COMMON(curves, ACVP_SHA224 | ACVP_SHA256 |	\
+					    ACVP_SHA384 | ACVP_SHA512 |	\
+					    ACVP_SHA512224 | ACVP_SHA512256)
+#define OPENSSL_3_ECDSA_SIGVER(curves)					\
+	OPENSSL_ECDSA_SIGVER_COMMON(curves, ACVP_SHA1 | ACVP_SHA224 |	\
+					    ACVP_SHA256 | ACVP_SHA384 |	\
+					    ACVP_SHA512 | ACVP_SHA512224 |\
+					    ACVP_SHA512256)
 
 #define OPENSSL_ECDSA_SIGGEN_SHA3(curves)				\
-	{								\
-	.type = DEF_ALG_TYPE_ECDSA,					\
-	.algo = {							\
-		.ecdsa = {						\
-			.ecdsa_mode = DEF_ALG_ECDSA_MODE_SIGGEN,	\
-			DEF_PREREQS(openssl_rsa_prereqs),		\
-			.curve = curves,				\
-			.hashalg = ACVP_SHA3_224 | ACVP_SHA3_256 |	\
-				   ACVP_SHA3_384 | ACVP_SHA3_512,	\
-			}						\
-		}							\
-	}
+	OPENSSL_ECDSA_SIGGEN_COMMON(curves, ACVP_SHA3_224 | ACVP_SHA3_256 |\
+					    ACVP_SHA3_384 | ACVP_SHA3_512)
 
 #define OPENSSL_ECDSA_SIGVER_SHA3(curves)				\
-	{								\
-	.type = DEF_ALG_TYPE_ECDSA,					\
-	.algo = {							\
-		.ecdsa = {						\
-			.ecdsa_mode = DEF_ALG_ECDSA_MODE_SIGVER,	\
-			DEF_PREREQS(openssl_rsa_prereqs),		\
-			.curve = curves,				\
-			.hashalg = ACVP_SHA3_224 | ACVP_SHA3_256 |	\
-				   ACVP_SHA3_384 | ACVP_SHA3_512,	\
-			}						\
-		}							\
-	}
+	OPENSSL_ECDSA_SIGVER_COMMON(curves, ACVP_SHA3_224 | ACVP_SHA3_256 |\
+					    ACVP_SHA3_384 | ACVP_SHA3_512)
 
 /**************************************************************************
  * DSA Definitions
  **************************************************************************/
-#define OPENSSL_DSA_PQG_COMMON(x, L, N, hashes)				\
+#define OPENSSL_DSA_PQG_COMMON(x, L, N, hashes, g_gen_method)		\
 	{								\
 	.type = DEF_ALG_TYPE_DSA,					\
 	.algo = {							\
@@ -703,16 +808,16 @@ const struct def_algo_kas_ifc_schema openssl_kas_ifc_schema_kts[] = { {
 			.dsa_n = N,					\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.dsa_pq_gen_method = DEF_ALG_DSA_PROBABLE_PQ_GEN, \
-			.dsa_g_gen_method = DEF_ALG_DSA_UNVERIFIABLE_G_GEN, \
+			.dsa_g_gen_method = g_gen_method, 		\
 			.hashalg = hashes,				\
 			}						\
 		}							\
 	}
 
-#define OPENSSL_DSA_PQGGEN(L, N, hashes)				\
-		OPENSSL_DSA_PQG_COMMON(DEF_ALG_DSA_MODE_PQGGEN, L, N, hashes)
-#define OPENSSL_DSA_PQGVER(L, N, hashes)				\
-		OPENSSL_DSA_PQG_COMMON(DEF_ALG_DSA_MODE_PQGVER, L, N, hashes)
+#define OPENSSL_DSA_PQGGEN(L, N, hashes, g_gen_method)			\
+		OPENSSL_DSA_PQG_COMMON(DEF_ALG_DSA_MODE_PQGGEN, L, N, hashes, g_gen_method)
+#define OPENSSL_DSA_PQGVER(L, N, hashes, g_gen_method)			\
+		OPENSSL_DSA_PQG_COMMON(DEF_ALG_DSA_MODE_PQGVER, L, N, hashes, g_gen_method)
 
 #define OPENSSL_DSA_KEYGEN(L, N)					\
 	{								\
@@ -937,21 +1042,19 @@ static const struct def_algo_prereqs openssl_kdf_prereqs[] = {
 	.algo.kdf_tls = {						\
 		DEF_PREREQS(openssl_kdf_prereqs),			\
 		.tls_version = DEF_ALG_KDF_TLS_1_2,			\
-		.hashalg = ACVP_SHA256 | ACVP_SHA384			\
+		.hashalg = ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512	\
 		}							\
 	}
-
-#define OPENSSL_KDF							\
-	OPENSSL_TLS11_KDF,						\
-	OPENSSL_TLS12_KDF
 
 #define OPENSSL_TLS13_KDF						\
 	{								\
 	.type = DEF_ALG_TYPE_KDF_TLS13,					\
 	.algo.kdf_tls13 = {						\
 		DEF_PREREQS(openssl_kdf_prereqs),			\
-		.hashalg = ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512,	\
-		.running_mode = DEF_ALG_KDF_TLS13_MODE_DHE		\
+		.hashalg = ACVP_SHA256 | ACVP_SHA384,			\
+		.running_mode = DEF_ALG_KDF_TLS13_MODE_DHE |		\
+				DEF_ALG_KDF_TLS13_MODE_PSK |		\
+				DEF_ALG_KDF_TLS13_MODE_PSK_DHE		\
 		}							\
 	}
 
@@ -1105,7 +1208,10 @@ static const struct def_algo_prereqs openssl_kbkdf_cmac_prereqs[] = {
 		.kdf_108_type = kdf_type,				\
 		.macalg = ACVP_HMACSHA1 | ACVP_HMACSHA2_224 |		\
 			  ACVP_HMACSHA2_256 | ACVP_HMACSHA2_384 |	\
-			  ACVP_HMACSHA2_512,				\
+			  ACVP_HMACSHA2_512 | ACVP_HMACSHA2_512224 | 	\
+			  ACVP_HMACSHA2_512256 | ACVP_HMACSHA3_224 |	\
+			  ACVP_HMACSHA3_256 | ACVP_HMACSHA3_384 |	\
+			  ACVP_HMACSHA3_512,				\
 		.supported_lengths = { 8, 72, 128, 776, 3456, 4096 },	\
 		.fixed_data_order = ctr_loc,				\
 		.counter_lengths = DEF_ALG_KDF_108_COUNTER_LENGTH_32,	\
@@ -1118,6 +1224,83 @@ static const struct def_algo_prereqs openssl_kbkdf_cmac_prereqs[] = {
 			       DEF_ALG_KDF_108_COUNTER_ORDER_BEFORE_FIXED_DATA),\
 	OPENSSL_KBKDF_HMAC_DEF(DEF_ALG_KDF_108_FEEDBACK,		\
 			       DEF_ALG_KDF_108_COUNTER_ORDER_BEFORE_FIXED_DATA)
+
+/**************************************************************************
+ * ANSI X9.42 Definitions
+ **************************************************************************/
+#define OPENSSL_ANSI_X942_COMMON					\
+		.prereqvals = {						\
+			.algorithm = "SHA",				\
+			.valvalue = "same"				\
+			},						\
+		.kdf_type = DEF_ALG_ANSI_X942_KDF_DER,			\
+		DEF_ALG_DOMAIN(.key_len, 8, 4096, 8),			\
+		DEF_ALG_DOMAIN(.supp_info_len, DEF_ALG_ZERO_VALUE, 256, 8),\
+		DEF_ALG_DOMAIN(.zz_len, 8, 4096, 8),			\
+		.oid = DEF_ALG_ANSI_X942_OID_AES_128_KW |		\
+		       DEF_ALG_ANSI_X942_OID_AES_192_KW |		\
+		       DEF_ALG_ANSI_X942_OID_AES_256_KW,		\
+
+#define OPENSSL_ANSI_X942						\
+	{								\
+	.type = DEF_ALG_TYPE_ANSI_X942,					\
+	.algo.ansi_x942 = {						\
+		OPENSSL_ANSI_X942_COMMON				\
+		.hashalg = ACVP_SHA1 | 					\
+			   ACVP_SHA224 | ACVP_SHA256 |			\
+			   ACVP_SHA384 | ACVP_SHA512 | 			\
+			   ACVP_SHA512224 | ACVP_SHA512256,		\
+		}							\
+	}
+
+#define OPENSSL_ANSI_X942_SHA3						\
+	{								\
+	.type = DEF_ALG_TYPE_ANSI_X942,					\
+	.algo.ansi_x942 = {						\
+		OPENSSL_ANSI_X942_COMMON				\
+		.hashalg = ACVP_SHA3_224 | ACVP_SHA3_256 |		\
+			   ACVP_SHA3_384 | ACVP_SHA3_512,		\
+		}							\
+	}
+
+/**************************************************************************
+ * ANSI X9.63 Definitions
+ **************************************************************************/
+#define OPENSSL_ANSI_X963						\
+	{								\
+	.type = DEF_ALG_TYPE_ANSI_X963,					\
+	.algo.ansi_x963 = {						\
+		.prereqvals = {						\
+			.algorithm = "SHA",				\
+			.valvalue = "same"				\
+			},						\
+		.hashalg = ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |	\
+			   ACVP_SHA512,					\
+		DEF_ALG_DOMAIN(.shared_info_len, DEF_ALG_ZERO_VALUE, 1024, 8),\
+		DEF_ALG_DOMAIN(.key_data_len, 128, 4096, 8),		\
+		.field_size = { 224, 571 },				\
+		}							\
+	}
+
+/**************************************************************************
+ * XOF definitions
+ **************************************************************************/
+#define OPENSSL_KMAC(kmac_def)						\
+	{								\
+	.type = DEF_ALG_TYPE_XOF,					\
+	.algo = {							\
+		.xof = {						\
+			.algorithm = kmac_def,				\
+			.xof = DEF_ALG_XOF_NOT_PRESENT |		\
+			       DEF_ALG_XOF_PRESENT,			\
+			.hex = true,					\
+			DEF_ALG_DOMAIN(.messagelength, 0, 65536, 8),	\
+			DEF_ALG_DOMAIN(.outlength, 16, 65536, 8),	\
+			DEF_ALG_DOMAIN(.keylength, 128, 1024, 8),	\
+			DEF_ALG_DOMAIN(.maclength, 32, 65536, 8),	\
+			}						\
+		},							\
+	}
 
 /**************************************************************************
  * OpenSSL Generic Definitions
@@ -1160,6 +1343,29 @@ static const struct def_algo openssl_aes [] = {
 	OPENSSL_DRBG_CTR,
 };
 
+static const struct def_algo openssl_3_aes [] = {
+	OPENSSL_AES_OFB,
+	OPENSSL_AES_CFB1,
+	OPENSSL_AES_CFB8,
+	OPENSSL_AES_CFB128,
+	OPENSSL_AES_ECB,
+	OPENSSL_AES_CBC,
+	OPENSSL_AES_CBC_CS1,
+	OPENSSL_AES_CBC_CS2,
+	OPENSSL_AES_CBC_CS3,
+	OPENSSL_AES_XTS,
+	OPENSSL_AES_CTR,
+	OPENSSL_AES_KW,
+	OPENSSL_AES_KWP,
+
+	OPENSSL_AES_CCM,
+
+	OPENSSL_CMAC_AES,
+
+	/* Built-in DRBG in crypto/rand/ */
+	OPENSSL_DRBG_CTR,
+};
+
 static const struct def_algo openssl_gcm [] = {
 	OPENSSL_AES_GCM,
 	//zero length data not supported by OpenSSL
@@ -1176,6 +1382,7 @@ static const struct def_algo openssl_ffcdh [] = {
 };
 
 #define OPENSSL_SHA_COMMON						\
+	OPENSSL_SHA(ACVP_SHA1),						\
 	OPENSSL_SHA(ACVP_SHA224),					\
 	OPENSSL_SHA(ACVP_SHA256),					\
 	OPENSSL_SHA(ACVP_SHA384),					\
@@ -1187,31 +1394,10 @@ static const struct def_algo openssl_ffcdh [] = {
 	OPENSSL_HMAC(ACVP_HMACSHA2_384),				\
 	OPENSSL_HMAC(ACVP_HMACSHA2_512),				\
 									\
-	OPENSSL_RSA_SIGGEN,						\
-	OPENSSL_RSA_SIGVER,						\
 	OPENSSL_RSA_OAEP,						\
 									\
 	OPENSSL_ECDSA_KEYGEN(NISTP_CURVES),				\
 	OPENSSL_ECDSA_KEYVER(NISTP_CURVES),				\
-	OPENSSL_ECDSA_SIGGEN(NISTP_CURVES),				\
-	OPENSSL_ECDSA_SIGVER(NISTP_CURVES),				\
-									\
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224,	\
-			   ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |	\
-			   ACVP_SHA512),				\
-									\
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256,	\
-			   ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512),	\
-									\
-	/* DSA_generate_key */						\
-	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256,	\
-			   ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512),	\
-									\
-	/* TODO OpenSSL SLES does not have 1024 bits, RHEL has it	\
-	   OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_1024, DEF_ALG_DSA_N_160, ACVP_SHA1),*/\
-	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224, ACVP_SHA224),\
-	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256, ACVP_SHA256),\
-	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256, ACVP_SHA256),\
 									\
 	OPENSSL_DSA_KEYGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224),	\
 	OPENSSL_DSA_KEYGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256),	\
@@ -1238,7 +1424,6 @@ static const struct def_algo openssl_ffcdh [] = {
 			   ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 |	\
 			   ACVP_SHA384 | ACVP_SHA512),			\
 									\
-	OPENSSL_KDF,							\
 	/* OPENSSL_KAS_ECC, */						\
 	/* OPENSSL_KAS_ECC_CDH, */					\
 	OPENSSL_KAS_ECC_SSC_R3(NISTP_CURVES),				\
@@ -1246,30 +1431,117 @@ static const struct def_algo openssl_ffcdh [] = {
 	OPENSSL_PBKDF(ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 |		\
 		      ACVP_SHA384 | ACVP_SHA512)
 
-#define OPENSSL3_SHA_COMMON						\
+#define OPENSSL_1_SHA_COMMON						\
 	OPENSSL_SHA_COMMON,						\
-	OPENSSL3_RSA_KEYGEN
+									\
+	OPENSSL_RSA_KEYGEN,						\
+	OPENSSL_RSA_SIGGEN,						\
+	OPENSSL_RSA_SIGVER,						\
+									\
+	OPENSSL_ECDSA_SIGGEN(NISTP_CURVES),				\
+	OPENSSL_ECDSA_SIGVER(NISTP_CURVES),				\
+									\
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224,	\
+			   ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |	\
+			   ACVP_SHA512, DEF_ALG_DSA_UNVERIFIABLE_G_GEN),\
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256,	\
+			   ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512,	\
+			   DEF_ALG_DSA_UNVERIFIABLE_G_GEN),		\
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256,	\
+			   ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512,	\
+			   DEF_ALG_DSA_UNVERIFIABLE_G_GEN),		\
+	/* TODO OpenSSL SLES does not have 1024 bits, RHEL has it	\
+	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_1024, DEF_ALG_DSA_N_160, 	\
+			   ACVP_SHA1, DEF_ALG_DSA_UNVERIFIABLE_G_GEN),*/\
+	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224, 	\
+			   ACVP_SHA224, DEF_ALG_DSA_UNVERIFIABLE_G_GEN),\
+	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256, 	\
+			   ACVP_SHA256, DEF_ALG_DSA_UNVERIFIABLE_G_GEN),\
+	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256,	\
+			   ACVP_SHA256, DEF_ALG_DSA_UNVERIFIABLE_G_GEN),\
+									\
+	OPENSSL_TLS11_KDF,						\
+	OPENSSL_TLS12_KDF,						\
+									\
+	OPENSSL_PBKDF(ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 |		\
+		      ACVP_SHA384 | ACVP_SHA512)
 
-#define OPENSSL1_SHA_COMMON						\
+#define OPENSSL_3_SHA_COMMON						\
 	OPENSSL_SHA_COMMON,						\
-	OPENSSL1_RSA_KEYGEN
+									\
+	OPENSSL_SHA(ACVP_SHA512224),					\
+	OPENSSL_SHA(ACVP_SHA512256),					\
+									\
+	OPENSSL_HMAC(ACVP_HMACSHA2_512224),				\
+	OPENSSL_HMAC(ACVP_HMACSHA2_512256),				\
+									\
+	OPENSSL_3_RSA_KEYGEN,						\
+	OPENSSL_3_RSA_SIGGEN,						\
+	OPENSSL_3_RSA_SIGVER,						\
+									\
+	OPENSSL_3_ECDSA_SIGGEN(NISTP_CURVES),				\
+	OPENSSL_3_ECDSA_SIGVER(NISTP_CURVES),				\
+									\
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224,	\
+			   ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |	\
+			   ACVP_SHA512 | ACVP_SHA512224 | ACVP_SHA512256,\
+			   DEF_ALG_DSA_UNVERIFIABLE_G_GEN |		\
+			   DEF_ALG_DSA_CANONICAL_G_GEN),		\
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256,	\
+			   ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512 |	\
+			   ACVP_SHA512256,				\
+			   DEF_ALG_DSA_UNVERIFIABLE_G_GEN |		\
+			   DEF_ALG_DSA_CANONICAL_G_GEN),		\
+	OPENSSL_DSA_PQGGEN(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256,	\
+			   ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512 |	\
+			   ACVP_SHA512256,				\
+			   DEF_ALG_DSA_UNVERIFIABLE_G_GEN |		\
+			   DEF_ALG_DSA_CANONICAL_G_GEN),		\
+	/* TODO OpenSSL SLES does not have 1024 bits, RHEL has it	\
+	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_1024, DEF_ALG_DSA_N_160, 	\
+			   ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 |	\
+			   ACVP_SHA384 | ACVP_SHA512 | ACVP_SHA512224 |	\
+			   ACVP_SHA512256, 				\
+			   DEF_ALG_DSA_UNVERIFIABLE_G_GEN |		\
+			   DEF_ALG_DSA_CANONICAL_G_GEN),*/		\
+	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_224, 	\
+			   ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |	\
+			   ACVP_SHA512 | ACVP_SHA512224 | ACVP_SHA512256,\
+			   DEF_ALG_DSA_UNVERIFIABLE_G_GEN |		\
+			   DEF_ALG_DSA_CANONICAL_G_GEN),		\
+	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256, 	\
+			   ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512 |	\
+			   ACVP_SHA512256,				\
+			   DEF_ALG_DSA_UNVERIFIABLE_G_GEN |		\
+			   DEF_ALG_DSA_CANONICAL_G_GEN),		\
+	OPENSSL_DSA_PQGVER(DEF_ALG_DSA_L_3072, DEF_ALG_DSA_N_256,	\
+			   ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512 |	\
+			   ACVP_SHA512256, 				\
+			   DEF_ALG_DSA_UNVERIFIABLE_G_GEN |		\
+			   DEF_ALG_DSA_CANONICAL_G_GEN),		\
+	OPENSSL_TLS12_KDF,						\
+									\
+	OPENSSL_PBKDF(ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 |		\
+		      ACVP_SHA384 | ACVP_SHA512 | ACVP_SHA512224 |	\
+		      ACVP_SHA512256),					\
+									\
+	OPENSSL_ANSI_X942,						\
+	OPENSSL_ANSI_X963
 
-static const struct def_algo openssl1_sha [] = {
-	OPENSSL_SHA(ACVP_SHA1),
-	OPENSSL1_SHA_COMMON
+static const struct def_algo openssl_sha [] = {
+	OPENSSL_1_SHA_COMMON
 };
 
-static const struct def_algo openssl3_sha [] = {
-	OPENSSL_SHA(ACVP_SHA1),
-	OPENSSL3_SHA_COMMON
+static const struct def_algo openssl_3_sha [] = {
+	OPENSSL_3_SHA_COMMON
 };
 
-static const struct def_algo openssl1_sha_power_vmx [] = {
-	OPENSSL1_SHA_COMMON
+static const struct def_algo openssl_sha_power_vmx [] = {
+	OPENSSL_1_SHA_COMMON
 };
 
-static const struct def_algo openssl3_sha_power_vmx [] = {
-	OPENSSL3_SHA_COMMON
+static const struct def_algo openssl_3_sha_power_vmx [] = {
+	OPENSSL_3_SHA_COMMON
 };
 
 static const struct def_algo openssl_ssh [] = {
@@ -1294,7 +1566,33 @@ static const struct def_algo openssl_sha3 [] = {
 
 	OPENSSL_PBKDF(ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |
 		      ACVP_SHA3_512),
-		      
+
+	OPENSSL_ECDSA_SIGGEN_SHA3(NISTP_CURVES),
+	OPENSSL_ECDSA_SIGVER_SHA3(NISTP_CURVES),
+};
+
+static const struct def_algo openssl_3_sha3 [] = {
+	OPENSSL_SHA(ACVP_SHA3_224),
+	OPENSSL_SHA(ACVP_SHA3_256),
+	OPENSSL_SHA(ACVP_SHA3_384),
+	OPENSSL_SHA(ACVP_SHA3_512),
+
+	OPENSSL_HMAC(ACVP_HMACSHA3_224),
+	OPENSSL_HMAC(ACVP_HMACSHA3_256),
+	OPENSSL_HMAC(ACVP_HMACSHA3_384),
+	OPENSSL_HMAC(ACVP_HMACSHA3_512),
+
+	OPENSSL_ANSI_X942_SHA3,
+
+	OPENSSL_KMAC(ACVP_KMAC128),
+	OPENSSL_KMAC(ACVP_KMAC256),
+
+	OPENSSL_SHAKE(ACVP_SHAKE128),
+	OPENSSL_SHAKE(ACVP_SHAKE256),
+
+	OPENSSL_PBKDF(ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |
+		      ACVP_SHA3_512),
+
 	OPENSSL_ECDSA_SIGGEN_SHA3(NISTP_CURVES),
 	OPENSSL_ECDSA_SIGVER_SHA3(NISTP_CURVES),
 };
@@ -1318,19 +1616,26 @@ static const struct def_algo openssl_neon [] = {
 };
 
 static const struct def_algo openssl_tls13 [] = {
-	//OPENSSL_TLS13_KDF,
+	OPENSSL_TLS13_KDF,
 	OPENSSL_HKDF
 };
 
 static const struct def_algo openssl_ecdsa_BK_curves [] = {
-	OPENSSL_ECDSA_KEYGEN(NISTB_CURVES | NISTK_CURVES),		\
-	OPENSSL_ECDSA_KEYVER(NISTB_CURVES | NISTK_CURVES),		\
-	OPENSSL_ECDSA_SIGGEN(NISTB_CURVES | NISTK_CURVES),		\
+	OPENSSL_ECDSA_KEYGEN(NISTB_CURVES | NISTK_CURVES),
+	OPENSSL_ECDSA_KEYVER(NISTB_CURVES | NISTK_CURVES),
+	OPENSSL_ECDSA_SIGGEN(NISTB_CURVES | NISTK_CURVES),
 	OPENSSL_ECDSA_SIGVER(NISTB_CURVES | NISTK_CURVES),
 };
 
+static const struct def_algo openssl_3_ecdsa_BK_curves [] = {
+	OPENSSL_ECDSA_KEYGEN(NISTB_CURVES | NISTK_CURVES),
+	OPENSSL_ECDSA_KEYVER(NISTB_CURVES | NISTK_CURVES),
+	OPENSSL_3_ECDSA_SIGGEN(NISTB_CURVES | NISTK_CURVES),
+	OPENSSL_3_ECDSA_SIGVER(NISTB_CURVES | NISTK_CURVES),
+};
+
 static const struct def_algo openssl_ecdsa_sha3_BK_curves [] = {
-	OPENSSL_ECDSA_SIGGEN_SHA3(NISTB_CURVES | NISTK_CURVES),		\
+	OPENSSL_ECDSA_SIGGEN_SHA3(NISTB_CURVES | NISTK_CURVES),
 	OPENSSL_ECDSA_SIGVER_SHA3(NISTB_CURVES | NISTK_CURVES),
 };
 
@@ -1341,9 +1646,7 @@ static const struct def_algo openssl_ecdh_BK_curves [] = {
 /*
  * TODO OpenSSL 3: add
  *
- * X963 KDF
- * X942 KDF
- *
+ * KDA OneStep and TwoStep
  * DRBG: CTR, Hash, HMAC
  */
 
@@ -1356,25 +1659,22 @@ static const struct def_algo openssl_ecdh_BK_curves [] = {
 	IMPLEMENTATION(impl3, "3_OpenSSL", proc, impl_name, impl_description)
 
 #define OPENSSL_IMPL_SHA(proc, imple_name, imple_description)		\
-	OPENSSL_IMPL_COMMON(openssl1_sha, openssl3_sha,			\
+	OPENSSL_IMPL_COMMON(openssl_sha, openssl_3_sha,			\
 			    proc, imple_name, imple_description)
 
 #define OPENSSL_IMPL_SHA_POWER(proc, imple_name, imple_description)	\
-	OPENSSL_IMPL_COMMON(openssl1_sha_power_vmx, openssl3_sha_power_vmx,\
+	OPENSSL_IMPL_COMMON(openssl_sha_power_vmx, openssl_3_sha_power_vmx,\
 			    proc, imple_name, imple_description)
 
 static struct def_algo_map openssl_algo_map [] = {
 	/* OpenSSL TDES C implementation **************************************/
-	OPENSSL_IMPL_COMMON(openssl_tdes, openssl_tdes, "", "TDES_C",
-			    "Generic C non-optimized TDES implementation"),
-	/* OpenSSL 3 TDES C implementation **************************************/
-	OPENSSL_IMPL_COMMON(openssl_3_tdes, openssl_3_tdes, "", "3_TDES_C",
+	OPENSSL_IMPL_COMMON(openssl_tdes, openssl_3_tdes, "", "TDES_C",
 			    "Generic C non-optimized TDES implementation"),
 	/* OpenSSL KBKDF implementation **********************/
 	OPENSSL_IMPL_COMMON(openssl_kbkdf, openssl_kbkdf, "", "KBKDF",
 			    "Generic C non-optimized KBKDF implementation"),
 	/* OpenSSL ECC all curves implementation **********************/
-	OPENSSL_IMPL_COMMON(openssl_ecdsa_BK_curves, openssl_ecdsa_BK_curves,
+	OPENSSL_IMPL_COMMON(openssl_ecdsa_BK_curves, openssl_3_ecdsa_BK_curves,
 			    "", "ECDSA K/B", "ECDSA with K and B curves"),
 	OPENSSL_IMPL_COMMON(openssl_ecdsa_sha3_BK_curves,
 			    openssl_ecdsa_sha3_BK_curves,
@@ -1386,7 +1686,7 @@ static struct def_algo_map openssl_algo_map [] = {
 	OPENSSL_IMPL_COMMON(openssl_tls13, openssl_tls13, "",
 			    "TLS v1.3", "TLS v1.3 implementation"),
 	/* OpenSSL AESNI implementation ***************************************/
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_aes, "X86", "AESNI",
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "X86", "AESNI",
 			    "Intel AES-NI AES implementation"),
 	/* OpenSSL AESNI with AVX GHASH multiplication implementation *********/
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESNI_AVX",
@@ -1399,7 +1699,7 @@ static struct def_algo_map openssl_algo_map [] = {
 			    "Intel AES-NI AES using assembler block mode implementation"),
 
 	/* OpenSSL AES assembler implementation *******************************/
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_aes, "X86", "AESASM",
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "X86", "AESASM",
 			    "Assembler AES implementation"),
 	/* OpenSSL AES assembler with AVX GHASH multiplication implementation */
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESASM_AVX",
@@ -1418,7 +1718,7 @@ static struct def_algo_map openssl_algo_map [] = {
 			    "Assembler AES using GCM with assembler GHASH implementation"),
 
 	/* OpenSSL AES constant time SSSE3 and Bit Slice implementation *******/
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_aes, "X86", "BAES_CTASM",
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "X86", "BAES_CTASM",
 			    "Constant-time bit slice AES implementation"),
 	/***********************************************************************
 	 * OpenSSL AES constant time SSSE3 and Bit Slice with AVX GHASH
@@ -1458,13 +1758,13 @@ static struct def_algo_map openssl_algo_map [] = {
 			    "SSH KDF using assembler SHA implementation"),
 
 	/* OpenSSL SHA3 AVX2 implementation ***********************************/
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_sha3, "X86", "SHA3_AVX2",
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "X86", "SHA3_AVX2",
 			    "AVX2 SHA-3 implementation"),
 	/* OpenSSL SHA3 AVX512 implementation *********************************/
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_sha3, "X86", "SHA3_AVX512",
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "X86", "SHA3_AVX512",
 			    "Intel AVX-512 SHA-3 implementation"),
 	/* OpenSSL SHA3 assembler implementation ******************************/
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_sha3, "X86", "SHA3_ASM",
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "X86", "SHA3_ASM",
 			    "Assembler SHA-3 implementation"),
 	/* OpenSSL FFC DH implementation **************************************/
 	OPENSSL_IMPL_COMMON(openssl_ffcdh, openssl_ffcdh, "", "FFC_DH",
@@ -1502,7 +1802,7 @@ static struct def_algo_map openssl_algo_map [] = {
 	aesv8-armx.pl), for ARVV7_NEON c) (e.g. vpaes_encrypt, defined in
 	vpaes-armv8.pl) and for capmask with those bits off d) (e.g. AES_encrypt).
 	**********************************************************************/
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_aes, "ARM64", "AES_C",
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "ARM64", "AES_C",
 			    "Generic C AES implementation"),
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "ARM64", "AES_C_GCM",
 			    "Generic C AES GCM implementation"),
@@ -1512,7 +1812,7 @@ static struct def_algo_map openssl_algo_map [] = {
 	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "ARM64", "SSH_ASM",
 			    "SSH KDF using Assembler SHA implementation"),
 	/* OpenSSL ARM64v8 SHA3 assembler implementation **********************/
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_sha3, "ARM64", "SHA3_ASM",
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "ARM64", "SHA3_ASM",
 			    "Assembler SHA-3 implementation"),
 	/* OpenSSL ARM NEON Assembler implementation **************************/
 	OPENSSL_IMPL_COMMON(openssl_neon, openssl_neon, "ARM64", "NEON",
@@ -1521,20 +1821,20 @@ static struct def_algo_map openssl_algo_map [] = {
 	 * Note: we may execute more ciphers than strictly provided by the CE
 	 * implementation, but we do not care
 	 */
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_aes, "ARM64", "CE",
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "ARM64", "CE",
 			    "ARM Cryptographic Extension AES implementation"),
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "ARM64", "CE_GCM",
 			    "ARM Cryptographic Extension GCM implementation"),
 	OPENSSL_IMPL_SHA("ARM64", "SHA_CE",
 			 "ARM Cryptographic Extension SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_sha3, "ARM64", "SHA3_CE",
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "ARM64", "SHA3_CE",
 			    "ARM Cryptographic Extension SHA-3 implementation"),
 
 	/* OpenSSL ARM64v8 NEON bit slicing implementation ********************
 	 * Note: we may execute more ciphers than strictly provided by the NEON
 	 * implementation, but we do not care
 	 */
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_aes, "ARM64", "VPAES",
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "ARM64", "VPAES",
 			    "ARM NEON bit slicing AES implementation"),
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "ARM64", "VPAES_GCM",
 			    "ARM NEON bit slicing AES using GCM implementation"),
@@ -1550,9 +1850,9 @@ static struct def_algo_map openssl_algo_map [] = {
 	OPENSSL_IMPL_SHA("S390", "SHA_ASM", "Assembler SHA implementation"),
 
 	/* OpenSSL S390x SHA3 implementations ************************/
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_sha3, "S390", "SHA3_CPACF",
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "S390", "SHA3_CPACF",
 			    "CPACF SHA-3 implementation"),
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_sha3, "S390", "SHA3_ASM",
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "S390", "SHA3_ASM",
 			    "Assembler SHA-3 implementation"),
 	
 	/* OpenSSL S390x SSH implementations*****************************/
@@ -1562,10 +1862,10 @@ static struct def_algo_map openssl_algo_map [] = {
 			    "SSH KDF using Assembler SHA implementation"),
 
 	/* OpenSSL S390x CPACF AES implementation *****************************/
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_aes, "S390", "AES_CPACF",
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "S390", "AES_CPACF",
 			    "CPACF AES implementation"),
 	/* OpenSSL S390x AES assembler implementation*****************************/	    
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_aes, "S390", "AESASM",
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "S390", "AESASM",
 			    "Assembler AES implementation"),
 	
 	/* OpenSSL S390x AES GCM implementations*****************************/
@@ -1589,10 +1889,10 @@ static struct def_algo_map openssl_algo_map [] = {
 	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "POWER", "SSH_ASM",
 			    "SSH KDF using Assembler SHA implementation"),
 	/* OpenSSL S390x SHA3 assembler implementation ************************/
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_sha3, "POWER", "SHA3_ASM",
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "POWER", "SHA3_ASM",
 			    "Assembler SHA-3 implementation"),
 	/* OpenSSL POWER assembler implementation *****************************/
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_aes, "POWER", "AESASM",
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "POWER", "AESASM",
 			    "Assembler AES implementation"),
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "POWER", "AESASM_ASM",
 			    "Assembler AES using GCM with assembler GHASH implementation"),
@@ -1602,13 +1902,13 @@ static struct def_algo_map openssl_algo_map [] = {
 			       "VMX Assembler SHA implementation"),
 	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "POWER", "SSH_VMX",
 			    "SSH KDF using VMX Assembler SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_aes, "POWER", "AES_VMX",
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "POWER", "AES_VMX",
 			    "VMX Assembler AES implementation"),
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "POWER", "AES_VMX_ASM",
 			    "VMX Assembler AES using GCM with assembler GHASH implementation"),
 
 	/* OpenSSL POWER Altivec implementation *******************************/
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_aes, "POWER", "AES_Altivec",
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "POWER", "AES_Altivec",
 			    "Altivec Assembler AES implementation"),
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "POWER", "AES_Altivec_ASM",
 			    "Altivec Assembler AES using GCM with assembler GHASH implementation"),

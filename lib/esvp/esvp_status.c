@@ -103,7 +103,8 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 
 		CKINT(json_get_uint(sd_entry, "sdId", &sd->sd_id));
 		CKINT(json_get_string(sd_entry, "filename", &str);
-		      CKINT(acvp_duplicate(&sd->filename, str)));
+		CKINT(acvp_duplicate(&sd->filename, str)));
+		CKINT(json_get_bool(sd_entry, "submitted", &sd->submitted));
 
 		/*
 		 * Append the new conditioning component entry at the end of the list
@@ -166,6 +167,12 @@ int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
 			CKINT(json_object_object_add(
 				sd_data, "filename",
 				json_object_new_string(sd->filename)));
+			CKINT(json_object_object_add(
+				sd_data, "filename",
+				json_object_new_string(sd->filename)));
+			CKINT(json_object_object_add(
+				sd_data, "submitted",
+				json_object_new_boolean(sd->submitted)));
 		}
 	}
 

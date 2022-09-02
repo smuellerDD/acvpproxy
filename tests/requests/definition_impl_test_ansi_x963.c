@@ -28,6 +28,10 @@
 	{								\
 	.type = DEF_ALG_TYPE_ANSI_X963,					\
 	.algo.ansi_x963 = {						\
+		.prereqvals = {						\
+			.algorithm = "SHA",				\
+			.valvalue = "same"				\
+			},						\
 		.hashalg = ACVP_SHA256 | ACVP_SHA384,			\
 		DEF_ALG_DOMAIN(.shared_info_len, 0, 1024, 8),		\
 		DEF_ALG_DOMAIN(.key_data_len, 128, 4096, 8),		\

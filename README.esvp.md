@@ -12,6 +12,20 @@ the ESVP proxy.
 
 When apart from the search scope, the ESVP proxy is invoked with no other
 parameter, it registers the entropy source and uploads the associated data.
+For example, the following command uploads the data for the Jitter RNG entropy
+source.
+
+	`esvp-proxy -m Jitter -f`
+
+This call attempts also the certify operation. This operation most likely will
+fail for the first time as the entropy data needs to be calculated. In this
+case, please invoke the [Re-start Entropy Source Certify] operation at a later
+time.
+
+## Re-start Entropy Source Certify
+
+In order to re-start the certify operation to fetch the certificate, invoke
+`esvp-proxy` with --testid `<ID>` that refers to the certification ID.
 
 ### Entropy Source Configuration
 
@@ -93,6 +107,8 @@ contains the following information:
 
 * `primaryNoiseSource`: This references a free-form name of the primary
 noise source.
+
+* `labTestId`: This references a 4-letter lab test id.
 
 * `bitsPerSample`: the number of bits per sample outputted by the noise source
 

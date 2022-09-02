@@ -120,6 +120,7 @@ void esvp_def_es_free(struct esvp_es_def *es)
 	acvp_free_buf(&es->raw_noise_restart_hash);
 
 	ACVP_PTR_FREE_NULL(es->primary_noise_source_desc);
+	ACVP_PTR_FREE_NULL(es->lab_test_id);
 	ACVP_PTR_FREE_NULL(es->config_dir);
 
 	esvp_def_cc_free(es->cc);
@@ -291,6 +292,9 @@ static int esvp_read_es_def(const char *directory, struct esvp_es_def **es_out)
 
 	CKINT(json_get_string(es_conf, "primaryNoiseSource", &str));
 	CKINT(acvp_duplicate(&es->primary_noise_source_desc, str));
+
+	CKINT(json_get_string(es_conf, "labTestId", &str));
+	CKINT(acvp_duplicate(&es->lab_test_id, str));
 
 	snprintf(es_data_file, sizeof(es_data_file), "%s/%s/%s%s",
 		 es->config_dir, ESVP_ES_DIR_ENTROPY_SOURCE,

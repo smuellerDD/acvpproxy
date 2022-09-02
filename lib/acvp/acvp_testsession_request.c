@@ -326,6 +326,17 @@ static int acvp_req_set_algo(struct json_object *algorithms,
 		CKINT(acvp_req_set_algo_ansi_x963(&def_algo->algo.ansi_x963,
 						  entry));
 		break;
+	case DEF_ALG_TYPE_KDF_SRTP:
+		CKINT(acvp_req_set_algo_kdf_srtp(&def_algo->algo.kdf_srtp,
+						 entry));
+		break;
+	case DEF_ALG_TYPE_XOF:
+		CKINT(acvp_req_set_algo_xof(&def_algo->algo.xof, entry));
+		break;
+	case DEF_ALG_TYPE_ANSI_X942:
+		CKINT(acvp_req_set_algo_ansi_x942(&def_algo->algo.ansi_x942,
+						  entry));
+		break;
 
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY,

@@ -270,6 +270,16 @@ static int acvp_list_cipher_gatherer(const struct definition *def,
 		CKINT(acvp_list_algo_ansi_x963(&def_algo->algo.ansi_x963,
 					       &new));
 		break;
+	case DEF_ALG_TYPE_KDF_SRTP:
+		CKINT(acvp_list_algo_kdf_srtp(&def_algo->algo.kdf_srtp, &new));
+		break;
+	case DEF_ALG_TYPE_XOF:
+		CKINT(acvp_list_algo_xof(&def_algo->algo.xof, &new));
+		break;
+	case DEF_ALG_TYPE_ANSI_X942:
+		CKINT(acvp_list_algo_ansi_x942(&def_algo->algo.ansi_x942,
+					       &new));
+		break;
 
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY,

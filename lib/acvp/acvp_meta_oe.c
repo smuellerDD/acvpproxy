@@ -67,27 +67,33 @@ static int acvp_oe_build_dep_proc(const struct def_dependency *def_dep,
 	//TODO: SPEC says it is called "cpu", but this works as well!?
 	if (!check_ignore_flag) {
 		CKINT(json_object_object_add(dep, "type",
-					     json_object_new_string(typename)));
+					     typename ?
+					     json_object_new_string(typename) :
+					     NULL));
 	}
 	if (acvp_check_ignore(check_ignore_flag, def_dep->manufacturer_i)) {
 		CKINT(json_object_object_add(
 			dep, "manufacturer",
-			json_object_new_string(def_dep->manufacturer)));
+			def_dep->manufacturer ?
+			json_object_new_string(def_dep->manufacturer) : NULL));
 	}
 	if (acvp_check_ignore(check_ignore_flag, def_dep->proc_family_i)) {
 		CKINT(json_object_object_add(
 			dep, "family",
-			json_object_new_string(def_dep->proc_family)));
+			def_dep->proc_family ?
+			json_object_new_string(def_dep->proc_family) : NULL));
 	}
 	if (acvp_check_ignore(check_ignore_flag, def_dep->proc_name_i)) {
 		CKINT(json_object_object_add(
 			dep, "name",
-			json_object_new_string(def_dep->proc_name)));
+			def_dep->proc_name ?
+			json_object_new_string(def_dep->proc_name) : NULL));
 	}
 	if (acvp_check_ignore(check_ignore_flag, def_dep->proc_series_i)) {
 		CKINT(json_object_object_add(
 			dep, "series",
-			json_object_new_string(def_dep->proc_series)));
+			def_dep->proc_series ?
+			json_object_new_string(def_dep->proc_series): NULL));
 	}
 
 	if (acvp_check_ignore(check_ignore_flag, def_dep->description_i)) {
@@ -763,8 +769,12 @@ static int acvp_oe_match_oe_deps_matcher(struct json_object *dep,
 	 * this reference specifies the underlying software.
 	 */
 	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
-		if (def_dep->def_dependency_type != type)
+		if (def_dep->def_dependency_type != type) {
+			logger(LOGGER_DEBUG, LOGGER_C_ANY,
+			       "Dependency types mismatch, ignoring %s\n",
+			       def_dep->name);
 			continue;
+		}
 
 		switch (type) {
 		case def_dependency_firmware:
@@ -1116,10 +1126,20 @@ static int acvp_oe_validate_add_searchopts(const char *searchstr, char *url,
 					   const unsigned int urllen)
 {
 	int ret;
-	char queryoptions[384], str[128];
+	char str[FILENAME_MAX], queryoptions[sizeof(str) + 20];
+	size_t searchstr_len;
 
 	if (!searchstr)
 		return 0;
+
+	searchstr_len = strlen(searchstr);
+
+	/* Allow for some buffer for the HTML conversion */
+	if (searchstr_len >= sizeof(str) - 100) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "String %s too long for processing\n", searchstr);
+		return -EOVERFLOW;
+	}
 
 	/*
 	 * Set a query option consisting of the dependency name - we OR all
@@ -1188,7 +1208,7 @@ static int acvp_oe_validate_all_dep(const struct acvp_testid_ctx *testid_ctx,
 							   acvp_http_post,
 							   false);
 			}
-			if (ret && ret != -EAGAIN)
+			if (ret && ret != -EAGAIN && ret != -ENOENT)
 				goto out;
 		}
 	}

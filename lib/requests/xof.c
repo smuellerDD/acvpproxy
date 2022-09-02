@@ -29,8 +29,8 @@
 #include "internal.h"
 #include "request_helper.h"
 
-int acvp_list_algo_shake(const struct def_algo_shake *shake,
-			 struct acvp_list_ciphers **new)
+int acvp_list_algo_xof(const struct def_algo_xof *xof,
+		       struct acvp_list_ciphers **new)
 {
 	struct acvp_list_ciphers *tmp;
 	const char *name;
@@ -42,7 +42,7 @@ int acvp_list_algo_shake(const struct def_algo_shake *shake,
 
 	tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
 
-	CKINT(acvp_req_cipher_to_name(shake->algorithm,
+	CKINT(acvp_req_cipher_to_name(xof->algorithm,
 				      ACVP_CIPHERTYPE_HASH, &name));
 	CKINT(acvp_duplicate(&tmp->cipher_name, name));
 
@@ -50,14 +50,15 @@ out:
 	return ret;
 }
 
-int acvp_req_set_algo_shake(const struct def_algo_shake *shake,
+int acvp_req_set_algo_xof(const struct def_algo_xof *xof,
 			    struct json_object *entry)
 {
+	struct json_object *tmp_array = NULL;
 	int ret;
 
-	if (!(shake->outlength[0] & DEF_ALG_RANGE_TYPE) ||
-	    shake->outlength[1] > 65536 ||
-	    acvp_range_min_val(shake->outlength) < 16) {
+	if (!(xof->outlength[0] & DEF_ALG_RANGE_TYPE) ||
+	    xof->outlength[1] > 65536 ||
+	    acvp_range_min_val(xof->outlength) < 16) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "SHAKE: output min/max definition does not match requirements (16 <= n <= 65536)\n");
 		return -EINVAL;
@@ -65,21 +66,32 @@ int acvp_req_set_algo_shake(const struct def_algo_shake *shake,
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
-	CKINT(acvp_req_cipher_to_string(entry, shake->algorithm,
+	CKINT(acvp_req_cipher_to_string(entry, xof->algorithm,
 				        ACVP_CIPHERTYPE_HASH, "algorithm"));
-	CKINT(json_object_object_add(entry, "inBit",
-				     json_object_new_boolean(shake->inbit)));
-	CKINT(json_object_object_add(entry, "inEmpty",
-				     json_object_new_boolean(shake->inempty)));
-	CKINT(json_object_object_add(entry, "outBit",
-				     json_object_new_boolean(shake->outbit)));
+	CKINT(json_object_object_add(entry, "hexCustomization",
+				     json_object_new_boolean(xof->hex)));
 
-	CKINT(acvp_req_algo_int_array(entry, shake->messagelength,
-				      "messageLength"));
-	CKINT(acvp_req_algo_int_array(entry, shake->outlength, "outputLen"));
-	CKINT(acvp_req_algo_int_array(entry, shake->largetest,
-				      "performLargeDataTest"));
+	CKINT(acvp_req_algo_int_array(entry, xof->messagelength, "msgLen"));
+	CKINT(acvp_req_algo_int_array(entry, xof->outlength, "outputLen"));
+
+	if (xof->algorithm & ACVP_KMAC128 || xof->algorithm & ACVP_KMAC256) {
+		tmp_array = json_object_new_array();
+		CKNULL(tmp_array, -ENOMEM);
+		if (xof->xof & DEF_ALG_XOF_NOT_PRESENT)
+		CKINT(json_object_array_add(tmp_array,
+					    json_object_new_boolean(false)));
+		if (xof->xof & DEF_ALG_XOF_PRESENT)
+		CKINT(json_object_array_add(tmp_array,
+					    json_object_new_boolean(true)));
+		CKINT(json_object_object_add(entry, "xof", tmp_array));
+		tmp_array = NULL;
+
+		CKINT(acvp_req_algo_int_array(entry, xof->keylength, "keyLen"));
+		CKINT(acvp_req_algo_int_array(entry, xof->maclength, "macLen"));
+	}
 
 out:
+	if (tmp_array)
+		json_object_put(tmp_array);
 	return ret;
 }

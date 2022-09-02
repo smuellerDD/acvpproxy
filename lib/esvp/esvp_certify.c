@@ -100,6 +100,9 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	CKINT_ULCK(json_object_object_add(
+		certdata, "entropyId",
+		json_object_new_string(es->lab_test_id)));
+	CKINT_ULCK(json_object_object_add(
 		certdata, "moduleId",
 		json_object_new_int((int)def_info->acvp_module_id)));
 	CKINT_ULCK(json_object_object_add(
@@ -135,10 +138,54 @@ out:
 	return ret;
 }
 
+static int
+esvp_process_certify(const struct acvp_testid_ctx *testid_ctx,
+		     const struct acvp_buf *response)
+{
+	struct json_object *req = NULL, *entry = NULL;
+	const char *str;
+	int ret;
+
+	if (!response->buf || !response->len) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY, "No response data found\n");
+		return -EFAULT;
+	}
+
+	/*
+	 * Strip the version from the received array and return the array
+	 * entry containing the answer.
+	 */
+	CKINT_LOG(acvp_req_strip_version(response, &req, &entry),
+		  "Cannot find ESVP response\n");
+
+	CKINT(acvp_store_file(testid_ctx, response, 1,
+			      "certify-response.json"));
+
+	CKINT(json_get_string(entry, "status", &str));
+	if (!strncmp(str, "received", 8)) {
+		logger_status(LOGGER_C_ANY,
+			      "ESVP server accepted certificate request - notify NIST to approve ID %u\n",
+			      testid_ctx->testid);
+		ret = 0;
+		goto out;
+	} else {
+		logger_status(LOGGER_C_ANY,
+			      "ESVP server certificate request status unexpected: %s\n",
+			      str);
+		ret = -EFAULT;
+		goto out;
+	}
+
+out:
+	ACVP_JSON_PUT_NULL(req);
+	return ret;
+}
+
 /* POST /certify */
 int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *opts = &ctx->options;
 	const struct acvp_req_ctx *req_details;
 	struct json_object *certify = NULL;
 	ACVP_EXT_BUFFER_INIT(submit);
@@ -148,6 +195,14 @@ int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 	int ret, ret2;
 
 	CKNULL(ctx, -EFAULT);
+
+	if (!opts->esv_certify) {
+		logger_status(LOGGER_C_ANY,
+			      "Certify operation skipped, use --testid %u --publish to certify current request\n",
+			      testid_ctx->testid);
+		return 0;
+	}
+
 	req_details = &ctx->req_details;
 
 	certify = json_object_new_array();
@@ -188,6 +243,7 @@ int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_request_error_handler(ret2));
 
 	CKINT(esvp_write_status(testid_ctx));
+	CKINT(esvp_process_certify(testid_ctx, &response));
 
 out:
 	acvp_free_buf(&response);

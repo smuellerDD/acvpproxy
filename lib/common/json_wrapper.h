@@ -52,6 +52,12 @@ int json_get_string(const struct json_object *obj, const char *name,
 		    const char **outbuf);
 
 /*
+ * Same as json_get_string, but convert a zero-length string to NULL
+ */
+int json_get_string_zero_to_null(const struct json_object *obj,
+				 const char *name, const char **outbuf);
+
+/*
  * Get the uint32_t representation of an integer referenced with the given key.
  */
 int json_get_uint(const struct json_object *obj, const char *name,
