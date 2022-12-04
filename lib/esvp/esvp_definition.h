@@ -26,11 +26,16 @@
 extern "C" {
 #endif
 
+struct esvp_sd_file_def {
+	char *filename;
+ 	bool submitted;
+	struct esvp_sd_file_def *next;
+};
+
 struct esvp_sd_def {
 	struct acvp_auth_ctx *sd_auth;
 	unsigned int sd_id;
-	char *filename;
- 	bool submitted;
+	struct esvp_sd_file_def *file;
 
 	struct esvp_sd_def *next;
 };
@@ -85,6 +90,7 @@ struct esvp_es_def {
 	bool physical;
 	bool itar;
 	bool additional_noise_sources;
+	bool limit_es_single_module;
 
 	struct esvp_cc_def *cc;
 	struct esvp_sd_def *sd;

@@ -24,7 +24,18 @@
 /**************************************************************************
  * Hash Definition
  **************************************************************************/
-#define JENT_SHA(sha_def)	GENERIC_SHA(sha_def)
+#define JENT_SHA(sha_def)			\
+	{								\
+	.type = DEF_ALG_TYPE_SHA,					\
+	.algo = {							\
+		.sha = {						\
+			.algorithm = sha_def,				\
+			.inbit = false,					\
+			.inempty = true,				\
+			DEF_ALG_DOMAIN(.messagelength, DEF_ALG_ZERO_VALUE, 65536, 8),\
+			}						\
+		},							\
+	}
 
 /**************************************************************************
  * JENT Generic Definitions

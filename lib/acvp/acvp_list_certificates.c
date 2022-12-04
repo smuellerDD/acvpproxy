@@ -87,6 +87,108 @@ out:
 	return ret;
 }
 
+static int acvp_list_missing_certificates_cb(const struct acvp_ctx *ctx,
+					     const struct definition *def,
+					     const uint32_t testid)
+{
+	const struct def_info *def_info;
+	const struct def_oe *def_oe;
+	const struct def_dependency *def_dep;
+	struct acvp_testid_ctx testid_ctx;
+	struct acvp_auth_ctx *auth;
+	int ret;
+
+	def_info = def->info;
+	def_oe = def->oe;
+
+	memset(&testid_ctx, 0, sizeof(testid_ctx));
+	testid_ctx.def = def;
+	testid_ctx.ctx = ctx;
+	testid_ctx.testid = testid;
+	CKINT(acvp_init_auth(&testid_ctx));
+
+	/* Get auth token for test session */
+	CKINT(ds->acvp_datastore_read_authtoken(&testid_ctx));
+
+	/* Get testsession ID */
+	auth = testid_ctx.server_auth;
+
+	if (auth->testsession_certificate_number)
+		goto out;
+
+	fprintf(stdout, "%-44s", def_info->module_name);
+
+	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->name)
+			fprintf(stdout, "- %-10s", def_dep->name);
+		if (def_dep->proc_name)
+			fprintf(stdout, "- %-10s", def_dep->proc_name);
+	}
+	fprintf(stdout, " | %-8u\n", testid);
+
+out:
+	acvp_release_auth(&testid_ctx);
+	return ret;
+}
+
+static int acvp_process_one_vsid_results(const struct acvp_vsid_ctx *vsid_ctx,
+					 const struct acvp_buf *buf)
+{
+	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
+	const struct definition *def = testid_ctx->def;
+	const struct def_info *def_info = def->info;
+	const struct def_oe *def_oe = def->oe;
+	const struct def_dependency *def_dep;
+
+	(void)buf;
+
+	if (vsid_ctx->response_file_present)
+		return 0;
+
+	fprintf(stdout, "%-44s", def_info->module_name);
+
+	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
+		if (def_dep->name)
+			fprintf(stdout, "- %-10s", def_dep->name);
+		if (def_dep->proc_name)
+			fprintf(stdout, "- %-10s", def_dep->proc_name);
+	}
+	fprintf(stdout, " | %-8u\n", vsid_ctx->vsid);
+
+	return 0;
+}
+
+static int acvp_list_missing_results_cb(const struct acvp_ctx *ctx,
+					const struct definition *def,
+					const uint32_t testid)
+{
+	struct acvp_testid_ctx testid_ctx;
+	struct acvp_auth_ctx *auth;
+	int ret;
+
+	memset(&testid_ctx, 0, sizeof(testid_ctx));
+	testid_ctx.def = def;
+	testid_ctx.ctx = ctx;
+	testid_ctx.testid = testid;
+	CKINT(acvp_init_auth(&testid_ctx));
+
+	/* Get auth token for test session */
+	CKINT(ds->acvp_datastore_read_authtoken(&testid_ctx));
+
+	/* Get testsession ID */
+	auth = testid_ctx.server_auth;
+
+	CKINT(ds->acvp_datastore_find_responses(&testid_ctx,
+						acvp_process_one_vsid_results));
+
+	if (auth->testsession_certificate_number)
+		goto out;
+
+out:
+	acvp_release_auth(&testid_ctx);
+	return ret;
+}
+
 static int acvp_store_cert_sorted(const struct acvp_vsid_ctx *vsid_ctx)
 {
 	const struct acvp_test_verdict_status *verdict = &vsid_ctx->verdict;
@@ -551,6 +653,20 @@ int acvp_list_certificates(const struct acvp_ctx *ctx)
 	fprintf(stdout, "%-70s | %-8s | %-10s\n", "Module Name", "Test ID",
 		"Certificate No");
 	return acvp_process_testids(ctx, &acvp_list_certificates_cb);
+}
+
+DSO_PUBLIC
+int acvp_list_missing_certificates(const struct acvp_ctx *ctx)
+{
+	fprintf(stdout, "%-70s | %-8s\n", "Module Name", "Test ID");
+	return acvp_process_testids(ctx, &acvp_list_missing_certificates_cb);
+}
+
+DSO_PUBLIC
+int acvp_list_missing_results(const struct acvp_ctx *ctx)
+{
+	fprintf(stdout, "%-70s | %-8s\n", "Module Name", "VectorSet ID");
+	return acvp_process_testids(ctx, &acvp_list_missing_results_cb);
 }
 
 DSO_PUBLIC

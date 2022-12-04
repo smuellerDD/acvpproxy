@@ -54,6 +54,7 @@ struct def_dependency_type_names {
 
 static struct def_dependency_type_names type_name[] = {
 	{ def_dependency_os, "os" },
+	{ def_dependency_os, "Operating System" },
 	{ def_dependency_hardware, "processor" },
 	{ def_dependency_hardware, "cpu" },
 	{ def_dependency_software, "software" },

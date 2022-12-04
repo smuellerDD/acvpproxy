@@ -191,6 +191,7 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 		ret2 |= -ENOENT;
 	}
 
+	found = false;
 	ret = json_find_key(json_vendor, "phoneNumbers", &tmp, json_type_array);
 	if (ret) {
 		/* if we did not find a phone number and we have none, match */
@@ -203,25 +204,24 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 			       def_vendor->acvp_person_id);
 			ret2 |= -ENOENT;
 		}
-	}
+	} else {
+		for (i = 0; i < json_object_array_length(tmp); i++) {
+			struct json_object *number_def =
+				json_object_array_get_idx(tmp, i);
+			const char *number, *type;
 
-	found = false;
-	for (i = 0; i < json_object_array_length(tmp); i++) {
-		struct json_object *number_def =
-			json_object_array_get_idx(tmp, i);
-		const char *number, *type;
+			CKINT(json_get_string(number_def, "number", &number));
+			CKINT(json_get_string(number_def, "type", &type));
 
-		CKINT(json_get_string(number_def, "number", &number));
-		CKINT(json_get_string(number_def, "type", &type));
+			def_vendor->contact_phone_i =
+				!acvp_str_match(def_vendor->contact_phone,
+						number, person_id);
 
-		def_vendor->contact_phone_i =
-			!acvp_str_match(def_vendor->contact_phone, number,
-					person_id);
-
-		if (def_vendor->contact_phone_i &&
-		    !strncmp("voice", type, 5)) {
-			found = true;
-			break;
+			if (def_vendor->contact_phone_i &&
+			    !strncmp("voice", type, 5)) {
+				found = true;
+				break;
+			}
 		}
 	}
 

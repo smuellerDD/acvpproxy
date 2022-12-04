@@ -1004,7 +1004,7 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 			       "Dependency ID %u found on local database without a match on server\n",
 			       def_dep->acvp_dep_id);
 			def_dep->acvp_dep_id = 0;
-			ret = -EAGAIN;
+			ret = -ENOENT;
 			goto out;
 		}
 

@@ -1317,6 +1317,8 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 		}
 	}
 
+	vsid_ctx->response_file_present = false;
+
 	/* Get response file */
 	if (stat(resppath, &statbuf)) {
 		int errsv = errno;
@@ -1384,6 +1386,7 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 			goto out;
 		}
 
+		vsid_ctx->response_file_present = true;
 		buf.buf = resp_buf;
 		buf.len = (uint32_t)statbuf.st_size;
 

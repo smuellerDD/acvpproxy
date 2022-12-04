@@ -60,32 +60,14 @@ acvp_req_kas_ifc_keygen_method(const struct def_algo_kas_ifc_keygen *keygen,
 				json_object_new_string("rsakpg1-crt")));
 			break;
 		case DEF_ALG_KAS_IFC_RSAKPG2_BASIC:
-			if (keygen->fixedpubexp) {
-				logger(LOGGER_ERR, LOGGER_C_ANY,
-				"KAS IFC: DEF_ALG_KAS_IFC_RSAKPG2_BASIC does not require fixed public exponent\n");
-				ret = -EINVAL;
-				goto out;
-			}
 			CKINT(json_object_array_add(tmp,
 				json_object_new_string("rsakpg2-basic")));
 			break;
 		case DEF_ALG_KAS_IFC_RSAKPG2_PRIME_FACTOR:
-			if (keygen->fixedpubexp) {
-				logger(LOGGER_ERR, LOGGER_C_ANY,
-				"KAS IFC: DEF_ALG_KAS_IFC_RSAKPG2_PRIME_FACTOR does not require fixed public exponent\n");
-				ret = -EINVAL;
-				goto out;
-			}
 			CKINT(json_object_array_add(tmp,
 				json_object_new_string("rsakpg2-prime-factor")));
 			break;
 		case DEF_ALG_KAS_IFC_RSAKPG2_CRT:
-			if (keygen->fixedpubexp) {
-				logger(LOGGER_ERR, LOGGER_C_ANY,
-				"KAS IFC: DEF_ALG_KAS_IFC_RSAKPG2_CRT does not require fixed public exponent\n");
-				ret = -EINVAL;
-				goto out;
-			}
 			CKINT(json_object_array_add(tmp,
 				json_object_new_string("rsakpg2-crt")));
 			break;

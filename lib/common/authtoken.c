@@ -641,9 +641,10 @@ acvp_process_login_refresh(const struct acvp_testid_ctx *testid_ctx_head,
 				 * we currently process.
 				 */
 				for (sd = es->sd; sd; sd = sd->next) {
-					if (auth == sd->sd_auth && sd->next)
+					if (auth == sd->sd_auth && sd->next) {
 						auth = sd->next->sd_auth;
-					else
+						break;
+					} else if (!sd->next)
 						auth = NULL;
 				}
 			}

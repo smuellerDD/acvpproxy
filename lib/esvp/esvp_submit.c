@@ -257,6 +257,7 @@ esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 				  const struct acvp_buf *response,
 				  const char *pathname)
 {
+	struct esvp_sd_file_def *file = NULL, *file_new;
 	struct esvp_es_def *es = testid_ctx->es_def;
 	struct esvp_sd_def *sd = NULL;
 	struct json_object *req = NULL, *entry = NULL;
@@ -286,7 +287,20 @@ esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Did we already submit it? */
 	for (sd = es->sd; sd; sd = sd->next) {
-		if (strncmp(sd->filename, pathname, strlen(sd->filename)))
+		bool found = false;
+
+		file = sd->file;
+		while (file) {
+			if (!strncmp(file->filename, pathname,
+				     strlen(file->filename))) {
+				found = true;
+				break;
+			}
+
+			file = file->next;
+		}
+
+		if (found)
 			break;
 	}
 
@@ -305,9 +319,21 @@ esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(json_get_uint(entry, "sdId", &sd->sd_id));
 
-	CKINT(acvp_duplicate(&sd->filename, pathname));
+	file_new = calloc(1, sizeof(struct esvp_sd_file_def));
+	CKNULL(file_new, -ENOMEM);
 
-	sd->submitted = true;
+	if (!sd->file) {
+		sd->file = file_new;
+	} else {
+		file = sd->file;
+		while (file->next)
+			file = file->next;
+
+		file->next = file_new;
+	}
+
+	CKINT(acvp_duplicate(&file_new->filename, pathname));
+	file_new->submitted = true;
 
 	/*
 	 * Append the new conditioning component entry at the end of the list
@@ -333,6 +359,8 @@ esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 	} else {
 		es->sd = sd;
 	}
+
+	CKINT(esvp_write_status(testid_ctx));
 
 out:
 	ACVP_JSON_PUT_NULL(req);
@@ -373,12 +401,18 @@ static int esvp_process_datafiles_post_one(
 
 	/* Check whether supporting document file has been uploaded */
 	for (sd = es->sd; sd; sd = sd->next) {
-		if (!acvp_str_match(sd->filename, pathname,
-				    testid_ctx->testid)) {
-			logger(LOGGER_DEBUG, LOGGER_C_ANY,
-			       "Data found in %s already submitted, no resubmit\n",
-			       pathname);
-			return 0;
+		struct esvp_sd_file_def *file = sd->file;
+
+		while (file) {
+			if (!acvp_str_match(file->filename, pathname,
+					    testid_ctx->testid)) {
+				logger(LOGGER_DEBUG, LOGGER_C_ANY,
+				       "Data found in %s already submitted, no resubmit\n",
+				       pathname);
+				return 0;
+			}
+
+			file = file->next;
 		}
 	}
 
@@ -598,6 +632,7 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 	struct dirent *doc_dirent;
 	ACVP_EXT_BUFFER_INIT(itar);
 	ACVP_EXT_BUFFER_INIT(desc);
+	ACVP_EXT_BUFFER_INIT(sdtype);
 	char doc_dir_name[FILENAME_MAX - 256], pathname[FILENAME_MAX],
 		url[ACVP_NET_URL_MAXLEN];
 	int ret;
@@ -664,6 +699,9 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 	itar.next = &desc;
 	desc.data_type = "sdComments";
 
+	sdtype.data_type = "sdType";
+	desc.next = &sdtype;
+
 	while ((doc_dirent = readdir(doc_dir)) != NULL) {
 		bool submitted = false;
 
@@ -675,15 +713,40 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 
 		/* Did we already submit it? */
 		for (sd = es->sd; sd; sd = sd->next) {
-			if (strncmp(sd->filename, pathname,
-				    strlen(sd->filename))) {
-				submitted = sd->submitted;
-				break;
+			struct esvp_sd_file_def *file = sd->file;
+
+			while (file) {
+				if (!strncmp(file->filename, pathname,
+					     strlen(file->filename))) {
+					submitted = file->submitted;
+					break;
+				}
+
+				file = file->next;
 			}
+
+			if (submitted)
+				break;
 		}
 
 		desc.buf = (uint8_t *)doc_dirent->d_name;
 		desc.len = (uint32_t)strlen(doc_dirent->d_name);
+
+		if (!strncasecmp(doc_dirent->d_name, "entropy-analysis", 16) ||
+		    !strncasecmp(doc_dirent->d_name, "entropy_analysis", 16) ||
+		    !strncasecmp(doc_dirent->d_name, "entropyanalysis", 15) ||
+		    !strncasecmp(doc_dirent->d_name, "ear", 3)) {
+			sdtype.buf = (uint8_t *)"EntropyAnalysisReport";
+			sdtype.len = 21;
+		} else if (strstr(doc_dirent->d_name, "public") ||
+			   strstr(doc_dirent->d_name, "Public") ||
+			   strstr(doc_dirent->d_name, "PUBLIC")) {
+			sdtype.buf = (uint8_t *)"PublicUseDocument";
+			sdtype.len = 17;
+		} else {
+			sdtype.buf = (uint8_t *)"Other";
+			sdtype.len = 5;
+		}
 
 		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_SUPPDOC, url,
 					  sizeof(url)),

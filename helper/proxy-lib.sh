@@ -508,6 +508,11 @@ statuslist() {
 	invoke $PROXYBIN $PARAMS --list-certificates
 
 	echo
+	echo "Listing of missing certificates"
+	echo "================================"
+	invoke $PROXYBIN $PARAMS --list-missing-certificates
+
+	echo
 	echo "Listing for TE.01.12.01"
 	echo "======================="
 	invoke $PROXYBIN $PARAMS --list-cert-details

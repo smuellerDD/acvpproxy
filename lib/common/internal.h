@@ -54,7 +54,7 @@ extern "C" {
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
  */
-#define PATCHLEVEL 7
+#define PATCHLEVEL 8
 
 struct acvp_test_deps {
 	char *dep_cipher;
@@ -503,6 +503,9 @@ struct acvp_vsid_ctx {
 
 	/* vsID response handler shall only attempt to download the verdict. */
 	bool fetch_verdict;
+
+	/* Is response file present? */
+	bool response_file_present;
 
 	struct timespec start;
 };

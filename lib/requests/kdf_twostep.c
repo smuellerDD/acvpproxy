@@ -99,6 +99,9 @@ int acvp_list_algo_kdf_twostep(const struct def_algo_kdf_twostep *kdf_twostep,
 	tmp->prereqs = kdf_twostep->prereqvals;
 	tmp->prereq_num = kdf_twostep->prereqvals_num;
 
+	tmp->keylen[0] = kdf_twostep->length;
+	tmp->keylen[1] = DEF_ALG_ZERO_VALUE;
+
 out:
 	return ret;
 }

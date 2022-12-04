@@ -607,6 +607,22 @@ int acvp_list_verdicts(const struct acvp_ctx *ctx);
 int acvp_list_certificates(const struct acvp_ctx *ctx);
 
 /**
+ * @brief List all test session with missing certificate numbers
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int acvp_list_missing_certificates(const struct acvp_ctx *ctx);
+
+/**
+ * @brief List all vector sets with missing results
+ *
+ * @param ctx [in] ACVP Proxy library context
+ * @return 0 on success, < 0 on error
+ */
+int acvp_list_missing_results(const struct acvp_ctx *ctx);
+
+/**
  * @brief List all certificates with their tested ciphers
  *
  * @param ctx [in] ACVP Proxy library context

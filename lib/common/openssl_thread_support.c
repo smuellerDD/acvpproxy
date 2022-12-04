@@ -36,7 +36,7 @@
 #include <openssl/err.h>
 #include <openssl/opensslv.h>
 
-#if ((OPENSSL_VERSION_NUMBER < 0x10100000L) || defined LIBRESSL_VERSION_NUMBER)
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
 
 #pragma message                                                                \
 	"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\nEnabling threading callbacks for OpenSSL / LibreSSL. Read README.openssl.md as your milage with this old version of OpenSSL / LibreSSL may vary.\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"

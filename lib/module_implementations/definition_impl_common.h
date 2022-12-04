@@ -752,7 +752,7 @@ def_algo_kas_ecc_r3_schema generic_ecc_ssc_r3_ephem_unified[] = { {
  *
  * Cipher definition properties
  * 	* initiator and responder
- *	* ephemeral unitified schema
+ *	* ephemeral unified model scheme
  *	* no hashing of shared secret
  *
  * @param curve One or more ECC curves combined with an OR
@@ -774,7 +774,7 @@ def_algo_kas_ecc_r3_schema generic_ecc_ssc_r3_ephem_unified[] = { {
  *
  * Cipher definition properties
  * 	* initiator and responder
- *	* ephemeral unitified schema
+ *	* ephemeral unified model scheme
  *	* hashing of shared secret
  *
  * @param curve One or more ECC curves combined with an OR
@@ -827,7 +827,7 @@ def_algo_kas_ffc_r3_schema generic_ffc_ssc_r3_ephem_unified[] = { {
  *
  * Cipher definition properties
  * 	* initiator and responder
- *	* ephemeral unitified schema
+ *	* dhEphem scheme
  *	* no hashing of shared secret
  *
  * @param groups One or more combined with an OR
@@ -859,7 +859,7 @@ def_algo_kas_ffc_r3_schema generic_ffc_ssc_r3_ephem_unified[] = { {
  *
  * Cipher definition properties
  * 	* initiator and responder
- *	* ephemeral unitified schema
+ *	* dhEphem scheme
  *	* hashing of shared secret
  *
  * @param groups One or more combined with an OR

@@ -197,7 +197,22 @@ static const struct def_algo_prereqs sha_prereqs[] = {
  * Implementation Definitions
  **************************************************************************/
 
-static const struct def_algo lc_c_c[] = {
+#define LC_SHA3_ALGOS							\
+	LC_SHA(ACVP_SHA3_224),						\
+	LC_SHA(ACVP_SHA3_256),						\
+	LC_SHA(ACVP_SHA3_384),						\
+	LC_SHA(ACVP_SHA3_512),						\
+	LC_SHAKE(ACVP_SHAKE128),					\
+	LC_SHAKE(ACVP_SHAKE256),					\
+	LC_XOF(ACVP_CSHAKE128),						\
+	LC_XOF(ACVP_CSHAKE256),						\
+	LC_KMAC(ACVP_KMAC128),						\
+	LC_KMAC(ACVP_KMAC256),						\
+	LC_PBKDF(ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 | ACVP_SHA3_512)
+
+static const struct def_algo lc_c[] = {
+	LC_SHA3_ALGOS,
+
 //	LC_AES_ECB,
 	LC_AES_CBC,
 	LC_AES_CTR,
@@ -205,23 +220,13 @@ static const struct def_algo lc_c_c[] = {
 
 	LC_SHA(ACVP_SHA256),
 	LC_SHA(ACVP_SHA512),
-	LC_SHA(ACVP_SHA3_224),
-	LC_SHA(ACVP_SHA3_256),
-	LC_SHA(ACVP_SHA3_384),
-	LC_SHA(ACVP_SHA3_512),
 
 	LC_HMAC(ACVP_HMACSHA2_256),
 	LC_HMAC(ACVP_HMACSHA2_512),
 
-	LC_SHAKE(ACVP_SHAKE128),
-	LC_SHAKE(ACVP_SHAKE256),
-	LC_XOF(ACVP_CSHAKE256),
-	LC_KMAC(ACVP_KMAC256),
-
 	LC_KDF_HMAC,
 
-	LC_PBKDF(ACVP_SHA256 | ACVP_SHA512 |
-		 ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 | ACVP_SHA3_512),
+	LC_PBKDF(ACVP_SHA256 | ACVP_SHA512),
 
 	LC_DRBG_HMAC,
 	LC_DRBG_HASH,
@@ -229,6 +234,22 @@ static const struct def_algo lc_c_c[] = {
 	LC_HKDF
 };
 
+static const struct def_algo lc_avx2[] = {
+	LC_SHA3_ALGOS
+};
+
+static const struct def_algo lc_shake_avx2_4x[] = {
+	LC_SHAKE(ACVP_SHAKE128),
+	LC_SHAKE(ACVP_SHAKE256),
+};
+
+static const struct def_algo lc_avx512[] = {
+	LC_SHA3_ALGOS
+};
+
+static const struct def_algo lc_arm8_neon[] = {
+	LC_SHA3_ALGOS
+};
 /**************************************************************************
  * Register operation
  **************************************************************************/
@@ -236,10 +257,42 @@ static const struct def_algo lc_c_c[] = {
 static struct def_algo_map lc_algo_map [] = {
 /* C cipher implementation, C block-chaining **********************************/
 	{
-		SET_IMPLEMENTATION(lc_c_c),
+		SET_IMPLEMENTATION(lc_c),
 		.algo_name = "leancrypto",
 		.processor = "",
-		.impl_name = "C_C"
+		.impl_name = "C"
+	},
+
+/* AVX2 cipher implementation, ************************************************/
+	{
+		SET_IMPLEMENTATION(lc_avx2),
+		.algo_name = "leancrypto",
+		.processor = "X86",
+		.impl_name = "AVX2"
+	},
+
+/* AVX2 cipher implementation, ************************************************/
+	{
+		SET_IMPLEMENTATION(lc_shake_avx2_4x),
+		.algo_name = "leancrypto",
+		.processor = "X86",
+		.impl_name = "AVX2_4X"
+	},
+
+/* AVX512 cipher implementation, **********************************************/
+	{
+		SET_IMPLEMENTATION(lc_avx512),
+		.algo_name = "leancrypto",
+		.processor = "X86",
+		.impl_name = "AVX512"
+	},
+
+/* ARM8 NEON cipher implementation, *******************************************/
+	{
+		SET_IMPLEMENTATION(lc_arm8_neon),
+		.algo_name = "leancrypto",
+		.processor = "ARM",
+		.impl_name = "ARM8_NEON"
 	}
 };
 

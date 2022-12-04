@@ -72,6 +72,8 @@ struct opt_data {
 	bool list_pending_request_ids_sparse;
 	bool list_verdicts;
 	bool list_certificates;
+	bool list_missing_certificates;
+	bool list_missing_results;
 	bool list_certificates_detailed;
 	bool list_cipher_options;
 	bool list_cipher_options_deps;
@@ -238,6 +240,8 @@ static void usage(void)
 		"\t   --list-available-ids\t\tList all available IDs\n");
 	fprintf(stderr, "\t   --list-verdicts\t\tList all verdicts\n\n");
 	fprintf(stderr, "\t   --list-certificates\t\tList all certificates\n");
+	fprintf(stderr, "\t   --list-missing-certificates\tList all missing certificates\n");
+	fprintf(stderr, "\t   --list-missing-results\tList all missing results\n");
 	fprintf(stderr,
 		"\t   --list-cert-details\t\tList all certificate details for\n");
 	fprintf(stderr, "\t\t\t\t\tTE.01.12.01\n");
@@ -556,6 +560,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{ "list-available-ids", no_argument, 0, 0 },
 			{ "list-verdicts", no_argument, 0, 0 },
 			{ "list-certificates", no_argument, 0, 0 },
+			{ "list-missing-certificates", no_argument, 0, 0 },
+			{ "list-missing-results", no_argument, 0, 0 },
 			{ "list-cert-details", no_argument, 0, 0 },
 			{ "list-cert-niap", required_argument, 0, 0 },
 			{ "list-cipher-options", no_argument, 0, 0 },
@@ -881,49 +887,61 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					true;
 				break;
 			case 40:
+				/* list-missing-certificates */
+				opts->list_missing_certificates = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
+				break;
+			case 41:
+				/* list-missing-results */
+				opts->list_missing_results = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
+				break;
+			case 42:
 				/* list-cert-details */
 				opts->list_certificates_detailed = true;
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				break;
-			case 41:
+			case 43:
 				/* list-cert-niap */
 				opts->list_certificates_detailed = true;
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				opts->cert_details_niap_req_file = optarg;
 				break;
-			case 42:
+			case 44:
 				/* list-cipher-options */
 				opts->list_cipher_options = true;
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				break;
-			case 43:
+			case 45:
 				/* list-cipher-options-deps */
 				opts->list_cipher_options_deps = true;
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				break;
-			case 44:
+			case 46:
 				/* list-server-db */
 				CKINT(convert_show_type(
 					optarg, &opts->acvp_ctx_options
 							 .show_db_entries));
 				break;
-			case 45:
+			case 47:
 				/* search-server-db */
 				CKINT(convert_search_type_string(
 					optarg, &opts->acvp_server_db_search,
 					&opts->search_type));
 				break;
-			case 46:
+			case 48:
 				/* fetch-id-from-server-db */
 				CKINT(convert_search_type_id(
 					optarg, &opts->acvp_server_db_fetch_id,
 					&opts->search_type));
 				break;
-			case 47:
+			case 49:
 				/* fetch-validation-from-server-db */
 				val = strtoul(optarg, NULL, 10);
 				if (val == UINT_MAX) {
@@ -938,12 +956,12 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 
 				break;
 
-			case 48:
+			case 50:
 				/* cipher-options */
 				CKINT(duplicate_string(
 					&opts->cipher_options_file, optarg));
 				break;
-			case 49:
+			case 51:
 				/* cipher-algo */
 				CKINT(duplicate_string(
 					&opts->cipher_options_algo
@@ -956,55 +974,55 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					goto out;
 				}
 				break;
-			case 50:
+			case 52:
 				/* cipher-list */
 				opts->cipher_list = true;
 				break;
 
-			case 51:
+			case 53:
 				/* proxy-extension */
 				CKINT(acvp_load_extension(optarg));
 				break;
-			case 52:
+			case 54:
 				/* proxy-extension-dir */
 				CKINT(acvp_load_extension_directory(optarg));
 				break;
-			case 53:
+			case 55:
 				/* rename-version */
 				rename->moduleversion_new = optarg;
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				opts->rename = true;
 				break;
-			case 54:
+			case 56:
 				/* rename-name */
 				rename->modulename_new = optarg;
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				opts->rename = true;
 				break;
-			case 55:
+			case 57:
 				/* rename-oename */
 				rename->oe_env_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				opts->rename = true;
 				break;
-			case 56:
+			case 58:
 				/* rename-procname */
 				rename->proc_name_new = optarg;
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				opts->rename = true;
 				break;
-			case 57:
+			case 59:
 				/* rename-procseries */
 				rename->proc_series_new = optarg;
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				opts->rename = true;
 				break;
-			case 58:
+			case 60:
 				/* rename-procfamily */
 				rename->proc_family_new = optarg;
 				opts->acvp_ctx_options.threading_disabled =
@@ -1012,27 +1030,27 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				opts->rename = true;
 				break;
 
-			case 59:
+			case 61:
 				/* register-only */
 				opts->acvp_ctx_options.register_only = true;
 				break;
-			case 60:
+			case 62:
 				/* register-only */
 				opts->acvp_ctx_options.upload_only = true;
 				break;
-			case 61:
+			case 63:
 				/* list-purchased-vs */
 				opts->list_purchased_vs = true;
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				break;
-			case 62:
+			case 64:
 				/* list-purchase-opts */
 				opts->list_available_purchase_opts = true;
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				break;
-			case 63:
+			case 65:
 				/* purchase */
 				lval = strtol(optarg, NULL, 10);
 				if (lval == UINT32_MAX || lval <= 0) {
@@ -1051,7 +1069,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					true;
 				break;
 
-			case 64: /* fetch-verdicts */
+			case 66: /* fetch-verdicts */
 				/* force the proxy to contact server */
 				opts->acvp_ctx_options.resubmit_result = true;
 				opts->fetch_verdicts = true;
@@ -1445,6 +1463,34 @@ out:
 	return ret;
 }
 
+static int list_missing_certificates(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, false));
+
+	CKINT(acvp_list_missing_certificates(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int list_missing_results(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, false));
+
+	CKINT(acvp_list_missing_results(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 static int list_cipher_options(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
@@ -1723,6 +1769,10 @@ int main(int argc, char *argv[])
 		CKINT(list_verdicts(&opts));
 	} else if (opts.list_certificates) {
 		CKINT(list_certificates(&opts));
+	} else if (opts.list_missing_certificates) {
+		CKINT(list_missing_certificates(&opts));
+	} else if (opts.list_missing_results) {
+		CKINT(list_missing_results(&opts));
 	} else if (opts.list_cipher_options || opts.list_cipher_options_deps) {
 		CKINT(list_cipher_options(&opts));
 	} else if (opts.list_certificates_detailed) {

@@ -409,10 +409,11 @@ static int acvp_server_db_process_vendor(struct acvp_ctx *ctx,
 	CKINT(acvp_server_db_add_config(pathname, "addressCity",
 					vendor.addr_locality));
 
-	CKINT(json_get_string(tmp, "region", &str));
-	CKINT(acvp_duplicate(&vendor.addr_region, str));
-	CKINT(acvp_server_db_add_config(pathname, "addressState",
-					vendor.addr_region));
+	if (!json_get_string(tmp, "region", &str)) {
+		CKINT(acvp_duplicate(&vendor.addr_region, str));
+		CKINT(acvp_server_db_add_config(pathname, "addressState",
+						vendor.addr_region));
+	}
 
 	CKINT(json_get_string(tmp, "country", &str));
 	CKINT(acvp_duplicate(&vendor.addr_country, str));
@@ -445,13 +446,14 @@ static int acvp_server_db_process_vendor(struct acvp_ctx *ctx,
 	CKINT(acvp_server_db_add_config(pathname, "contactEmail",
 					vendor.contact_email));
 
-	CKINT(json_find_key(entry, "phoneNumbers", &addr, json_type_array));
-	tmp = json_object_array_get_idx(addr, 0);
-	CKNULL(tmp, -ENOENT);
-	CKINT(json_get_string(tmp, "number", &str));
-	CKINT(acvp_duplicate(&vendor.contact_phone, str));
-	CKINT(acvp_server_db_add_config(pathname, "contactPhone",
-					vendor.contact_phone));
+	if (!json_find_key(entry, "phoneNumbers", &addr, json_type_array)) {
+		tmp = json_object_array_get_idx(addr, 0);
+		CKNULL(tmp, -ENOENT);
+		CKINT(json_get_string(tmp, "number", &str));
+		CKINT(acvp_duplicate(&vendor.contact_phone, str));
+		CKINT(acvp_server_db_add_config(pathname, "contactPhone",
+						vendor.contact_phone));
+	}
 
 	CKINT(acvp_def_put_person_id(&vendor));
 

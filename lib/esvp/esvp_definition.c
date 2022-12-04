@@ -71,6 +71,7 @@ static void esvp_def_cc_free(struct esvp_cc_def *cc)
 void acvp_release_auth_sd(struct esvp_sd_def *sd)
 {
 	struct acvp_auth_ctx *auth;
+	struct esvp_sd_file_def *file, *file_del;
 
 	if (!sd)
 		return;
@@ -79,7 +80,15 @@ void acvp_release_auth_sd(struct esvp_sd_def *sd)
 	acvp_release_acvp_auth_ctx(auth);
 	ACVP_PTR_FREE_NULL(sd->sd_auth);
 
-	ACVP_PTR_FREE_NULL(sd->filename);
+	file = sd->file;
+	while (file) {
+		file_del = file;
+		file = file->next;
+
+		ACVP_PTR_FREE_NULL(file_del->filename);
+		ACVP_PTR_FREE_NULL(file_del);
+	}
+	sd->file = NULL;
 }
 
 static void esvp_def_sd_free_one(struct esvp_sd_def *sd)
@@ -318,6 +327,11 @@ static int esvp_read_es_def(const char *directory, struct esvp_es_def **es_out)
 	CKINT(json_get_bool(es_conf, "iid", &es->iid));
 	CKINT(json_get_bool(es_conf, "physical", &es->physical));
 	CKINT(json_get_bool(es_conf, "itar", &es->itar));
+
+	/* Allow this option to be not present in the config file */
+	es->limit_es_single_module = false;
+	json_get_bool(es_conf, "limitEntropyAssessmentToSingleModule",
+		      &es->limit_es_single_module);
 	CKINT(json_get_bool(es_conf, "additionalNoiseSources",
 			    &es->additional_noise_sources));
 

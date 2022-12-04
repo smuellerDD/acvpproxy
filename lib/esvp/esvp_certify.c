@@ -33,12 +33,14 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	const struct esvp_es_def *es = testid_ctx->es_def;
+	struct esvp_sd_def *sd;
 	const struct definition *def;
 	struct acvp_auth_ctx *auth;
 	struct def_info *def_info;
 	struct def_vendor *def_vendor;
 	struct def_oe *def_oe;
-	struct json_object *certdata, *ea_array, *ea_entry;
+	struct json_object *certdata, *ea_array, *ea_entry,
+			   *sd_array, *sd_entry;
 	int ret;
 
 	CKNULL_LOG(testid_ctx, -EINVAL, "ES building: testid_ctx missing\n");
@@ -64,8 +66,8 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(json_object_object_add(certdata, "itar",
 				     json_object_new_boolean(es->itar)));
 	CKINT(json_object_object_add(certdata,
-				     "limitEntropyAssessmentToSingleModule",
-				     json_object_new_boolean(false)));
+		"limitEntropyAssessmentToSingleModule",
+		json_object_new_boolean(es->limit_es_single_module)));
 
 	CKINT(acvp_def_get_vendor_id(def_vendor));
 	ret = acvp_meta_obtain_request_result(testid_ctx,
@@ -127,6 +129,23 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 		json_object_new_int((int)def_oe->acvp_oe_id)));
 	CKINT(json_object_object_add(ea_entry, "accessToken",
 				     json_object_new_string(auth->jwt_token)));
+
+	sd_array = json_object_new_array();
+	CKNULL(sd_array, -ENOMEM);
+	CKINT(json_object_object_add(certdata, "supportingDocumentation",
+				     sd_array));
+
+	for (sd = es->sd; sd; sd = sd->next) {
+		auth = sd->sd_auth;
+		sd_entry = json_object_new_object();
+		CKNULL(sd_entry, -ENOMEM);
+		CKINT(json_object_array_add(sd_array, sd_entry));
+		CKINT(json_object_object_add(
+			sd_entry, "sdId",
+			json_object_new_int((int)sd->sd_id)));
+		CKINT(json_object_object_add(sd_entry, "accessToken",
+			json_object_new_string(auth->jwt_token)));
+	}
 
 unlock:
 	ret |= acvp_def_put_module_id(def_info);
@@ -209,6 +228,13 @@ int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 	CKNULL(certify, -ENOMEM);
 
 	CKINT(esvp_certify_build(testid_ctx, certify));
+
+	if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_DEBUG) {
+		fprintf(stdout, "Certify request with:\n%s\n",
+			json_object_to_json_string_ext(
+				certify, JSON_C_TO_STRING_PRETTY |
+					       JSON_C_TO_STRING_NOSLASHESCAPE));
+	}
 
 	/*
 	 * Dump the constructed message if requested and return (i.e. no

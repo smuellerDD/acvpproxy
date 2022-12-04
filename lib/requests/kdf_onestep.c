@@ -97,6 +97,9 @@ int acvp_list_algo_kdf_onestep(const struct def_algo_kdf_onestep *kdf_onestep,
 	tmp->prereqs = kdf_onestep->prereqvals;
 	tmp->prereq_num = kdf_onestep->prereqvals_num;
 
+	tmp->keylen[0] = kdf_onestep->length;
+	tmp->keylen[1] = DEF_ALG_ZERO_VALUE;
+
 out:
 	return ret;
 }

@@ -353,6 +353,210 @@ static const struct def_algo_prereqs sha_prereqs[] = {
 		}							\
 	}
 
+#define OPENSSL_3_DRBG_CAPS_AES128_DF					\
+	{								\
+	.mode = ACVP_AES128,						\
+	.df = true,							\
+	.entropyinputlen = { 128 },					\
+	.noncelen = { 64 },						\
+	DEF_ALG_DOMAIN(.persostringlen, 0, 512, 128),			\
+	DEF_ALG_DOMAIN(.additionalinputlen, 0, 512, 128),		\
+	.returnedbitslen = 256,						\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_AES128_NODF					\
+	{								\
+	.mode = ACVP_AES128,						\
+	.df = false,							\
+	.entropyinputlen = { 256 },					\
+	.noncelen = { DEF_ALG_ZERO_VALUE },				\
+	.persostringlen = { 256 },					\
+	.additionalinputlen = { 256 },					\
+	.returnedbitslen = 256,						\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_AES192_DF					\
+	{								\
+	.mode = ACVP_AES192,						\
+	.df = true,							\
+	.entropyinputlen = { 192 },					\
+	.noncelen = { 96 },						\
+	DEF_ALG_DOMAIN(.persostringlen, 0, 512, 128),			\
+	DEF_ALG_DOMAIN(.additionalinputlen, 0, 512, 128),		\
+	.returnedbitslen = 256,						\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_AES192_NODF					\
+	{								\
+	.mode = ACVP_AES192,						\
+	.df = false,							\
+	.entropyinputlen = { 320 },					\
+	.noncelen = { DEF_ALG_ZERO_VALUE },				\
+	.persostringlen = { 320 },					\
+	.additionalinputlen = { 320 },					\
+	.returnedbitslen = 256,						\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_AES256_DF					\
+	{								\
+	.mode = ACVP_AES256,						\
+	.df = true,							\
+	.entropyinputlen = { 256 },					\
+	.noncelen = { 128 },						\
+	DEF_ALG_DOMAIN(.persostringlen, 0, 512, 128),			\
+	DEF_ALG_DOMAIN(.additionalinputlen, 0, 512, 128),		\
+	.returnedbitslen = 256,						\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_AES256_NODF					\
+	{								\
+	.mode = ACVP_AES256,						\
+	.df = false,							\
+	.entropyinputlen = { 384 },					\
+	.noncelen = { DEF_ALG_ZERO_VALUE },				\
+	.persostringlen = { 384 },					\
+	.additionalinputlen = { 384 },					\
+	.returnedbitslen = 256,						\
+	}
+
+#define OPENSSL_3_DRBG_CTR						\
+	{								\
+	.type = DEF_ALG_TYPE_DRBG,					\
+	.algo = {							\
+		.drbg = {						\
+			.algorithm = "ctrDRBG",				\
+			DEF_PREREQS(aes_prereqs),			\
+			.pr = DEF_ALG_DRBG_PR_DISABLED |		\
+			      DEF_ALG_DRBG_PR_ENABLED,			\
+			.reseed = true,					\
+			.capabilities = {				\
+				OPENSSL_3_DRBG_CAPS_AES128_DF,		\
+				OPENSSL_3_DRBG_CAPS_AES128_NODF,	\
+				OPENSSL_3_DRBG_CAPS_AES192_DF,		\
+				OPENSSL_3_DRBG_CAPS_AES192_NODF,	\
+				OPENSSL_3_DRBG_CAPS_AES256_DF,		\
+				OPENSSL_3_DRBG_CAPS_AES256_NODF },	\
+			.num_caps = 6,					\
+			}						\
+		}							\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_SHA1					\
+	{								\
+	.mode = ACVP_SHA1,						\
+	.entropyinputlen = { 128 },					\
+	.noncelen = { 64 },						\
+	DEF_ALG_DOMAIN(.persostringlen, 0, 512, 128),			\
+	DEF_ALG_DOMAIN(.additionalinputlen, 0, 512, 128),		\
+	.returnedbitslen = 160,						\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_SHA224					\
+	{								\
+	.mode = ACVP_SHA224,						\
+	.entropyinputlen = { 192 },					\
+	.noncelen = { 96 },						\
+	DEF_ALG_DOMAIN(.persostringlen, 0, 512, 128),			\
+	DEF_ALG_DOMAIN(.additionalinputlen, 0, 512, 128),		\
+	.returnedbitslen = 224,						\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_SHA256					\
+	{								\
+	.mode = ACVP_SHA256,						\
+	.entropyinputlen = { 256 },					\
+	.noncelen = { 128 },						\
+	DEF_ALG_DOMAIN(.persostringlen, 0, 512, 128),			\
+	DEF_ALG_DOMAIN(.additionalinputlen, 0, 512, 128),		\
+	.returnedbitslen = 256,						\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_SHA384					\
+	{								\
+	.mode = ACVP_SHA384,						\
+	.entropyinputlen = { 256 },					\
+	.noncelen = { 128 },						\
+	DEF_ALG_DOMAIN(.persostringlen, 0, 512, 128),			\
+	DEF_ALG_DOMAIN(.additionalinputlen, 0, 512, 128),		\
+	.returnedbitslen = 384,						\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_SHA512					\
+	{								\
+	.mode = ACVP_SHA512,						\
+	.entropyinputlen = { 256 },					\
+	.noncelen = { 128 },						\
+	DEF_ALG_DOMAIN(.persostringlen, 0, 512, 128),			\
+	DEF_ALG_DOMAIN(.additionalinputlen, 0, 512, 128),		\
+	.returnedbitslen = 512,						\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_SHA512224					\
+	{								\
+	.mode = ACVP_SHA512224,						\
+	.entropyinputlen = { 192 },					\
+	.noncelen = { 96 },						\
+	DEF_ALG_DOMAIN(.persostringlen, 0, 512, 128),			\
+	DEF_ALG_DOMAIN(.additionalinputlen, 0, 512, 128),		\
+	.returnedbitslen = 224,						\
+	}
+
+#define OPENSSL_3_DRBG_CAPS_SHA512256					\
+	{								\
+	.mode = ACVP_SHA512256,						\
+	.entropyinputlen = { 256 },					\
+	.noncelen = { 128 },						\
+	DEF_ALG_DOMAIN(.persostringlen, 0, 512, 128),			\
+	DEF_ALG_DOMAIN(.additionalinputlen, 0, 512, 128),		\
+	.returnedbitslen = 256,						\
+	}
+
+#define OPENSSL_3_DRBG_HMAC						\
+	{								\
+	.type = DEF_ALG_TYPE_DRBG,					\
+	.algo = {							\
+		.drbg = {						\
+			.algorithm = "hmacDRBG",			\
+			DEF_PREREQS(hmac_prereqs),			\
+			.pr = DEF_ALG_DRBG_PR_DISABLED |		\
+			      DEF_ALG_DRBG_PR_ENABLED,			\
+			.reseed = true,					\
+			.capabilities = {				\
+				OPENSSL_3_DRBG_CAPS_SHA1,		\
+				OPENSSL_3_DRBG_CAPS_SHA224,		\
+				OPENSSL_3_DRBG_CAPS_SHA256,		\
+				OPENSSL_3_DRBG_CAPS_SHA384,		\
+				OPENSSL_3_DRBG_CAPS_SHA512,		\
+				OPENSSL_3_DRBG_CAPS_SHA512224,		\
+				OPENSSL_3_DRBG_CAPS_SHA512256 },	\
+			.num_caps = 7,					\
+			}						\
+		}							\
+	}
+
+#define OPENSSL_3_DRBG_HASH						\
+	{								\
+	.type = DEF_ALG_TYPE_DRBG,					\
+	.algo = {							\
+		.drbg = {						\
+			.algorithm = "hashDRBG",			\
+			DEF_PREREQS(sha_prereqs),			\
+			.pr = DEF_ALG_DRBG_PR_DISABLED |		\
+			      DEF_ALG_DRBG_PR_ENABLED,			\
+			.reseed = true,					\
+			.capabilities = {				\
+				OPENSSL_3_DRBG_CAPS_SHA1,		\
+				OPENSSL_3_DRBG_CAPS_SHA224,		\
+				OPENSSL_3_DRBG_CAPS_SHA256,		\
+				OPENSSL_3_DRBG_CAPS_SHA384,		\
+				OPENSSL_3_DRBG_CAPS_SHA512,		\
+				OPENSSL_3_DRBG_CAPS_SHA512224,		\
+				OPENSSL_3_DRBG_CAPS_SHA512256 },	\
+			.num_caps = 7,					\
+			}						\
+		}							\
+	}
+
 /**************************************************************************
  * RSA Definitions
  **************************************************************************/
@@ -689,6 +893,8 @@ const struct def_algo_kas_ifc_schema openssl_kas_ifc_schema_kts[] = { {
 	.length = 768,
 } };
 
+// TODO: support DEF_ALG_KAS_IFC_RSAKPG1_CRT and DEF_ALG_KAS_IFC_RSAKPG2_CRT?
+// That would require a parser update.
 #define OPENSSL_RSA_OAEP						\
 	{								\
 	.type = DEF_ALG_TYPE_KAS_IFC,					\
@@ -696,7 +902,10 @@ const struct def_algo_kas_ifc_schema openssl_kas_ifc_schema_kts[] = { {
 		DEF_PREREQS(openssl_rsa_prereqs),			\
 		.function = DEF_ALG_KAS_IFC_PARITALVAL,			\
 		.iut_identifier = "0123456789abcdef",			\
-		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC },\
+		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC,\
+					  DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,\
+					  DEF_ALG_KAS_IFC_RSAKPG2_BASIC,\
+					  DEF_ALG_KAS_IFC_RSAKPG2_PRIME_FACTOR },\
 		.keygen.rsa_modulo = { DEF_ALG_RSA_MODULO_2048,		\
 				       DEF_ALG_RSA_MODULO_3072,		\
 				       DEF_ALG_RSA_MODULO_4096,		\
@@ -1014,6 +1223,209 @@ static const struct def_algo_kas_ecc_cdh_component openssl_kas_ecc_cdh = {
 			       ACVP_DH_FFDHE_6144 | ACVP_DH_FFDHE_8192)
 
 /**************************************************************************
+ * SP800-56B REV2
+ **************************************************************************/
+
+// TODO: support DEF_ALG_KAS_IFC_SSC_KAS2?
+// That would require a parser update.
+const struct def_algo_kas_ifc_ssc_schema openssl_kas_ifc_ssc_schema[] = { {
+	.schema = DEF_ALG_KAS_IFC_SSC_KAS1,
+	.kas_ifc_role = DEF_ALG_KAS_IFC_INITIATOR |
+			DEF_ALG_KAS_IFC_RESPONDER
+} };
+
+// TODO: support DEF_ALG_KAS_IFC_RSAKPG1_CRT and DEF_ALG_KAS_IFC_RSAKPG2_CRT?
+// That would require a parser update.
+#define OPENSSL_RSA_SSC							\
+	{								\
+	.type = DEF_ALG_TYPE_KAS_IFC,					\
+	.algo.kas_ifc = {						\
+		DEF_PREREQS(openssl_rsa_prereqs),			\
+		.function = DEF_ALG_KAS_IFC_SSC,			\
+		.iut_identifier = "0123456789abcdef",			\
+		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC,\
+					  DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,\
+					  DEF_ALG_KAS_IFC_RSAKPG2_BASIC,\
+					  DEF_ALG_KAS_IFC_RSAKPG2_PRIME_FACTOR },\
+		.keygen.rsa_modulo = { DEF_ALG_RSA_MODULO_2048,		\
+				       DEF_ALG_RSA_MODULO_3072,		\
+				       DEF_ALG_RSA_MODULO_4096,		\
+				       DEF_ALG_RSA_MODULO_6144,		\
+				       DEF_ALG_RSA_MODULO_8192 },	\
+		.keygen.fixedpubexp = "010001",				\
+		.ssc_schema = openssl_kas_ifc_ssc_schema,		\
+		.ssc_schema_num = ARRAY_SIZE(openssl_kas_ifc_ssc_schema),\
+		},							\
+	}
+
+/**************************************************************************
+ * SP800-56C rev 2 OneStep KDF
+ **************************************************************************/
+static const struct def_algo_prereqs openssl_kdf_onestep_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "HMAC",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+#define OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON				\
+	.mac_salt_method = DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT |		\
+			   DEF_ALG_KAS_KDF_MAC_SALT_RANDOM
+
+const struct def_algo_kas_kdf_onestepkdf_aux openssl_kas_kdf_onestepkdf_aux[] = { {
+	.auxfunc = ACVP_SHA1,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_SHA224,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_SHA256,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_SHA384,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_SHA512,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_SHA512224,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_SHA512256,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_SHA3_224,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_SHA3_256,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_SHA3_384,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_SHA3_512,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_HMACSHA1,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_HMACSHA2_224,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_HMACSHA2_256,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_HMACSHA2_384,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_HMACSHA2_512,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_HMACSHA2_512224,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_HMACSHA2_512256,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_HMACSHA3_224,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_HMACSHA3_256,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_HMACSHA3_384,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_HMACSHA3_512,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_KMAC128,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+}, {
+	.auxfunc = ACVP_KMAC256,
+	OPENSSL_KAS_KDF_ONESTEPKDF_AUX_COMMON
+} };
+
+
+#define OPENSSL_KDA_ONESTEP						\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_ONESTEP,				\
+	.algo.kdf_onestep = {						\
+		DEF_PREREQS(openssl_kdf_onestep_prereqs),		\
+		.kdf_spec = DEF_ALG_KDF_SP800_56Crev2,			\
+		.onestep = {						\
+			.aux_function = openssl_kas_kdf_onestepkdf_aux,	\
+			.aux_function_num = ARRAY_SIZE(openssl_kas_kdf_onestepkdf_aux),\
+			.fixed_info_pattern_type = {			\
+				DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,\
+				DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO },\
+		},							\
+		.length = 2048,						\
+		DEF_ALG_DOMAIN(.zlen, 224, 65536, 8),			\
+		}							\
+	}
+
+/**************************************************************************
+ * SP800-56C rev 2 TwoStep KDF
+ **************************************************************************/
+static const struct def_algo_prereqs openssl_kdf_twostep_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "HMAC",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+const struct def_algo_kas_kdf_twostepkdf openssl_kas_kdf_twostepkdf[] = { {
+	.mac_salt_method = DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT |
+			   DEF_ALG_KAS_KDF_MAC_SALT_RANDOM,
+	.fixed_info_pattern_type = { DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,
+				     DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO },
+	.kdf_108 = {
+		.kdf_108_type = DEF_ALG_KDF_108_FEEDBACK,
+		.macalg = ACVP_HMACSHA1 | ACVP_HMACSHA2_224 |
+			  ACVP_HMACSHA2_256 | ACVP_HMACSHA2_384 |
+			  ACVP_HMACSHA2_512 | ACVP_HMACSHA2_512224 |
+			  ACVP_HMACSHA2_512256 | ACVP_HMACSHA3_224 |
+			  ACVP_HMACSHA3_256 | ACVP_HMACSHA3_384 |
+			  ACVP_HMACSHA3_384,
+		.supported_lengths = { 2048 },
+		.fixed_data_order = DEF_ALG_KDF_108_COUNTER_ORDER_AFTER_FIXED_DATA,
+		.counter_lengths = DEF_ALG_KDF_108_COUNTER_LENGTH_8,
+		.supports_empty_iv = true,
+		.requires_empty_iv = true
+	}
+} };
+
+#define OPENSSL_KDA_TWOSTEP						\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_TWOSTEP,				\
+	.algo.kdf_twostep = {						\
+		DEF_PREREQS(openssl_kdf_twostep_prereqs),		\
+		.kdf_spec = DEF_ALG_KDF_SP800_56Crev2,			\
+		.twostep = openssl_kas_kdf_twostepkdf,			\
+		.twostep_num = ARRAY_SIZE(openssl_kas_kdf_twostepkdf),	\
+		.length = 2048,						\
+		DEF_ALG_DOMAIN(.zlen, 224, 65536, 8),			\
+		},							\
+	}
+
+/**************************************************************************
  * TLS Definitions
  **************************************************************************/
 static const struct def_algo_prereqs openssl_kdf_prereqs[] = {
@@ -1069,9 +1481,12 @@ static const struct def_algo_prereqs openssl_kdf_prereqs[] = {
 				DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,\
 				DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO },\
 		.cipher_spec = {					\
-			.macalg = ACVP_SHA224 | ACVP_SHA256 |		\
-				  ACVP_SHA384 | ACVP_SHA512,		\
-			DEF_ALG_DOMAIN(.z, 224, 65336, 8),		\
+			.macalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 |\
+				  ACVP_SHA384 | ACVP_SHA512 |		\
+				  ACVP_SHA512224 | ACVP_SHA512256 |	\
+				  ACVP_SHA3_224 | ACVP_SHA3_256 |	\
+				  ACVP_SHA3_384 | ACVP_SHA3_384,	\
+			DEF_ALG_DOMAIN(.z, 224, 65536, 8),		\
 			.l = 2048,					\
 			}						\
 		}							\
@@ -1395,6 +1810,7 @@ static const struct def_algo openssl_ffcdh [] = {
 	OPENSSL_HMAC(ACVP_HMACSHA2_512),				\
 									\
 	OPENSSL_RSA_OAEP,						\
+	OPENSSL_RSA_SSC,						\
 									\
 	OPENSSL_ECDSA_KEYGEN(NISTP_CURVES),				\
 	OPENSSL_ECDSA_KEYVER(NISTP_CURVES),				\
@@ -1536,11 +1952,11 @@ static const struct def_algo openssl_3_sha [] = {
 	OPENSSL_3_SHA_COMMON
 };
 
-static const struct def_algo openssl_sha_power_vmx [] = {
+static const struct def_algo openssl_sha_power_isa [] = {
 	OPENSSL_1_SHA_COMMON
 };
 
-static const struct def_algo openssl_3_sha_power_vmx [] = {
+static const struct def_algo openssl_3_sha_power_isa [] = {
 	OPENSSL_3_SHA_COMMON
 };
 
@@ -1604,10 +2020,22 @@ static const struct def_algo openssl_10x_drbg [] = {
 	OPENSSL_DRBG_HASH,
 };
 
+static const struct def_algo openssl_3_drbg [] = {
+	/* DRBG in providers/implementations/rands/ */
+	OPENSSL_3_DRBG_CTR,
+	OPENSSL_3_DRBG_HMAC,
+	OPENSSL_3_DRBG_HASH,
+};
+
 static const struct def_algo openssl_kbkdf [] = {
 	OPENSSL_KBKDF_HMAC,
 	OPENSSL_KBKDF_CMAC_AES,
 	OPENSSL_KBKDF_CMAC_TDES,
+};
+
+static const struct def_algo openssl_kda [] = {
+	OPENSSL_KDA_ONESTEP,
+	OPENSSL_KDA_TWOSTEP
 };
 
 static const struct def_algo openssl_neon [] = {
@@ -1643,13 +2071,6 @@ static const struct def_algo openssl_ecdh_BK_curves [] = {
 	OPENSSL_KAS_ECC_SSC_R3(NISTB_CURVES | NISTK_CURVES),
 };
 
-/*
- * TODO OpenSSL 3: add
- *
- * KDA OneStep and TwoStep
- * DRBG: CTR, Hash, HMAC
- */
-
 /**************************************************************************
  * Register operation
  **************************************************************************/
@@ -1663,17 +2084,20 @@ static const struct def_algo openssl_ecdh_BK_curves [] = {
 			    proc, imple_name, imple_description)
 
 #define OPENSSL_IMPL_SHA_POWER(proc, imple_name, imple_description)	\
-	OPENSSL_IMPL_COMMON(openssl_sha_power_vmx, openssl_3_sha_power_vmx,\
+	OPENSSL_IMPL_COMMON(openssl_sha_power_isa, openssl_3_sha_power_isa,\
 			    proc, imple_name, imple_description)
 
 static struct def_algo_map openssl_algo_map [] = {
 	/* OpenSSL TDES C implementation **************************************/
 	OPENSSL_IMPL_COMMON(openssl_tdes, openssl_3_tdes, "", "TDES_C",
 			    "Generic C non-optimized TDES implementation"),
-	/* OpenSSL KBKDF implementation **********************/
+	/* OpenSSL KBKDF implementation ***************************************/
 	OPENSSL_IMPL_COMMON(openssl_kbkdf, openssl_kbkdf, "", "KBKDF",
 			    "Generic C non-optimized KBKDF implementation"),
-	/* OpenSSL ECC all curves implementation **********************/
+	/* OpenSSL KDA implementation *****************************************/
+	OPENSSL_IMPL_COMMON(openssl_kda, openssl_kda, "", "KDA",
+			    "Generic C non-optimized KDA implementation"),
+	/* OpenSSL ECC all curves implementation ******************************/
 	OPENSSL_IMPL_COMMON(openssl_ecdsa_BK_curves, openssl_3_ecdsa_BK_curves,
 			    "", "ECDSA K/B", "ECDSA with K and B curves"),
 	OPENSSL_IMPL_COMMON(openssl_ecdsa_sha3_BK_curves,
@@ -1682,64 +2106,165 @@ static struct def_algo_map openssl_algo_map [] = {
 			    "ECDSA with SHA3 and K and B curves"),
 	OPENSSL_IMPL_COMMON(openssl_ecdh_BK_curves, openssl_ecdh_BK_curves,
 			    "", "ECDH K/B", "ECDH with K and B curves"),
-	/* OpenSSL TLS 1.3 implementation **********************/
+	/* OpenSSL TLS 1.3 implementation *************************************/
 	OPENSSL_IMPL_COMMON(openssl_tls13, openssl_tls13, "",
 			    "TLS v1.3", "TLS v1.3 implementation"),
+
+	/* OpenSSL FFC DH implementation **************************************/
+	OPENSSL_IMPL_COMMON(openssl_ffcdh, openssl_ffcdh, "", "FFC_DH",
+			    "Generic C non-optimized DH implementation"),
+
+	/*
+	 * OpenSSL 1.0.x upstream DRBG implementation that may have been
+	 * forward-ported to 1.1.x (e.g. on RHEL8)
+	 * The different instances relate to the different implementations of
+	 * the underlying cipher
+	 **********************************************************************/
+	IMPLEMENTATION(openssl_10x_drbg, "OpenSSL", "", "DRBG_10X",
+		       "Generic DRBG implementation with all types of DRBG"),
+
+	/* OpenSSL 3 DRBG implementation **************************************/
+	IMPLEMENTATION(openssl_3_drbg, "3_OpenSSL", "", "DRBG_3",
+		       "Generic DRBG implementation with all types of DRBG"),
+
+	/* OpenSSL has support for 5 different types of AES implementations.
+	 * These implementations are selected in an order of precedence, i.e. if
+	 * the first implementation is available, it will be selected. Otherwise
+	 * the second implementation will be selected, etc. etc.
+	 *
+	 * The order of precedence is as follows:
+	 * 1) Any processor-specific AES implementation. Currently: AES-NI,
+	 *    SPARC AES, s390x AES, RV64I ZKND/ZKNE, RV32I ZBKB/ZKND/ZKNE. For
+	 *    x86, this means AES-NI.
+	 * 2) HWAES implementations. This is indicated by HWAES_CAPABLE in the
+	 *    source code. x86 does not have such an implementation, so we do
+	 *    not define it.
+	 * 3) Bit sliced implementation (PAA) of AES using a vector instruction
+	 *    set. This is indicated by BSAES_CAPABLE in the source code. x86
+	 *    does support this implementation, when SSSE3 is available (see
+	 *    include/crypto/aes_platform.h where BSAES_CAPABLE is defined).
+	 *    OpenSSL only uses this implementation for:
+	 *    a) CTR encryption
+	 *    b) CBC decryption
+	 *    c) XTS
+	 *    d) GCM
+	 * 4) AES implementation (PAA) using vector permutation instructions.
+	 *    This is indicated by VPAES_CAPABLE in the source code. x86 does
+	 *    support this implementation, when SSSE3 is available (see
+	 *    include/crypto/aes_platform.h where VPAES_CAPABLE is defined). As
+	 *    it will be used when the mode is not one of a-d specified above,
+	 *    we can combine it with the BSAES implementation.
+	 * 5) Assembler implementation. This is the fallback implementation, and
+	 *    only used when the accelerated implementations (above) are not
+	 *    available. The assembler implementation is always available.
+	 *
+	 * Source: crypto/evp/e_aes.c (OpenSSL 1)
+	 * Source: providers/implementations/ciphers/cipher_aes_hw.c (OpenSSL 3)
+	 **********************************************************************/
+
 	/* OpenSSL AESNI implementation ***************************************/
 	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "X86", "AESNI",
 			    "Intel AES-NI AES implementation"),
-	/* OpenSSL AESNI with AVX GHASH multiplication implementation *********/
-	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESNI_AVX",
-			    "Intel AES-NI AES using GCM with AVX GHASH  implementation"),
-	/* OpenSSL AESNI with CLMULNI GHASH multiplication implementation *****/
-	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESNI_CLMULNI",
-			    "Intel AES-NI AES using GCM with Intel CLMULNI  implementation"),
-	/* OpenSSL AESNI with assembler GHASH multiplication implementation ***/
-	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESNI_ASM",
-			    "Intel AES-NI AES using assembler block mode implementation"),
-
+	/* OpenSSL AES constant time SSSE3 and bit sliced implementation ******/
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "X86", "BAES_CTASM",
+			    "Constant-time bit sliced/vector permutation AES implementation"),
 	/* OpenSSL AES assembler implementation *******************************/
 	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "X86", "AESASM",
 			    "Assembler AES implementation"),
+
+	/* Apart from the AES implementations, AES also has additional support
+	 * for specific AES GCM implementations. This means, for each of the
+	 * implementations described above, the GHASH part can also be hardware
+	 * accelerated or implemented. Again, there is a precedence order. This
+	 * order is different for each platform, but we will describe x86-64
+	 * here.
+	 *
+	 * 1) AVX implementation (PAA). This path is taken if the PCLMULQDQ,
+	 *    MOVBE, and AVX bits are all set in the CPUID. Uses the
+	 *    gcm_init_avx function.
+	 * 2) CLMUL implementation (PAA). This path is taken if the PCLMULQDQ
+	 *    bit is set in the CPUID. Uses the gcm_init_clmul function.
+	 * 3) 4-bit assembler implementation. This is the fallback
+	 *    implementation. Uses the gcm_ghash_4bit function.
+	 * NOTE: for AES-NI, the above precedence does not apply. Instead, there
+	 * is either an AVX512+VAES implementation, or a regular AES-NI
+	 * implementation. The AESNI definitions below are kept for historical
+	 * reasons.
+	 *
+	 * Note that we also need to test each AES implementation as above! So
+	 * for each of the 3 AES implementations, there will be 3 GHASH
+	 * implementations, for a total of 9.
+	 *
+	 * Source: crypto/modes/gcm128.c
+	 * Source: crypto/modes/asm/aes-gcm-avx512.pl
+	 * Source: providers/implementations/ciphers/cipher_aes_gcm_hw_aesni.inc
+	 **********************************************************************/
+
+	/* OpenSSL AESNI with AVX GHASH multiplication implementation *********/
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESNI_AVX",
+			    "Intel AES-NI AES using GCM with AVX GHASH  implementation"),
+	/* OpenSSL AESNI with CLMUL GHASH multiplication implementation *******/
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESNI_CLMULNI",
+			    "Intel AES-NI AES using GCM with CLMUL GHASH implementation"),
+	/* OpenSSL AESNI with 4-bit assembler GHASH multiplication
+	 * implementation *****************************************************/
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESNI_ASM",
+			    "Intel AES-NI AES using GCM with 4-bit assembler GHASH implementation"),
+	/* OpenSSL AES constant time SSSE3 and bit sliced with AVX GHASH
+	 * multiplication implementation **************************************/
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "BAES_CTASM_AVX",
+			    "Constant-time bit sliced AES using GCM with AVX GHASH implementation"),
+	/* OpenSSL AES constant time SSSE3 and bit sliced with CLMUL GHASH
+	 * multiplication implementation **************************************/
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "BAES_CTASM_CLMULNI",
+			    "Constant-time bit sliced AES using GCM with CLMUL GHASH implementation"),
+	/* OpenSSL AES constant time SSSE3 and bit sliced with 4-bit assembler
+	 * GHASH multiplication implementation ********************************/
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "BAES_CTASM_ASM",
+			    "Constant-time bit sliced AES using GCM with 4-bit assembler GHASH implementation"),
 	/* OpenSSL AES assembler with AVX GHASH multiplication implementation */
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESASM_AVX",
 			    "Assembler AES using GCM with AVX GHASH implementation"),
-	/***********************************************************************
-	 * OpenSSL AES assembler with CLMULNI GHASH multiplication
-	 * implementation
-	 */
+	/* OpenSSL AES assembler with CLMUL GHASH multiplication implementation
+	 **********************************************************************/
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESASM_CLMULNI",
-			    "Assembler AES using GCM with Intel CLMULNI  implementation"),
-	/***********************************************************************
-	 * OpenSSL AES assembler with assembler GHASH multiplication
-	 * implementation
-	 */
+			    "Assembler AES using GCM with CLMUL GHASH implementation"),
+	/* OpenSSL AES assembler with 4-bit assembler GHASH multiplication
+	 * implementation *****************************************************/
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESASM_ASM",
-			    "Assembler AES using GCM with assembler GHASH implementation"),
+			    "Assembler AES using GCM with 4-bit assembler GHASH implementation"),
 
-	/* OpenSSL AES constant time SSSE3 and Bit Slice implementation *******/
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "X86", "BAES_CTASM",
-			    "Constant-time bit slice AES implementation"),
-	/***********************************************************************
-	 * OpenSSL AES constant time SSSE3 and Bit Slice with AVX GHASH
-	 * multiplication implementation
-	 */
-	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "BAES_CTASM_AVX",
-			    "Constant-time bit slice AES using GCM with AVX GHASH implementation"),
-	/***********************************************************************
-	 * OpenSSL AES constant time SSSE3 and Bit Slice with CLMULNI GHASH
-	 * multiplication implementation
-	 */
-	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "BAES_CTASM_CLMULNI",
-			    "Constant-time bit slice AES using GCM with Intel CLMULNI implementation"),
+	/* Now we move to the SHA-1 and SHA-2 implementations. OpenSSL has 3
+	 * different functions which can contain assembler implementations:
+	 *
+	 * 1) sha1_block_data_order, used for SHA-1.
+	 * 2) sha256_block_data_order, used for SHA-256 and related.
+	 * 3) sha512_block_data_order, used for SHA-512 and related.
+	 *
+	 * Hardware accelerations are selected directly in the assembler
+	 * implementations. For x86, the following are defined, in order of
+	 * precedence:
+	 * 1) SHA-NI implementation (if SHA bit is set in CPUID). Not available
+	 *    for SHA-512 and related.
+	 * 2) AVX2 implementation (if AVX2+BMI1+BMI2 bits are set in CPUID).
+	 * 3) AVX implementation (if AVX and "Intel CPU" bits are set in CPUID).
+	 * 4) SSSE3 implementation (if SSSE3 bit is set in CPUID). Not available
+	 *    for SHA-512 and related.
+	 * 5) Assembler implementation. This is the fallback implementation.
+	 *
+	 * Strictly speaking, there is also an XOP implementation for SHA-512,
+	 * which uses the XOP instructions provided on a very small number of
+	 * old AMD CPUs. We assume this implementation is never used.
+	 *
+	 * Source: crypto/sha/asm/
+	 * Source: crypto/sha/asm/sha1-x86_64.pl
+	 * Source: crypto/sha/asm/sha512-x86_64.pl
+	 **********************************************************************/
 
-	/***********************************************************************
-	 * OpenSSL AES constant time SSSE3 and Bit Slice with assembler GHASH
-	 * multiplication implementation
-	 */
-	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "BAES_CTASM_ASM",
-			    "Constant-time bit slice AES using GCM with assembler GHASH implementation"),
-
+	/* OpenSSL SHANI implementation ***************************************/
+	OPENSSL_IMPL_SHA("X86", "SHA_SHANI", "Intel SHA-NI implementation"),
+	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "X86", "SSH_SHANI",
+			    "SSH KDF using Intel SHA-NI implementation"),
 	/* OpenSSL SHA AVX2 implementation ************************************/
 	OPENSSL_IMPL_SHA("X86", "SHA_AVX2", "AVX2 SHA implementation"),
 	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "X86", "SSH_AVX2",
@@ -1757,161 +2282,255 @@ static struct def_algo_map openssl_algo_map [] = {
 	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "X86", "SSH_ASM",
 			    "SSH KDF using assembler SHA implementation"),
 
+	/* Finally, we come to SHA-3. OpenSSL has 4 different implementations
+	 * for SHA-3, but only one of them is currently actually used. Still, we
+	 * can imagine a kind of precedence for x86 as follows:
+	 * 1) AVX512VL implementation (if AVX512VL bit is set in CPUID):
+	 *    asm/keccak1600-avx512vl.pl.
+	 * 2) AVX512 implementation (if AVX512 bit is set in CPUID):
+	 *    asm/keccak1600-avx512.pl.
+	 * 3) AVX2 implementation (if AVX2 bit is set in CPUID):
+	 *    asm/keccak1600-avx2.pl.
+	 * 4) Assembler implementation. This is the fallback implementation.
+	 *
+	 * However, currently only the plain assembler implementation is used.
+	 * We still keep the existing definitions here for future compatibility.
+	 *
+	 * Source: crypto/sha/build.info
+	 **********************************************************************/
+
+	/* OpenSSL SHA3 AVX512VL implementation *********************************/
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "X86", "SHA3_AVX512VL",
+			    "AVX-512VL SHA-3 implementation"),
+	/* OpenSSL SHA3 AVX512 implementation *********************************/
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "X86", "SHA3_AVX512",
+			    "AVX-512 SHA-3 implementation"),
 	/* OpenSSL SHA3 AVX2 implementation ***********************************/
 	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "X86", "SHA3_AVX2",
 			    "AVX2 SHA-3 implementation"),
-	/* OpenSSL SHA3 AVX512 implementation *********************************/
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "X86", "SHA3_AVX512",
-			    "Intel AVX-512 SHA-3 implementation"),
 	/* OpenSSL SHA3 assembler implementation ******************************/
 	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "X86", "SHA3_ASM",
 			    "Assembler SHA-3 implementation"),
-	/* OpenSSL FFC DH implementation **************************************/
-	OPENSSL_IMPL_COMMON(openssl_ffcdh, openssl_ffcdh, "", "FFC_DH",
-			    "Generic C non-optimized DH implementation"),
 
-	/*
-	 * OpenSSL 1.0.x upstream DRBG implementation that may have been
-	 * forward-ported to 1.1.x (e.g. on RHEL8)
-	 * The different instances relate to the different implementations of
-	 * the underlying cipher
+	/* ARM starts here. We won't repeat all the precedence rules. *********/
+
+	/* HWAES_CAPABLE is set if ARMV8_AES bit is set. */
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "ARM64", "CE",
+			    "ARMv8 Cryptographic Extension AES implementation"),
+	/* BSAES_CAPABLE and VPAES_CAPABLE are both set if ARMV7_NEON bit is set.
+	 * However, because of the precedence (see above), the bit sliced
+	 * implementation is used first. Unfortunately, the acvpproxy name of
+	 * this implementation is "VPAES", even though it is actually the BSAES
+	 * implementation. This is reflected in the description.
 	 **********************************************************************/
-	IMPLEMENTATION(openssl_10x_drbg, "OpenSSL", "", "DRBG_10X",
-		       "Generic DRBG implementation with all types of DRBG"),
-
-	/* crypto/evp/e_aes.c module:
-
-	Definition of defines for __aarch64__ (lines 2552-2569) and aes_init_key
-	(lines 2603-2706) sets encrypt/decrypt key, encrypt/decrypt and
-	cbc_encrypt functions depending on mask:
-
-	a) HWAES_set_decrypt_key, HWAES_decrypt, HWAES_cbc_encrypt,
-	HWAES_set_encrypt_key, HWAES_ctr32_encrypt_blocks for HWAES_CAPABLE
-
-	b) AES_set_decrypt_key, AES_decrypt, bsaes_cbc_encrypt, AES_encrypt,
-	bsaes_ctr32_encrypt_blocks for BSAES_CAPABLE (not compiled)
-
-	c) vpaes_set_decrypt_key, vpaes_decrypt, vpaes_cbc_encrypt,
-	vpaes_set_encrypt_key, vpaes_encrypt for VPAES_CAPABLE
-
-	d) AES_set_decrypt_key, AES_decrypt, AES_cbc_encrypt,
-	AES_set_encrypt_key, AES_encrypt, AES_ctr32_encrypt otherwise.
-
-
-	So, for ARV8_AES executes a) (e.g. aes_v8_encrypt, defined in
-	aesv8-armx.pl), for ARVV7_NEON c) (e.g. vpaes_encrypt, defined in
-	vpaes-armv8.pl) and for capmask with those bits off d) (e.g. AES_encrypt).
-	**********************************************************************/
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "ARM64", "VPAES",
+			    "ARMv7 NEON bit sliced AES implementation"),
+	/* The fallback implementation (see above), unfortunately named C even
+	 * though it is implemented in plain assembler.
+	 **********************************************************************/
 	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "ARM64", "AES_C",
-			    "Generic C AES implementation"),
-	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "ARM64", "AES_C_GCM",
-			    "Generic C AES GCM implementation"),
+			    "Assembler AES implementation"),
 
-	/* OpenSSL ARM64v8 Assembler implementation ***************************/
+	/* For AES GCM, there is no major differences with normal AES. The only
+	 * difference is that, if loop unrolling and EOR3 are available, a
+	 * separate implementation is used. This one has the highest precedence.
+	 **********************************************************************/
+
+	/* OpenSSL 3 GCM with loop unrolling and EOR3 implementation. *********/
+	IMPLEMENTATION(openssl_gcm, "3_OpenSSL", "ARM64", "CE_GCM_UNROLL8_EOR3",
+		       "ARMv8 Cryptographic Extension GCM using loop unrolling and EOR3 implementation"),
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "ARM64", "CE_GCM",
+			    "ARMv8 Cryptographic Extension GCM implementation"),
+	/* Again, poorly named, this is actually a bit sliced implementation. */
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "ARM64", "VPAES_GCM",
+			    "ARMv7 NEON bit sliced AES GCM implementation"),
+	/* Again, poorly named, this is actually an assembler implementation. */
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "ARM64", "AES_C_GCM",
+			    "Assembler AES GCM implementation"),
+
+	/* For SHA-1 and SHA-2, the precedence on ARM platforms is as follows:
+	 * 1) ARMv8 Cryptography Extension implementation (if CE is available).
+	 * 2) ARMv7 NEON implementation (if NEON is available).
+	 * 3) Assembler implementation. This is the fallback implementation.
+	 *
+	 * Source: crypto/sha/asm/sha1-armv4-large.pl
+	 * Source: crypto/sha/asm/sha1-armv8.pl
+	 * Source: crypto/sha/asm/sha256-armv4.pl
+	 * Source: crypto/sha/asm/sha512-armv8.pl
+	 **********************************************************************/
+	/* OpenSSL ARMv8 CE Assembler implementation **************************/
+	OPENSSL_IMPL_SHA("ARM64", "SHA_CE",
+			 "ARMv8 Cryptographic Extension SHA implementation"),
+	/* OpenSSL ARMv7 NEON Assembler implementation ************************/
+	OPENSSL_IMPL_COMMON(openssl_neon, openssl_neon, "ARM64", "NEON",
+			    "ARMv7 NEON SHA implementation"),
+	/* OpenSSL ARM Assembler implementation *******************************/
 	OPENSSL_IMPL_SHA("ARM64", "SHA_ASM", "Assembler SHA implementation"),
 	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "ARM64", "SSH_ASM",
 			    "SSH KDF using Assembler SHA implementation"),
-	/* OpenSSL ARM64v8 SHA3 assembler implementation **********************/
+
+	/* For SHA-3, there is either:
+	 * a) crypto/sha/asm/keccak1600-armv4.pl for 32-bit ARM families.
+	 * b) crypto/sha/asm/keccak1600-armv8.pl for 64-bit ARM families (i.e.
+	 *    aarch64). This implementation uses the Cryptography Extension.
+	 **********************************************************************/
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "ARM64", "SHA3_CE",
+			    "ARMv8 Cryptographic Extension SHA-3 implementation"),
+	/* OpenSSL ARM Assembler implementation *******************************/
 	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "ARM64", "SHA3_ASM",
 			    "Assembler SHA-3 implementation"),
-	/* OpenSSL ARM NEON Assembler implementation **************************/
-	OPENSSL_IMPL_COMMON(openssl_neon, openssl_neon, "ARM64", "NEON",
-			    "NEON Assembler SHA implementation"),
-	/* OpenSSL ARM64v8 AES crypto extension *******************************
-	 * Note: we may execute more ciphers than strictly provided by the CE
-	 * implementation, but we do not care
-	 */
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "ARM64", "CE",
-			    "ARM Cryptographic Extension AES implementation"),
-	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "ARM64", "CE_GCM",
-			    "ARM Cryptographic Extension GCM implementation"),
-	OPENSSL_IMPL_SHA("ARM64", "SHA_CE",
-			 "ARM Cryptographic Extension SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "ARM64", "SHA3_CE",
-			    "ARM Cryptographic Extension SHA-3 implementation"),
 
-	/* OpenSSL ARM64v8 NEON bit slicing implementation ********************
-	 * Note: we may execute more ciphers than strictly provided by the NEON
-	 * implementation, but we do not care
-	 */
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "ARM64", "VPAES",
-			    "ARM NEON bit slicing AES implementation"),
-	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "ARM64", "VPAES_GCM",
-			    "ARM NEON bit slicing AES using GCM implementation"),
+	/* s390x/IBM z starts here. We won't repeat all the precedence rules. */
 
-	/* OpenSSL S390x Assembler implementation *****************************
-	 * Note: we may execute more ciphers than strictly provided by the ASM
-	 * implementation, but we do not care
-	 */
-	 /* We include algorithms implemented for using CPACF as well as regular assembler code (NON-PAI) */
+	/* s390x provides PAI implementations for AES (CPACF). When available,
+	 * they will be used. Otherwise, a plain assembler implementation is
+	 * used. The following CPACF implementations are supported by OpenSSL:
+	 * a) AES ECB and AES CBC (indicated by the km bits).
+	 * b) AES OFB (indicated by the ko bits).
+	 * c) AES CFB and CFB8 (indicated by the kmf bits).
+	 * d) AES CTR (note: never used by OpenSSL as it was slower than sw).
+	 * e) AES XTS (indicated by the km bits).
+	 * f) AES GCM (indicated by the kma bits).
+	 * g) AES CCM (indicated by the kmac bits).
+	 *
+	 * Source: include/crypto/aes_platform.h
+	 * Source: crypto/aes/asm/aes-s390x.pl
+	 * Source: https://www.openssl.org/docs/man3.0/man3/OPENSSL_s390xcap.html
+	 **********************************************************************/
 
-	/* OpenSSL S390x SHA implementations*****************************/
-	OPENSSL_IMPL_SHA("S390", "SHA_CPACF", "CPACF SHA implementation"),
-	OPENSSL_IMPL_SHA("S390", "SHA_ASM", "Assembler SHA implementation"),
-
-	/* OpenSSL S390x SHA3 implementations ************************/
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "S390", "SHA3_CPACF",
-			    "CPACF SHA-3 implementation"),
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "S390", "SHA3_ASM",
-			    "Assembler SHA-3 implementation"),
-	
-	/* OpenSSL S390x SSH implementations*****************************/
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "S390", "SSH_CPACF",
-			    "SSH KDF using CPACF SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "S390", "SSH_ASM",
-			    "SSH KDF using Assembler SHA implementation"),
-
-	/* OpenSSL S390x CPACF AES implementation *****************************/
+	/* OpenSSL s390x CPACF AES implementation *****************************/
 	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "S390", "AES_CPACF",
 			    "CPACF AES implementation"),
-	/* OpenSSL S390x AES assembler implementation*****************************/	    
+	/* OpenSSL s390x AES assembler implementation**************************/
 	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "S390", "AESASM",
 			    "Assembler AES implementation"),
-	
-	/* OpenSSL S390x AES GCM implementations*****************************/
-	
-	/* OpenSSL use KMA instructions that implements AES GCM */
+
+	/* For AES GCM, there is again a precedence:
+	 * 1) CPACF using kma instructions that implement AES GCM.
+	 *    providers/implementations/ciphers/cipher_aes_gcm_hw_s390x.inc
+	 * 2) AES assembler implementation with kimd that implements AES GHASH.
+	 *    crypto/modes/asm/ghash-s390x.pl
+	 * 3) AES assembler implementation with GHASH assembler implementation.
+	 *    crypto/modes/asm/ghash-s390x.pl
+	 *
+	 * Source: https://www.openssl.org/docs/man3.0/man3/OPENSSL_s390xcap.html
+	 **********************************************************************/
+
+	/* OpenSSL s390x CPACF AES GCM implementation *************************/
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "S390", "AESGCM_CPACF",
 			    "CPACF AES GCM implementation"),
-	/* OpenSSL when KMA instructions are not available; AES assembler and GHASH implementation in KIMD instructions are used  */
+	/* OpenSSL s390x AES assembler implementation using CPACF GCM *********/
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "S390", "AESGCM_ASM_CPACF",
 			    "Assembler AES using GCM with CPACF GHASH implementation"),
-
-	/* OpenSSL when KMA and KIND instructions are not available; AES and GHASH assembler is used  */
+	/* OpenSSL s390x AES assembler with 4-bit assembler GHASH multiplication
+	 * implementation *****************************************************/
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "S390", "AESGCM_ASM_ASM",
-			    "Assembler AES using GCM with assembler GHASH implementation"),
+			    "Assembler AES using GCM with 4-bit assembler GHASH implementation"),
+
+	/* s390x provides PAI implementations for SHA-1, SHA-2, SHA-3, ECC, and
+	 * ECDSA. When available, they will be used. Otherwise, a plain
+	 * assembler implementation is used. The following CPACF implementations
+	 * are supported by OpenSSL:
+	 * a) SHA-1, SHA-256, SHA-512, SHA-3, and SHAKE (indicated by the kimd
+	 *    bits).
+	 * b) SHA-3 and SHAKE (indicated by the klmd bits).
+	 * c) ECC point scalar multiplication (indicated by the pcc bits).
+	 * d) ECDSA sign/verify implementations (indicated by the kdsa bits).
+	 *
+	 * Note that OPENSSL_IMPL_SHA also includes the ECDH and ECDSA test
+	 * definitions.
+	 *
+	 * Source: https://www.openssl.org/docs/man3.0/man3/OPENSSL_s390xcap.html
+	 **********************************************************************/
+
+	/* OpenSSL s390x CPACF SHA implementations ****************************/
+	OPENSSL_IMPL_SHA("S390", "SHA_CPACF", "CPACF SHA implementation"),
+	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "S390", "SSH_CPACF",
+			    "SSH KDF using CPACF SHA implementation"),
+	/* OpenSSL s390x SHA assembler implementations ************************/
+	OPENSSL_IMPL_SHA("S390", "SHA_ASM", "Assembler SHA implementation"),
+	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "S390", "SSH_ASM",
+			    "SSH KDF using assembler SHA implementation"),
+
+	/* OpenSSL s390x CPACF SHA-3 implementations **************************/
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "S390", "SHA3_CPACF",
+			    "CPACF SHA-3 implementation"),
+	/* OpenSSL s390x SHA-3 assembler implementations **********************/
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "S390", "SHA3_ASM",
+			    "Assembler SHA-3 implementation"),
+
+	/* POWER starts here. We won't repeat all the precedence rules. *******/
 
 	/* OpenSSL POWER Assembler implementation *****************************
 	 * Note: we may execute more ciphers than strictly provided by the ASM
 	 * implementation, but we do not care
+	 *
+	 * crypto/aes/asm/aesp8-ppc.pl: This implementation uses the vcipher
+	 * instruction set specified in the ISA 2.07 section 5.11.1, i.e. the
+	 * PAI.
+	 *
+	 * That implementation seemingly is only used in
+	 * providers/implementations/ciphers/cipher_aes_gcm_hw_ppc.inc
+	 * referenced with static const PROV_GCM_HW aes_ppc_gcm. This is only
+	 * used with PPC_AES_GCM_CAPABLE ? &aes_ppc_gcm : &aes_gcm.
+	 *
+	 * In turn, PPC_AES_GCM_CAPABLE is only set with:
+	 * #   define PPC_AES_GCM_CAPABLE (OPENSSL_ppccap_P & PPC_MADD300)
+	 *
+	 * Yet, PPC_CRYPTO207 enables HWAES_CAPABLE which compiles the HWAES_*
+	 * functions which point to the aes_p8* functions.
+	 *
+	 * VMX (setting PPC_CRYPTO207 in OpenSSL), however, refers to assembler
+	 * implementation as the following is enabled:
+	 * crypto/modes/asm/ghashp8-ppc.pl. This code does not use vcipher, but
+	 * the other v... instructions which are just some math operations like
+	 * Intel AVX to my interpretation.
+	 *
+	 * The SHA PAI implementation is provided with
+	 * crypto/sha/asm/sha512p8-ppc.pl as it contains vashasigma*. This
+	 * implementation is invoked from crypto/sha/sha_ppc.c with:
+	 * OPENSSL_ppccap_P & PPC_CRYPTO207 ? sha256_block_p8(ctx, inp, len) :
+	 *         sha256_block_ppc(ctx, inp, len);
+	 *
+	 * and
+	 * OPENSSL_ppccap_P & PPC_CRYPTO207 ? sha512_block_p8(ctx, inp, len) :
+	 *         sha512_block_ppc(ctx, inp, len);
+	 *
+	 * This means that for the SHA implementation, PPC_CRYPTO207 uses the
+	 * PAI.
+	 *
+	 * Bottom line for our ACVP Proxy definitions:
+	 *
+	 * - AES_VMX and SSH_VMX refers to the PAA
+	 *
+	 * - SHA_VMX refers to the PAA
 	 */
-	OPENSSL_IMPL_SHA("POWER", "SHA_ASM", "Assembler SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "POWER", "SSH_ASM",
-			    "SSH KDF using Assembler SHA implementation"),
-	/* OpenSSL S390x SHA3 assembler implementation ************************/
-	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "POWER", "SHA3_ASM",
-			    "Assembler SHA-3 implementation"),
 	/* OpenSSL POWER assembler implementation *****************************/
 	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "POWER", "AESASM",
 			    "Assembler AES implementation"),
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "POWER", "AESASM_ASM",
 			    "Assembler AES using GCM with assembler GHASH implementation"),
+	OPENSSL_IMPL_SHA("POWER", "SHA_ASM", "Assembler SHA implementation"),
+	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "POWER", "SSH_ASM",
+			    "SSH KDF using assembler SHA implementation"),
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "POWER", "SHA3_ASM",
+			    "Assembler SHA-3 implementation"),
 
-	/* OpenSSL POWER VMX implementation ***********************************/
-	OPENSSL_IMPL_SHA_POWER("POWER", "SHA_VMX",
-			       "VMX Assembler SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "POWER", "SSH_VMX",
-			    "SSH KDF using VMX Assembler SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "POWER", "AES_VMX",
-			    "VMX Assembler AES implementation"),
-	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "POWER", "AES_VMX_ASM",
-			    "VMX Assembler AES using GCM with assembler GHASH implementation"),
+	/* OpenSSL POWER ISA (VMX) assembler implementation *************************/
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "POWER", "AES_ISA",
+			    "ISA assembler AES implementation"),
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "POWER", "AES_ISA_ASM",
+			    "ISA assembler AES using GCM with 4-bit assembler GHASH implementation"),
+	OPENSSL_IMPL_SHA_POWER("POWER", "SHA_ISA",
+			       "ISA assembler SHA implementation"),
+	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "POWER", "SSH_ISA",
+			    "SSH KDF using ISA assembler SHA implementation"),
 
-	/* OpenSSL POWER Altivec implementation *******************************/
+	/* OpenSSL POWER Altivec assembler implementation *********************/
 	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "POWER", "AES_Altivec",
-			    "Altivec Assembler AES implementation"),
+			    "Altivec assembler AES implementation"),
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "POWER", "AES_Altivec_ASM",
-			    "Altivec Assembler AES using GCM with assembler GHASH implementation"),
+			    "Altivec assembler AES using GCM with 4-bit assembler GHASH implementation"),
 };
 
 ACVP_DEFINE_CONSTRUCTOR(openssl_register)

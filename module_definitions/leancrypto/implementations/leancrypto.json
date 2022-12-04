@@ -1,5 +1,9 @@
 {
 	"implementations": [
-		"C_C"
+		"C",
+		"AVX2",
+		"AVX2_4X",
+		"AVX512",
+		"ARM"
 	]
 }

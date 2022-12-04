@@ -84,6 +84,7 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	for (i = 0; i < json_object_array_length(array); i++) {
+		struct json_object *filenames;
 		struct json_object *sd_entry =
 			json_object_array_get_idx(array, i);
 
@@ -102,13 +103,61 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 				      (uint64_t *)&auth->jwt_token_generated));
 
 		CKINT(json_get_uint(sd_entry, "sdId", &sd->sd_id));
-		CKINT(json_get_string(sd_entry, "filename", &str);
-		CKINT(acvp_duplicate(&sd->filename, str)));
-		CKINT(json_get_bool(sd_entry, "submitted", &sd->submitted));
+
+		/* Old status handling */
+		ret = json_get_string(sd_entry, "filename", &str);
+		if (!ret) {
+			struct esvp_sd_file_def *file = calloc(1,
+							       sizeof(*file));
+
+			CKNULL(file, -ENOMEM);
+			sd->file = file;
+
+			CKINT(acvp_duplicate(&file->filename, str));
+			CKINT(json_get_bool(sd_entry, "submitted",
+					    &file->submitted));
+		}
+
+		/* New status handling */
+		ret = json_find_key(sd_entry, "filenames", &filenames,
+				    json_type_array);
+		if (!ret) {
+			unsigned int j;
+
+			for (j = 0;
+			     j < json_object_array_length(filenames);
+			     j++) {
+				struct json_object *file_entry =
+					json_object_array_get_idx(filenames, j);
+				struct esvp_sd_file_def *file;
+
+				CKNULL(file_entry, -EINVAL);
+
+				file = calloc(1, sizeof(*file));
+				CKNULL(file, -ENOMEM);
+				if (!sd->file) {
+					sd->file = file;
+				} else {
+					struct esvp_sd_file_def *f = sd->file;
+
+					while (f->next)
+						f = f->next;
+
+					f->next = file;
+				}
+
+				CKINT(json_get_string(file_entry, "filename",
+						      &str));
+				CKINT(acvp_duplicate(&file->filename, str));
+				CKINT(json_get_bool(file_entry, "submitted",
+						    &file->submitted));
+			}
+		}
+		ret = 0;
 
 		/*
-		 * Append the new conditioning component entry at the end of the list
-		 * because the order matters.
+		 * Append the new conditioning component entry at the end of
+		 * the list because the order matters.
 		 */
 		if (es->sd) {
 			struct esvp_sd_def *iter_sd = es->sd;
@@ -160,19 +209,37 @@ int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
 			sd_data, "accessToken",
 			json_object_new_string(auth->jwt_token)));
 		if (write_extended) {
+			struct esvp_sd_file_def *file = sd->file;
+			struct json_object *file_array;
+
 			CKINT(json_object_object_add(
 				sd_data, "accessTokenGenerated",
 				json_object_new_int64(
 					auth->jwt_token_generated)));
-			CKINT(json_object_object_add(
-				sd_data, "filename",
-				json_object_new_string(sd->filename)));
-			CKINT(json_object_object_add(
-				sd_data, "filename",
-				json_object_new_string(sd->filename)));
-			CKINT(json_object_object_add(
-				sd_data, "submitted",
-				json_object_new_boolean(sd->submitted)));
+
+			file_array = json_object_new_array();
+			CKINT(json_object_object_add(sd_data, "filenames",
+						     file_array));
+
+			while (file) {
+				struct json_object *file_data;
+
+				file_data = json_object_new_object();
+				CKNULL(file_data, -ENOMEM);
+				CKINT(json_object_array_add(file_array,
+							    file_data));
+
+				CKINT(json_object_object_add(
+						file_data, "filename",
+						json_object_new_string(
+							file->filename)));
+				CKINT(json_object_object_add(
+						file_data, "submitted",
+						json_object_new_boolean(
+							file->submitted)));
+
+				file = file->next;
+			}
 		}
 	}
 
