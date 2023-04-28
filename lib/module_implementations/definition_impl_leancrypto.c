@@ -1,6 +1,6 @@
 /* leancrypto module definition
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -91,7 +91,9 @@ static const struct def_algo_prereqs lc_kdf_hmac_prereqs[] = {
 	.algo.kdf_108 = {						\
 		DEF_PREREQS(lc_kdf_hmac_prereqs),			\
 		.kdf_108_type = kdf_type,				\
-		.macalg = ACVP_HMACSHA2_256 | ACVP_HMACSHA2_512,	\
+		.macalg = ACVP_HMACSHA2_256 | ACVP_HMACSHA2_512 |	\
+			  ACVP_HMACSHA3_224 | ACVP_HMACSHA3_256 |	\
+			  ACVP_HMACSHA3_384 | ACVP_HMACSHA3_512,	\
 		.supported_lengths = { 8, 72, 128, 776, 3456, 4096 },	\
 		.fixed_data_order = ctr_loc,				\
 		.counter_lengths = DEF_ALG_KDF_108_COUNTER_LENGTH_32,	\
@@ -247,7 +249,7 @@ static const struct def_algo lc_avx512[] = {
 	LC_SHA3_ALGOS
 };
 
-static const struct def_algo lc_arm8_neon[] = {
+static const struct def_algo lc_arm_neon[] = {
 	LC_SHA3_ALGOS
 };
 /**************************************************************************
@@ -289,10 +291,10 @@ static struct def_algo_map lc_algo_map [] = {
 
 /* ARM8 NEON cipher implementation, *******************************************/
 	{
-		SET_IMPLEMENTATION(lc_arm8_neon),
+		SET_IMPLEMENTATION(lc_arm_neon),
 		.algo_name = "leancrypto",
 		.processor = "ARM",
-		.impl_name = "ARM8_NEON"
+		.impl_name = "ARM_NEON"
 	}
 };
 

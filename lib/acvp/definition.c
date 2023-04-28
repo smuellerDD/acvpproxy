@@ -1,6 +1,6 @@
 /* ACVP definition handling
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -331,17 +331,24 @@ static int acvp_export_def_search_dep_v1(const struct def_oe *oe,
 			execenv_done = true;
 		}
 
-		if (def_dep->proc_name && def_dep->proc_family &&
-		    def_dep->proc_series && !cpu_done) {
-			CKINT(json_object_object_add(
-				s, "processor",
-				acvp_export_string_to_json(def_dep->proc_name)));
-			CKINT(json_object_object_add(
-				s, "processorFamily",
-				acvp_export_string_to_json(def_dep->proc_family)));
-			CKINT(json_object_object_add(
-				s, "processorSeries",
-				acvp_export_string_to_json(def_dep->proc_series)));
+		if ((def_dep->proc_name || def_dep->proc_family ||
+		     def_dep->proc_series) && !cpu_done) {
+			if (def_dep->proc_name) {
+				CKINT(json_object_object_add(
+				      s, "processor",
+				      acvp_export_string_to_json(def_dep->proc_name)));
+			}
+			if (def_dep->proc_family) {
+				CKINT(json_object_object_add(
+				      s, "processorFamily",
+				      acvp_export_string_to_json(def_dep->proc_family)));
+			}
+
+			if (def_dep->proc_series) {
+				CKINT(json_object_object_add(
+				      s, "processorSeries",
+				      acvp_export_string_to_json(def_dep->proc_series)));
+			}
 			cpu_done = true;
 		}
 

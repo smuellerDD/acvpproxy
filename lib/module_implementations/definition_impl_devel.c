@@ -1,6 +1,6 @@
 /* Development module definition
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -433,7 +433,7 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 	.algo.kas_ifc = {						\
 		DEF_PREREQS(devel_kas_ifc_prereqs),			\
 		.function = DEF_ALG_KAS_IFC_KEYPAIRGEN |		\
-			    DEF_ALG_KAS_IFC_PARITALVAL,			\
+			    DEF_ALG_KAS_IFC_PARTIALVAL,			\
 		.iut_identifier = "0123456789abcdef",			\
 		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC,\
 				DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,	\
@@ -451,7 +451,7 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 	.algo.kas_ifc = {						\
 		DEF_PREREQS(devel_kas_ifc_prereqs),			\
 		.function = DEF_ALG_KAS_IFC_KEYPAIRGEN |		\
-			    DEF_ALG_KAS_IFC_PARITALVAL,			\
+			    DEF_ALG_KAS_IFC_PARTIALVAL,			\
 		.iut_identifier = "0123456789abcdef",			\
 		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC,\
 				DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,	\
@@ -502,7 +502,7 @@ const struct def_algo_kas_ifc_schema devel_kas_ifc_schema_kts[] = { {
 	.type = DEF_ALG_TYPE_KAS_IFC,					\
 	.algo.kas_ifc = {						\
 		DEF_PREREQS(devel_kas_ifc_prereqs),			\
-		.function = DEF_ALG_KAS_IFC_PARITALVAL,			\
+		.function = DEF_ALG_KAS_IFC_PARTIALVAL,			\
 		.iut_identifier = "0123456789abcdef",			\
 		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC },\
 		.keygen.rsa_modulo = { DEF_ALG_RSA_MODULO_2048,		\
@@ -976,7 +976,8 @@ static const struct def_algo_prereqs devel_kdf_prereqs[] = {
 #define DEVEL_AES_XTS
 #endif
 
-static const struct def_algo_prereqs nss_kdf_prereqs[] = {
+#if 0
+static const struct def_algo_prereqs qcom_kdf_prereqs[] = {
 	{
 		.algorithm = "HMAC",
 		.valvalue = "same"
@@ -986,25 +987,99 @@ static const struct def_algo_prereqs nss_kdf_prereqs[] = {
 		.valvalue = "same"
 	},
 };
-#define NSS_HKDF							\
+#define QCOM_HKDF							\
 	{								\
 	.type = DEF_ALG_TYPE_HKDF,					\
 	.algo.hkdf = {							\
-		DEF_PREREQS(nss_kdf_prereqs),			\
-		.mac_salt_method = DEF_ALG_KAS_KDF_MAC_SALT_DEFAULT |	\
-				   DEF_ALG_KAS_KDF_MAC_SALT_RANDOM,	\
+		DEF_PREREQS(qcom_kdf_prereqs),				\
+		.mac_salt_method = DEF_ALG_KAS_HKDF_MAC_SALT_DEFAULT,	\
 		.fixed_info_pattern_type = {				\
 				DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,\
-				DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO },\
+				DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO,\
+				DEF_ALG_KAS_KDF_FI_PATTERN_LITERAL },	\
+		.literal = "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000020000",\
 		.cipher_spec = {					\
-			.macalg = ACVP_SHA224 | ACVP_SHA256 |		\
-				  ACVP_SHA384 | ACVP_SHA512,		\
-			DEF_ALG_DOMAIN(.z, 224, 65336, 8),		\
-			.l = 2048,					\
+			.macalg = ACVP_SHA256 | ACVP_SHA512,		\
+			.z = { 256 },					\
+			.l = 512,					\
+			}						\
+		}							\
+	}
+#else
+#define QCOM_HKDF
+#endif
+
+#if 0
+static const struct def_algo_prereqs nss_rsa_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+#define NSS_DSA_PQG_COMMON(x, L, N, hashes)				\
+	{								\
+	.type = DEF_ALG_TYPE_DSA,					\
+	.algo = {							\
+		.dsa = {						\
+			.dsa_mode = x,					\
+			.dsa_l = L,					\
+			.dsa_n = N,					\
+			DEF_PREREQS(nss_rsa_prereqs),			\
+			.dsa_pq_gen_method = DEF_ALG_DSA_PROVABLE_PQ_GEN, \
+			.dsa_g_gen_method = DEF_ALG_DSA_CANONICAL_G_GEN, \
+			.hashalg = hashes,				\
 			}						\
 		}							\
 	}
 
+#define NSS_DSA_PQGGEN(L, N, hashes)					\
+		NSS_DSA_PQG_COMMON(DEF_ALG_DSA_MODE_PQGGEN, L, N, hashes)
+#else
+#define NSS_DSA_PQGGEN(L, N, hashes)
+#endif
+
+#if 1
+static const struct def_algo_prereqs tests_kdf_onestep_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+static const struct def_algo_kas_kdf_onestepkdf_aux kas_kdf_onestepkdf_aux[] = { {
+	.auxfunc = ACVP_SHA256,
+	.length = 256,
+} };
+
+#define ONESTEPNOCTR							\
+	{								\
+	.type = DEF_ALG_TYPE_KDF_ONESTEP,				\
+	.algo.kdf_onestep = {						\
+		DEF_PREREQS(tests_kdf_onestep_prereqs),			\
+		.onestep = {						\
+			.aux_function = kas_kdf_onestepkdf_aux,\
+			.aux_function_num = ARRAY_SIZE(kas_kdf_onestepkdf_aux),\
+			.fixed_info_pattern_type = {			\
+				DEF_ALG_KAS_KDF_FI_PATTERN_ALGORITHM_ID,\
+				DEF_ALG_KAS_KDF_FI_PATTERN_U_PARTY_INFO,\
+				DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO \
+				},					\
+			.fixed_info_encoding = DEF_ALG_KAS_KDF_FI_ENCODING_CONCATENATION,\
+			},						\
+		.zlen[0] = 384,						\
+		}							\
+	}
+#else
+#define ONESTEPNOCTR
+#endif
 /**************************************************************************
  * Devel Implementation Definitions
  **************************************************************************/
@@ -1048,7 +1123,11 @@ static const struct def_algo devel[] = {
 	DEVEL_XOF(ACVP_CSHAKE256)
 	DEVEL_KMAC(ACVP_KMAC256)
 
-	NSS_HKDF
+	QCOM_HKDF
+
+	NSS_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256, ACVP_SHA256)
+
+	ONESTEPNOCTR
 };
 
 /**************************************************************************

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -275,7 +275,8 @@ struct def_algo_kas_ifc {
 	 */
 #define DEF_ALG_KAS_IFC_UNDEFINED (1 << 0)
 #define DEF_ALG_KAS_IFC_KEYPAIRGEN (1 << 1)
-#define DEF_ALG_KAS_IFC_PARITALVAL (1 << 2)
+#define DEF_ALG_KAS_IFC_PARTIALVAL (1 << 2)
+#define DEF_ALG_KAS_IFC_PARITALVAL DEF_ALG_KAS_IFC_PARTIALVAL
 #define DEF_ALG_KAS_IFC_SSC (1 << 3)
 	unsigned int function;
 

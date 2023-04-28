@@ -1,6 +1,6 @@
 /* ACVP Proxy application
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -27,6 +27,7 @@
 #include <json-c/json.h>
 
 #include "acvpproxy.h"
+#include "amvpproxy.h"
 #include "esvpproxy.h"
 #include "base64.h"
 #include "credentials.h"
@@ -85,6 +86,7 @@ struct opt_data {
 	bool list_available_purchase_opts;
 	bool fetch_verdicts;
 	bool esvp_proxy;
+	bool amvp_proxy;
 };
 
 static void usage(void)
@@ -1211,14 +1213,20 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 
 	if (!cred->configfile) {
 		if (opts->official_testing) {
-			if (opts->esvp_proxy)
+			if (opts->amvp_proxy)
+				cred->configfile = strdup(
+					"amvpproxy_conf_production.json");
+			else if (opts->esvp_proxy)
 				cred->configfile = strdup(
 					"esvpproxy_conf_production.json");
 			else
 				cred->configfile = strdup(
 					"acvpproxy_conf_production.json");
 		} else {
-			if (opts->esvp_proxy)
+			if (opts->amvp_proxy)
+				cred->configfile =
+					strdup("amvpproxy_conf.json");
+			else if (opts->esvp_proxy)
 				cred->configfile =
 					strdup("esvpproxy_conf.json");
 			else
@@ -1252,6 +1260,12 @@ static int initialize_ctx(struct acvp_ctx **ctx, struct opt_data *opts,
 							NIST_ESVP_TEST_SERVER;
 		port = NIST_ESVP_DEFAULT_SERVER_PORT;
 		proto = esv_protocol;
+	}
+	if (opts->amvp_proxy) {
+		server = opts->official_testing ? NIST_AMVP_DEFAULT_SERVER :
+							NIST_AMVP_TEST_SERVER;
+		port = NIST_AMVP_DEFAULT_SERVER_PORT;
+		proto = amv_protocol;
 	}
 
 	CKINT(acvp_set_proto(proto));
@@ -1711,6 +1725,35 @@ out:
 	return ret;
 }
 
+static int amvp_proxy_handling(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	opts->acvp_ctx_options.esv_certify = opts->publish;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	ctx->req_details.dump_register = opts->dump_register;
+	ctx->req_details.request_sample = opts->request_sample;
+
+	if (opts->search.nr_submit_testid || opts->search.nr_submit_vsid) {
+		/*
+		 * If the caller provides particular vsIDs or testIDs to
+		 * register, we implicitly assume that the caller wants to
+		 * re-download the test vectors (how else would a caller know
+		 * particular testIDs or vsIDs?).
+		 */
+		CKINT(amvp_continue(ctx));
+	} else {
+		CKINT(amvp_register(ctx));
+	}
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	struct opt_data opts;
@@ -1723,6 +1766,8 @@ int main(int argc, char *argv[])
 	CKNULL(basen, -EFAULT);
 	if (!strncmp("esvp-proxy", basen, 10))
 		opts.esvp_proxy = true;
+	if (!strncmp("amvp-proxy", basen, 10))
+		opts.amvp_proxy = true;
 
 	macos_disable_nap();
 
@@ -1732,6 +1777,10 @@ int main(int argc, char *argv[])
 
 	if (opts.esvp_proxy) {
 		ret = esvp_proxy_handling(&opts);
+		goto out;
+	}
+	if (opts.amvp_proxy) {
+		ret = amvp_proxy_handling(&opts);
 		goto out;
 	}
 

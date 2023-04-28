@@ -1,6 +1,6 @@
 /* Invocation of NSURLSession network operation and TLS authentiation handling
  *
- * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

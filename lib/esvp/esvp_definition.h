@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -29,6 +29,7 @@ extern "C" {
 struct esvp_sd_file_def {
 	char *filename;
  	bool submitted;
+	struct acvp_buf data_hash;
 	struct esvp_sd_file_def *next;
 };
 
@@ -36,6 +37,7 @@ struct esvp_sd_def {
 	struct acvp_auth_ctx *sd_auth;
 	unsigned int sd_id;
 	struct esvp_sd_file_def *file;
+	bool submit;
 
 	struct esvp_sd_def *next;
 };
@@ -47,6 +49,7 @@ struct esvp_cc_def {
 	unsigned int min_n_in;
 	unsigned int nw;
 	unsigned int n_out;
+	double h_out;
 
 	unsigned int cc_id;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -344,6 +344,7 @@ struct acvp_ctx {
 
 enum acvp_protocol_type {
 	acv_protocol,
+	amv_protocol,
 	esv_protocol,
 };
 

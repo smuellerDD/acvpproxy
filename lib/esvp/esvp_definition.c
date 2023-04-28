@@ -1,6 +1,6 @@
 /* Loading of the ESVP dependency configurations
  *
- * Copyright (C) 2021 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -96,6 +96,7 @@ static void esvp_def_sd_free_one(struct esvp_sd_def *sd)
 	if (!sd)
 		return;
 
+	acvp_free_buf(&sd->file->data_hash);
 	acvp_release_auth_sd(sd);
 	free(sd);
 }
@@ -175,6 +176,7 @@ static int esvp_read_cc_def_one(const char *cc_dir_name, struct esvp_es_def *es)
 	CKINT(json_get_uint(cc_conf, "minNin", &cc->min_n_in));
 	CKINT(json_get_uint(cc_conf, "nw", &cc->nw));
 	CKINT(json_get_uint(cc_conf, "nOut", &cc->n_out));
+	CKINT(json_get_double(cc_conf, "hOut", &cc->h_out));
 
 	CKINT(json_get_bool(cc_conf, "vetted", &cc->vetted));
 
@@ -186,10 +188,13 @@ static int esvp_read_cc_def_one(const char *cc_dir_name, struct esvp_es_def *es)
 	if (!cc->vetted) {
 		CKINT(json_get_bool(cc_conf, "bijective", &cc->bijective));
 
-		snprintf(cc_data_name, sizeof(cc_data_name), "%s/%s%s",
-			 cc->config_dir, ESVP_ES_FILE_CC_DATA,
-			 ESVP_ES_BINARY_FILE_EXTENSION);
-		CKINT(acvp_hash_file(cc_data_name, sha256, &cc->data_hash));
+		if (!cc->bijective) {
+			snprintf(cc_data_name, sizeof(cc_data_name), "%s/%s%s",
+				cc->config_dir, ESVP_ES_FILE_CC_DATA,
+				ESVP_ES_BINARY_FILE_EXTENSION);
+			CKINT(acvp_hash_file(cc_data_name, sha256,
+					     &cc->data_hash));
+		}
 	}
 
 	/*

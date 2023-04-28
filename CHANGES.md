@@ -1,3 +1,11 @@
+v1.7.8
+- enhancement: add --list-missing-certificates
+- enhancement: add --list-missing-results
+- enhancement: add Key: sdType to esvp-proxy supporting document upload
+- enhancement: add upload of multiple EAs with one ESVP certify request
+- fix: add hOut entropy source handling
+- bug fixes
+
 v1.7.7
 - enhancement: update ESV implementation to match latest definitions
 - enhancement: add leancrypto definition

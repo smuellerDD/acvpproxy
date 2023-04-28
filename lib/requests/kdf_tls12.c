@@ -1,6 +1,6 @@
 /* JSON request generator for TLS v1.2 with extended secret verification
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -59,7 +59,7 @@ int acvp_list_algo_kdf_tls12(const struct def_algo_kdf_tls *kdf_tls,
 	CKNULL(tmp, -ENOMEM);
 	*new = tmp;
 
-	CKINT(acvp_duplicate(&tmp->cipher_name, "TLSv1.2"));
+	CKINT(acvp_duplicate(&tmp->cipher_name, "TLS-v1.2"));
 	CKINT(acvp_duplicate(&tmp->cipher_mode, "KDF"));
 	CKINT(acvp_req_cipher_to_stringarray(kdf_tls->hashalg,
 					     ACVP_CIPHERTYPE_HASH,

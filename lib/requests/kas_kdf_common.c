@@ -1,6 +1,6 @@
 /* JSON request generator for KAS KDF (onestep, twostep) and MAC methods
  *
- * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -262,8 +262,24 @@ acvp_req_kas_kdf_onestep_def(const struct def_algo_kas_kdf_onestepkdf *onestep,
 				ACVP_CIPHERTYPE_MAC | ACVP_CIPHERTYPE_HASH,
 				"auxFunctionName"));
 
-		CKINT(acvp_req_kas_mac_salt(aux_function->mac_salt_method,
-					    aux_function->saltlen, one));
+		/* OneStepNoCounter */
+		if (aux_function->length) {
+			if (aux_function->length > 2048) {
+				logger(LOGGER_ERR, LOGGER_C_ANY,
+				       "SP800-56C: KAS KDF length maximum is 2048 bits\n");
+				ret = -EINVAL;
+				goto out;
+			}
+
+			CKINT(json_object_object_add(one, "l",
+				json_object_new_int((int)aux_function->length)));
+		}
+
+		if (aux_function->auxfunc & ACVP_CIPHERTYPE_MAC) {
+			CKINT(acvp_req_kas_mac_salt(
+				aux_function->mac_salt_method,
+				aux_function->saltlen, one));
+		}
 	}
 
 	CKINT(acvp_req_kas_kdf_fi(onestep->fixed_info_pattern_type,

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -44,7 +44,7 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
  * Support to create the supporting document array
  */
 int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
-		  struct json_object *data, bool write_extended);
+		  struct json_object *sd_array, bool write_extended);
 
 /**
  * Start certification operation

@@ -23,6 +23,7 @@ LDFLAGS_SO	+= -Wl,-z,relro,-z,now,--as-needed -fpic
 endif
 
 APPNAME		?= acvp-proxy
+AMVPNAME	?= amvp-proxy
 ESVPNAME	?= esvp-proxy
 
 DESTDIR		:=
@@ -53,9 +54,9 @@ EXCLUDED	?=
 ###############################################################################
 VERFILE		:= lib/common/internal.h
 
-APPMAJOR	:= $(shell grep '^\#define.*MAJVERSION' $(VERFILE) | awk '{print $$3}')
-APPMINOR	:= $(shell grep '^\#define.*MINVERSION' $(VERFILE) | awk '{print $$3}')
-APPPATCH	:= $(shell grep '^\#define.*PATCHLEVEL' $(VERFILE) | awk '{print $$3}')
+APPMAJOR	:= $(shell grep '\#define.*MAJVERSION' $(VERFILE) | awk '{print $$3}')
+APPMINOR	:= $(shell grep '\#define.*MINVERSION' $(VERFILE) | awk '{print $$3}')
+APPPATCH	:= $(shell grep '\#define.*PATCHLEVEL' $(VERFILE) | awk '{print $$3}')
 APPVERSION	:= $(APPMAJOR).$(APPMINOR).$(APPPATCH)
 
 ###############################################################################
@@ -63,7 +64,7 @@ APPVERSION	:= $(APPMAJOR).$(APPMINOR).$(APPPATCH)
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp
+INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp $(SRCDIR)lib/amvp
 LIBRARY_DIRS	+=
 LIBRARIES	+= pthread dl
 
@@ -108,6 +109,7 @@ endif
 C_SRCS += $(wildcard $(SRCDIR)apps/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/acvp/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/amvp/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/common/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/esvp/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/hash/*.c)
@@ -138,7 +140,7 @@ analyze_plists = $(analyze_srcs:%.c=%.plist)
 
 .PHONY: all scan install clean cppcheck distclean debug asanaddress asanthread leak gcov binarchive extensions extensionsso
 
-all: $(APPNAME) $(ESVPNAME)
+all: $(APPNAME) $(ESVPNAME) $(AMVPNAME)
 
 extensionsso: CFLAGS += -DACVPPROXY_EXTENSION
 extensionsso: $(EX_SOOBJS)
@@ -148,21 +150,25 @@ extensions: extensionsso
 
 debug: CFLAGS += -g -DDEBUG
 debug: DBG-$(APPNAME)
+debug: DBG-$(AMVPNAME)
 debug: DBG-$(ESVPNAME)
 
 asanaddress: CFLAGS += -g -DDEBUG -fsanitize=address -fno-omit-frame-pointer
 asanaddress: LDFLAGS += -fsanitize=address
 asanaddress: DBG-$(APPNAME)
+asanaddress: DBG-$(AMVPNAME)
 asanaddress: DBG-$(ESVPNAME)
 
 asanthread: CFLAGS += -g -DDEBUG -fsanitize=thread -fno-omit-frame-pointer
 asanthread: LDFLAGS += -fsanitize=thread
 asanthread: DBG-$(APPNAME)
+asanthread: DBG-$(AMVPNAME)
 asanthread: DBG-$(ESVPNAME)
 
 leak: CFLAGS += -g -DDEBUG -fsanitize=leak -fno-omit-frame-pointer
 leak: LDFLAGS += -fsanitize=leak
 leak: DBG-$(APPNAME)
+leak: DBG-$(AMVPNAME)
 leak: DBG-$(ESVPNAME)
 
 # Compile for the use of GCOV
@@ -181,12 +187,20 @@ $(APPNAME): $(ALL_OBJS)
 	$(CC) -o $(APPNAME) $(OBJS) $(EX_OBJS) $(LDFLAGS)
 	$(STRIP) $(APPNAME)
 
+$(AMVPNAME): $(APPNAME)
+	$(RM) $(AMVPNAME)
+	$(LN) $(APPNAME) $(AMVPNAME)
+
 $(ESVPNAME): $(APPNAME)
 	$(RM) $(ESVPNAME)
 	$(LN) $(APPNAME) $(ESVPNAME)
 
 DBG-$(APPNAME): $(ALL_OBJS)
 	$(CC) -g -DDEBUG -o $(APPNAME) $(OBJS) $(EX_OBJS) $(LDFLAGS)
+
+DBG-$(AMVPNAME): DBG-$(APPNAME)
+	$(RM) $(AMVPNAME)
+	$(LN) $(APPNAME) $(AMVPNAME)
 
 DBG-$(ESVPNAME): DBG-$(APPNAME)
 	$(RM) $(ESVPNAME)
@@ -213,6 +227,7 @@ $(EX_OBJS):
 EX-$(APPNAME): $(OBJS)
 	$(CC) -o $(APPNAME) $(OBJS) $(LDFLAGS)
 	$(LN) $(APPNAME) $(ESVPNAME)
+	$(LN) $(APPNAME) $(AMVPNAME)
 
 install:
 	install -m 0755 $(APPNAME) -D -t $(DESTDIR)$(BINDIR)/
@@ -224,6 +239,7 @@ binarchive: extensions
 
 ifeq ($(UNAME_S),Linux)
 	install -s -m 0755 $(APPNAME) -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	install -s -m 0755 $(AMVPNAME) -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	install -s -m 0755 $(ESVPNAME) -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	install -m 0755 $(SRCDIR)helper/proxy-lib.sh -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	install -m 0755 $(SRCDIR)helper/proxy.sh -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
@@ -241,6 +257,8 @@ else
 	@- mkdir -p $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
 	@- mkdir -p $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/extensions/
 	@- cp -f $(APPNAME) $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f $(APPNAME) $(BUILDDIR)/$(AMVPNAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f $(APPNAME) $(BUILDDIR)/$(ESVPNAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(SRCDIR)helper/proxy-lib.sh $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(SRCDIR)helper/proxy.sh $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(SRCDIR)helper/Makefile.out-of-tree $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
@@ -268,6 +286,9 @@ clean:
 	@- $(RM) $(APPNAME)
 	@- $(RM) $(APPNAME)-*
 	@- $(RM) .$(APPNAME).hmac
+	@- $(RM) $(AMVPNAME)
+	@- $(RM) $(AMVPNAME)-*
+	@- $(RM) .$(AMVPNAME).hmac
 	@- $(RM) $(ESVPNAME)
 	@- $(RM) $(ESVPNAME)-*
 	@- $(RM) .$(ESVPNAME).hmac

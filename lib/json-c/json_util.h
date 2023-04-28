@@ -87,7 +87,7 @@ extern int json_object_to_fd(int fd, struct json_object *obj, int flags);
  * json_object_to_file{,_ext}, json_object_to_fd() or
  * json_object_from_{file,fd}, or NULL if there is none.
  */
-const char *json_util_get_last_err(void);
+extern const char *json_util_get_last_err(void);
 
 
 extern int json_parse_int64(const char *buf, int64_t *retval);

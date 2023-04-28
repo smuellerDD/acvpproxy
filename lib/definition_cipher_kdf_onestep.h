@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -65,15 +65,13 @@ struct def_algo_kdf_onestep {
 	/*
 	 * The length of the key to derive. This value should be large enough
 	 * to accommodate the key length used for the MAC algorithms in use for
-	 * the key confirmation, ideally the maximum value the IUT can support
-	 * with their KAS/KTS implementation. Maximum value (for testing
-	 * purposes) is 1024.
+	 * the key confirmation. Maximum value (for testing purposes) is 2048.
 	 *
 	 * Minimum without key confirmation is 128.
 	 * Minimum with key confirmation is 136.
-	 * Maximum is 1024
+	 * Maximum is 2048
 	 *
-	 * required: always
+	 * required: always for OneStep, not required for OneStepNoCounter
 	 */
 	unsigned int length;
 

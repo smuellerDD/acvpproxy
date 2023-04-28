@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -350,6 +350,13 @@ struct def_algo_rsa_component_sig_gen {
 	 * pubexpmode.
 	 */
 	const char *fixedpubexp;
+
+	/*
+	 * Supported RSA modulo for the signature primitive (2048, 3072, 4096)
+	 *
+	 * required: optional
+	 */
+	enum rsa_modulo rsa_modulo;
 };
 
 /****************************************************************************

@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -31,6 +31,7 @@
 
 #include "acvpproxy.h"
 #include "acv_protocol.h"
+#include "amv_proto.h"
 #include "esv_proto.h"
 #include "fips.h"
 #include "internal.h"
@@ -287,6 +288,9 @@ int acvp_set_proto(enum acvp_protocol_type proto)
 	switch (proto) {
 	case acv_protocol:
 		net->proto = &acv_proto_def;
+		break;
+	case amv_protocol:
+		net->proto = &amv_proto_def;
 		break;
 	case esv_protocol:
 		net->proto = &esv_proto_def;

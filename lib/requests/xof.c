@@ -1,6 +1,6 @@
 /* JSON request generator for SHAKE
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -67,6 +67,7 @@ int acvp_req_set_algo_xof(const struct def_algo_xof *xof,
 	CKINT(acvp_req_add_revision(entry, "1.0"));
 
 	CKINT(acvp_req_cipher_to_string(entry, xof->algorithm,
+				        ACVP_CIPHERTYPE_MAC |
 				        ACVP_CIPHERTYPE_HASH, "algorithm"));
 	CKINT(json_object_object_add(entry, "hexCustomization",
 				     json_object_new_boolean(xof->hex)));

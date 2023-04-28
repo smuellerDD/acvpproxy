@@ -1,6 +1,6 @@
 /* JSON request generator for KAS ECC rev 3 (SP800-56A rev. 3)
  *
- * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -78,6 +78,17 @@ _acvp_req_set_algo_kdf_twostep(const struct def_algo_kdf_twostep *kdf_twostep,
 				json_object_new_int((int)kdf_twostep->length)));
 
 	CKINT(acvp_req_algo_int_array(entry, kdf_twostep->zlen, "z"));
+
+	if (kdf_twostep->kdf_spec == DEF_ALG_KDF_SP800_56Crev2) {
+		CKINT(json_object_object_add(entry, "usesHybridSharedSecret",
+		    json_object_new_boolean(kdf_twostep->hybrid_shared_secret)));
+
+		if (kdf_twostep->hybrid_shared_secret) {
+			CKINT(acvp_req_algo_int_array(entry,
+						      kdf_twostep->tlen,
+						      "auxSharedSecretLen"));
+		}
+	}
 
 out:
 	return ret;

@@ -19,15 +19,108 @@ source.
 
 This call attempts also the certify operation. This operation most likely will
 fail for the first time as the entropy data needs to be calculated. In this
-case, please invoke the [Re-start Entropy Source Certify] operation at a later
-time.
+case, please invoke the [Re-start Entropy Source Submission] operation at a
+later time.
 
-## Re-start Entropy Source Certify
+Note, the certify is the equivalent to the certification request in the ACVP
+Proxy. Yet, it is required that all meta data is already registered with the
+ACVP server - yes, the ESV Server and the ACVP server share the same meta data
+base.
 
-In order to re-start the certify operation to fetch the certificate, invoke
+Thus, if the certify fails because some meta data is not yet registered,
+simply use the ACVP proxy and publish or sync-meta the meta data. Then restart
+the certify operation as outlined in [Re-start Entropy Source Certify].
+
+## Re-Start Entropy Source Submission
+
+In order to restart the submission of an interrupted upload or when uploading
+new data to the ESVP server that was added after the initial submission, invoke
 `esvp-proxy` with --testid `<ID>` that refers to the certification ID.
 
-### Entropy Source Configuration
+  `esvp-proxy --testid <ID>`
+
+## Entropy Source Certify
+
+In order to re-start the certify operation to fetch the certificate, invoke
+`esvp-proxy` with --testid `<ID>` --publish that refers to the certification ID.
+
+  `esvp-proxy --testid <ID> --publish`
+
+## Multiple Operational Environments with one Entropy Source
+
+It is permissible (and even cheaper for all) to certify one Entropy Source (ES)
+on multiple operational environments with one certify request. The resulting
+ESV certificate will then list all operational environments. This is in contrast
+to having one ESV certificate for the same entropy source on different
+operational environments.
+
+The ESVP Proxy will automatically identify the entropy source definitions which
+belong together and will register them as one during the certify step. Each
+ES with its separate operational environment is maintained in a separate
+`module_definitions` directory.
+
+Example assuming that all meta data were already registered beforehand with
+`acvp-proxy --sync-meta`
+
+1. Upload Jitter RNG ES on OE 1 - definition is specified in
+   `module_definitions/jitter_rng`: `esvp-proxy -m Jitter -f -e "Fedora 32"`
+
+   -> Returned example test session ID is 1
+
+2. Upload Jitter RNG ES on OE 2 - definition is specified in
+   `module_definitions/jitter_rng2`: `esvp-proxy -m Jitter -f -e "Fedora 35"`
+
+   -> Returned example test session ID is 2
+
+3. Upload unrelated ES - just to show that unrelated ES are detected by the
+   ESVP Proxy: `esvp-proxy -m LRNG -f`
+
+   -> Returned example test session ID is 3
+
+4. Certify step: `esvp-proxy --testid 1 --testid 2 --testid 3`
+
+   -> ESVP Proxy will report:
+
+   `ESVP server accepted certificate request - notify NIST to approve ID 1`
+
+   `ESVP server accepted certificate request - notify NIST to approve ID 3`
+
+   -> The test session ID 2 is not present as it is rolled into the certify
+   request of test session ID 1.
+
+The ESVP Proxy detects the ES which belong together based on the following:
+
+* `labTestId` must be identical for the different ES
+
+* `acvpModuleId` or `acvpModuleIdProduction` must be identical for the different
+  ES
+
+* `acvpVendorId` or `acvpVendorIdProduction` must be identical for the different
+  ES
+
+For the aforementioned example, the directories
+`module_definitions/jitter_rng_firstOE` and
+`module_definitions/jitter_rng_secondOE` contain the mentioned identical
+information.
+
+One suggested approach to ensure to get the same specification such that the
+ESVP Proxy identifies the different specifications belong together applies
+the following steps:
+
+1. Create one `module_definitions` directory containing the ES definition
+   and all data required for the ES on one operational environment. Upload the
+   meta data with `acvp-proxy --sync-meta`.
+
+2. Duplicate the created `module_definitions` directory and import the new
+   entropy data on the given OE. Also update the OE definition in the
+   `module_definitions/<NAME>/oe` directory. Synchronize the new OE meta data
+   with the server using `acvp-proxy --sync-meta`.
+
+3. Upload the ESV data for both ES definitions: `esvp-proxy`
+
+4. Certify both ES definitions: `esvp-proxy --testid <ID_ES1> --testid <ID_ES2>`
+
+## Entropy Source Configuration
 
 The entropy source configuration is stored within the `modules_definition`
 directory just like the ACVP configuration for a given module.
@@ -44,9 +137,18 @@ is allowed to be credited for entropy within one given entropy source.
 
 * `documentation`: This directory contains documentation information around
 the entropy source. One or more documents are allowed in this directory.
-Yet, all must either be PDF, or Microsoft Word documents.
+Yet, all must either be PDF, or Microsoft Word documents. This document is
+uploaded with a data type as follows:
 
-#### Conditioning Component Configuration
+  - If the file starts with "Entropy-Analysis", "Entropy_Analysis", or "EAR"
+    it is uploaded with the type that indicates an entropy analysis report.
+
+  - If the file contains the characters "public", "Public", or "PUBLIC" it
+    is uploaded as a public use document.
+
+  - Otherwise it is uploaded with the data type referencing an other document.
+
+### Conditioning Component Configuration
 
 The directory `conditioning_component<NUM>` is defined to contain the
 following files:
@@ -84,7 +186,7 @@ as a vetted conditioning component
 * `bijective`: if non-vetted, this boolean indicates a conditioning component
 that is a bijective function
 
-#### Entropy Source Configuration
+### Entropy Source Configuration
 
 The entropy source is defined with the following files in the `entropy_source`
 directory:
@@ -132,6 +234,9 @@ non-physical
 
 * `itar`: boolean indicating whether the entropy source claims heightened
 security for an ITAR validation
+
+* `limitEntropyAssessmentToSingleModule` optional boolean indicating whether
+ES is limited to one single module
 
 * `additionalNoiseSources`: boolean indicating whether additional noise sources
 are incorporated in the entropy source

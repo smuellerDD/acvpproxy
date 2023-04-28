@@ -1,6 +1,6 @@
 /* ACVP Proxy common cipher definitions
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -675,7 +675,7 @@ static const struct def_algo_prereqs generic_pbkdf_prereqs[] = {
 			.hashalg = sha_def,				\
 			DEF_PREREQS(generic_pbkdf_prereqs),		\
 			DEF_ALG_DOMAIN(.keylen, 128, 4096, 8),		\
-			DEF_ALG_DOMAIN(.iteration_count, 10, 1000, 1),	\
+			DEF_ALG_DOMAIN(.iteration_count, 1000, 10000, 1),\
 			DEF_ALG_DOMAIN(.passwordlen, 8, 128, 1),	\
 			DEF_ALG_DOMAIN(.saltlen, 128, 4096, 8),		\
 			}						\

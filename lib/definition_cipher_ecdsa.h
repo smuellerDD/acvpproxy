@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -47,6 +47,7 @@ struct def_algo_ecdsa {
 		DEF_ALG_ECDSA_MODE_KEYVER,
 		DEF_ALG_ECDSA_MODE_SIGGEN,
 		DEF_ALG_ECDSA_MODE_SIGVER,
+		DEF_ALG_ECDSA_MODE_DETERMINISTIC_SIGGEN
 	} ecdsa_mode;
 
 	/*

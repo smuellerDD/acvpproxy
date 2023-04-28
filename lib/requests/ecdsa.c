@@ -1,6 +1,6 @@
 /* JSON generator for ECDSA ciphers
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -107,7 +107,11 @@ static int acvp_req_ecdsa_siggen(const struct def_algo_ecdsa *ecdsa,
 {
 	int ret;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
+	if (ecdsa->ecdsa_mode == DEF_ALG_ECDSA_MODE_DETERMINISTIC_SIGGEN) {
+		CKINT(acvp_req_add_revision(entry, "FIPS186-5"));
+	} else {
+		CKINT(acvp_req_add_revision(entry, "1.0"));
+	}
 
 	CKINT(json_object_object_add(entry, "componentTest",
 			json_object_new_boolean(ecdsa->component_test)));
@@ -144,33 +148,46 @@ static int _acvp_req_set_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
 {
 	int ret = -EINVAL;
 
-	CKINT(json_object_object_add(entry, "algorithm",
-				     json_object_new_string("ECDSA")));
-
 	switch (ecdsa->ecdsa_mode) {
 	case DEF_ALG_ECDSA_MODE_KEYGEN:
+		CKINT(json_object_object_add(entry, "algorithm",
+					     json_object_new_string("ECDSA")));
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("keyGen")));
 		if (full)
 			CKINT(acvp_req_ecdsa_keygen(ecdsa, entry));
 		break;
 	case DEF_ALG_ECDSA_MODE_KEYVER:
+		CKINT(json_object_object_add(entry, "algorithm",
+					     json_object_new_string("ECDSA")));
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("keyVer")));
 		if (full)
 			CKINT(acvp_req_ecdsa_keyver(ecdsa, entry));
 		break;
 	case DEF_ALG_ECDSA_MODE_SIGGEN:
+		CKINT(json_object_object_add(entry, "algorithm",
+					     json_object_new_string("ECDSA")));
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigGen")));
 		if (full)
 			CKINT(acvp_req_ecdsa_siggen(ecdsa, entry));
 		break;
 	case DEF_ALG_ECDSA_MODE_SIGVER:
+		CKINT(json_object_object_add(entry, "algorithm",
+					     json_object_new_string("ECDSA")));
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigVer")));
 		if (full)
 			CKINT(acvp_req_ecdsa_sigver(ecdsa, entry));
+		break;
+	case DEF_ALG_ECDSA_MODE_DETERMINISTIC_SIGGEN:
+		CKINT(json_object_object_add(entry, "algorithm",
+					     json_object_new_string("DetECDSA")));
+		CKINT(json_object_object_add(entry, "mode",
+					     json_object_new_string("sigGen")));
+		if (full)
+			CKINT(acvp_req_ecdsa_siggen(ecdsa, entry));
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
@@ -199,8 +216,6 @@ int acvp_list_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
 	CKNULL(tmp, -ENOMEM);
 	*new = tmp;
 
-	CKINT(acvp_duplicate(&tmp->cipher_name, "ECDSA"));
-
 	CKINT(acvp_req_cipher_to_intarray(ecdsa->curve, ACVP_CIPHERTYPE_ECC,
 					  tmp->keylen));
 	CKINT(acvp_req_cipher_to_stringarray(ecdsa->hashalg,
@@ -211,16 +226,24 @@ int acvp_list_algo_ecdsa(const struct def_algo_ecdsa *ecdsa,
 
 	switch (ecdsa->ecdsa_mode) {
 	case DEF_ALG_ECDSA_MODE_KEYGEN:
+		CKINT(acvp_duplicate(&tmp->cipher_name, "ECDSA"));
 		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyGen"));
 		break;
 	case DEF_ALG_ECDSA_MODE_KEYVER:
+		CKINT(acvp_duplicate(&tmp->cipher_name, "ECDSA"));
 		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyVer"));
 		break;
 	case DEF_ALG_ECDSA_MODE_SIGGEN:
+		CKINT(acvp_duplicate(&tmp->cipher_name, "ECDSA"));
 		CKINT(acvp_duplicate(&tmp->cipher_mode, "sigGen"));
 		break;
 	case DEF_ALG_ECDSA_MODE_SIGVER:
+		CKINT(acvp_duplicate(&tmp->cipher_name, "ECDSA"));
 		CKINT(acvp_duplicate(&tmp->cipher_mode, "sigVer"));
+		break;
+	case DEF_ALG_ECDSA_MODE_DETERMINISTIC_SIGGEN:
+		CKINT(acvp_duplicate(&tmp->cipher_name, "DetECDSA"));
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "sigGen"));
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,

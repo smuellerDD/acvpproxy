@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the vendor information
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -113,6 +113,24 @@ static int acvp_vendor_build(const struct def_vendor *def_vendor,
 	}
 
 	if (json_object_object_length(address) > 0) {
+		if (def_vendor->acvp_vendor_id && def_vendor->acvp_addr_id) {
+			const struct acvp_net_ctx *net;
+			const struct acvp_net_proto *proto;
+			char url[ACVP_NET_URL_MAXLEN];
+
+			CKINT(acvp_get_net(&net));
+			proto = net->proto;
+
+			snprintf(url, sizeof(url), "/%s/%s/%u/%s/%u",
+				 proto->url_base,
+				 NIST_VAL_OP_VENDOR, def_vendor->acvp_vendor_id,
+				 NIST_VAL_OP_ADDRESSES,
+				 def_vendor->acvp_addr_id);
+
+			CKINT(json_object_object_add(
+				address, "url", json_object_new_string(url)));
+		}
+
 		array = json_object_new_array();
 		CKNULL(array, -ENOMEM);
 		CKINT(json_object_array_add(array, address));

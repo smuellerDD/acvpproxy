@@ -1,12 +1,15 @@
 {
 	"implementations": [
 		"CE",
-		"CE_GCM",
 		"VPAES",
-		"VPAES_GCM",
-		"NEON",
 		"AES_C",
-		"AES_C_GCM"
+		"CE_GCM_UNROLL8_EOR3",
+		"CE_GCM",
+		"VPAES_GCM",
+		"AES_C_GCM",
+		"SHA_CE",
+		"NEON",
+		"SHA3_CE",
 	],
 
 	"dependencies-internal": {

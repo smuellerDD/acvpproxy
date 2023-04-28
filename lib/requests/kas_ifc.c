@@ -1,6 +1,6 @@
 /* JSON request generator for KAS IFC (SP800-56B rev. 2)
  *
- * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -383,7 +383,7 @@ acvp_req_set_function(const struct def_algo_kas_ifc *kas_ifc,
 					json_object_new_string("keyPairGen")));
 		found = true;
 	}
-	if (kas_ifc->function & DEF_ALG_KAS_IFC_PARITALVAL) {
+	if (kas_ifc->function & DEF_ALG_KAS_IFC_PARTIALVAL) {
 		CKINT(json_object_array_add(tmp,
 					json_object_new_string("partialVal")));
 		found = true;
@@ -573,7 +573,7 @@ acvp_list_algo_kas_ifc_modulo(const struct def_algo_kas_ifc *kas_ifc,
 int acvp_list_algo_kas_ifc(const struct def_algo_kas_ifc *kas_ifc,
 			   struct acvp_list_ciphers **new)
 {
-	const struct def_algo_kas_ifc_schema *schema = kas_ifc->schema;
+	const struct def_algo_kas_ifc_schema *schema;
 	const struct def_algo_kas_ifc_ssc_schema *ssc_schema =
 							kas_ifc->ssc_schema;
 	struct acvp_list_ciphers *tmp = NULL, *prev;
@@ -607,7 +607,7 @@ int acvp_list_algo_kas_ifc(const struct def_algo_kas_ifc *kas_ifc,
 			CKINT(acvp_list_algo_kas_ifc_one(schema, tmp));
 			CKINT(acvp_list_algo_kas_ifc_modulo(kas_ifc, tmp));
 		}
-		if (kas_ifc->function & DEF_ALG_KAS_IFC_PARITALVAL) {
+		if (kas_ifc->function & DEF_ALG_KAS_IFC_PARTIALVAL) {
 			prev = tmp;
 			tmp = calloc(1, sizeof(struct acvp_list_ciphers));
 			CKNULL(tmp, -ENOMEM);

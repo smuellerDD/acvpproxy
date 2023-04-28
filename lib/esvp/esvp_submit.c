@@ -1,6 +1,6 @@
 /* Registering of entropy source and submit of data
  *
- * Copyright (C) 2021 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -66,8 +66,11 @@ static int esvp_register_build_cc(const struct esvp_cc_def *cc,
 		CKINT(json_object_object_add(
 			cc_entry, "bijectiveClaim",
 			json_object_new_boolean(cc->bijective)));
-		CKINT(json_add_bin2hex(cc_entry, "conditionedBitsSHA256",
-				       &cc->data_hash));
+		if (!cc->bijective) {
+			CKINT(json_add_bin2hex(cc_entry,
+					       "conditionedBitsSHA256",
+					       &cc->data_hash));
+		}
 	} else {
 		cipher_t cipher;
 
@@ -97,6 +100,8 @@ static int esvp_register_build_cc(const struct esvp_cc_def *cc,
 				     json_object_new_int((int)cc->nw)));
 	CKINT(json_object_object_add(cc_entry, "nOut",
 				     json_object_new_int((int)cc->n_out)));
+	CKINT(json_object_object_add(cc_entry, "hOut",
+				     json_object_new_double((int)cc->h_out)));
 
 out:
 	return ret;
@@ -549,9 +554,12 @@ out:
 static int _esvp_get_datafile_info(struct acvp_testid_ctx *testid_ctx)
 {
 	struct esvp_es_def *es = testid_ctx->es_def;
+	struct esvp_cc_def *cc;
 	ACVP_BUFFER_INIT(response);
 	char url[ACVP_NET_URL_MAXLEN];
-	int ret, ret2;
+	int ret = 0, ret2;
+	unsigned int seq_no = 1;
+	char type[20];
 
 	/* Get the status on the raw noise data file */
 	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_ENTROPY_ASSESSMENT, url,
@@ -566,11 +574,15 @@ static int _esvp_get_datafile_info(struct acvp_testid_ctx *testid_ctx)
 	/* Send the data to the ESVP server. */
 	ret2 = acvp_net_op(testid_ctx, url, NULL, &response, acvp_http_get);
 	CKINT(acvp_request_error_handler(ret2));
-	ret = esvp_process_get_datafile_info(testid_ctx, &response,
+	ret2 = esvp_process_get_datafile_info(testid_ctx, &response,
 					     "raw_noise");
-	if (ret && ret != -EAGAIN)
+
+ 	acvp_free_buf(&response);
+
+	if (ret2 && ret2 != -EAGAIN) {
+		ret = ret2;
 		goto out;
-	acvp_free_buf(&response);
+	}
 
 	/* Get the status on the restart noise data file */
 	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_ENTROPY_ASSESSMENT, url,
@@ -580,19 +592,56 @@ static int _esvp_get_datafile_info(struct acvp_testid_ctx *testid_ctx)
 				 testid_ctx->testid, NIST_ESVP_VAL_OP_DATAFILE,
 				 es->restart_id));
 
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Getting status on raw entropy data\n");
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Getting status on restart data\n");
 
 	/* Send the data to the ESVP server. */
 	ret2 = acvp_net_op(testid_ctx, url, NULL, &response, acvp_http_get);
 	CKINT(acvp_request_error_handler(ret2));
 	ret2 = esvp_process_get_datafile_info(testid_ctx, &response,
 					      "restart");
+
+	acvp_free_buf(&response);
+
 	if (ret2 && ret2 != -EAGAIN) {
 		ret = ret2;
 		goto out;
 	}
 
-	ret |= ret2;
+	for (cc = es->cc; cc; cc = cc->next, seq_no++) {
+		/*
+		 * Only process non-vetted and non-bijective conditioning
+		 * components.
+		 */
+		if (cc->vetted || cc->bijective)
+			continue;
+
+		/* Get the status on the conditioning component */
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_ENTROPY_ASSESSMENT,
+					  url, sizeof(url)),
+		  	"Creation of request URL failed\n");
+		CKINT(acvp_extend_string(url, sizeof(url), "/%u/%s/%u",
+					 testid_ctx->testid,
+					 NIST_ESVP_VAL_OP_DATAFILE,
+					 cc->cc_id));
+
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Getting status on conditioning data %d\n", seq_no);
+
+		snprintf(type, sizeof(type), "conditioning%d", seq_no);
+		/* Send the data to the ESVP server. */
+		ret2 = acvp_net_op(testid_ctx, url, NULL, &response,
+				   acvp_http_get);
+		CKINT(acvp_request_error_handler(ret2));
+		ret2 = esvp_process_get_datafile_info(testid_ctx, &response,
+						      type);
+		
+		acvp_free_buf(&response);
+
+		if (ret2 && ret2 != -EAGAIN) {
+			ret = ret2;
+			goto out;
+		}
+	}
 
 out:
 	acvp_free_buf(&response);
@@ -669,8 +718,11 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 
 	/* Post all conditioning component files */
 	for (cc = es->cc; cc; cc = cc->next) {
-		/* Only process non-vetted conditioning components */
-		if (cc->vetted)
+		/*
+		 * Only process non-vetted and non-bijective conditioning
+		 * components.
+		 */
+		if (cc->vetted || cc->bijective)
 			continue;
 
 		snprintf(pathname, sizeof(pathname), "%s/%s%s", cc->config_dir,
@@ -735,9 +787,22 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 		if (!strncasecmp(doc_dirent->d_name, "entropy-analysis", 16) ||
 		    !strncasecmp(doc_dirent->d_name, "entropy_analysis", 16) ||
 		    !strncasecmp(doc_dirent->d_name, "entropyanalysis", 15) ||
-		    !strncasecmp(doc_dirent->d_name, "ear", 3)) {
-			sdtype.buf = (uint8_t *)"EntropyAnalysisReport";
-			sdtype.len = 21;
+		    !strncasecmp(doc_dirent->d_name, "ear", 3) ||
+		    strstr(doc_dirent->d_name, "EntropyAnalysis") ||
+		    strstr(doc_dirent->d_name, "Entropy-Analysis") ||
+		    strstr(doc_dirent->d_name, "Entropy_Analysis") ||
+		    strstr(doc_dirent->d_name, "entropyanalysis") ||
+		    strstr(doc_dirent->d_name, "entropy-analysis") ||
+		    strstr(doc_dirent->d_name, "entropy_analysis") ||
+		    strstr(doc_dirent->d_name, "EntropyAssessment") ||
+		    strstr(doc_dirent->d_name, "Entropy-Assessment") ||
+		    strstr(doc_dirent->d_name, "Entropy_Assessment") ||
+		    strstr(doc_dirent->d_name, "entropyassessment") ||
+		    strstr(doc_dirent->d_name, "entropy-assessment") ||
+		    strstr(doc_dirent->d_name, "entropy_assessment") ||
+		    strstr(doc_dirent->d_name, "ear")) {
+			sdtype.buf = (uint8_t *)"EntropyAssessmentReport";
+			sdtype.len = 23;
 		} else if (strstr(doc_dirent->d_name, "public") ||
 			   strstr(doc_dirent->d_name, "Public") ||
 			   strstr(doc_dirent->d_name, "PUBLIC")) {
@@ -786,8 +851,11 @@ static int esvp_process_datafiles(struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_get_trailing_number(str, &es->restart_id));
 
 	for (cc = es->cc; cc; cc = cc->next, seq_no++) {
-		/* Only process non-vetted conditioning components */
-		if (cc->vetted)
+		/*
+		 * Only process non-vetted and non-bijective conditioning
+		 * components.
+		 */
+		if (cc->vetted || cc->bijective)
 			continue;
 
 		CKINT(esvp_datafiles_find(data_urls, "conditionedBits", seq_no,
@@ -981,11 +1049,7 @@ static int esvp_continue_op(struct acvp_testid_ctx *testid_ctx)
 	CKINT_LOG(esvp_get_datafile_info(testid_ctx),
 		  "Cannot get status information on raw data\n");
 
-	CKINT_LOG(esvp_certify(testid_ctx), "Cannot certify\n");
-
 out:
-	acvp_release_auth(testid_ctx);
-
 	return ret;
 }
 
@@ -1035,24 +1099,230 @@ int esvp_register(const struct acvp_ctx *ctx)
 	return acvp_register_cb(ctx, &esvp_process_one_es);
 }
 
-static int _esvp_continue(const struct acvp_ctx *ctx,
-			  const struct definition *def, const uint32_t testid)
+static void
+acvp_process_testids_esvp_release(struct acvp_testid_ctx *testid_ctx)
 {
-	struct acvp_testid_ctx *testid_ctx = NULL;
-	struct esvp_es_def *es = def->es;
+	while (testid_ctx) {
+		struct acvp_testid_ctx *curr = testid_ctx;
+
+		testid_ctx = testid_ctx->next;
+
+		acvp_release_auth(curr);
+		acvp_release_testid(curr);
+	}
+}
+
+static int _esvp_continue(void *_testid_ctx)
+{
+	struct acvp_testid_ctx *t_ctx, *testid_ctx = _testid_ctx;
 	int ret;
 
-	(void)testid;
+	thread_set_name(acvp_testid, testid_ctx->testid);
 
-	/* Put the context on heap for signal handler */
-	testid_ctx = calloc(1, sizeof(*testid_ctx));
-	CKNULL(testid_ctx, -ENOMEM);
-	CKINT(esvp_init_testid_ctx(testid_ctx, ctx, def, es, testid));
+	for (t_ctx = testid_ctx; t_ctx; t_ctx = t_ctx->next)
+		CKINT(esvp_continue_op(t_ctx));
 
-	CKINT(esvp_continue_op(testid_ctx));
+	CKINT_LOG(esvp_certify(testid_ctx), "Cannot certify\n");
 
 out:
-	acvp_release_testid(testid_ctx);
+	acvp_process_testids_esvp_release(testid_ctx);
+	return ret;
+}
+
+/*
+ * The goal of this call is to collect all testid_ctx which can be certified
+ * in one invocation. Thus, a linked list of testid_ctx structs is created
+ * that belong together. This list is then processed with the provided callback.
+ * The callback is responsible to process all entries in the linked list.
+ *
+ * Once a linked list is created and given to the callback, the function tries
+ * to create the next linked list of yet unprocessed, but common testid_ctx's
+ * until no unprocessed testid_ctx is present any more.
+ */
+static int
+acvp_process_testids_esvp(const struct acvp_ctx *ctx,
+			  int (*cb)(void *testid_ctx))
+{
+	const struct acvp_datastore_ctx *datastore;
+	const struct acvp_search_ctx *search;
+	const struct acvp_opts_ctx *opts;
+	const struct definition *def;
+	struct definition *tmp_def;
+	struct acvp_testid_ctx *testid_ctx = NULL;
+	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
+	int ret = 0;
+
+	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
+
+	if (!acvp_library_initialized()) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "ACVP library was not yet initialized\n");
+		return -EOPNOTSUPP;
+	}
+
+	datastore = &ctx->datastore;
+	search = &datastore->search;
+	opts = &ctx->options;
+
+	/* Find a module definition */
+	def = acvp_find_def(search, NULL);
+	if (!def) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "No cipher implementation found for search criteria\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * Use thread group 0 for the register upload of one cipher definition
+	 * and thread group 1 for upload of the individual vsIDs.
+	 *
+	 * We have one thread per test session ID. Each test session ID thread
+	 * spawns one thread per vsID for uploading the test responses and
+	 * downloading the verdict.
+	 *
+	 * The threads for the test sessions are spawned all at
+	 * the beginning (to the extent possible). Thus, if we have more test
+	 * sessions to be processed at the same time as threads, we will
+	 * not be able to spawn any thread for uploading a vsID which will
+	 * cause a deadlock. Thus, we use different thread groups for
+	 * these interdependent threads to prevent that there can be a deadlock.
+	 */
+
+	/* Iterate through all modules */
+	while (def) {
+		unsigned int i, testid_count = ACVP_REQ_MAX_FAILED_TESTID;
+
+		/* If the definition was already processed, skip it */
+		if (def->processed) {
+			def = acvp_find_def(search, def);
+
+			/*
+			 * If the def is NULL (i.e. we reached the end of the
+			 * list) and we have a testid_ctx, fall through
+			 * to process the testid_ctx. Otherwise continue
+			 * which implies that also when def == NULL we
+			 * continue to terminate the loop.
+			 */
+			if (!(!def && testid_ctx))
+				continue;
+		}
+
+		/*
+		 * If we have a testid_ctx, find all definitions that
+		 * are identical with respect to the certify registration
+		 * information as defined by esvp_certify_build.
+		 */
+		if (testid_ctx && def) {
+			const struct esvp_es_def *checked_es = def->es;
+			const struct esvp_es_def *check_es = testid_ctx->es_def;
+			const struct definition *check_def = testid_ctx->def;
+			struct def_info *checked_def_info = def->info;
+			struct def_info *check_def_info = check_def->info;
+			struct def_vendor *checked_def_vendor = def->vendor;
+			struct def_vendor *check_def_vendor = check_def->vendor;
+
+			CKINT(acvp_def_get_vendor_id(checked_def_vendor));
+			acvp_def_put_vendor_id(checked_def_vendor);
+			CKINT(acvp_def_get_vendor_id(check_def_vendor));
+			acvp_def_put_vendor_id(check_def_vendor);
+			CKINT(acvp_def_get_module_id(checked_def_info));
+			acvp_def_put_module_id(checked_def_info);
+			CKINT(acvp_def_get_module_id(check_def_info));
+			acvp_def_put_module_id(check_def_info);
+
+			if (acvp_str_match(checked_es->lab_test_id,
+					   check_es->lab_test_id,
+					   testid_ctx->testid) ||
+			    (checked_def_info->acvp_module_id !=
+			     check_def_info->acvp_module_id) ||
+			    (checked_def_vendor->acvp_vendor_id !=
+			     check_def_vendor->acvp_vendor_id)) {
+				def = acvp_find_def(search, def);
+				if (def)
+					continue;
+			}
+		}
+
+		if (def) {
+			/* Search for all testids for a given module */
+			CKINT(ds->acvp_datastore_find_testsession(def, ctx,
+				testids, &testid_count));
+
+			/* Iterate through all testids */
+			for (i = 0; i < testid_count; i++) {
+				struct acvp_testid_ctx *new_testid_ctx = NULL;
+
+				/* Create new testid_ctx */
+				new_testid_ctx = calloc(1,
+					sizeof(*new_testid_ctx));
+				CKNULL(new_testid_ctx, -ENOMEM);
+				CKINT(esvp_init_testid_ctx(new_testid_ctx,
+					ctx, def, def->es, testids[i]));
+
+				/* Enqueue it into list of testid_ctx */
+				if (testid_ctx) {
+					struct acvp_testid_ctx *t_ctx;
+
+					for (t_ctx = testid_ctx;
+					     t_ctx;
+					     t_ctx = t_ctx->next) {
+						if (!t_ctx->next) {
+							t_ctx->next = new_testid_ctx;
+							break;
+						}
+					}
+				} else {
+					testid_ctx = new_testid_ctx;
+				}
+			}
+
+			/* Unconsitfy harmless */
+			tmp_def = (struct definition *)def;
+			/* Definition is processed - skip it next time */
+			tmp_def->processed = true;
+
+			/* Check if we find another module definition. */
+			def = acvp_find_def(search, def);
+			if (def)
+				continue;
+		}
+
+		if (testid_ctx) {
+			struct acvp_testid_ctx *tmp = testid_ctx;
+
+			testid_ctx = NULL;
+
+#ifdef ACVP_USE_PTHREAD
+			/* Disable threading in DEBUG mode */
+			if (opts->threading_disabled) {
+				logger(LOGGER_DEBUG, LOGGER_C_ANY,
+				       "Disable threading support\n");
+				CKINT(cb(tmp));
+			} else {
+				int ret_ancestor;
+
+				CKINT(thread_start(cb, tmp, 0, &ret_ancestor));
+				ret |= ret_ancestor;
+			}
+#else
+			CKINT(cb(tmp));
+#endif
+		}
+
+		/*
+		 * Start from scratch again if we do have a def at this point.
+		 * - testid_ctx is freed in callback.
+		*/
+		def = acvp_find_def(search, NULL);
+	}
+
+out:
+
+#ifdef ACVP_USE_PTHREAD
+	ret |= thread_wait();
+#endif
+
+	acvp_process_testids_esvp_release(testid_ctx);
 	return ret;
 }
 
@@ -1063,7 +1333,7 @@ int esvp_continue(const struct acvp_ctx *ctx)
 
 	CKINT(acvp_testids_refresh(ctx));
 
-	CKINT(acvp_process_testids(ctx, &_esvp_continue));
+	CKINT(acvp_process_testids_esvp(ctx, &_esvp_continue));
 
 out:
 	return ret;

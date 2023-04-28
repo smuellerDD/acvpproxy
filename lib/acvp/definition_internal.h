@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -357,6 +357,7 @@ struct def_deps {
  * @var es The entropy source definitions
  * @var uninstantiated_def Reference to uninstantiated algorithm definition
  * @var deps Dependencies - if NULL then no dependencies
+ * @var processed - was the definition already processed?
  * @var next This pointer is internal to the library and MUST NOT be used.
  */
 struct definition {
@@ -368,6 +369,7 @@ struct definition {
 	struct esvp_es_def *es;
 	struct def_algo_map *uninstantiated_def;
 	struct def_deps *deps;
+	bool processed;
 	struct definition *next;
 };
 

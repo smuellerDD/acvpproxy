@@ -1,6 +1,6 @@
 /* JSON request generator for KAS ECC rev 3 (SP800-56A rev. 3)
  *
- * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -43,28 +43,37 @@ _acvp_req_set_algo_kdf_onestep(const struct def_algo_kdf_onestep *kdf_onestep,
 
 	CKINT(json_object_object_add(entry, "algorithm",
 				     json_object_new_string("KDA")));
-	CKINT(json_object_object_add(entry, "mode",
-				     json_object_new_string("OneStep")));
-	switch (kdf_onestep->kdf_spec) {
-	case DEF_ALG_KDF_SP800_56Crev1:
-		CKINT(acvp_req_add_revision(entry, "Sp800-56Cr1"));
-		break;
-	case DEF_ALG_KDF_SP800_56Crev2:
-		CKINT(acvp_req_add_revision(entry, "Sp800-56Cr2"));
-		break;
-	default:
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "SP800-56C: Unknown KDF specification\n");
-		return -EINVAL;
-	}
 
+	if (kdf_onestep->length) {
+		CKINT(json_object_object_add(entry, "mode",
+			json_object_new_string("OneStep")));
+
+		switch (kdf_onestep->kdf_spec) {
+		case DEF_ALG_KDF_SP800_56Crev1:
+			CKINT(acvp_req_add_revision(entry, "Sp800-56Cr1"));
+			break;
+		case DEF_ALG_KDF_SP800_56Crev2:
+			CKINT(acvp_req_add_revision(entry, "Sp800-56Cr2"));
+			break;
+		default:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "SP800-56C: Unknown KDF specification\n");
+			return -EINVAL;
+		}
+
+	} else {
+		CKINT(json_object_object_add(entry, "mode",
+			json_object_new_string("OneStepNoCounter")));
+
+		CKINT(acvp_req_add_revision(entry, "Sp800-56Cr2"));
+	}
 
 	if (!full)
 		goto out;
 
 	if (kdf_onestep->length > 2048) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "KAS ECC r3: KAS KDF length maximum is 1024 bits\n");
+		       "SP800-56C: KAS KDF length maximum is 2048 bits\n");
 		ret = -EINVAL;
 		goto out;
 	}

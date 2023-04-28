@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+# Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
 #
 
 CC		?= gcc
@@ -44,7 +44,7 @@ EXCLUDED	?=
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp
+INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp $(SRCDIR)lib/amvp
 LIBRARY_DIRS	+=
 LIBRARIES	+= pthread dl
 

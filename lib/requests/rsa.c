@@ -1,6 +1,6 @@
 /* JSON generator for RSA ciphers
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -672,6 +672,13 @@ static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 			CKINT(acvp_req_add_revision(entry, "FIPS186-4"));
 			break;
 		case DEF_ALG_RSA_MODE_COMPONENT_SIG_PRIMITIVE:
+			if (rsa->gen_info.component_sig->rsa_modulo ==
+				DEF_ALG_RSA_MODULO_UNDEF) {
+				CKINT(acvp_req_add_revision(entry, "1.0"));
+			} else {
+				CKINT(acvp_req_add_revision(entry, "2.0"));
+			}
+			break;
 		case DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE:
 			CKINT(acvp_req_add_revision(entry, "1.0"));
 			break;
@@ -714,6 +721,12 @@ static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 		component_sig = rsa->gen_info.component_sig;
 		CKINT(json_object_object_add(entry, "mode",
 			json_object_new_string("signaturePrimitive")));
+		if (rsa->gen_info.component_sig->rsa_modulo !=
+		    DEF_ALG_RSA_MODULO_UNDEF) {
+			CKINT(acvp_req_rsa_modulo(rsa->rsa_mode,
+				rsa->gen_info.component_sig->rsa_modulo,
+				entry));
+		}
 		if (full)
 			CKINT(acvp_req_rsa_keyformat(component_sig->keyformat,
 						     entry));

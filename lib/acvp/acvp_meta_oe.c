@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the operational env information
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -911,7 +911,7 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 		return 0;
 
 	if (i != json_object_array_length(tmp))
-		return -EAGAIN;
+		return -ENOENT;
 
 	/* Ensure that all IDs given by the server are found locally */
 	for (i = 0; i < json_object_array_length(tmp); i++) {

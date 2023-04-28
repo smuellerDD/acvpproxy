@@ -1,6 +1,6 @@
 /* ACVP Proxy hash and HMAC module definition
  *
- * Copyright (C) 2018 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -145,7 +145,7 @@ const struct def_algo_kas_ifc_schema tests_kas_ifc_schema_kts[] = { {
 	.algo.kas_ifc = {						\
 		DEF_PREREQS(tests_kas_ifc_prereqs),			\
 		.function = DEF_ALG_KAS_IFC_KEYPAIRGEN |		\
-			    DEF_ALG_KAS_IFC_PARITALVAL,			\
+			    DEF_ALG_KAS_IFC_PARTIALVAL,			\
 		.iut_identifier = "0123456789abcdef",			\
 		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC,\
 				DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,	\
@@ -163,7 +163,7 @@ const struct def_algo_kas_ifc_schema tests_kas_ifc_schema_kts[] = { {
 	.algo.kas_ifc = {						\
 		DEF_PREREQS(tests_kas_ifc_prereqs),			\
 		.function = DEF_ALG_KAS_IFC_KEYPAIRGEN |		\
-			    DEF_ALG_KAS_IFC_PARITALVAL,			\
+			    DEF_ALG_KAS_IFC_PARTIALVAL,			\
 		.iut_identifier = "0123456789abcdef",			\
 		.keygen.keygen_method = { DEF_ALG_KAS_IFC_RSAKPG1_BASIC,\
 				DEF_ALG_KAS_IFC_RSAKPG1_PRIME_FACTOR,	\

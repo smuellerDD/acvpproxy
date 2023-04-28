@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -137,6 +137,19 @@ struct def_algo_kas_kdf_onestepkdf_aux {
 	 * required: optional
 	 */
 	int saltlen;
+
+	/*
+	 * The length of the key to derive. This value should be large enough
+	 * to accommodate the key length used for the MAC algorithms in use for
+	 * the key confirmation. Maximum value (for testing purposes) is 2048.
+	 *
+	 * Minimum without key confirmation is 128.
+	 * Minimum with key confirmation is 136.
+	 * Maximum is 2048
+	 *
+	 * required: required for OneStepNoCounter, unused otherwise
+	 */
+	unsigned int length;
 };
 
 /*

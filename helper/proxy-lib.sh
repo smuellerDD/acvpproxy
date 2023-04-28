@@ -9,10 +9,25 @@
 # the proxy.sh script sourcing this file.
 #
 
+# ${PROXYTYPE} is defined in proxy.sh or esvp.sh. Its value is used to determine the value of the appropriate variables here to address either an acvp or esvp submission. If the value is not esvp, then assume it is a common acvp-proxy invocation (to address outdated proxy.sh scripts).
+
 # Testvectors directory
-TESTVECTORS_DIR="testvectors"
+if [ "${PROXYTYPE}" = "esvp" ]
+then
+	TESTVECTORS_DIR="esvp-testvectors"
+else
+	TESTVECTORS_DIR="testvectors"
+fi
+
 # Secure datastore directory
-SECUREDATA_DIR="secure-datastore"
+# Make it work whether $PROXYTYPE is set or not; proxy.sh will likely not set $PROXYTYPE, and in this case assume it is proxy.sh that is invoked.
+if [ "${PROXYTYPE}" = "esvp" ]
+then
+	SECUREDATA_DIR="esvp-secure-datastore"
+else
+	SECUREDATA_DIR="secure-datastore"
+fi
+
 # Module definition directory
 MODULEDEF_DIR="module_definitions"
 # Local ACVP Proxy extension directory with source code
@@ -20,7 +35,13 @@ EXTENSION_DIR="module_implementations"
 # Global ACVP Proxy extension directory
 GLOBAL_EXTENSION_DIR="extensions"
 # ACVP Proxy log file
-LOGFILE="acvp-proxy"
+if [ "${PROXYTYPE}" = "esvp" ]
+then
+	LOGFILE="esvp-proxy"
+else
+	LOGFILE="acvp-proxy"
+fi
+
 # ACVP Proxy test vector files
 REQFILE="testvector-request.json"
 # proxy-lib.sh status file
@@ -32,7 +53,12 @@ PROXYLIBSTATUSPOST=".proxy-lib-status-post-$SCRIPT.txt"
 CIPHER_OPTION_OVERVIEW="cipher_options_overview.txt"
 
 # name of the executable
-PROXYBIN="acvp-proxy"
+if [ "${PROXYTYPE}" = "esvp" ]
+then
+	PROXYBIN="esvp-proxy"
+else
+	PROXYBIN="acvp-proxy"
+fi
 
 # Directory hlding the ACVP Proxy extensions - if empty, the extensions
 # shipped with the current version of the TOE are used. If you, however,
@@ -53,8 +79,15 @@ SHOW_CMD=""
 PRODUCTION=""
 DOLOG=0
 
-PRODUCTION_CONF="acvpproxy_conf_production.json"
-DEMO_CONF="acvpproxy_conf.json"
+if [ "${PROXYTYPE}" = "esvp" ]
+then
+	PRODUCTION_CONF="esvpproxy_conf_production.json"
+	DEMO_CONF="esvpproxy_conf.json"
+else
+	PRODUCTION_CONF="acvpproxy_conf_production.json"
+	DEMO_CONF="acvpproxy_conf.json"
+fi
+
 
 if [ `uname -s` == "Darwin" ]
 then
@@ -93,6 +126,8 @@ usage() {
 	echo -e "\tpublish\t\tPublish the tests to obtain certificate"
 	echo -e "\tstatus\t\tList of verdicts, request IDs and certificates"
 	echo -e "\tapproval\tGet files that vendor must approve"
+	echo -e "\tregister\tRegister new entropy source to esvt; please note down the testids provided at the end of this process"
+	echo -e "\tcertify\t\tExecute the certify step for already registered entropy sources; use with --testid nnn, wherein nnn is the already-obtained testid from registration"
 	echo -e "\tanyop\t\tJust set the test directories and configuration file"
 	echo -e	"\t\t\tand pass through any option to the proxy for unspecified"
 	echo -e "\t\t\toperations with the ACVP Proxy"
@@ -232,7 +267,7 @@ setParams() {
 			"--show-cmd")
 				SHOW_CMD="y"
 				;;
-			"get"|"post"|"publish"|"list"|"status"|"approval"|"anyop")
+			"get"|"post"|"publish"|"list"|"status"|"approval"|"anyop"|"register"|"certify")
 				INVOCATION_TYPE=$arg
 				;;
 			"--log")
@@ -527,6 +562,17 @@ anyop() {
 	invoke $PROXYBIN $PARAMS $(addlogging "$log")
 }
 
+register() {
+	local log="${LOGFILE}-register-${DATE}.log"
+	invoke $PROXYBIN $PARAMS $(addlogging "$log")
+	echo "Please note down all testid numbers returned. You will need to provide them with --testid wen invoking the certify step."
+}
+
+certify() {
+	local log="${LOGFILE}-certify-${DATE}.log"
+	invoke $PROXYBIN $PARAMS --publish $(addlogging $log)
+}
+
 checkArgLen
 checkForBinary
 checkProxyVersion
@@ -554,6 +600,12 @@ case "$INVOCATION_TYPE" in
 		;;
 	"anyop")
 		anyop
+		;;
+	"register")
+		register
+		;;
+	"certify")
+		certify
 		;;
 	*)
 		echo "Unknown invocation type $INVOCATION_TYPE"

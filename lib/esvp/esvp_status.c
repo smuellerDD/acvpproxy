@@ -1,6 +1,6 @@
 /* Reading and writing of ESVP status information for re-entrant support
  *
- * Copyright (C) 2021 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -64,9 +64,11 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 	for (cc = es->cc; cc; cc = cc->next, seq_no++) {
 		struct json_object *stat_cc;
 		char ref[40];
-
-		/* Only process non-vetted conditioning components */
-		if (cc->vetted)
+		/*
+		 * Only process non-vetted and non-bijective conditioning
+		 * components.
+		 */
+		if (cc->vetted || cc->bijective)
 			continue;
 
 		snprintf(ref, sizeof(ref), "conditioningComponent%u", seq_no);
@@ -182,24 +184,24 @@ out:
 }
 
 int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
-		  struct json_object *data, bool write_extended)
+		  struct json_object *sd_array, bool write_extended)
 {
 	const struct esvp_es_def *es = testid_ctx->es_def;
 	const struct esvp_sd_def *sd;
-	struct json_object *sd_array;
-	int ret;
+	int ret = 0;
 
 	if (!es->sd)
 		return 0;
 
-	sd_array = json_object_new_array();
-	CKINT(json_object_object_add(data, "supportingDocumentation",
-				     sd_array));
-
 	for (sd = es->sd; sd; sd = sd->next) {
 		struct json_object *sd_data;
-		struct acvp_auth_ctx *auth = sd->sd_auth;
+		struct acvp_auth_ctx *auth;
 
+		/* If requested, do not submit the file */
+		if (!sd->submit)
+			continue;
+
+		auth = sd->sd_auth;
 		sd_data = json_object_new_object();
 		CKNULL(sd_data, -ENOMEM);
 		CKINT(json_object_array_add(sd_array, sd_data));
@@ -253,7 +255,7 @@ int esvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	const struct esvp_es_def *es = testid_ctx->es_def;
 	const struct esvp_cc_def *cc;
-	struct json_object *stat = NULL;
+	struct json_object *sd_array, *stat = NULL;
 	struct acvp_buf stat_buf;
 	struct acvp_auth_ctx *auth;
 	const char *stat_str;
@@ -288,9 +290,11 @@ int esvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 	for (cc = es->cc; cc; cc = cc->next, seq_no++) {
 		struct json_object *stat_cc;
 		char ref[40];
-
-		/* Only process non-vetted conditioning components */
-		if (cc->vetted)
+		/*
+		 * Only process non-vetted and non-bijective conditioning
+		 * components.
+		 */
+		if (cc->vetted || cc->bijective)
 			continue;
 
 		stat_cc = json_object_new_object();
@@ -298,7 +302,7 @@ int esvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 
 		snprintf(ref, sizeof(ref), "conditioningComponent%u", seq_no);
 
-		CKINT(json_object_object_add(stat_cc, ref, stat_cc));
+		CKINT(json_object_object_add(stat, ref, stat_cc));
 		CKINT(json_object_object_add(
 			stat_cc, "conditionedBitsId",
 			json_object_new_int((int)cc->cc_id)));
@@ -307,7 +311,11 @@ int esvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 			json_object_new_boolean(cc->output_submitted)));
 	}
 
-	CKINT(esvp_build_sd(testid_ctx, stat, true));
+	sd_array = json_object_new_array();
+	CKNULL(sd_array, -ENOMEM);
+	CKINT(json_object_object_add(stat, "supportingDocumentation",
+				     sd_array));
+	CKINT(esvp_build_sd(testid_ctx, sd_array, true));
 
 	stat_str = json_object_to_json_string_ext(
 		stat, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);

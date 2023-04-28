@@ -1,6 +1,6 @@
 /* Perform ESVP certification operation
  *
- * Copyright (C) 2021 - 2022, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -21,29 +21,28 @@
 #include <string.h>
 
 #include "esvp_internal.h"
+#include "hash/sha256.h"
 #include "json_wrapper.h"
 #include "request_helper.h"
 
 /******************************************************************************
  * Certification support
  ******************************************************************************/
-static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
-			      struct json_object *certify)
+static int esvp_certify_build_one(const struct acvp_testid_ctx *testid_ctx,
+				  struct json_object *ea_array,
+				  struct json_object *sd_array)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	const struct esvp_es_def *es = testid_ctx->es_def;
-	struct esvp_sd_def *sd;
 	const struct definition *def;
 	struct acvp_auth_ctx *auth;
 	struct def_info *def_info;
 	struct def_vendor *def_vendor;
 	struct def_oe *def_oe;
-	struct json_object *certdata, *ea_array, *ea_entry,
-			   *sd_array, *sd_entry;
+	struct json_object *ea_entry;
 	int ret;
 
-	CKNULL_LOG(testid_ctx, -EINVAL, "ES building: testid_ctx missing\n");
 	def = testid_ctx->def;
 	CKNULL_LOG(def, -EINVAL, "ES building: cipher definitions missing\n");
 	def_info = def->info;
@@ -54,20 +53,6 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 		   "ES building: vendor definitions missing\n");
 	def_oe = def->oe;
 	CKNULL_LOG(def_oe, -EINVAL, "ES building: OE definitions missing\n");
-
-	/* Array entry for version */
-	CKINT(acvp_req_add_version(certify));
-
-	/* Array entry for request */
-	certdata = json_object_new_object();
-	CKNULL(certdata, -ENOMEM);
-	CKINT(json_object_array_add(certify, certdata));
-
-	CKINT(json_object_object_add(certdata, "itar",
-				     json_object_new_boolean(es->itar)));
-	CKINT(json_object_object_add(certdata,
-		"limitEntropyAssessmentToSingleModule",
-		json_object_new_boolean(es->limit_es_single_module)));
 
 	CKINT(acvp_def_get_vendor_id(def_vendor));
 	ret = acvp_meta_obtain_request_result(testid_ctx,
@@ -101,22 +86,6 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-	CKINT_ULCK(json_object_object_add(
-		certdata, "entropyId",
-		json_object_new_string(es->lab_test_id)));
-	CKINT_ULCK(json_object_object_add(
-		certdata, "moduleId",
-		json_object_new_int((int)def_info->acvp_module_id)));
-	CKINT_ULCK(json_object_object_add(
-		certdata, "vendorId",
-		json_object_new_int((int)def_vendor->acvp_vendor_id)));
-
-	CKINT_ULCK(esvp_build_sd(testid_ctx, certdata, false));
-
-	ea_array = json_object_new_array();
-	CKNULL(ea_array, -ENOMEM);
-	CKINT(json_object_object_add(certdata, "entropyAssessments", ea_array));
-
 	auth = es->es_auth;
 	ea_entry = json_object_new_object();
 	CKNULL(ea_entry, -ENOMEM);
@@ -130,27 +99,145 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(json_object_object_add(ea_entry, "accessToken",
 				     json_object_new_string(auth->jwt_token)));
 
-	sd_array = json_object_new_array();
-	CKNULL(sd_array, -ENOMEM);
-	CKINT(json_object_object_add(certdata, "supportingDocumentation",
-				     sd_array));
-
-	for (sd = es->sd; sd; sd = sd->next) {
-		auth = sd->sd_auth;
-		sd_entry = json_object_new_object();
-		CKNULL(sd_entry, -ENOMEM);
-		CKINT(json_object_array_add(sd_array, sd_entry));
-		CKINT(json_object_object_add(
-			sd_entry, "sdId",
-			json_object_new_int((int)sd->sd_id)));
-		CKINT(json_object_object_add(sd_entry, "accessToken",
-			json_object_new_string(auth->jwt_token)));
-	}
+	CKINT_ULCK(esvp_build_sd(testid_ctx, sd_array, false));
 
 unlock:
 	ret |= acvp_def_put_module_id(def_info);
 unlock_oe:
 	ret |= acvp_def_put_oe_id(def_oe);
+unlock_vendor:
+	ret |= acvp_def_put_vendor_id(def_vendor);
+out:
+	return ret;
+}
+
+/* Find duplicates of SD and ensure they are not uploaded */
+static int esvp_analyze_sd(const struct acvp_testid_ctx *testid_ctx_list,
+			   const struct acvp_testid_ctx *curr_testid_ctx)
+{
+	const struct acvp_testid_ctx *t_ctx;
+	const struct esvp_es_def *es = curr_testid_ctx->es_def;
+	struct esvp_sd_def *sd;
+	int ret = 0;
+	bool submit;
+
+	for (sd = es->sd; sd; sd = sd->next) {
+		submit = true;
+
+		/* Check entire array of testids for existance of SD */
+		for (t_ctx = testid_ctx_list; t_ctx; t_ctx = t_ctx->next) {
+			const struct esvp_es_def *t_es = t_ctx->es_def;
+			const struct esvp_sd_def *t_sd;
+
+			/* Go through all SDs associated with the testid */
+			for (t_sd = t_es->sd; t_sd; t_sd = t_sd->next) {
+				struct acvp_buf *data_hash =
+					&sd->file->data_hash;
+				struct acvp_buf *t_data_hash =
+					&t_sd->file->data_hash;
+
+				/* Do not check itself */
+				if (sd == t_sd)
+					continue;
+
+				if (!data_hash->len)
+					CKINT(acvp_hash_file(sd->file->filename,
+							     sha256,
+							     data_hash));
+
+				if (!t_data_hash->len)
+					CKINT(acvp_hash_file(
+						t_sd->file->filename,
+						sha256, t_data_hash));
+
+				if (!memcmp(data_hash->buf, t_data_hash->buf,
+					    data_hash->len) && t_sd->submit) {
+					submit = false;
+					logger(LOGGER_DEBUG, LOGGER_C_ANY,
+					       "Skipping registering supporting document %s as it is already about to be registered via %s\n",
+					       t_sd->file->filename,
+					       sd->file->filename);
+					break;
+				}
+			}
+
+			if (!submit)
+				break;
+		}
+
+		sd->submit = submit;
+	}
+
+out:
+	return ret;
+}
+
+static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
+			      struct json_object *certify)
+{
+	const struct acvp_testid_ctx *t_ctx;
+	const struct esvp_es_def *es;
+	const struct definition *def;
+	struct def_info *def_info;
+	struct def_vendor *def_vendor;
+	struct json_object *certdata, *ea_array, *sd_array;
+	int ret;
+
+	CKNULL_LOG(testid_ctx, -EINVAL, "ES building: testid_ctx missing\n");
+	es = testid_ctx->es_def;
+	def = testid_ctx->def;
+	CKNULL_LOG(def, -EINVAL, "ES building: cipher definitions missing\n");
+	def_info = def->info;
+	CKNULL_LOG(def_info, -EINVAL,
+		   "ES building: module definitions missing\n");
+	def_vendor = def->vendor;
+	CKNULL_LOG(def_vendor, -EINVAL,
+		   "ES building: vendor definitions missing\n");
+
+	/* Array entry for version */
+	CKINT(acvp_req_add_version(certify));
+
+	/* Array entry for request */
+	certdata = json_object_new_object();
+	CKNULL(certdata, -ENOMEM);
+	CKINT(json_object_array_add(certify, certdata));
+
+	ea_array = json_object_new_array();
+	CKNULL(ea_array, -ENOMEM);
+	CKINT(json_object_object_add(certdata, "entropyAssessments", ea_array));
+
+	sd_array = json_object_new_array();
+	CKNULL(sd_array, -ENOMEM);
+	CKINT(json_object_object_add(certdata, "supportingDocumentation",
+				     sd_array));
+
+	CKINT(acvp_def_get_vendor_id(def_vendor));
+	/* Lock def_info */
+	ret = acvp_def_get_module_id(def_info);
+	if (ret < 0)
+		goto unlock_vendor;
+
+	CKINT_ULCK(json_object_object_add(certdata, "itar",
+					  json_object_new_boolean(es->itar)));
+	CKINT_ULCK(json_object_object_add(certdata,
+		   "limitEntropyAssessmentToSingleModule",
+		   json_object_new_boolean(es->limit_es_single_module)));
+
+	CKINT_ULCK(json_object_object_add(certdata, "entropyId",
+		   json_object_new_string(es->lab_test_id)));
+	CKINT_ULCK(json_object_object_add(certdata, "moduleId",
+		   json_object_new_int((int)def_info->acvp_module_id)));
+	CKINT_ULCK(json_object_object_add(certdata, "vendorId",
+		   json_object_new_int((int)def_vendor->acvp_vendor_id)));
+
+	for (t_ctx = testid_ctx; t_ctx; t_ctx = t_ctx->next)
+		CKINT_ULCK(esvp_analyze_sd(testid_ctx, t_ctx));
+
+	for (t_ctx = testid_ctx; t_ctx; t_ctx = t_ctx->next)
+		CKINT_ULCK(esvp_certify_build_one(t_ctx, ea_array, sd_array));
+
+unlock:
+	ret |= acvp_def_put_module_id(def_info);
 unlock_vendor:
 	ret |= acvp_def_put_vendor_id(def_vendor);
 out:
@@ -229,7 +316,8 @@ int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 
 	CKINT(esvp_certify_build(testid_ctx, certify));
 
-	if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_DEBUG) {
+	if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_DEBUG &&
+	    !req_details->dump_register) {
 		fprintf(stdout, "Certify request with:\n%s\n",
 			json_object_to_json_string_ext(
 				certify, JSON_C_TO_STRING_PRETTY |

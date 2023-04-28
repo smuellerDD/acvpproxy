@@ -6,7 +6,7 @@
   "acvpModuleIds":[
     {
       "acvpModuleName":"Linux Random Number Generator (LRNG implementation)",
-      "acvpModuleId":0
+      "acvpModuleId":13696
     },
     {
       "acvpModuleName":"Linux Random Number Generator (Kernel Crypto API implementation)",

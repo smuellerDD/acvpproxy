@@ -3,9 +3,10 @@
 	"description": "SHA2-512",
 	"minHin": 1,
 	"_minNin": "8 CPUs",
-	"minNin": 4096,
+	"minNin": 512,
 	"nw": 512,
 	"nOut": 512,
+	"hOut": 512,
 	"vetted": true,
 	"acvtsCertificate": "A582"
 }
