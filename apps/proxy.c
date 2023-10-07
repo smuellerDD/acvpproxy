@@ -96,7 +96,8 @@ static void usage(void)
 	acvp_versionstring(version, sizeof(version));
 
 	fprintf(stderr, "\nACVP Test Vector And Test Verdict Proxy\n");
-	fprintf(stderr, "\nACVP proxy library version: %s\n\n", version);
+	fprintf(stderr, "\nACVP proxy library version: %s\n", version);
+	fprintf(stderr, "\nACVP proxy library GIT version: %s\n\n", GITVER);
 	fprintf(stderr, "Register module and fetch test vectors:\n");
 	fprintf(stderr,
 		"  acvp-proxy [-mrnepf MODULE_SEARCH_CRITERIA] --request\n\n");
@@ -166,6 +167,10 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\tOption can be specified up to %d times\n",
 		MAX_SUBMIT_ID);
 	fprintf(stderr, "\t   --request\t\t\tRequest new test vector set\n");
+	fprintf(stderr, "\t   --request-json <FILE>\tRequest new test vector set from\n");
+	fprintf(stderr, "\t\t\t\t\tcaller-supplied file. This option applies \n");
+	fprintf(stderr, "\t\t\t\t\tthe provided JSON file to all module\n");
+	fprintf(stderr, "\t\t\t\t\tdefinitions in the search scope!\n");
 	fprintf(stderr,
 		"\n\tNote: If the caller provides --testid or --vsid together with\n");
 	fprintf(stderr,
@@ -595,6 +600,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{ "purchase", required_argument, 0, 0 },
 
 			{ "fetch-verdicts", no_argument, 0, 0 },
+
+			{ "request-json", required_argument, 0, 0 },
 
 			{ 0, 0, 0, 0 }
 		};
@@ -1075,6 +1082,16 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				/* force the proxy to contact server */
 				opts->acvp_ctx_options.resubmit_result = true;
 				opts->fetch_verdicts = true;
+				break;
+
+			case 67:
+				/* request-json */
+				opts->request = true;
+				snprintf(opts->acvp_ctx_options.caller_json_request,
+					 sizeof(opts->acvp_ctx_options.caller_json_request),
+					 "%s", optarg);
+				opts->acvp_ctx_options.caller_json_request_set =
+					true;
 				break;
 
 			default:
@@ -1703,6 +1720,14 @@ static int esvp_proxy_handling(struct opt_data *opts)
 
 	opts->acvp_ctx_options.esv_certify = opts->publish;
 
+	/*
+	 * The ES definitions we operate on have one instance only as read
+	 * by definitions.c. Yet they hold the auth token. Thus, we cannot
+	 * multi-thread on them. Only if the session-local data are not
+	 * stored in the ES definitions any more, we can enable multi-threading.
+	 */
+	opts->acvp_ctx_options.threading_disabled = true;
+
 	CKINT(initialize_ctx(&ctx, opts, true));
 
 	ctx->req_details.dump_register = opts->dump_register;
@@ -1725,12 +1750,10 @@ out:
 	return ret;
 }
 
-static int amvp_proxy_handling(struct opt_data *opts)
+static int amvp_do_register(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
 	int ret;
-
-	opts->acvp_ctx_options.esv_certify = opts->publish;
 
 	CKINT(initialize_ctx(&ctx, opts, true));
 
@@ -1744,13 +1767,97 @@ static int amvp_proxy_handling(struct opt_data *opts)
 		 * re-download the test vectors (how else would a caller know
 		 * particular testIDs or vsIDs?).
 		 */
-		CKINT(amvp_continue(ctx));
+		ctx->req_details.download_pending_vsid = true;
+		CKINT(amvp_respond(ctx));
 	} else {
 		CKINT(amvp_register(ctx));
 	}
 
+	if (opts->acvp_ctx_options.register_only) {
+		if (!ret) {
+			fprintf(stderr,
+				"Test definitions registered successfully, do not forget to download them at a later time.\n");
+		} else if (ret == -ENOENT)
+			ret = 0;
+
+		goto out;
+	}
+
 out:
 	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int amvp_do_submit(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	uint32_t vsid;
+	int ret, ret2, idx = 0;
+	bool printed = false;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	ctx->req_details.request_sample = opts->request_sample;
+
+	/*
+	 * We want to list the verdicts we obtained irrespective of
+	 * the return status.
+	 */
+	ret2 = amvp_respond(ctx);
+
+	/* Fetch vsID with passing verdicts */
+	while (!(ret = acvp_list_verdict_vsid(&idx, &vsid, true))) {
+		if (!printed) {
+			printf("\nThe following vsIDs passed:\n");
+			printed = true;
+		}
+		fprintf_green(stdout, "%u\n", vsid);
+	}
+
+	if (ret && (ret != -ENOENT))
+		goto out;
+
+	idx = 0;
+	printed = false;
+
+	/* Fetch vsID with failing verdicts */
+	while (!(ret = acvp_list_verdict_vsid(&idx, &vsid, false))) {
+		if (!printed) {
+			printf("\nThe following vsIDs failed:\n");
+			printed = true;
+		}
+		fprintf_red(stdout, "%u\n", vsid);
+	}
+
+	if (ret == -ENOENT)
+		ret = 0;
+
+	/* Restore the return status from the acvp_respond download. */
+	if (!ret)
+		ret = ret2;
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+static int amvp_proxy_handling(struct opt_data *opts)
+{
+	int ret;
+
+	// TODO - see amvp_set_paths for this limitation
+	if (opts->secure_basedir || opts->basedir) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "The AMVP Proxy currently cannot handle setting the basedir/secure_basedir\n");
+		return -EOPNOTSUPP;
+	}
+
+	if (opts->request) {
+		CKINT(amvp_do_register(opts));
+	} else {
+		CKINT(amvp_do_submit(opts));
+	}
+
+out:
 	return ret;
 }
 

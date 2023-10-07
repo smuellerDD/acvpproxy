@@ -37,7 +37,7 @@ extern "C" {
 #define NIST_TEST_SERVER "demo.acvts.nist.gov"
 #define NIST_DEFAULT_SERVER_PORT 443
 
-/* acvp_protocol.txt: section 5.2 */
+/* acvp_protocol.txt: section 5.2 / 04-amvprotocol.adoc */
 #define NIST_VAL_OP_LOGIN "login"
 #define NIST_VAL_OP_LOGIN_REFRESH "login/refresh"
 #define NIST_VAL_OP_REG "testSessions"
@@ -58,6 +58,12 @@ extern "C" {
 #define NIST_VAL_OP_PURCHASE_OPTIONS NIST_VAL_OP_PURCHASE "/options"
 #define NIST_VAL_OP_LAB "lab"
 #define NIST_VAL_OP_AVAIL_VSIDS NIST_VAL_OP_LAB "/availablevectorsets"
+#define NIST_VAL_OP_LABS "labs"
+#define NIST_VAL_OP_CRSESSIONS "crSessions"
+#define NIST_VAL_OP_CERTREQUESTS "crSessions" //"certRequests"
+#define NIST_VAL_OP_EVIDENCESETS "evSets"
+#define NIST_VAL_OP_ACVP "acvp"
+#define NIST_VAL_OP_ESVP "esv"
 
 /* acvp_protocol.txt: section 11.1 */
 #define ACVP_JWT_TOKEN_MAX 16384
@@ -312,6 +318,12 @@ struct acvp_opts_ctx {
 	 * ACVP server's entry can be established.
 	 */
 	unsigned int update_db_entry;
+
+	/*
+	 * Fully formatted JSON request file provided by caller.
+	 */
+	bool caller_json_request_set;
+	char caller_json_request[FILENAME_MAX];
 };
 
 /**
@@ -340,9 +352,12 @@ struct acvp_ctx {
 	struct acvp_opts_ctx options;
 	struct acvp_rename_ctx *rename;
 	struct acvp_auth_ctx *ctx_auth; /* initial login auth token */
+
+	void *private; /* Some private data */
 };
 
 enum acvp_protocol_type {
+	unknown_protocol,
 	acv_protocol,
 	amv_protocol,
 	esv_protocol,

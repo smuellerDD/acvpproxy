@@ -245,7 +245,7 @@ out:
 }
 
 static int
-esvp_process_certify(const struct acvp_testid_ctx *testid_ctx,
+esvp_analyze_certify(const struct acvp_testid_ctx *testid_ctx,
 		     const struct acvp_buf *response)
 {
 	struct json_object *req = NULL, *entry = NULL;
@@ -263,9 +263,6 @@ esvp_process_certify(const struct acvp_testid_ctx *testid_ctx,
 	 */
 	CKINT_LOG(acvp_req_strip_version(response, &req, &entry),
 		  "Cannot find ESVP response\n");
-
-	CKINT(acvp_store_file(testid_ctx, response, 1,
-			      "certify-response.json"));
 
 	CKINT(json_get_string(entry, "status", &str));
 	if (!strncmp(str, "received", 8)) {
@@ -287,6 +284,20 @@ out:
 	return ret;
 }
 
+static int
+esvp_process_certify(const struct acvp_testid_ctx *testid_ctx,
+		     const struct acvp_buf *response)
+{
+	int ret;
+
+	CKINT(acvp_store_file(testid_ctx, response, 0,
+			      "certify-response.json"));
+	CKINT(esvp_analyze_certify(testid_ctx, response));
+
+out:
+	return ret;
+}
+
 /* POST /certify */
 int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 {
@@ -304,7 +315,7 @@ int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 
 	if (!opts->esv_certify) {
 		logger_status(LOGGER_C_ANY,
-			      "Certify operation skipped, use --testid %u --publish to certify current request\n",
+			      "Certify operation skipped - to certify this one test session, use --testid %u --publish to certify current request\n",
 			      testid_ctx->testid);
 		return 0;
 	}

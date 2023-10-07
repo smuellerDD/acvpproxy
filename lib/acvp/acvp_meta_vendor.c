@@ -313,6 +313,9 @@ static int acvp_vendor_register(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
+	CKINT(acvp_register_dump_request(testid_ctx, NIST_VAL_OP_VENDOR,
+					 json_vendor));
+
 	/* Fetch address ID */
 	CKINT(acvp_vendor_get_match(testid_ctx, def_vendor, &resp,
 				    &found_data));

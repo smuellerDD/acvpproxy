@@ -334,6 +334,7 @@ static int acvp_curl_common_init(const struct acvp_na_ex *netinfo,
 		       net->certs_ca_file);
 	} else {
 		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L));
+		CURL_CKINT(curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L));
 		logger(LOGGER_VERBOSE, LOGGER_C_CURL,
 		       "TLS peer verification disabled.\n");
 	}

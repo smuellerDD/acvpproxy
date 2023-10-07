@@ -37,6 +37,11 @@ static const struct acvp_net_proto esv_proto_def = {
 	.basedir_production = ESVP_DS_DATADIR_PRODUCTION,
 	.secure_basedir = ESVP_DS_CREDENTIALDIR,
 	.secure_basedir_production = ESVP_DS_CREDENTIALDIR_PRODUCTION,
+
+	.session_url = NIST_VAL_OP_REG,
+	.vector_url = NIST_VAL_OP_VECTORSET,
+	.session_url_keyword = "url",
+	.vector_url_keyword = "vectorSetUrls",
 };
 
 #ifdef __cplusplus

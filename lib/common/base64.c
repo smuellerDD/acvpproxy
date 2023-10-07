@@ -63,9 +63,10 @@ static int __base64_encode(const uint8_t *idata, size_t ilen, char **odata,
 	}
 
 	elen = 4 * ((ilen + 2) / 3);
-	encoded = malloc(elen);
+	encoded = malloc(elen + 1);
 	if (!encoded)
 		return -ENOMEM;
+	encoded[elen] = '\0';
 
 	for (i = 0, j = 0; i < ilen;) {
 		uint32_t octet_a = i < ilen ? idata[i++] : 0;
@@ -100,8 +101,8 @@ int base64_encode_safe(const uint8_t *idata, size_t ilen, char **odata,
 	return __base64_encode(idata, ilen, odata, olen, encoding_table_safe);
 }
 
-int __base64_decode(const char *idata, size_t ilen, uint8_t **odata,
-		    size_t *olen, const char table[])
+static int __base64_decode(const char *idata, size_t ilen, uint8_t **odata,
+			   size_t *olen, const char table[])
 {
 	size_t dlen, i, j;
 	uint8_t *decoded;

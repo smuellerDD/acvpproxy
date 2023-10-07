@@ -98,7 +98,7 @@ int acvp_openssl_thread_setup(void)
 }
 
 #else
-
+extern int acvp_openssl_thread_setup(void);
 int acvp_openssl_thread_setup(void)
 {
 	return 0;

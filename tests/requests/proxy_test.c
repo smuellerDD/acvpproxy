@@ -216,7 +216,7 @@ static int duplicate_string(char **dst, char *src)
 static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 {
 	struct acvp_search_ctx *search = &opts->search;
-	int c = 0, ret;
+	int c = 0, ret = 0;
 	char version[200] = { 0 };
 	unsigned long val = 0;
 	long lval;

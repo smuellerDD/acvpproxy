@@ -129,6 +129,7 @@ static void totp_debug_store_counter_stepped(uint64_t val)
 	totp_counter_value_stepped = val;
 }
 
+void totp_debug_get_counter(uint64_t *counter, uint64_t *counter_stepped);
 void totp_debug_get_counter(uint64_t *counter, uint64_t *counter_stepped)
 {
 	*counter = totp_counter_value;

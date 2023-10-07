@@ -93,7 +93,7 @@ static const struct def_algo_prereqs openssl_gcm_prereqs[] = {
 	.algo.sym.ptlen = { 128, 256, 120, 248 },			\
 	.algo.sym.ivlen = { 96, },					\
 	.algo.sym.ivgen = DEF_ALG_SYM_IVGEN_INTERNAL,			\
-	.algo.sym.ivgenmode = DEF_ALG_SYM_IVGENMODE_821,		\
+	.algo.sym.ivgenmode = DEF_ALG_SYM_IVGENMODE_822,		\
 	.algo.sym.aadlen = { 64, 96 },					\
 	.algo.sym.taglen = { 64, 96, 128 },				\
 	.algo.sym.prereqvals = openssl_gcm_prereqs,			\
@@ -586,6 +586,20 @@ static const struct def_algo_rsa_keygen_caps openssl_rsa_keygen_caps[] = { {
 	OPENSSL_RSA_KEYGEN_CAPS_COMMON
 } };
 
+#define OPENSSL_3_RSA_KEYGEN_CAPS_COMMON				\
+	.rsa_primetest = DEF_ALG_RSA_PRIMETEST_2POWSECSTR,
+
+static const struct def_algo_rsa_keygen_caps openssl_3_rsa_keygen_caps[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	OPENSSL_3_RSA_KEYGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	OPENSSL_3_RSA_KEYGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	OPENSSL_3_RSA_KEYGEN_CAPS_COMMON
+} };
+
 static const struct def_algo_rsa_keygen openssl_rsa_keygen = {
 	.rsa_randpq = DEF_ALG_RSA_PQ_B33_PRIMES,
 	.capabilities = openssl_rsa_keygen_caps,
@@ -593,9 +607,9 @@ static const struct def_algo_rsa_keygen openssl_rsa_keygen = {
 };
 
 static const struct def_algo_rsa_keygen openssl_3_rsa_keygen = {
-	.rsa_randpq = DEF_ALG_RSA_PQ_B36_PRIMES,
-	.capabilities = openssl_rsa_keygen_caps,
-	.capabilities_num = ARRAY_SIZE(openssl_rsa_keygen_caps),
+	.rsa_randpq = DEF_ALG_RSA_PQ_PROBABLE_WITH_PROBABLE_AUX_PRIMES,
+	.capabilities = openssl_3_rsa_keygen_caps,
+	.capabilities_num = ARRAY_SIZE(openssl_3_rsa_keygen_caps),
 };
 
 static const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
@@ -608,6 +622,7 @@ static const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
 	.type = DEF_ALG_TYPE_RSA,					\
 	.algo = {							\
 		.rsa = {						\
+			.revision = DEF_ALG_RSA_186_4,			\
 			.rsa_mode = DEF_ALG_RSA_MODE_KEYGEN,		\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.gen_info.keygen = &openssl_rsa_keygen_gen,	\
@@ -622,6 +637,7 @@ static const struct def_algo_rsa_keygen_gen openssl_rsa_keygen_gen = {
 	.type = DEF_ALG_TYPE_RSA,					\
 	.algo = {							\
 		.rsa = {						\
+			.revision = DEF_ALG_RSA_186_5,			\
 			.rsa_mode = DEF_ALG_RSA_MODE_KEYGEN,		\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.gen_info.keygen = &openssl_rsa_keygen_gen,	\
@@ -676,30 +692,33 @@ static const struct def_algo_rsa_siggen_caps openssl_3_rsa_siggen_caps[] = { {
 
 static const struct def_algo_rsa_siggen_caps openssl_3_rsa_siggen_caps_pss[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1,
 	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
 	OPENSSL_3_RSA_SIGGEN_CAPS_COMMON
 }, {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1,
 	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
 	OPENSSL_3_RSA_SIGGEN_CAPS_COMMON
 }, {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1,
 	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
 	OPENSSL_3_RSA_SIGGEN_CAPS_COMMON
 } };
 
-#define OPENSSL_RSA_SIGGEN_CAPS_X931					\
+#define OPENSSL_RSA_SIGGEN_CAPS_COMMON_X931				\
 	.hashalg = ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512
 
 static const struct def_algo_rsa_siggen_caps openssl_rsa_siggen_caps_x931[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
-	OPENSSL_RSA_SIGGEN_CAPS_X931
+	OPENSSL_RSA_SIGGEN_CAPS_COMMON_X931
 }, {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
-	OPENSSL_RSA_SIGGEN_CAPS_X931
+	OPENSSL_RSA_SIGGEN_CAPS_COMMON_X931
 }, {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
-	OPENSSL_RSA_SIGGEN_CAPS_X931
+	OPENSSL_RSA_SIGGEN_CAPS_COMMON_X931
 } };
 
 static const struct def_algo_rsa_siggen openssl_rsa_siggen[] = { {
@@ -724,10 +743,6 @@ static const struct def_algo_rsa_siggen openssl_3_rsa_siggen[] = { {
 	.sigtype = DEF_ALG_RSA_SIGTYPE_PSS,
 	.capabilities = openssl_3_rsa_siggen_caps_pss,
 	.capabilities_num = ARRAY_SIZE(openssl_3_rsa_siggen_caps_pss),
-}, {
-	.sigtype = DEF_ALG_RSA_SIGTYPE_ANSIX931,
-	.capabilities = openssl_rsa_siggen_caps_x931,
-	.capabilities_num = ARRAY_SIZE(openssl_rsa_siggen_caps_x931),
 } };
 
 #define OPENSSL_RSA_SIGGEN						\
@@ -735,6 +750,7 @@ static const struct def_algo_rsa_siggen openssl_3_rsa_siggen[] = { {
 	.type = DEF_ALG_TYPE_RSA,					\
 	.algo = {							\
 		.rsa = {						\
+			.revision = DEF_ALG_RSA_186_4,			\
 			.rsa_mode = DEF_ALG_RSA_MODE_SIGGEN,		\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.algspecs.siggen = openssl_rsa_siggen,		\
@@ -748,6 +764,7 @@ static const struct def_algo_rsa_siggen openssl_3_rsa_siggen[] = { {
 	.type = DEF_ALG_TYPE_RSA,					\
 	.algo = {							\
 		.rsa = {						\
+			.revision = DEF_ALG_RSA_186_5,			\
 			.rsa_mode = DEF_ALG_RSA_MODE_SIGGEN,		\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.algspecs.siggen = openssl_3_rsa_siggen,	\
@@ -778,10 +795,12 @@ static const struct def_algo_rsa_sigver_caps openssl_rsa_sigver_caps[] = { {
 	OPENSSL_RSA_SIGVER_CAPS_COMMON,
 } };
 
-static const struct def_algo_rsa_sigver_caps openssl_3_rsa_sigver_caps[] = { {
+static const struct def_algo_rsa_sigver_caps openssl_3_rsa_sigver_caps_1024[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_1024,
 	OPENSSL_3_RSA_SIGVER_CAPS_COMMON,
-}, {
+} };
+
+static const struct def_algo_rsa_sigver_caps openssl_3_rsa_sigver_caps[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
 	OPENSSL_3_RSA_SIGVER_CAPS_COMMON,
 }, {
@@ -792,8 +811,22 @@ static const struct def_algo_rsa_sigver_caps openssl_3_rsa_sigver_caps[] = { {
 	OPENSSL_3_RSA_SIGVER_CAPS_COMMON,
 } };
 
+static const struct def_algo_rsa_sigver_caps openssl_3_rsa_sigver_caps_pss[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1,
+	OPENSSL_3_RSA_SIGVER_CAPS_COMMON,
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1,
+	OPENSSL_3_RSA_SIGVER_CAPS_COMMON,
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1,
+	OPENSSL_3_RSA_SIGVER_CAPS_COMMON,
+} };
+
 #define OPENSSL_RSA_SIGVER_CAPS_COMMON_X931				\
-	.hashalg = ACVP_SHA1 | ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512	\
+	.hashalg = ACVP_SHA1 | ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512
 
 static const struct def_algo_rsa_sigver_caps openssl_rsa_sigver_caps_x931[] = { {
 	.rsa_modulo = DEF_ALG_RSA_MODULO_1024,
@@ -829,8 +862,18 @@ static const struct def_algo_rsa_sigver openssl_3_rsa_sigver[] = { {
 	.capabilities_num = ARRAY_SIZE(openssl_3_rsa_sigver_caps),
 }, {
 	.sigtype = DEF_ALG_RSA_SIGTYPE_PSS,
-	.capabilities = openssl_3_rsa_sigver_caps,
-	.capabilities_num = ARRAY_SIZE(openssl_3_rsa_sigver_caps),
+	.capabilities = openssl_3_rsa_sigver_caps_pss,
+	.capabilities_num = ARRAY_SIZE(openssl_3_rsa_sigver_caps_pss),
+} };
+
+static const struct def_algo_rsa_sigver openssl_3_rsa_186_4_sigver[] = { {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_PKCS1V15,
+	.capabilities = openssl_3_rsa_sigver_caps_1024,
+	.capabilities_num = ARRAY_SIZE(openssl_3_rsa_sigver_caps_1024),
+}, {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_PSS,
+	.capabilities = openssl_3_rsa_sigver_caps_1024,
+	.capabilities_num = ARRAY_SIZE(openssl_3_rsa_sigver_caps_1024),
 }, {
 	.sigtype = DEF_ALG_RSA_SIGTYPE_ANSIX931,
 	.capabilities = openssl_rsa_sigver_caps_x931,
@@ -846,6 +889,7 @@ static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
 	.type = DEF_ALG_TYPE_RSA,					\
 	.algo = {							\
 		.rsa = {						\
+			.revision = DEF_ALG_RSA_186_4,			\
 			.rsa_mode = DEF_ALG_RSA_MODE_SIGVER,		\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.gen_info.sigver = &openssl_rsa_sigver_gen,	\
@@ -855,11 +899,27 @@ static const struct def_algo_rsa_sigver_gen openssl_rsa_sigver_gen = {
 		}							\
 	}
 
+#define OPENSSL_3_RSA_186_4_SIGVER					\
+	{								\
+	.type = DEF_ALG_TYPE_RSA,					\
+	.algo = {							\
+		.rsa = {						\
+			.revision = DEF_ALG_RSA_186_4,			\
+			.rsa_mode = DEF_ALG_RSA_MODE_SIGVER,		\
+			DEF_PREREQS(openssl_rsa_prereqs),		\
+			.gen_info.sigver = &openssl_rsa_sigver_gen,	\
+			.algspecs.sigver = openssl_3_rsa_186_4_sigver,	\
+			.algspecs_num = ARRAY_SIZE(openssl_3_rsa_186_4_sigver),\
+			}						\
+		}							\
+	}
+
 #define OPENSSL_3_RSA_SIGVER						\
 	{								\
 	.type = DEF_ALG_TYPE_RSA,					\
 	.algo = {							\
 		.rsa = {						\
+			.revision = DEF_ALG_RSA_186_5,			\
 			.rsa_mode = DEF_ALG_RSA_MODE_SIGVER,		\
 			DEF_PREREQS(openssl_rsa_prereqs),		\
 			.gen_info.sigver = &openssl_rsa_sigver_gen,	\
@@ -1486,7 +1546,7 @@ static const struct def_algo_prereqs openssl_kdf_prereqs[] = {
 				  ACVP_SHA384 | ACVP_SHA512 |		\
 				  ACVP_SHA512224 | ACVP_SHA512256 |	\
 				  ACVP_SHA3_224 | ACVP_SHA3_256 |	\
-				  ACVP_SHA3_384 | ACVP_SHA3_384,	\
+				  ACVP_SHA3_384 | ACVP_SHA3_512,	\
 			DEF_ALG_DOMAIN(.z, 224, 2048, 8),		\
 			.l = 2048,					\
 			}						\
@@ -1902,6 +1962,7 @@ static const struct def_algo openssl_ffcdh [] = {
 									\
 	OPENSSL_3_RSA_KEYGEN,						\
 	OPENSSL_3_RSA_SIGGEN,						\
+	OPENSSL_3_RSA_186_4_SIGVER,					\
 	OPENSSL_3_RSA_SIGVER,						\
 									\
 	OPENSSL_3_ECDSA_SIGGEN(NISTP_CURVES),				\

@@ -1,3 +1,7 @@
+v1.8.0
+- fix: ESV register multiple OEs in one certify operation
+- enhancement: AMVP client working as of Hackathon Mid Aug 2023
+
 v1.7.8
 - enhancement: add --list-missing-certificates
 - enhancement: add --list-missing-results
@@ -7,18 +11,22 @@ v1.7.8
 - bug fixes
 
 v1.7.7
+- enhancement: add KTS-SSC to Linux kernel
 - enhancement: update ESV implementation to match latest definitions
 - enhancement: add leancrypto definition
-- enhancement: add XOF, X9.42, SRTP
 
 v1.7.6
 - fix: revert switch threading from poll to push wait - makes problems on macOS
 - enhancement: as requested by NIST: KAS-KDF -> KDA
+- enhancement: streamline kernel crypto API DRBG
+- enhancement: KTS-SSC for libgcrypt
+- Linux kcapi definitions updated: we only have RSA sigver and RSA primitives
 
 v1.7.5
 - enhancement: switch threading from poll to push wait
 - fix: --sync-meta OE: first check deps followed by OE
 - enhancement: separate OpenSSL ECC K/B curves out
+- enhancement: add ICC
 - enhancement: add ANSI X9.63 support
 
 v1.7.4
@@ -32,18 +40,23 @@ v1.7.4
 
 v1.7.3
 - enhancement: only update meta data on server that has changed
-- enhancement: add POWER OpenSSL
+- enhancement: add POWER for KCAPI, OpenSSL, libgcrypt, GnuTLS, NSS
+- enhancement: add ARM to NSS
 - fix: allow undefined region definition for addresses
 - enhancement: add TPM KDF support
 - enhancement: add OpenSSL 3.0.0 definitions
 
 v1.7.2
+- enhancement: add CTS to NSS
 - fix: --fetch-validation-from-server-db uses OE config file version 2
+- enhancement: add CLiC
 - add ESVP /certify endpoint handling
 - enhancement: add SP800-56C rev 2 support
 - enhancement: add complete LRNG test definition
 
 v1.7.1
+- enhancement: PSS definition for GnuTLS
+- enhancement: KBKDF definition for NSS
 - fix: FIPS 186-2 legacy sigver request
 - enhancement: Verify that the certificate used to create the JWT is also used for uploading the date
 - fix: sometimes empty ACVP definitions are shown - this is now fixed
@@ -54,7 +67,7 @@ v1.7.1
 v1.7.0
 - enhancement: add --fetch-id-from-server-db to allow fetching the ACVP server DB data for the given ID
 - enhancement: add --fetch-validation-from-server-db allowing to provide a validation ID which is used to query the ACVP server DB to populate a full module_definitions/<dir> directory which can immediately be used for ACVP Proxy operations on the meta data
-- enhancement: OpenSSL - provide a fully working RSA OAEP test definition
+- enhancement: NSS, libgcrypt, OpenSSL - provide a fully working RSA OAEP test definition
 - enhancement: add --fetch-verdicts to get the current verdicts from the ACVP server - this option can be used to refresh a vsID against deletion after 30 day of inactivity
 - enhancement: AES-XTS support for specification version 2.0
 - enhancement: CTR mode: add support for requesting RFC3686 compliant vectors
@@ -65,24 +78,28 @@ v1.7.0
 
 v1.6.2
 - enhancement: add payment options --list-purchased-vs, --list-purchase-opts, --purchase
-- enhancement: add LRNG and Jitter RNG definitions
+- fix: Various cipher definition updates
 
 v1.6.1
+- enhancement: add definitions for Jitter RNG
 - fix: add specification of public exponent definition for RSA signature primitive
+- enhancement: add NSS and GnuTLS TLS v1.3 test definitions
 
 v1.6.0
 - enhancement: add DEF_ALG_SYM_CTRINCREMENT_DISABLE
 - enhancement: add check to verify appropriateness of test vectors to proxy-lib.sh
 - enhancement: proxy.sh get now is asynchronous
 - enhancement: add --sync-meta to just synchronize the local and server meta data without pending test sessions
+- enhancement: add ECDH / ECDSA for CPACF
 - enhancement: add HKDF testing support
 - enhancement: add KAS-IFC-SSC support
 - fix: update KAS-IFC definition to match the ACVP server
 - enhancement: add SP800-90B Conditioning Component request capability
-- enhancement: add SP800-56A rev 3 to OpenSSL
+- enhancement: add SP800-56A rev 3 to OpenSSL, CoreCrypto, NSS, GnuTLS, Linux kernel
+- enhancement: add conditioning function support
 - fix: DRBG definition only supports max 4096 bits request size
 - enhancement: add onestep and twostep KDF standalone tests
-- enhancement: replace HMAC/Hash implementation with self-written code
+- enhancement: replace HMAC/Hash implementation with self-written code - ACVP certificate number A770
 - enhancement: add TLS v1.3
 
 v1.5.2
@@ -90,6 +107,11 @@ v1.5.2
 - fix format string usage as indicated with __attribute__((format()))
 - fix race in creating a database
 - fix HMAC SHA2-512/224 and /256
+
+v1.5.1
+- fix: add definitions for CFBP and OFBI TDES ciphers to definition_impl_common.h
+- fix: add KAS SSC cipher listing
+- fix: allow definition of TDES DRBG
 
 v1.5.1
 - fix: allow NULL phoneNumber
@@ -122,8 +144,10 @@ v1.4.0
 - add --proxy-extension-dir
 - enable modularized compilation
 - bug fix: generation of cipher listing in SP800-108 KDF
+- bug fix: libgcrypt hash/hmac DRBG SHA-512 added
 - bug fix: disable threading for publication operation
 - enhancement: only require the presence of the key / seed data if a network operation is to be performed
+- SEP: remove HMAC DRBG, RSA keygen
 - enhancement: allow parallel execution of production and demo ACVP Proxy execution
 - fix: deactivate large endpoint handling as new ACVP server frontend does not need it
 - fix: listing of ciphers modified to new ACVP server structure
@@ -134,11 +158,15 @@ v1.4.0
 - code restructuring: consolidate ACVP meta data handling
 
 v1.3.2
+- NSS: CMAC not supported
+- add CPACF
 - bug fix to make option --vsid work again
 - OpenSSL: add safeprime keygen test
+- Corecrypto: add safeprime keygen test
 - macOS: log HTTP error return data
 
 v1.3.1
+- GnuTLS: add XTS
 - update --list-cert-details output to match structure required by NIST
 - add --list-cipher-options
 - add --list-cipher-options-deps
@@ -162,15 +190,18 @@ v1.3.0
 v1.2.5
 - reenable SIGQUIT signal handling
 - prevent crash in signal handler
+- kcapi: add CTS
 - common cipher definition: converted all cipher definition to Domain definitions
 - add libica
-- add S390/ARM64 support for: OpenSSL
+- add S390/ARM64 support for: kcapi, OpenSSL, GnuTLS, libgcrypt
+- add support for multiple cipher implementations in libgcrypt
 - add --register-only option to only register a new cipher definition without downloading the test vectors
 
 v1.2.4
 - OpenSSL: Add ECC CDH, ECDH with P224, add P224 to ECDSA siggen/sigver
 - bug fix for macOS: allow CA certificate file (a bug did not allow a file, but only a keychain entry)
 - bug fix: prevent displaying of user passcode in debug log
+- Apple corecrypto: add ECDH P224 and P521, CMAC
 - bug fix: reenable TOTP server which was accidentally disabled with the last patch
 - fix: do not store an artificial status verdict any more
 
@@ -195,23 +226,23 @@ v1.2.1
 - add --delete-test allowing the deletion of the vsId in the search scope from the test session
 
 v1.2.0
+- add IKEv1 and IKEv2 to NSS
 - add GET /validations/<certificateId> when having certificateId available -
   the result is stored in testsession_certificate_info.json
+- add CFB8, shake to libgcrypt
 - fix: JWT can be larger than 1024 bytes - the proxy now has a maximum size of
   16384 bytes
 - replace --publish-prereqs with --no-publish-prereqs: Per default, the
   prerequisites are sent during publication. The submission can be prevented
   with this option. This is currently disabled due to issue #749.
 - apply the currently applicable JSON format for prerequisites during
-  publication
+  publicationss
 - if oeEnvName is set to the NULL JSON data type, the OE is not registered with the module (e.g. relevant for hardware modules)
 - do not enforce the presence of SWID or CPE
-- add SLES kernel definition
 - fix: complete new register operation now uses correct URL
 - add --list-certificates to provide a listing of all received certificate
   numbers
 - add listing of received certificates to --list-verdicts
-- remove CFB-8 from kernel (not implemented)
 - isolate SHA-3 into separate test session for OpenSSL
 - add --version-numeric
 - add --proxy-extension
@@ -224,6 +255,7 @@ v1.1.0
 - fix: update PBKDF to match published ACVP definition
 - fix: do not log mmap()ed buffer as vsnprintf performs a strlen() operation and
        the mmap buffer is not guaranteed to be NULL terminated
+- fix: Apple corecrypto cipher definitions
 - move the definition_reference.json file from the secure data base to the
   test vector data base to allow users to map the test vectors to the right
   IUT
@@ -235,9 +267,10 @@ v1.1.0
 - fix: bug fixes around re-downloading verdicts
 - enhancement: add fuzzy search capability for an individual search criteria by
   prepending the search string with "f:", e.g.
-        acvp-proxy -m f:module_name_substring -p specific_processor
+	acvp-proxy -m f:module_name_substring -p specific_processor
 - fix: resubmission of results working now (but not yet supported by server)
 - enhancement: add ACVP server error parser to validate errors which we can ignore
+- add XTS / CCM to libgcrypt
 - add --publish-prereqs: resolution of ACVP Issue 733 may affect this option
   in the future
 - fix: NIST requires the OE name to be unique - the proxy now concatenates
@@ -249,6 +282,7 @@ v1.1.0
 v1.0.0
 - replace --list-certificate-ids with --list-available-ids
 - version crypto implementation
+- GnuTLS: add XTS
 - OpenSSL: Add SSH KDF
 - add: AES-FF1 and AES-FF3-1 support
 - production ACVP: use testvector-production and secure-datastore-production databases
@@ -260,6 +294,7 @@ v1.0.0
 v0.7.2
 - add support for DELETE of all meta data endpoints
 - add support for listing certificate IDs and pending request IDs
+- add Nvidia definitions
 - add listing of request IDs
 - add listing of certificate IDs
 - add listing of verdicts
@@ -311,37 +346,228 @@ v0.7.0
 - (hopefully last) fix of MQ server with different multthreaded clients
 
 v0.6.5
+- add BouncyCastle definitions
 - add /large endpoint handling
+- remove HMAC SHA3 for GnuTLS as it is not implemented
 - speed up --cipher-options
 - use pthread mutexes
 - remove message queue always during startup to prevent attaching to a stale
   message queue and restarting the MQ server election process
 - Fix support for --resubmit-results
 
-Changes v0.6.4
-- MQ server test: fix for enabling testing on macOS
+v0.6.4
+- fix MQ server test on macOS
 - add HMAC-SHA3 and SHA3 definitions for OpenSSL
+- add RSA component signature and decryption support for the kernel
+- add CMAC and CFB8 support for GnuTLS
+- add SHA3 / HMAC SHA3 support to libgcrypt
+- Linux kernel: Fix GCM test definitions
 
-Changes v0.6.3
+v0.6.3
 - fix curl code compile issue on old libcurl versions
 - MQ server: use busy-wait around client-side msgrcv to ensure catching a signal
 - add test cases
+- add BoringSSL definitions
 
-Changes 0.6.2
+v0.6.2:
 - enable safety check guaranteeing that module definition did not change between test vector request and test response submission
 - fix bug in acvp_publish
 - SIGSEGV is caught to remove message queue
 - OpenSSL: add missing CBC
+- CommonCrypto: add symmetric ciphers
 - statically link JSON-C
 - fix make cppcheck
-- compile with -Wno-missing-field-initializers as some compilers require all structure fields to be initialized
-- re-enable ACVP cancel operation upon SIGTERM, SIGINT, SIGQUIT, SIGHUP
-- allow ACVP cancel operation to be terminated with 2nd receipt of signals
 
-Changes 0.6.1
+v0.6.1:
 - Support --vsid without --testid on command line
 - MQ server: fix starting and restarting of server thread
 - fix IKEv2 register operation
 
-Changes 0.6.0
- * first public release with support for ACVP v0.5
+v0.6.0:
+- switch to ACVP protocol v0.5 - the following options are implemented
+	/testSessions: POST
+	/testSessions/<testSessionId>: GET, PUT, DELETE
+	/testSessions/<testSessionId>/vectorSets: GET
+	/testSessions/<testSessionId>/retults: GET
+	/testSessions/<testSessionId>/vectorSets/<vectorSetId>: GET
+	/testSessions/<testSessionId>/vectorSets/<vectorSetId>/results: GET, POST, PUT
+	/testSessions/<testSessionId>/vectorSets/<vectorSetId>/expected: GET
+	/vendors: GET, POST
+	/vendors/<vendorId>: GET
+	/oes: GET, POST
+	/oes/<oeId>: GET
+	/dependencies: GET, POST
+	/dependencies/<dependencyId>: GET
+	/modules: GET, POST
+	/modules/<modulesId>: GET
+- add unnanounced Apple KDF hardware specification
+- add --resubmit-result option to resubmit already submitted test vectors
+- obtain expected test results with --sample options
+- Fix threading support return code handling
+- Switch database store format. A complete new testvectors and secure-datastore
+directory must be used.
+- Add support for clean shutdown everywhere
+- Analyze verdict response and print out the verdict at the end of a response submission
+- Add support for DER and P12 certificates
+- Add support for password-protected keys
+- thread per-testid operation
+- Support for resuming the download of the verdict without re-uploading the
+  response after interruption of download operation
+- addition of EDDSA
+- restructure directories
+- add download of cipher algorithm information
+- support download of samples
+- add Qualcomm TDES support
+
+v0.5.8:
+- replace all cipher string definitions with cipher_t
+- __init -> ACVP_DEFINE_CONSTRUCTOR
+- addition of ACVPProxy Hash/HMAC definitions
+- addition of FIPS 140-2 compliance (POST)
+- fix final race condition in mutex
+- Apple user/kernel land version 9.0 definitions, Apple SKS 2.0 definitions
+- get rid of all memleaks reported by valgrind
+- use reader locks when protected resource is only read
+- add FFCDH and ECDH to Apple vectors
+
+v0.5.7:
+- remove DRBG/RSA from kernel crypto API SHA MB implementation
+
+v0.5.6
+- add NSS definitions
+- add 32 and 64 bit definitions
+- fix Linux kernel DH definitions
+- fix libkcapi KDF feedback mode
+- add SHA3 / CFB definitions to Linux kernel and libkcapi
+
+v0.5.5
+- bug fixes in cipher definitions
+
+v0.5.4
+- bug fixes in cipher definitions
+
+v0.5.3
+- Add listing of uninstantiated cipher definitions - this supports the creation of new module definition configuration files
+- add TOTP message queue server
+- add -b and -s options for basedir and secure_basedir and split up secure/data store
+- more strictly sanitize user-provided strings that may be used as path names
+- protect auth token with permission bits
+- add HTTP PUT and DELETE operations to curl backend to stage REST API changes that are coming
+- add SSH protocol support with OpenSSH server and client example
+- add IKEv2 protocol support with Strongswan example
+- add TLS protocol support with OpenSSL example
+- add IKEv1 protocol support with libreswan example
+- add SP800-108 KDF support with libkcapi example
+- add versioning of test vector data store and sensitive data store
+- mandatory split of test vector data store and sensitive data store
+- add KAS for OpenSSL
+- add KAS for Linux kernel
+- add KAS for GnuTLS
+
+v0.5.2
+- Fix several IUT definitions to match implementation and get DRBG working
+- addition of KAS ECC
+- addition of KAS FFC
+- provide basic constructs to replace all cipher strings with numeric values using the definitions in cipher_definitions.h
+
+v0.5.1
+- store TOTP last generated time stamp in config file
+- restructure data structures: de-entangle volatile from non-volatile ctx data,
+  introduce acvp_vsid_ctx wrapping a vsID operation
+- constify as much as possible
+- fixed the sproadically OTP authentication errors (leading zeros for the OTP value must be printed!)
+
+v0.5.0
+- add support for comparing the upload and download servers for the ACVP
+  vectors and results. Only when both match, results are uploaded. This
+  will support the dual use of the tool for production and debug ACVP
+  servers.
+- add official testing mode
+- split up request.c into acvp.c, acvp_request.c, acvp_response.c
+- reduce code for datastore backend
+- make backends fully standalone
+- all DRBG definitions: update the requested cipher values as ACVP server is fixed
+- extract module instantiation definitions into configuration files
+- Provide the option to re-download vector sets when providing --request together with --vsid or --testid
+- prevent the unneeded generation of directories in testvectors/
+
+v0.4.1
+- fix memory corruption in sig_enqueue_ctx and sig_dequeue_ctx
+- various smaller fixes
+
+v0.4.0
+- Rename to acvpproxy
+- Addition of documentation
+- listing operation now supports search restrictions
+- fix several memleaks
+- add measures to make entire code thread-safe
+- list number of expected vsIDs in definition listing
+
+v0.3.1
+- Update of corecrypto requests to make them working
+
+v0.3.0
+- Updated 2-factor authentication works
+- Add ECDSA for libgcrypt, gnutls, OpenSSL
+- Add DSA for libgcrypt, gnutls, OpenSSL
+- threading of testID processing (retrieval and submission)
+- compilation on macOS
+- register of all Apple iOS, macOS, and SEP implementations
+- register of CommonCrypto example
+
+v0.2.0:
+- 2-factor authentication works
+- configuration file added (see readme)
+- refresh of authentication token added
+- OpenSSL added (CFB-1 and CFB-8 not working)
+
+v0.1.5:
+- GnuTLS added
+
+v0.1.4:
+- libgcrypt RSA working (RSA pss siggen currently fails with error "Could not verify signature: RSA PSS Verify: DB incorrect, '01' byte not found")
+
+v0.1.3:
+- Linux kernel crypto API definition added
+
+v0.1.2:
+- Nettle definition added
+
+v0.1.1:
+- completely isolate module definitions from remainder of library code
+by adding the __init macro
+
+v0.1.0:
+- Linux kernel crypto API complete definition (symmetric, hashes, MACs, AEAD,
+  DRBG, RSA)
+- Effective file system structure for different vendors, modules, implementations and platforms
+
+v0.0.6:
+- RSA keygen for libgcrypt
+- RSA siggen for libgcrypt
+- RSA sigver for libgcrypt
+- TDES tests
+
+v0.0.5:
+- code simplifications for production use
+- Addition of TOTP (it is yet disabled)
+
+v0.0.4:
+- Threading support of data submission
+- CTR DRBG with libgcryt
+- HMAC with libgcrypt
+- SHA MCT with libgcrypt
+- AES KW with libgcrypt
+
+v0.0.3:
+- CMAC-TDES requests with libgcrypt
+
+v0.0.2:
+- HMAC requests with libgcrypt
+- CMAC-AES requests with libgcrypt
+- AES test result submission and fetching of results
+
+v0.0.1:
+- symmetric requests with libgcrypt
+- SHA request with libgcrypt
+- threading support

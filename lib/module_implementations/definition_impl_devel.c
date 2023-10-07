@@ -1043,7 +1043,7 @@ static const struct def_algo_prereqs nss_rsa_prereqs[] = {
 #define NSS_DSA_PQGGEN(L, N, hashes)
 #endif
 
-#if 1
+#if 0
 static const struct def_algo_prereqs tests_kdf_onestep_prereqs[] = {
 	{
 		.algorithm = "SHA",
@@ -1079,6 +1079,298 @@ static const struct def_algo_kas_kdf_onestepkdf_aux kas_kdf_onestepkdf_aux[] = {
 	}
 #else
 #define ONESTEPNOCTR
+#endif
+
+#if 1
+static const struct def_algo_prereqs devel_rsa_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+#define DEVEL_RSA_KEYGEN_CAPS_COMMON					\
+	.hashalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |\
+		   ACVP_SHA512 | ACVP_SHA512224 | ACVP_SHA512256,	\
+	.rsa_primetest = DEF_ALG_RSA_PRIMETEST_2POW100 |		\
+			 DEF_ALG_RSA_PRIMETEST_2POWSECSTR,		\
+
+static const struct def_algo_rsa_keygen_caps devel_rsa_keygen_caps[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	.p_mod8 = 0,
+	.q_mod8 = 7,
+	DEVEL_RSA_KEYGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	.p_mod8 = 1,
+	.q_mod8 = 3,
+	DEVEL_RSA_KEYGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	.p_mod8 = 5,
+	.q_mod8 = 0,
+	DEVEL_RSA_KEYGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_8192,
+	DEVEL_RSA_KEYGEN_CAPS_COMMON
+} };
+
+static const struct def_algo_rsa_keygen devel_rsa_keygen = {
+	.rsa_randpq = DEF_ALG_RSA_PQ_PROBABLE_WITH_PROVABLE_AUX_PRIMES,
+	.capabilities = devel_rsa_keygen_caps,
+	.capabilities_num = ARRAY_SIZE(devel_rsa_keygen_caps),
+};
+
+static const struct def_algo_rsa_keygen_gen devel_rsa_keygen_gen = {
+	.pubexpmode = DEF_ALG_RSA_PUBEXTMODE_RANDOM,
+	.keyformat = DEF_ALG_RSA_KEYFORMAT_STANDARD,
+};
+
+#define DEVEL_RSA_186_5_KEYGEN						\
+	{								\
+	.type = DEF_ALG_TYPE_RSA,					\
+	.algo = {							\
+		.rsa = {						\
+			.revision = DEF_ALG_RSA_186_5,			\
+			.rsa_mode = DEF_ALG_RSA_MODE_KEYGEN,		\
+			DEF_PREREQS(devel_rsa_prereqs),			\
+			.gen_info.keygen = &devel_rsa_keygen_gen,	\
+			.algspecs.keygen = &devel_rsa_keygen,		\
+			.algspecs_num = 1,				\
+			}						\
+		}							\
+	}
+
+static const struct def_algo_rsa_keygen_gen devel_rsa_keygen_crt_gen = {
+	.pubexpmode = DEF_ALG_RSA_PUBEXTMODE_RANDOM,
+	.keyformat = DEF_ALG_RSA_KEYFORMAT_CRT,
+};
+
+#define DEVEL_RSA_186_5_KEYGEN_CRT					\
+	{								\
+	.type = DEF_ALG_TYPE_RSA,					\
+	.algo = {							\
+		.rsa = {						\
+			.revision = DEF_ALG_RSA_186_5,			\
+			.rsa_mode = DEF_ALG_RSA_MODE_KEYGEN,		\
+			DEF_PREREQS(devel_rsa_prereqs),			\
+			.gen_info.keygen = &devel_rsa_keygen_crt_gen,	\
+			.algspecs.keygen = &devel_rsa_keygen,		\
+			.algspecs_num = 1,				\
+			}						\
+		}							\
+	}
+
+#define DEVEL_RSA_SIGGEN_CAPS_COMMON					\
+	.hashalg = ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |		\
+		   ACVP_SHA512 | ACVP_SHA512224 | ACVP_SHA512256 |	\
+		   ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |	\
+		   ACVP_SHA3_512,
+
+static const struct def_algo_rsa_siggen_caps devel_rsa_siggen_caps[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	DEVEL_RSA_SIGGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	DEVEL_RSA_SIGGEN_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	DEVEL_RSA_SIGGEN_CAPS_COMMON
+} };
+
+#define DEVEL_RSA_SIGGEN_CAPS_PSS_COMMON				\
+	.hashalg = ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |		\
+		   ACVP_SHA512 | ACVP_SHA512224 | ACVP_SHA512256 |	\
+		   ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |	\
+		   ACVP_SHA3_512 | ACVP_SHAKE128 | ACVP_SHAKE256,
+
+static const struct def_algo_rsa_siggen_caps devel_rsa_siggen_caps_pss[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
+	DEVEL_RSA_SIGGEN_CAPS_PSS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1 |
+			 DEF_ALG_RSA_MASK_FUNC_SHAKE_128,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_HASHLEN,
+	DEVEL_RSA_SIGGEN_CAPS_PSS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1 |
+			 DEF_ALG_RSA_MASK_FUNC_SHAKE_128 |
+			 DEF_ALG_RSA_MASK_FUNC_SHAKE_256,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_VALUE,
+	.saltlen_bytes = 13,
+	DEVEL_RSA_SIGGEN_CAPS_PSS_COMMON
+} };
+
+static const struct def_algo_rsa_siggen devel_rsa_siggen[] = { {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_PKCS1V15,
+	.capabilities = devel_rsa_siggen_caps,
+	.capabilities_num = ARRAY_SIZE(devel_rsa_siggen_caps),
+}, {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_PSS,
+	.capabilities = devel_rsa_siggen_caps_pss,
+	.capabilities_num = ARRAY_SIZE(devel_rsa_siggen_caps_pss),
+} };
+
+#define DEVEL_RSA_186_5_SIGGEN						\
+	{								\
+	.type = DEF_ALG_TYPE_RSA,					\
+	.algo = {							\
+		.rsa = {						\
+			.revision = DEF_ALG_RSA_186_5,			\
+			.rsa_mode = DEF_ALG_RSA_MODE_SIGGEN,		\
+			DEF_PREREQS(devel_rsa_prereqs),			\
+			.algspecs.siggen = devel_rsa_siggen,		\
+			.algspecs_num = ARRAY_SIZE(devel_rsa_siggen),	\
+			}						\
+		}							\
+	}
+
+#define DEVEL_RSA_SIGVER_CAPS_COMMON					\
+	.hashalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |\
+		   ACVP_SHA512 | ACVP_SHA512224 | ACVP_SHA512256 |	\
+		   ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |	\
+		   ACVP_SHA3_512,
+
+static const struct def_algo_rsa_sigver_caps devel_rsa_sigver_caps[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	DEVEL_RSA_SIGVER_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	DEVEL_RSA_SIGVER_CAPS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	DEVEL_RSA_SIGVER_CAPS_COMMON
+} };
+
+#define DEVEL_RSA_SIGVER_CAPS_PSS_COMMON				\
+	.hashalg = ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 | ACVP_SHA384 |\
+		   ACVP_SHA512 | ACVP_SHA512224 | ACVP_SHA512256 |	\
+		   ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 |	\
+		   ACVP_SHA3_512 | ACVP_SHAKE128 | ACVP_SHAKE256,
+
+static const struct def_algo_rsa_sigver_caps devel_rsa_sigver_caps_pss[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_ZERO,
+	DEVEL_RSA_SIGVER_CAPS_PSS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1 |
+			 DEF_ALG_RSA_MASK_FUNC_SHAKE_128,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_HASHLEN,
+	DEVEL_RSA_SIGVER_CAPS_PSS_COMMON
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	.mask_function = DEF_ALG_RSA_MASK_FUNC_MGF1 |
+			 DEF_ALG_RSA_MASK_FUNC_SHAKE_128 |
+			 DEF_ALG_RSA_MASK_FUNC_SHAKE_256,
+	.saltlen = DEF_ALG_RSA_PSS_SALT_VALUE,
+	.saltlen_bytes = 13,
+	DEVEL_RSA_SIGVER_CAPS_PSS_COMMON
+} };
+
+static const struct def_algo_rsa_sigver devel_rsa_sigver[] = { {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_PKCS1V15,
+	.capabilities = devel_rsa_sigver_caps,
+	.capabilities_num = ARRAY_SIZE(devel_rsa_sigver_caps),
+}, {
+	.sigtype = DEF_ALG_RSA_SIGTYPE_PSS,
+	.capabilities = devel_rsa_sigver_caps_pss,
+	.capabilities_num = ARRAY_SIZE(devel_rsa_sigver_caps),
+} };
+
+static const struct def_algo_rsa_sigver_gen devel_rsa_sigver_gen = {
+	.pubexpmode = DEF_ALG_RSA_PUBEXTMODE_RANDOM,
+};
+
+#define DEVEL_RSA_186_5_SIGVER						\
+	{								\
+	.type = DEF_ALG_TYPE_RSA,					\
+	.algo = {							\
+		.rsa = {						\
+			.revision = DEF_ALG_RSA_186_5,			\
+			.rsa_mode = DEF_ALG_RSA_MODE_SIGVER,		\
+			DEF_PREREQS(devel_rsa_prereqs),			\
+			.gen_info.sigver = &devel_rsa_sigver_gen,	\
+			.algspecs.sigver = devel_rsa_sigver,		\
+			.algspecs_num = ARRAY_SIZE(devel_rsa_sigver),	\
+			}						\
+		}							\
+	}
+#define DEVEL_RSA_186_5							\
+	DEVEL_RSA_186_5_KEYGEN,						\
+	DEVEL_RSA_186_5_KEYGEN_CRT,					\
+	DEVEL_RSA_186_5_SIGGEN,						\
+	DEVEL_RSA_186_5_SIGVER
+#else
+#define DEVEL_RSA_186_5
+#endif
+
+#if 0
+static const struct def_algo_prereqs tests_lms_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+static const struct def_algo_lms_specific_caps lms_specific_capabilities[] = { {
+	.lms_mode = DEF_ALG_LMS_LMS_SHA256_M24_H5,
+	.lmots_mode = DEF_ALG_LMS_LMOTS_SHA256_N24_W2,
+}, {
+	.lms_mode = DEF_ALG_LMS_LMS_SHAKE_M24_H25,
+	.lmots_mode = DEF_ALG_LMS_LMOTS_SHAKE_N24_W1,
+} };
+
+#define LMS_GENERAL_COMMON(mode)					\
+	{								\
+	.type = DEF_ALG_TYPE_LMS,					\
+	.algo = {							\
+		.lms = {						\
+			.lms_mode = mode,				\
+			DEF_PREREQS(tests_lms_prereqs),			\
+			.lms_modes = DEF_ALG_LMS_LMS_SHA256_M24_H5 |	\
+				     DEF_ALG_LMS_LMS_SHA256_M24_H10,	\
+			.lmots_modes = DEF_ALG_LMS_LMOTS_SHA256_N24_W1 |\
+				       DEF_ALG_LMS_LMOTS_SHA256_N24_W8,	\
+			}						\
+		}							\
+	}
+
+#define LMS_SPECIFIC_COMMON(mode)					\
+	{								\
+	.type = DEF_ALG_TYPE_LMS,					\
+	.algo = {							\
+		.lms = {						\
+			.lms_mode = mode,				\
+			DEF_PREREQS(tests_lms_prereqs),			\
+			.specific_capabilities = lms_specific_capabilities,\
+			.specific_capabilities_num = ARRAY_SIZE(lms_specific_capabilities),\
+			}						\
+		}							\
+	}
+
+#define LMS								\
+	LMS_GENERAL_COMMON(DEF_ALG_LMS_MODE_KEYGEN),			\
+	LMS_GENERAL_COMMON(DEF_ALG_LMS_MODE_SIGGEN),			\
+	LMS_GENERAL_COMMON(DEF_ALG_LMS_MODE_SIGVER),			\
+	LMS_SPECIFIC_COMMON(DEF_ALG_LMS_MODE_KEYGEN),			\
+	LMS_SPECIFIC_COMMON(DEF_ALG_LMS_MODE_SIGGEN),			\
+	LMS_SPECIFIC_COMMON(DEF_ALG_LMS_MODE_SIGVER)
+
+#else
+#define LMS
 #endif
 /**************************************************************************
  * Devel Implementation Definitions
@@ -1128,6 +1420,10 @@ static const struct def_algo devel[] = {
 	NSS_DSA_PQGGEN(DEF_ALG_DSA_L_2048, DEF_ALG_DSA_N_256, ACVP_SHA256)
 
 	ONESTEPNOCTR
+
+	DEVEL_RSA_186_5
+
+	LMS
 };
 
 /**************************************************************************

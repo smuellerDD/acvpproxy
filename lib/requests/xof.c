@@ -43,7 +43,8 @@ int acvp_list_algo_xof(const struct def_algo_xof *xof,
 	tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
 
 	CKINT(acvp_req_cipher_to_name(xof->algorithm,
-				      ACVP_CIPHERTYPE_HASH, &name));
+				      ACVP_CIPHERTYPE_HASH |
+				      ACVP_CIPHERTYPE_MAC, &name));
 	CKINT(acvp_duplicate(&tmp->cipher_name, name));
 
 out:
@@ -56,11 +57,13 @@ int acvp_req_set_algo_xof(const struct def_algo_xof *xof,
 	struct json_object *tmp_array = NULL;
 	int ret;
 
-	if (!(xof->outlength[0] & DEF_ALG_RANGE_TYPE) ||
-	    xof->outlength[1] > 65536 ||
-	    acvp_range_min_val(xof->outlength) < 16) {
+	if ((xof->algorithm & ACVP_SHAKE128 ||
+	     xof->algorithm & ACVP_SHAKE256) &&
+	    (!(xof->outlength[0] & DEF_ALG_RANGE_TYPE) ||
+	     xof->outlength[1] > 65536 ||
+	     acvp_range_min_val(xof->outlength) < 16)) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "SHAKE: output min/max definition does not match requirements (16 <= n <= 65536)\n");
+		       "XOF: output min/max definition does not match requirements (16 <= n <= 65536)\n");
 		return -EINVAL;
 	}
 
@@ -73,22 +76,24 @@ int acvp_req_set_algo_xof(const struct def_algo_xof *xof,
 				     json_object_new_boolean(xof->hex)));
 
 	CKINT(acvp_req_algo_int_array(entry, xof->messagelength, "msgLen"));
-	CKINT(acvp_req_algo_int_array(entry, xof->outlength, "outputLen"));
 
 	if (xof->algorithm & ACVP_KMAC128 || xof->algorithm & ACVP_KMAC256) {
 		tmp_array = json_object_new_array();
 		CKNULL(tmp_array, -ENOMEM);
 		if (xof->xof & DEF_ALG_XOF_NOT_PRESENT)
-		CKINT(json_object_array_add(tmp_array,
+			CKINT(json_object_array_add(tmp_array,
 					    json_object_new_boolean(false)));
 		if (xof->xof & DEF_ALG_XOF_PRESENT)
-		CKINT(json_object_array_add(tmp_array,
+			CKINT(json_object_array_add(tmp_array,
 					    json_object_new_boolean(true)));
 		CKINT(json_object_object_add(entry, "xof", tmp_array));
 		tmp_array = NULL;
 
 		CKINT(acvp_req_algo_int_array(entry, xof->keylength, "keyLen"));
 		CKINT(acvp_req_algo_int_array(entry, xof->maclength, "macLen"));
+	} else {
+		CKINT(acvp_req_algo_int_array(entry, xof->outlength,
+					      "outputLen"));
 	}
 
 out:

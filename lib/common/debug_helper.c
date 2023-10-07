@@ -317,8 +317,9 @@ int acvp_store_person_debug(const struct acvp_testid_ctx *testid_ctx,
 	return acvp_store_debug(testid_ctx, buf, err, "person.debug");
 }
 
-int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
-		    const struct acvp_buf *buf, const int err, const char *file)
+static int acvp_store_file_internal(const struct acvp_testid_ctx *testid_ctx,
+				    const struct acvp_buf *buf, const int err,
+				    const char *file, bool secure_location)
 {
 	const struct definition *def = testid_ctx->def;
 	char tmp[FILENAME_MAX];
@@ -336,8 +337,22 @@ int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
 	snprintf(tmp, sizeof(tmp), "%s", file);
 	CKINT(acvp_req_check_filename(tmp, strlen(tmp)));
 
-	CKINT(ds->acvp_datastore_write_testid(testid_ctx, tmp, true, buf));
+	CKINT(ds->acvp_datastore_write_testid(testid_ctx, tmp, secure_location,
+					      buf));
 
 out:
 	return ret;
+}
+
+int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
+		    const struct acvp_buf *buf, const int err, const char *file)
+{
+	return acvp_store_file_internal(testid_ctx, buf, err, file, true);
+}
+
+int acvp_store_file_public(const struct acvp_testid_ctx *testid_ctx,
+			   const struct acvp_buf *buf, const int err,
+			   const char *file)
+{
+	return acvp_store_file_internal(testid_ctx, buf, err, file, false);
 }

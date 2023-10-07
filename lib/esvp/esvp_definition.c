@@ -68,7 +68,7 @@ static void esvp_def_cc_free(struct esvp_cc_def *cc)
 	}
 }
 
-void acvp_release_auth_sd(struct esvp_sd_def *sd)
+static void acvp_release_auth_sd(struct esvp_sd_def *sd)
 {
 	struct acvp_auth_ctx *auth;
 	struct esvp_sd_file_def *file, *file_del;
@@ -126,12 +126,18 @@ void esvp_def_es_free(struct esvp_es_def *es)
 	acvp_release_acvp_auth_ctx(auth);
 	ACVP_PTR_FREE_NULL(es->es_auth);
 
+	ACVP_PTR_FREE_NULL(es->ea_runtime_results_status);
+	ACVP_PTR_FREE_NULL(es->ea_restart_results_status);
+
 	acvp_free_buf(&es->raw_noise_data_hash);
 	acvp_free_buf(&es->raw_noise_restart_hash);
 
 	ACVP_PTR_FREE_NULL(es->primary_noise_source_desc);
 	ACVP_PTR_FREE_NULL(es->lab_test_id);
 	ACVP_PTR_FREE_NULL(es->config_dir);
+
+	ACVP_CONST_PTR_FREE_NULL(es->ear_file);
+	ACVP_CONST_PTR_FREE_NULL(es->pud_file);
 
 	esvp_def_cc_free(es->cc);
 	esvp_def_sd_free(es->sd);
@@ -190,8 +196,8 @@ static int esvp_read_cc_def_one(const char *cc_dir_name, struct esvp_es_def *es)
 
 		if (!cc->bijective) {
 			snprintf(cc_data_name, sizeof(cc_data_name), "%s/%s%s",
-				cc->config_dir, ESVP_ES_FILE_CC_DATA,
-				ESVP_ES_BINARY_FILE_EXTENSION);
+				 cc->config_dir, ESVP_ES_FILE_CC_DATA,
+				 ESVP_ES_BINARY_FILE_EXTENSION);
 			CKINT(acvp_hash_file(cc_data_name, sha256,
 					     &cc->data_hash));
 		}
@@ -322,7 +328,8 @@ static int esvp_read_es_def(const char *directory, struct esvp_es_def **es_out)
 			     &es->raw_noise_restart_hash));
 
 	CKINT(json_get_uint(es_conf, "bitsPerSample", &es->bits_per_sample));
-	CKINT(json_get_uint(es_conf, "alphabetSize", &es->alphabet_size));
+	// Deprecated on 2023/03/08
+	/* CKINT(json_get_uint(es_conf, "alphabetSize", &es->alphabet_size)); */
 	CKINT(json_get_uint(es_conf, "numberOfRestarts",
 			    &es->raw_noise_number_restarts));
 	CKINT(json_get_uint(es_conf, "samplesPerRestart",
@@ -331,7 +338,11 @@ static int esvp_read_es_def(const char *directory, struct esvp_es_def **es_out)
 
 	CKINT(json_get_bool(es_conf, "iid", &es->iid));
 	CKINT(json_get_bool(es_conf, "physical", &es->physical));
-	CKINT(json_get_bool(es_conf, "itar", &es->itar));
+	/* Deprecated on 2023/03/08, but ESV server still wants to see it.
+	   Do not parse the JSON file for the itar field anymore. Leave the default setting at false,
+	   because the ESV server will need it still. */
+	/* CKINT(json_get_bool(es_conf, "itar", &es->itar)); */
+	es->itar = false;
 
 	/* Allow this option to be not present in the config file */
 	es->limit_es_single_module = false;
@@ -339,6 +350,13 @@ static int esvp_read_es_def(const char *directory, struct esvp_es_def **es_out)
 		      &es->limit_es_single_module);
 	CKINT(json_get_bool(es_conf, "additionalNoiseSources",
 			    &es->additional_noise_sources));
+
+	/*
+	 * Both definitions are optional - the remaning code shall allow them
+	 * being NULL.
+	 */
+	json_get_string(es_conf, "earFile", &es->ear_file);
+	json_get_string(es_conf, "pudFile", &es->pud_file);
 
 	CKINT(esvp_read_cc_def(directory, es));
 

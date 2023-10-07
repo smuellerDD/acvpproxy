@@ -5,11 +5,14 @@
 CC		?= gcc
 CFLAGS		+= -Werror -Wextra -Wall -pedantic -fPIC -O2 -std=gnu99
 #Hardening
-CFLAGS		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wcast-align -Wmissing-field-initializers -Wshadow -Wswitch-enum -Wno-variadic-macros
+CFLAGS		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fwrapv --param ssp-buffer-size=4 -fvisibility=hidden -fPIE -Wcast-align -Wmissing-field-initializers -Wshadow -Wswitch-enum -Wno-variadic-macros -Wmissing-prototypes
 
 #Optimizations
 CFLAGS		+= -flto
 LDFLAGS		+= -flto
+
+GITVER		:= $(shell git log -1 --pretty=%h)
+CFLAGS		+= -DGITVER=\"$(GITVER)\"
 
 ifneq '' '$(findstring clang,$(CC))'
 CFLAGS		+= -Wno-gnu-zero-variadic-macro-arguments
@@ -256,6 +259,8 @@ ifeq ($(UNAME_S),Linux)
 else
 	@- mkdir -p $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/lib/module_implementations/
 	@- mkdir -p $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/extensions/
+	@- mkdir -p $(BUILDDIR)/$(AMVPNAME)-$(APPVERSION_NUMERIC)/extensions/
+	@- mkdir -p $(BUILDDIR)/$(ESVPNAME)-$(APPVERSION_NUMERIC)/extensions/
 	@- cp -f $(APPNAME) $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(APPNAME) $(BUILDDIR)/$(AMVPNAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(APPNAME) $(BUILDDIR)/$(ESVPNAME)-$(APPVERSION_NUMERIC)/

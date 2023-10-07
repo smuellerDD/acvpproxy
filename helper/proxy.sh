@@ -33,6 +33,22 @@
 #
 TARGETDIR=${TARGETDIR:-"."}
 
+# Specific directory for modules_defintions - if empty, $TARGETDIR is used
+# automatically
+TARGETDIR_MODDEF=${TARGETDIR_MODDEF:-""}
+
+# Specific directory for modules_implementations - if empty, $TARGETDIR is used
+# automatically
+TARGETDIR_MODIMPL=${TARGETDIR_MODIMPL:-""}
+
+# Specific directory for testvectors / testvectors-production - if empty,
+# $TARGETDIR is used automatically
+TARGETDIR_TESTVECTORS=${TARGETDIR_TESTVECTORS:-""}
+
+# Specific directory for secure-datastore / secure-datastore-production - if
+# empty, $TARGETDIR is used automatically
+TARGETDIR_SECUREDATASTORE=${TARGETDIR_SECUREDATASTORE:-""}
+
 #
 # Development environment of ACVP Proxy: point to the directory where either
 # the ACVP sources are found or at least the ACVP Proxy header files.
@@ -55,7 +71,7 @@ PROXYCODEPATH=${PROXYCODEPATH:-""}
 # Example:
 #	PROXYVERSION="1020000"
 #
-PROXYVERSION=${PROXYVERSION:-"1060000"}
+PROXYVERSION=${PROXYVERSION:-"1070800"}
 
 #
 # Specify the ACVP search parameters if needed. As documented with the ACVP

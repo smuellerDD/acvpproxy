@@ -32,8 +32,8 @@ static void
 acvp_list_verdict_print(const struct acvp_test_verdict_status *verdict,
 			const bool vsid)
 {
-	unsigned int namelen = vsid ? 20 : 26;
-	unsigned int modelen = 16;
+	unsigned int namelen = vsid ? 20 : 27;
+	unsigned int modelen = 22;
 	unsigned int stringlen =
 		verdict->cipher_name ?
 			      (unsigned int)strlen(verdict->cipher_name) :

@@ -982,7 +982,14 @@ out:
 	return ret;
 }
 
-int acvp_testids_refresh(const struct acvp_ctx *ctx)
+int acvp_testids_refresh(const struct acvp_ctx *ctx,
+			 int (*init)(struct acvp_testid_ctx *testid_ctx,
+				     const struct acvp_ctx *ctx,
+				     const struct definition *def,
+				     const uint32_t testid),
+			 int (*status_parse)(const struct acvp_testid_ctx *testid_ctx,
+					     struct json_object *status),
+			 int (*status_write)(const struct acvp_testid_ctx *testid_ctx))
 {
 	const struct acvp_datastore_ctx *datastore;
 	const struct acvp_search_ctx *search;
@@ -1030,9 +1037,11 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx)
 			testid_ctx = calloc(1, sizeof(struct acvp_testid_ctx));
 			CKNULL(testid_ctx, -ENOMEM);
 
-			CKINT(acvp_init_testid_ctx(testid_ctx, ctx, def,
-						   testids[i]));
+			CKINT(init(testid_ctx, ctx, def, testids[i]));
 			CKINT(acvp_init_auth(testid_ctx));
+
+			testid_ctx->status_parse = status_parse;
+			testid_ctx->status_write = status_write;
 
 			/* Get auth token for test session */
 			CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
@@ -1081,7 +1090,7 @@ int acvp_respond(const struct acvp_ctx *ctx)
 {
 	int ret;
 
-	CKINT(acvp_testids_refresh(ctx));
+	CKINT(acvp_testids_refresh(ctx, acvp_init_testid_ctx, NULL, NULL));
 
 	CKINT(acvp_process_testids(ctx, &_acvp_respond));
 
@@ -1188,7 +1197,7 @@ int acvp_fetch_verdicts(const struct acvp_ctx *ctx)
 {
 	int ret;
 
-	CKINT(acvp_testids_refresh(ctx));
+	CKINT(acvp_testids_refresh(ctx, acvp_init_testid_ctx, NULL, NULL));
 
 	CKINT(acvp_process_testids(ctx, &_acvp_fetch_verdicts));
 

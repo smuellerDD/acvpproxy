@@ -360,6 +360,13 @@ static int acvp_module_register(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_meta_register(testid_ctx, json_info, url, urllen,
 				 &def_info->acvp_module_id, type));
 
+	if (req_details->dump_register) {
+		goto out;
+	}
+
+	CKINT(acvp_register_dump_request(testid_ctx, NIST_VAL_OP_MODULE,
+					 json_info));
+
 out:
 	ACVP_JSON_PUT_NULL(json_info);
 	return ret;

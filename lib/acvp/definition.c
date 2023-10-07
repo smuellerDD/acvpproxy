@@ -486,8 +486,10 @@ static int acvp_match_def_v1(const struct acvp_testid_ctx *testid_ctx,
 			      (const char **)&search.execenv);
 	if (ret < 0)
 		search.execenv = NULL;
-	CKINT(json_get_string(def_config, "processor",
-			      (const char **)&search.processor));
+	ret = json_get_string(def_config, "processor",
+			      (const char **)&search.processor);
+	if (ret < 0)
+		search.processor = NULL;
 
 	ret = acvp_match_def_search(&search, def);
 	if (ret) {

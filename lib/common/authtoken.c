@@ -298,14 +298,29 @@ static int
 acvp_login_need_refresh_nonnull(const struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct esvp_es_def *es = testid_ctx->es_def;
+	const struct esvp_sd_def *sd;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_auth_ctx *ctx_auth = ctx->ctx_auth;
+	bool auth_valid, es_auth_valid, sd_auth_valid = true;
+
+	auth_valid = acvp_jwt_valid(auth);
+	es_auth_valid = es ? acvp_jwt_valid(es->es_auth) : true;
+
+	if (es && es->sd) {
+		for (sd = es->sd; sd; sd = sd->next) {
+			if (!acvp_jwt_valid(sd->sd_auth)) {
+				sd_auth_valid = false;
+				break;
+			}
+		}
+	}
 
 	/*
 	 * If we have an authentication token that has sufficient
 	 * lifetime, skip the re-login.
 	 */
-	if (acvp_jwt_valid(auth)) {
+	if (auth_valid && es_auth_valid && sd_auth_valid) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Existing test session JWT access token has sufficient lifetime\n");
 		return 0;
@@ -437,8 +452,13 @@ static int acvp_login_totp(struct json_object *entry, const bool dump_register)
 	/* Place the password as a string */
 	snprintf(totp_val_string, sizeof(totp_val_string), "%.08u", totp_val);
 
-	json_object_object_add(entry, "password",
-			       json_object_new_string(totp_val_string));
+	if (acvp_current_proto() == amv_protocol) {
+		CKINT(json_object_object_add(entry, "passcode",
+			json_object_new_string(totp_val_string)));
+	} else {
+		CKINT(json_object_object_add(entry, "password",
+			json_object_new_string(totp_val_string)));
+	}
 
 out:
 	return ret;
@@ -623,6 +643,9 @@ acvp_process_login_refresh(const struct acvp_testid_ctx *testid_ctx_head,
 		} else {
 			CKINT(acvp_set_authtoken_temp(auth,
 					json_object_get_string(jauth)));
+			if (testid_ctx->status_write) {
+				CKINT(testid_ctx->status_write(testid_ctx));
+			}
 		}
 		CKINT(acvp_extend_string(logbuf, sizeof(logbuf), "%u ",
 					 testid_ctx->testid));

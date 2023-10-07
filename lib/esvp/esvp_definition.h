@@ -67,6 +67,10 @@ struct esvp_cc_def {
 };
 
 struct esvp_es_def {
+	//TODO due to es_auth, this structure cannot be constified any more
+	// which implies that all operations must be single-threaded
+	// fix: create some
+	// struct esvp_es_def_instance {const struct esvp_es_def' struct acvp_auth_ctx *es_auth;}
 	struct acvp_auth_ctx *es_auth;
 	struct acvp_buf raw_noise_data_hash;
 	struct acvp_buf raw_noise_restart_hash;
@@ -86,8 +90,14 @@ struct esvp_es_def {
 
 	char *config_dir;
 
+	const char *ear_file;
+	const char *pud_file;
+
 	bool raw_noise_submitted;
 	bool restart_submitted;
+
+	char *ea_runtime_results_status;
+	char *ea_restart_results_status;
 
 	bool iid;
 	bool physical;

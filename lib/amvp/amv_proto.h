@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 static const struct acvp_net_proto amv_proto_def = {
-	.url_base = "amvp/v1/validation",
+	.url_base = "amvp/v1",
 	.proto_version = "1.0",
 	.proto_version_keyword = "amvVersion",
 	.proto = amv_protocol,
@@ -37,6 +37,11 @@ static const struct acvp_net_proto amv_proto_def = {
 	.basedir_production = AMVP_DS_DATADIR_PRODUCTION,
 	.secure_basedir = AMVP_DS_CREDENTIALDIR,
 	.secure_basedir_production = AMVP_DS_CREDENTIALDIR_PRODUCTION,
+
+	.session_url = NIST_VAL_OP_CRSESSIONS,
+	.vector_url = NIST_VAL_OP_EVIDENCESETS,
+	.session_url_keyword = "url",
+	.vector_url_keyword = "crUrls",
 };
 
 #ifdef __cplusplus

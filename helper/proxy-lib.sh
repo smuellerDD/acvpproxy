@@ -109,6 +109,26 @@ then
 	TARGETDIR=$(pwd)
 fi
 
+if [ -z "$TARGETDIR_MODDEF" ]
+then
+	TARGETDIR_MODDEF=$TARGETDIR
+fi
+
+if [ -z "$TARGETDIR_MODIMPL" ]
+then
+	TARGETDIR_MODIMPL=$TARGETDIR
+fi
+
+if [ -z "$TARGETDIR_TESTVECTORS" ]
+then
+	TARGETDIR_TESTVECTORS=$TARGETDIR
+fi
+
+if [ -z "$TARGETDIR_SECUREDATASTORE" ]
+then
+	TARGETDIR_SECUREDATASTORE=$TARGETDIR
+fi
+
 # Point the extension base to the current ACVP Proxy code base
 if [ -z "$EXTENSION_BASE_DIR" ]
 then
@@ -117,25 +137,41 @@ fi
 
 usage() {
 	echo "Usage:"
-	echo "$0 [--official] [--show-cmd] [--log] [get|post|publish|list|status|approval|anyop]"
-	echo
-	echo "$0 must be used with one of the following commands"
-	echo -e "\tlist\t\tList the module definitions in scope for operations"
-	echo -e "\tget\t\tGet test vectors from ACVP server"
-	echo -e "\tpost\t\tPost the test responses to ACVP server and get verdicts"
-	echo -e "\tpublish\t\tPublish the tests to obtain certificate"
-	echo -e "\tstatus\t\tList of verdicts, request IDs and certificates"
-	echo -e "\tapproval\tGet files that vendor must approve"
-	echo -e "\tregister\tRegister new entropy source to esvt; please note down the testids provided at the end of this process"
-	echo -e "\tcertify\t\tExecute the certify step for already registered entropy sources; use with --testid nnn, wherein nnn is the already-obtained testid from registration"
-	echo -e "\tanyop\t\tJust set the test directories and configuration file"
-	echo -e	"\t\t\tand pass through any option to the proxy for unspecified"
-	echo -e "\t\t\toperations with the ACVP Proxy"
+	if [ "${PROXYTYPE}" = "esvp" ]
+	then
+		echo "$0 [--official] [--show-cmd] [--log] [register|getstats|certify|anyop]"
+		echo
+		echo "$0 must be used with one of the following commands"
+		echo -e "\tregister  Register new entropy source to esvt; please note down the testids "
+		echo -e "\t          provided at the end of this process"
+		echo -e "\tgetstats  Obtain entropy source results from the ESVT server; use --testid nn for a given"
+		echo -e "\t          testid or no parameter (or --testid -1) to get all results pending"
+		echo -e "\tcertify   Execute the certify step for already registered entropy sources; use"
+		echo -e "\t          with --testid nn to certify a given testid or no parameter (or --testid -1) for all"
+		echo -e "\t          submissions pending for certify"
+		echo -e "\tanyop     Just set the test directories and configuration file"
+		echo -e	"\t          and pass through any option to the proxy for unspecified"
+		echo -e "\t          operations with the ACVP Proxy"
+	else
+		echo "$0 [--official] [--show-cmd] [--log] [get|post|publish|list|status|approval|anyop]"
+		echo
+		echo "$0 must be used with one of the following commands"
+		echo -e "\tlist      List the module definitions in scope for operations"
+		echo -e "\tget       Get test vectors from ACVP server"
+		echo -e "\tpost      Post the test responses to ACVP server and get verdicts"
+		echo -e "\tpublish   Publish the tests to obtain certificate"
+		echo -e "\tstatus    List of verdicts, request IDs and certificates"
+		echo -e "\tapproval  Get files that vendor must approve"
+		echo -e "\tanyop     Just set the test directories and configuration file"
+		echo -e	"\t          and pass through any option to the proxy for unspecified"
+		echo -e "\t          operations with the ACVP Proxy"
+	fi
+
 	echo
 	echo "The following additional options are allowed"
-	echo -e "\t--official\tUse the production ACVP server (default: demo server)"
-	echo -e "\t--show-cmp\tShow the used ACVP Proxy command without execution"
-	echo -e "\t--log\t\tCreate log file with detailed logging"
+	echo -e "\t--official    Use the production ACVP server (default: demo server)"
+	echo -e "\t--show-cmp    how the used ACVP Proxy command without execution"
+	echo -e "\t--log         Create log file with detailed logging"
 }
 
 color()
@@ -163,6 +199,20 @@ color()
 	done
 }
 
+confirm()
+{
+	echo $1
+	echo -n "Confirm (Y/N): "
+	read x
+
+	if [ "$x" != "Y" ] && [ "$x" != "y" ]
+	then
+		return 0
+	else
+		return 1
+	fi
+}
+
 # Invoke command
 invoke() {
 	if [ -n "$SHOW_CMD" ]
@@ -174,8 +224,10 @@ invoke() {
 	local ret=$?
 	if [ $ret -ne 0 ]
 	then
-		echo "Command invocation returned $ret"
+		echo "The following command invocation returned error code ${ret}"
+		echo -e "\t$@ ${PROXYSEARCH}"
 	fi
+	return $ret
 }
 
 # Check command line
@@ -210,12 +262,12 @@ checkForBinary() {
 }
 
 compileExtension() {
-	if [ -f "$TARGETDIR/$EXTENSION_DIR/Makefile" ]
+	if [ -f "$TARGETDIR_MODIMPL/$EXTENSION_DIR/Makefile" ]
 	then
 		local dir=${PROXYCODEPATH}
 
-		trap "make -s -C $TARGETDIR/$EXTENSION_DIR clean; exit" 0 1 2 15
-		trap "killall -3 ${PROXYBIN}; make -s -C $TARGETDIR/$EXTENSION_DIR clean; exit" 3
+		trap "make -s -C $TARGETDIR_MODIMPL/$EXTENSION_DIR clean; exit" 0 1 2 15
+		trap "killall -3 ${PROXYBIN}; make -s -C $TARGETDIR_MODIMPL/$EXTENSION_DIR clean; exit" 3
 
 		if [ ! -d "$dir" ]
 		then
@@ -231,12 +283,12 @@ compileExtension() {
 			fi
 		fi
 
-		for file in $TARGETDIR/$EXTENSION_DIR/*.c
+		for file in $TARGETDIR_MODIMPL/$EXTENSION_DIR/*.c
 		do
 			local libfile=$(basename $file)
 			libfile_noext=${libfile%%.c}
-			#CFLAGS="-I${dir}/lib -I${dir}/lib/module_implementations" C_SRCS=$libfile SONAME=${libfile_noext}.so LIBNAME=${libfile_noext}.so make -s -C "$TARGETDIR/$EXTENSION_DIR" show_vars
-			CFLAGS="-I${dir}/lib -I${dir}/lib/module_implementations" C_SRCS=$libfile SONAME=${libfile_noext}.so LIBNAME=${libfile_noext}.$LIBEXT make -s -C "$TARGETDIR/$EXTENSION_DIR"
+			#CFLAGS="-I${dir}/lib -I${dir}/lib/module_implementations" C_SRCS=$libfile SONAME=${libfile_noext}.so LIBNAME=${libfile_noext}.so make -s -C "$TARGETDIR_MODIMPL/$EXTENSION_DIR" show_vars
+			CFLAGS="-I${dir}/lib -I${dir}/lib/module_implementations" C_SRCS=$libfile SONAME=${libfile_noext}.so LIBNAME=${libfile_noext}.$LIBEXT make -s -C "$TARGETDIR_MODIMPL/$EXTENSION_DIR"
 			if [ $? -ne 0 ]
 			then
 				echo "Compilation of extension failed"
@@ -267,7 +319,25 @@ setParams() {
 			"--show-cmd")
 				SHOW_CMD="y"
 				;;
-			"get"|"post"|"publish"|"list"|"status"|"approval"|"anyop"|"register"|"certify")
+			"get"|"post"|"publish"|"status"|"approval")
+				if [ "${PROXYTYPE}" = "esvp" ]
+					then
+						echo "Command $arg invalid when proxy acts as ESVP"
+						usage
+						exit 1
+				fi
+				INVOCATION_TYPE=$arg
+				;;
+			"register"|"getstats"|"certify")
+				if [ "${PROXYTYPE}" != "esvp" ]
+					then
+						echo "Command $arg invalid when proxy acts as ACVP"
+						usage
+						exit 1
+				fi
+				INVOCATION_TYPE=$arg
+				;;
+			"anyop"|"list")
 				INVOCATION_TYPE=$arg
 				;;
 			"--log")
@@ -279,27 +349,27 @@ setParams() {
 		esac
 	done
 
-	PARAMS="$PARAMS -b $TARGETDIR/${TESTVECTORS_DIR}${PRODUCTION}"
-	PARAMS="$PARAMS -s $TARGETDIR/${SECUREDATA_DIR}${PRODUCTION}"
+	PARAMS="$PARAMS -b $TARGETDIR_TESTVECTORS/${TESTVECTORS_DIR}${PRODUCTION}"
+	PARAMS="$PARAMS -s $TARGETDIR_SECUREDATASTORE/${SECUREDATA_DIR}${PRODUCTION}"
 
 	# Set module definition
-	if [ -d "$TARGETDIR/${MODULEDEF_DIR}" ]
+	if [ -d "$TARGETDIR_MODDEF/${MODULEDEF_DIR}" ]
 	then
-		PARAMS="$PARAMS --definition-basedir $TARGETDIR/${MODULEDEF_DIR}"
+		PARAMS="$PARAMS --definition-basedir $TARGETDIR_MODDEF/${MODULEDEF_DIR}"
 	elif [ -n "$PROXYCODEPATH" ]
 	then
 		PARAMS="$PARAMS --definition-basedir $PROXYCODEPATH/${MODULEDEF_DIR}"
 	elif [ ! -d "${MODULEDEF_DIR}" ]
 	then
-		echo "Module definition not found - either create directory $TARGETDIR/${MODULEDEF_DIR} and store the module definitions there or point PROXYCODEPATH to the ACVP Proxy source code repository that may have the module definitions."
+		echo "Module definition not found - either create directory $TARGETDIR_MODDEF/${MODULEDEF_DIR} and store the module definitions there or point PROXYCODEPATH to the ACVP Proxy source code repository that may have the module definitions."
 		exit 1
 	fi
 
 	# Set extensions
-	if [ -d "$TARGETDIR/$EXTENSION_DIR" ]
+	if [ -d "$TARGETDIR_MODIMPL/$EXTENSION_DIR" ]
 	then
 		compileExtension
-		for i in $TARGETDIR/$EXTENSION_DIR/*.$LIBEXT
+		for i in $TARGETDIR_MODIMPL/$EXTENSION_DIR/*.$LIBEXT
 		do
 			PARAMS="$PARAMS --proxy-extension $i"
 		done
@@ -369,15 +439,15 @@ getVendorApprovalPackage()
 		exit 1
 	fi
 
-	if [ ! -d "$TARGETDIR/${SECUREDATA_DIR}${PRODUCTION}" ]
+	if [ ! -d "$TARGETDIR_SECUREDATASTORE/${SECUREDATA_DIR}${PRODUCTION}" ]
 	then
-		echo "$TARGETDIR/${SECUREDATA_DIR}${PRODUCTION} not found"
+		echo "$TARGETDIR_SECUREDATASTORE/${SECUREDATA_DIR}${PRODUCTION} not found"
 		exit 1
 	fi
 
-	if [ -d "$TARGETDIR/${MODULEDEF_DIR}" ]
+	if [ -d "$TARGETDIR_MODDEF/${MODULEDEF_DIR}" ]
 	then
-		moddef="$TARGETDIR/${MODULEDEF_DIR}"
+		moddef="$TARGETDIR_MODDEF/${MODULEDEF_DIR}"
 	elif [ -n "$PROXYCODEPATH" ]
 	then
 		moddef="$PROXYCODEPATH/${MODULEDEF_DIR}"
@@ -385,7 +455,7 @@ getVendorApprovalPackage()
 	then
 		moddef="${MODULEDEF_DIR}"
 	else
-		echo "Module definition not found - either create directory $TARGETDIR/${MODULEDEF_DIR} and store the module definitions there or point PROXYCODEPATH to the ACVP Proxy source code repository that may have the module definitions."
+		echo "Module definition not found - either create directory $TARGETDIR_MODDEF/${MODULEDEF_DIR} and store the module definitions there or point PROXYCODEPATH to the ACVP Proxy source code repository that may have the module definitions."
 		exit 1
 	fi
 
@@ -397,7 +467,7 @@ getVendorApprovalPackage()
 		dirs="${dirs} $(find ${moddef} -name oe)"
 		dirs="${dirs} $(find ${moddef} -name vendor)"
 		dirs="${dirs} $(find ${moddef} -name module_info)"
-		dirs="${dirs} $(find $TARGETDIR/${SECUREDATA_DIR}${PRODUCTION} -name request-*.json)"
+		dirs="${dirs} $(find $TARGETDIR_SECUREDATASTORE/${SECUREDATA_DIR}${PRODUCTION} -name request-*.json)"
 
 		moddef=$(basename $moddef)
 		tar --exclude="__MACOSX" --exclude=".*" --exclude="._*" -cJf ${moddef}-vendor-approval-package-${DATE}.tar.xz $dirs
@@ -409,7 +479,7 @@ getVendorApprovalPackage()
 checkvectors() {
 	local ret=0
 
-	for reqfile in $(find $TARGETDIR/${TESTVECTORS_DIR}${PRODUCTION} -name ${REQFILE})
+	for reqfile in $(find $TARGETDIR_TESTVECTORS/${TESTVECTORS_DIR}${PRODUCTION} -name ${REQFILE})
 	do
 
 		if (grep -q status $reqfile)
@@ -428,13 +498,14 @@ getvectors() {
 	if [ -e $TARGETDIR/$PROXYLIBSTATUS ]
 	then
 		local libstatus=$(cat $TARGETDIR/$PROXYLIBSTATUS)
-		rm -f $TARGETDIR/$PROXYLIBSTATUS
 
 		if [ x"$libstatus" = x"register success" ]
 		then
 			invoke $PROXYBIN $PARAMS --request --testid -1 $(addlogging "$log")
+			rm -f $TARGETDIR/$PROXYLIBSTATUS
 		else
 			invoke $PROXYBIN $PARAMS --request $(addlogging "$log")
+			rm -f $TARGETDIR/$PROXYLIBSTATUS
 		fi
 	else
 		invoke $PROXYBIN $PARAMS --request --register-only $(addlogging "$log")
@@ -463,14 +534,14 @@ getvectors() {
 		exit 1
 	fi
 
-	echo "Archive $TARGETDIR/${TESTVECTORS_DIR}${PRODUCTION} and send this archive to vendor to process it with the ACVP Parser."
-	echo -e "\ttar -C $TARGETDIR/ -czf testvectors${PRODUCTION}.tar.gz ${TESTVECTORS_DIR}${PRODUCTION}/"
+	echo "Archive $TARGETDIR_TESTVECTORS/${TESTVECTORS_DIR}${PRODUCTION} and send this archive to vendor to process it with the ACVP Parser."
+	echo -e "\ttar -C $TARGETDIR_TESTVECTORS/ -czf testvectors${PRODUCTION}.tar.gz ${TESTVECTORS_DIR}${PRODUCTION}/"
 	echo
 	echo "After processing the archive, the vendor shall return the archive from the following command:"
 	echo -e "\ttar -czf results${PRODUCTION}.tar.gz \$(find ${TESTVECTORS_DIR}${PRODUCTION}/ -name testvector-response.json)"
 	echo
 	echo "Unpack the received responses with the following command:"
-	echo -e "\ttar -C $TARGETDIR/ -xzf results${PRODUCTION}.tar.gz"
+	echo -e "\ttar -C $TARGETDIR_TESTVECTORS/ -xzf results${PRODUCTION}.tar.gz"
 }
 
 postvectors() {
@@ -479,13 +550,14 @@ postvectors() {
 	if [ -e $TARGETDIR/$PROXYLIBSTATUSPOST ]
 	then
 		local libstatus=$(cat $TARGETDIR/$PROXYLIBSTATUSPOST)
-		rm -f $TARGETDIR/$PROXYLIBSTATUSPOST
 
 		if [ x"$libstatus" = x"post success" ]
 		then
 			invoke $PROXYBIN $PARAMS $(addlogging "$log")
+			rm -f $TARGETDIR/$PROXYLIBSTATUSPOST
 		else
 			invoke $PROXYBIN $PARAMS $(addlogging "$log")
+			rm -f $TARGETDIR/$PROXYLIBSTATUSPOST
 		fi
 	else
 		invoke $PROXYBIN $PARAMS --upload-only $(addlogging "$log")
@@ -515,7 +587,19 @@ publish() {
 	local log="${LOGFILE}-publish-${DATE}.log"
 	invoke $PROXYBIN $PARAMS --publish $(addlogging $log)
 
+	local ret=$?
+	if [ $ret -ne 0 ]
+	then
+		echo "publish command failed with error code $ret"
+	fi
+
 	invoke $PROXYBIN $PARAMS --list-request-ids-sparse
+
+	local ret=$?
+	if [ $ret -ne 0 ]
+	then
+		echo "publish(list-request-ids-sparse) command failed with error code $ret"
+	fi
 
 	echo
 	echo "Check the above listing - if request IDs are present, inform NIST to approve them and re-invoke this command."
@@ -525,6 +609,13 @@ publish() {
 	echo "The following certificates were obtained:"
 	echo
 	invoke $PROXYBIN $PARAMS --list-certificates
+
+	local ret=$?
+	if [ $ret -ne 0 ]
+	then
+		echo "publish(list-certificates) command failed with error code $ret"
+	fi
+
 }
 
 statuslist() {
@@ -565,12 +656,63 @@ anyop() {
 register() {
 	local log="${LOGFILE}-register-${DATE}.log"
 	invoke $PROXYBIN $PARAMS $(addlogging "$log")
-	echo "Please note down all testid numbers returned. You will need to provide them with --testid wen invoking the certify step."
+
+	local ret=$?
+	if [ $ret -eq 0 ]
+	then
+		echo "Please wait a while so the server can process all the raw data. Use the getstat command to retrieve all statistical results, or the \"--testid n\" parameter to retrieve specific results. Using the git register command has the same effect, make sure you always include --testid parameter."
+	else
+		echo "register command returned error code $ret"
+	fi
+}
+
+
+getstats() {
+	local log="${LOGFILE}-getstats-${DATE}.log"
+
+	if [[ "$PARAMS" == *"--testid"* ]]
+	then
+		paramLine=""
+	else
+		paramLine="--testid -1"
+	fi
+
+	invoke $PROXYBIN $PARAMS $paramLine $(addlogging "$log")
+
+	local ret=$?
+	if [ $ret -eq 0 ]
+	then
+		echo "Please make sure all raw data has been processed. Use then the certify command to proceed to the certify step. Use \"--testid n\" to specify one or more testids to include in the certificate, or \"--testid -1\" or no parameter to certify all available testid numbers."
+	else
+		echo "getstats command returned error code $ret"
+	fi
 }
 
 certify() {
 	local log="${LOGFILE}-certify-${DATE}.log"
-	invoke $PROXYBIN $PARAMS --publish $(addlogging $log)
+
+	if [[ "$PARAMS" == *"--testid"* ]]
+	then
+		paramLine=""
+	else
+		confirm "All test IDs registered previously will be certified to the ESVTS"
+		ret=$?
+		if [[ $ret == 0 ]]
+		then
+			return
+		fi
+		paramLine="--testid -1"
+	fi
+
+	invoke $PROXYBIN $PARAMS $paramLine --publish $(addlogging "$log")
+
+	local ret=$?
+	if [ $ret -eq 0 ]
+	then
+		echo "certify command finished successfully"
+	else
+		echo "certify command returned error code $ret"
+	fi
 }
 
 checkArgLen
@@ -603,6 +745,9 @@ case "$INVOCATION_TYPE" in
 		;;
 	"register")
 		register
+		;;
+	"getstats")
+		getstats
 		;;
 	"certify")
 		certify

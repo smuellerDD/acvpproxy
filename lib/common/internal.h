@@ -49,12 +49,12 @@ extern "C" {
  * API compatible, ABI may change, functional enhancements only, consumer
  * can be left unchanged if enhancements are not considered.
  */
-#define MINVERSION 7
+#define MINVERSION 8
 
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
  */
-#define PATCHLEVEL 8
+#define PATCHLEVEL 0
 
 struct acvp_test_deps {
 	char *dep_cipher;
@@ -338,6 +338,14 @@ int acvp_req_set_prereq_ansi_x942(const struct def_algo_ansi_x942 *ansi_x942,
 int acvp_list_algo_ansi_x942(const struct def_algo_ansi_x942 *ansi_x942,
 			     struct acvp_list_ciphers **new);
 
+int acvp_req_set_algo_lms(const struct def_algo_lms *lms,
+			  struct json_object *entry);
+int acvp_req_set_prereq_lms(const struct def_algo_lms *lms,
+			    const struct acvp_test_deps *deps,
+			    struct json_object *entry, bool publish);
+int acvp_list_algo_lms(const struct def_algo_lms *lms,
+		       struct acvp_list_ciphers **new);
+
 struct acvp_net_proto {
 	char *url_base; /* Base path of URL */
 	char *proto_version;
@@ -347,6 +355,12 @@ struct acvp_net_proto {
 	const char *basedir_production;
 	const char *secure_basedir;
 	const char *secure_basedir_production;
+
+	const char *session_url;
+	const char *vector_url;
+	const char *session_url_keyword;
+	const char *vector_url_keyword;
+
 	enum acvp_protocol_type proto;
 };
 
@@ -464,6 +478,7 @@ struct acvp_testid_ctx {
 
 	int (*status_parse)(const struct acvp_testid_ctx *testid_ctx,
 			    struct json_object *status);
+	int (*status_write)(const struct acvp_testid_ctx *testid_ctx);
 
 	mutex_w_t shutdown;
 	bool sig_cancel_send_delete; /* Send a DELETE HTTP request */
@@ -614,6 +629,12 @@ void acvp_register_ds(const struct acvp_datastore_be *datastore);
 		x = NULL;                                                      \
 	}
 
+#define ACVP_CONST_PTR_FREE_NULL(x)                                            \
+	if (x) {                                                               \
+		free((char *)x);                                               \
+		x = NULL;                                                      \
+	}
+
 /* Returns true of value shall be added to JSON structure */
 static inline bool acvp_check_ignore(bool check_ignore_flag, bool ignore_flag)
 {
@@ -758,6 +779,18 @@ int acvp_get_testid(struct acvp_testid_ctx *testid_ctx,
 		    struct json_object *request,
 		    struct json_object *register_response);
 
+/**
+ * @brief Process the response from the ACVP server with the individual
+ *	  vector sets
+ *
+ * @param testid_ctx TestID context that will receive the test ID
+ * @param request Request sent to the server
+ * @param register_response Data returned from the server
+ */
+int acvp_process_req(struct acvp_testid_ctx *testid_ctx,
+		     struct json_object *request,
+		     struct acvp_buf *response);
+
 /************************************************************************
  * ACVP fetching of test vectors
  ************************************************************************/
@@ -839,7 +872,15 @@ int acvp_register_cb(const struct acvp_ctx *ctx,
  * a refresh, perform one login and refresh all of them with one login
  * operation.
  */
-int acvp_testids_refresh(const struct acvp_ctx *ctx);
+
+int acvp_testids_refresh(const struct acvp_ctx *ctx,
+			 int (*init)(struct acvp_testid_ctx *testid_ctx,
+				     const struct acvp_ctx *ctx,
+				     const struct definition *def,
+				     const uint32_t testid),
+			 int (*status_parse)(const struct acvp_testid_ctx *testid_ctx,
+					     struct json_object *status),
+			 int (*status_write)(const struct acvp_testid_ctx *testid_ctx));
 
 /**
  * @brief Match two strings
@@ -1101,6 +1142,9 @@ int acvp_store_person_debug(const struct acvp_testid_ctx *testid_ctx,
 int acvp_store_file(const struct acvp_testid_ctx *testid_ctx,
 		    const struct acvp_buf *buf, const int err,
 		    const char *file);
+int acvp_store_file_public(const struct acvp_testid_ctx *testid_ctx,
+			   const struct acvp_buf *buf, const int err,
+			   const char *file);
 
 int acvp_req_check_string(char *string, const size_t slen);
 int acvp_req_check_filename(char *string, const size_t slen);
@@ -1110,6 +1154,11 @@ int acvp_hash_file(const char *pathname, const struct hash *hash,
 int acvp_cert_ref(struct acvp_buf *buf);
 
 bool acvp_req_is_production(void);
+int acvp_convert_proto(enum acvp_protocol_type proto,
+		       const struct acvp_net_proto **out_proto);
+enum acvp_protocol_type acvp_current_proto(void);
+int acvp_register_dump_request(const struct acvp_testid_ctx *testid_ctx,
+			       const char *name, struct json_object *request);
 
 /************************************************************************
  * ACVP structure helper

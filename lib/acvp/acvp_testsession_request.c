@@ -19,6 +19,7 @@
  */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -67,6 +68,7 @@ void acvp_op_enable(void)
 int acvp_testid_url(const struct acvp_testid_ctx *testid_ctx, char *url,
 		    const uint32_t urllen, const bool urlpath)
 {
+	const struct acvp_net_proto *proto;
 	int ret;
 
 	CKNULL_LOG(testid_ctx, -EINVAL, "testid_ctx missing\n");
@@ -77,10 +79,12 @@ int acvp_testid_url(const struct acvp_testid_ctx *testid_ctx, char *url,
 		return -EINVAL;
 	}
 
+	CKINT(acvp_get_proto(&proto));
+
 	if (urlpath) {
-		CKINT(acvp_create_urlpath(NIST_VAL_OP_REG, url, urllen));
+		CKINT(acvp_create_urlpath(proto->session_url, url, urllen));
 	} else {
-		CKINT(acvp_create_url(NIST_VAL_OP_REG, url, urllen));
+		CKINT(acvp_create_url(proto->session_url, url, urllen));
 	}
 	CKINT(acvp_extend_string(url, urllen, "/%u", testid_ctx->testid));
 
@@ -93,13 +97,16 @@ out:
 int acvp_vectorset_url(const struct acvp_testid_ctx *testid_ctx, char *url,
 		       const uint32_t urllen, const bool urlpath)
 {
+	const struct acvp_net_proto *proto;
 	int ret;
 
 	CKNULL_LOG(testid_ctx, -EINVAL, "testid_ctx missing\n");
 	CKNULL_LOG(url, -EINVAL, "URL buffer missing\n");
 
+	CKINT(acvp_get_proto(&proto));
+
 	CKINT(acvp_testid_url(testid_ctx, url, urllen, urlpath));
-	CKINT(acvp_extend_string(url, urllen, "/%s", NIST_VAL_OP_VECTORSET));
+	CKINT(acvp_extend_string(url, urllen, "/%s", proto->vector_url));
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "vectorSet URL: %s\n", url);
 
@@ -336,6 +343,9 @@ static int acvp_req_set_algo(struct json_object *algorithms,
 	case DEF_ALG_TYPE_ANSI_X942:
 		CKINT(acvp_req_set_algo_ansi_x942(&def_algo->algo.ansi_x942,
 						  entry));
+		break;
+	case DEF_ALG_TYPE_LMS:
+		CKINT(acvp_req_set_algo_lms(&def_algo->algo.lms, entry));
 		break;
 
 	default:
@@ -678,11 +688,14 @@ struct acvp_vsid_array {
 static int acvp_get_vsid_array(const struct json_object *response,
 			       struct acvp_vsid_array *array)
 {
+	const struct acvp_net_proto *proto;
 	struct json_object *vectorsets;
 	unsigned int i;
 	int ret;
 
-	CKINT(json_find_key(response, "vectorSetUrls", &vectorsets,
+	CKINT(acvp_get_proto(&proto));
+
+	CKINT(json_find_key(response, proto->vector_url_keyword, &vectorsets,
 			    json_type_array));
 
 	array->entries = (uint32_t)json_object_array_length(vectorsets);
@@ -877,55 +890,18 @@ out:
 }
 #endif
 
-static int acvp_register_dump_request(const struct acvp_testid_ctx *testid_ctx,
-				      struct json_object *request)
-{
-	struct tm now_detail;
-	time_t now;
-	ACVP_BUFFER_INIT(register_buf);
-	char filename[FILENAME_MAX];
-	const char *json_request;
-	int ret;
-
-	now = time(NULL);
-	if (now == (time_t)-1) {
-		ret = -errno;
-		logger(LOGGER_WARN, LOGGER_C_ANY, "Cannot obtain local time\n");
-		return ret;
-	}
-	localtime_r(&now, &now_detail);
-
-	snprintf(filename, sizeof(filename),
-		 "%s-%d%.2d%.2d_%.2d-%.2d-%.2d.json", ACVP_DS_DEF_REQUEST,
-		 now_detail.tm_year + 1900, now_detail.tm_mon + 1,
-		 now_detail.tm_mday, now_detail.tm_hour, now_detail.tm_min,
-		 now_detail.tm_sec);
-
-	json_request = json_object_to_json_string_ext(
-		request,
-		JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
-	CKNULL_LOG(json_request, -ENOMEM,
-		   "JSON object conversion into string failed\n");
-
-	register_buf.buf = (uint8_t *)json_request;
-	register_buf.len = (uint32_t)strlen(json_request);
-	CKINT_LOG(ds->acvp_datastore_write_testid(testid_ctx, filename, true,
-						  &register_buf),
-		  "Cannot write file (%d) %s\n", ret, filename);
-
-out:
-	return ret;
-}
-
 int acvp_get_testid(struct acvp_testid_ctx *testid_ctx,
 		    struct json_object *request,
 		    struct json_object *register_response)
 {
+	const struct acvp_net_proto *proto;
 	int ret;
 	char *str;
 
+	CKINT(acvp_get_proto(&proto));
+
 	/* We know we are not modifying str, so constify is ok here */
-	CKINT_LOG(json_get_string(register_response, "url",
+	CKINT_LOG(json_get_string(register_response, proto->session_url_keyword,
 				  (const char **)&str),
 		  "URL string not found in ACVP server response\n");
 
@@ -940,15 +916,16 @@ int acvp_get_testid(struct acvp_testid_ctx *testid_ctx,
 	thread_set_name(acvp_testid, testid_ctx->testid);
 
 	/* Write test request */
-	CKINT(acvp_register_dump_request(testid_ctx, request));
+	CKINT(acvp_register_dump_request(testid_ctx, ACVP_DS_DEF_REQUEST,
+					 request));
 
 out:
 	return ret;
 }
 
-static int acvp_process_req(struct acvp_testid_ctx *testid_ctx,
-			    struct json_object *request,
-			    struct acvp_buf *response)
+int acvp_process_req(struct acvp_testid_ctx *testid_ctx,
+		     struct json_object *request,
+		     struct acvp_buf *response)
 {
 	struct json_object *req = NULL, *entry = NULL;
 	const char *jwt;
@@ -1002,13 +979,38 @@ out:
 	return ret;
 }
 
+static int acvp_register_read_json(struct json_object **request,
+				   const char *pathname)
+{
+	struct json_object *filecontent;
+	int ret = 0, fd;
+
+	CKNULL(pathname, -EINVAL);
+
+	fd = open(pathname, O_RDONLY);
+	if (fd < 0)
+		return -errno;
+
+	filecontent = json_object_from_fd(fd);
+
+	close(fd);
+
+	CKNULL(filecontent, -EFAULT);
+	*request = filecontent;
+
+out:
+	return ret;
+}
+
 /* POST /testSessions */
 static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
+	const struct acvp_opts_ctx *opts = &ctx->options;
 	const struct definition *def = testid_ctx->def;
 	const struct def_info *info = def->info;
+	const struct acvp_net_proto *proto;
 	struct json_object *request = NULL;
 	ACVP_EXT_BUFFER_INIT(register_buf);
 	ACVP_BUFFER_INIT(response_buf);
@@ -1019,12 +1021,17 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	CKINT_LOG(acvp_init_auth(testid_ctx),
 		  "Failure to initialize authtoken\n");
 
-	request = json_object_new_array();
-	CKNULL(request, -ENOMEM);
+	if (opts->caller_json_request_set) {
+		CKINT(acvp_register_read_json(&request,
+					      opts->caller_json_request));
+	} else {
+		request = json_object_new_array();
+		CKNULL(request, -ENOMEM);
 
-	/* Construct the registration message. */
-	CKINT_LOG(acvp_req_build(testid_ctx, request),
-		  "Failure to create registration message\n");
+		/* Construct the registration message. */
+		CKINT_LOG(acvp_req_build(testid_ctx, request),
+			  "Failure to create registration message\n");
+	}
 
 	if (!req_details->dump_register)
 		sig_enqueue_ctx(testid_ctx);
@@ -1053,7 +1060,8 @@ static int acvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	register_buf.buf = (uint8_t *)json_request;
 	register_buf.len = (uint32_t)strlen(json_request);
 
-	CKINT_LOG(acvp_create_url(NIST_VAL_OP_REG, url, sizeof(url)),
+	CKINT(acvp_get_proto(&proto));
+	CKINT_LOG(acvp_create_url(proto->session_url, url, sizeof(url)),
 		  "Creation of request URL failed\n");
 
 	/* Send the capabilities to the ACVP server. */

@@ -277,6 +277,79 @@ static int acvp_check_file_presence(const char *file, const char *loginfo)
 	return 0;
 }
 
+enum acvp_protocol_type acvp_current_proto(void)
+{
+	const struct acvp_net_proto *proto;
+	int ret;
+
+	CKINT(acvp_get_proto(&proto));
+
+out:
+	return ret ? unknown_protocol : proto->proto;
+}
+
+int acvp_convert_proto(enum acvp_protocol_type proto,
+		       const struct acvp_net_proto **out_proto)
+{
+	switch (proto) {
+	case acv_protocol:
+		*out_proto = &acv_proto_def;
+		break;
+	case amv_protocol:
+		*out_proto = &amv_proto_def;
+		break;
+	case esv_protocol:
+		*out_proto = &esv_proto_def;
+		break;
+	case unknown_protocol:
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Unknown protocol type\n");
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+int acvp_register_dump_request(const struct acvp_testid_ctx *testid_ctx,
+			       const char *name, struct json_object *request)
+{
+	struct tm now_detail;
+	time_t now;
+	ACVP_BUFFER_INIT(register_buf);
+	char filename[FILENAME_MAX];
+	const char *json_request;
+	int ret;
+
+	now = time(NULL);
+	if (now == (time_t)-1) {
+		ret = -errno;
+		logger(LOGGER_WARN, LOGGER_C_ANY, "Cannot obtain local time\n");
+		return ret;
+	}
+	localtime_r(&now, &now_detail);
+
+	snprintf(filename, sizeof(filename),
+		 "%s-%d%.2d%.2d_%.2d-%.2d-%.2d.json", name,
+		 now_detail.tm_year + 1900, now_detail.tm_mon + 1,
+		 now_detail.tm_mday, now_detail.tm_hour, now_detail.tm_min,
+		 now_detail.tm_sec);
+
+	json_request = json_object_to_json_string_ext(
+		request,
+		JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
+	CKNULL_LOG(json_request, -ENOMEM,
+		   "JSON object conversion into string failed\n");
+
+	register_buf.buf = (uint8_t *)json_request;
+	register_buf.len = (uint32_t)strlen(json_request);
+	CKINT_LOG(ds->acvp_datastore_write_testid(testid_ctx, filename, true,
+						  &register_buf),
+		  "Cannot write file (%d) %s\n", ret, filename);
+
+out:
+	return ret;
+}
+
 /*****************************************************************************
  * API calls
  *****************************************************************************/
@@ -285,22 +358,7 @@ int acvp_set_proto(enum acvp_protocol_type proto)
 {
 	struct acvp_net_ctx *net = &net_global;
 
-	switch (proto) {
-	case acv_protocol:
-		net->proto = &acv_proto_def;
-		break;
-	case amv_protocol:
-		net->proto = &amv_proto_def;
-		break;
-	case esv_protocol:
-		net->proto = &esv_proto_def;
-		break;
-	default:
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Unknown protocol type\n");
-		return -EOPNOTSUPP;
-	}
-
-	return 0;
+	return acvp_convert_proto(proto, &net->proto);
 }
 
 DSO_PUBLIC

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2023, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -14,24 +14,19 @@
  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
  * USE OF THIS SOFTWARE, EVEN IF NOT ADVISED OF THE POSSIBILITY OF SUCH
- * DAMAGE.int acvp_list_unregistered_definitions(void)
+ * DAMAGE.
  */
 
-#ifndef MACOS_H
-#define MACOS_H
+#include "acvpproxy.h"
+#include "amvpproxy.h"
+#include "internal.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifdef __APPLE__
-void macos_disable_nap(void);
-#else
-static inline void macos_disable_nap(void) { }
-#endif
-
-#ifdef __cplusplus
+DSO_PUBLIC
+int amvp_respond(const struct acvp_ctx *ctx)
+{
+	/*
+	 * See comment in amvp_register_op why re-purposing the ACVP code
+	 * is appropriate.
+	 */
+	return acvp_respond(ctx);
 }
-#endif
-
-#endif /* MACOS_H */

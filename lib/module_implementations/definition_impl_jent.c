@@ -24,7 +24,7 @@
 /**************************************************************************
  * Hash Definition
  **************************************************************************/
-#define JENT_SHA(sha_def)			\
+#define JENT_SHA(sha_def)						\
 	{								\
 	.type = DEF_ALG_TYPE_SHA,					\
 	.algo = {							\
@@ -54,7 +54,7 @@ static struct def_algo_map jent_algo_map [] = {
 		.algo_name = "Jitter RNG",
 		.processor = "",
 		.impl_name = "Generic C",
-		.impl_description = "Generic C implementation of SHA",
+		.impl_description = "Generic C implementation of SHA3-256",
 	}
 };
 

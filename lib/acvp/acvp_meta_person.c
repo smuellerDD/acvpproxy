@@ -312,6 +312,13 @@ static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_meta_register(testid_ctx, json_person, url, urllen,
 				 &def_vendor->acvp_person_id, type));
 
+	if (req_details->dump_register) {
+		goto out;
+	}
+
+	CKINT(acvp_register_dump_request(testid_ctx, NIST_VAL_OP_PERSONS,
+					 json_person));
+
 out:
 	ACVP_JSON_PUT_NULL(json_person);
 	return ret;

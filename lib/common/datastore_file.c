@@ -414,6 +414,18 @@ out:
 	return ret;
 }
 
+static int acvp_datastore_write_status(const struct acvp_testid_ctx *testid_ctx)
+{
+	int ret = 0;
+
+	if (!testid_ctx->status_write)
+		return 0;
+
+	CKINT(testid_ctx->status_write(testid_ctx));
+out:
+	return ret;
+}
+
 static int
 acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 {
@@ -509,6 +521,8 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	/* Handle the possible race condition */
 	if (ret == -EEXIST)
 		ret = 0;
+
+	CKINT(acvp_datastore_write_status(testid_ctx));
 
 out:
 	return ret;

@@ -578,19 +578,31 @@ int acvp_duplicate_string(char **dst, const char *src)
 	return 0;
 }
 
+int acvp_create_urlpath_proto(const struct acvp_net_proto *proto,
+			      const char *path, char *url, uint32_t urllen)
+{
+	int ret = 0;
+
+	CKNULL(proto, -EINVAL);
+	CKNULL_LOG(path, -EINVAL, "No path for URL creation provided\n");
+	CKNULL_LOG(url, -EINVAL,
+		   "No destination buffer for URL creation provided\n");
+
+	snprintf(url, urllen, "/%s/%s", proto->url_base, path);
+	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "ACVP URL path: %s\n", url);
+
+out:
+	return ret;
+}
+
 int acvp_create_urlpath(const char *path, char *url, uint32_t urllen)
 {
 	const struct acvp_net_proto *proto;
 	int ret = 0;
 
-	CKNULL_LOG(path, -EINVAL, "No path for URL creation provided\n");
-	CKNULL_LOG(url, -EINVAL,
-		   "No destination buffer for URL creation provided\n");
-
 	CKINT(acvp_get_proto(&proto));
 
-	snprintf(url, urllen, "/%s/%s", proto->url_base, path);
-	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "ACVP URL path: %s\n", url);
+	CKINT(acvp_create_urlpath_proto(proto, path, url, urllen));
 
 out:
 	return ret;

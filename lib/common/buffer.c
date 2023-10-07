@@ -60,6 +60,7 @@ void acvp_free_buf(struct acvp_buf *buf)
 	buf->len = 0;
 }
 
+#if 0
 void acvp_free_ext_buf(struct acvp_ext_buf *buf)
 {
 	if (!buf)
@@ -77,3 +78,4 @@ void acvp_free_ext_buf(struct acvp_ext_buf *buf)
 
 	/* leave the next buffer untouched to not leak memory */
 }
+#endif

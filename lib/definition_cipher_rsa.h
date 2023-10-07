@@ -41,6 +41,11 @@ enum rsa_randpq {
 	DEF_ALG_RSA_PQ_B34_PRIMES,
 	DEF_ALG_RSA_PQ_B35_PRIMES,
 	DEF_ALG_RSA_PQ_B36_PRIMES,
+	DEF_ALG_RSA_PQ_PROVABLE_PRIMES,
+	DEF_ALG_RSA_PQ_PROBABLE_PRIMES,
+	DEF_ALG_RSA_PQ_PROVABLE_WITH_PROVABLE_AUX_PRIMES,
+	DEF_ALG_RSA_PQ_PROBABLE_WITH_PROVABLE_AUX_PRIMES,
+	DEF_ALG_RSA_PQ_PROBABLE_WITH_PROBABLE_AUX_PRIMES,
 };
 
 enum sigtype {
@@ -104,7 +109,25 @@ struct def_algo_rsa_keygen_caps {
 	 */
 #define DEF_ALG_RSA_PRIMETEST_C2 (1 << 0)
 #define DEF_ALG_RSA_PRIMETEST_C3 (1 << 1)
+#define DEF_ALG_RSA_PRIMETEST_2POW100 (1 << 2)
+#define DEF_ALG_RSA_PRIMETEST_2POWSECSTR (1 << 3)
 	unsigned int rsa_primetest;
+
+	/*
+	 * The result of the evaluation of the generated p prime, p % 8.
+	 * Set to 0 to ignore any modulus checks.
+	 *
+	 * required: always for revision FIPS 186-5, not used by FIPS 186-4
+	 */
+	unsigned int p_mod8;
+
+	/*
+	 * The result of the evaluation of the generated q prime, q % 8.
+	 * Set to 0 to ignore any modulus checks.
+	 *
+	 * required: always for revision FIPS 186-5, not used by FIPS 186-4
+	 */
+	unsigned int q_mod8;
 };
 
 struct def_algo_rsa_keygen_gen {
@@ -177,16 +200,24 @@ struct def_algo_rsa_keygen {
  ****************************************************************************/
 struct def_algo_rsa_siggen_caps {
 	/*
-	 * Supported RSA modulo for the randPQ mode - see [FIPS186-4], Appendix
-	 * B.3
+	 * Supported RSA modulo
 	 *
 	 * required: always
 	 */
 	enum rsa_modulo rsa_modulo;
 
 	/*
-	 * Supported hash algorithms for the randPQ mode - see [FIPS186-4],
-	 * Appendix B.3
+	 * Mask functions used by PSS
+	 *
+	 * required: only for PSS revision FIPS 186-5, not used by FIPS 186-4
+	 */
+#define DEF_ALG_RSA_MASK_FUNC_MGF1 (1 << 0)
+#define DEF_ALG_RSA_MASK_FUNC_SHAKE_128 (1 << 1)
+#define DEF_ALG_RSA_MASK_FUNC_SHAKE_256 (1 << 2)
+	unsigned int mask_function;
+
+	/*
+	 * Supported hash algorithms
 	 *
 	 * Allowed values:
 	 *	"SHA2-224"
@@ -195,6 +226,12 @@ struct def_algo_rsa_siggen_caps {
 	 *	"SHA2-512"
 	 *	"SHA2-512/224"
 	 *	"SHA2-512/256"
+	 * 	"SHA3-224"
+	 * 	"SHA3-256"
+	 * 	"SHA3-384"
+	 * 	"SHA3-512"
+	 * 	"SHAKE-128" (PSS only)
+	 * 	"SHAKE-256" (PSS only)
 	 *
 	 * required: always
 	 */
@@ -202,6 +239,7 @@ struct def_algo_rsa_siggen_caps {
 
 	/*
 	 * Salt specification for RSA PSS
+	 *
 	 * required: only for PSS
 	 */
 	enum saltlen saltlen;
@@ -211,6 +249,7 @@ struct def_algo_rsa_siggen_caps {
 	 *
 	 * This field is only evaluated if saltlen is set to
 	 * DEF_ALG_RSA_PSS_SALT_VALUE.
+	 *
 	 * required: optional, only for PSS
 	 */
 	int saltlen_bytes;
@@ -244,24 +283,39 @@ struct def_algo_rsa_siggen {
  ****************************************************************************/
 struct def_algo_rsa_sigver_caps {
 	/*
-	 * Supported RSA modulo for the randPQ mode - see [FIPS186-4], Appendix
-	 * B.3
+	 * Supported RSA modulo
 	 *
 	 * required: always
 	 */
 	enum rsa_modulo rsa_modulo;
 
 	/*
-	 * Supported hash algorithms for the randPQ mode - see [FIPS186-4],
-	 * Appendix B.3
+	 * Mask function used by PSS
+	 *
+	 * required: only for PSS revision FIPS 186-5, not used by FIPS 186-4
+	 */
+#define DEF_ALG_RSA_MASK_FUNC_MGF1 (1 << 0)
+#define DEF_ALG_RSA_MASK_FUNC_SHAKE_128 (1 << 1)
+#define DEF_ALG_RSA_MASK_FUNC_SHAKE_256 (1 << 2)
+	unsigned int mask_function;
+
+	/*
+	 * Supported hash algorithms
 	 *
 	 * Allowed values:
+	 * 	"SHA-1"
 	 *	"SHA2-224"
 	 *	"SHA2-256"
 	 *	"SHA2-384"
 	 *	"SHA2-512"
 	 *	"SHA2-512/224"
 	 *	"SHA2-512/256"
+	 * 	"SHA3-224"
+	 * 	"SHA3-256"
+	 * 	"SHA3-384"
+	 * 	"SHA3-512"
+	 * 	"SHAKE-128" (PSS only)
+	 * 	"SHAKE-256" (PSS only)
 	 *
 	 * required: always
 	 */
@@ -269,6 +323,7 @@ struct def_algo_rsa_sigver_caps {
 
 	/*
 	 * Salt specification for RSA PSS
+	 *
 	 * required: only for PSS
 	 */
 	enum saltlen saltlen;
@@ -278,6 +333,7 @@ struct def_algo_rsa_sigver_caps {
 	 *
 	 * This field is only evaluated if saltlen is set to
 	 * DEF_ALG_RSA_PSS_SALT_VALUE.
+	 *
 	 * required: optional, only for PSS
 	 */
 	int saltlen_bytes;
@@ -364,6 +420,17 @@ struct def_algo_rsa_component_sig_gen {
  ****************************************************************************/
 struct def_algo_rsa_component_dec {
 	/*
+	 * The preferred private key format. The DEF_ALG_RSA_KEYFORMAT_STANDARD
+	 * format has "p", "q", and "d" as the component of the private key.
+	 * The DEF_ALG_RSA_KEYFORMAT_CRT (Chinese Remainder Theorem) format has
+	 * "p", "q", "dmp1" (d modulo p-1), "dmq1" (d modulo q-1), and "iqmp"
+	 * (inverse q modulo p)) as the components
+	 *
+	 * required: always
+	 */
+	enum keyformat keyformat;
+
+	/*
 	 * Supported RSA modulo for the decryption primitive
 	 *
 	 * required: always
@@ -375,6 +442,16 @@ struct def_algo_rsa_component_dec {
  * RSA common data data
  ****************************************************************************/
 struct def_algo_rsa {
+	/*
+	 * FIPS 186 revision to use.
+	 *
+	 * required: default is set to FIPS 186-4
+	 */
+	enum rsa_revision {
+		DEF_ALG_RSA_186_4,
+		DEF_ALG_RSA_186_5,
+	} revision;
+
 	/*
 	 * RSA mode type
 	 * required: always

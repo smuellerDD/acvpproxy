@@ -54,6 +54,7 @@
 #include "definition_cipher_kdf_onestep.h"
 #include "definition_cipher_kdf_twostep.h"
 #include "definition_cipher_xof.h"
+#include "definition_cipher_lms.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -127,14 +128,16 @@ struct def_algo {
 		DEF_ALG_TYPE_KDF_TWOSTEP,
 		/** SP800-135 TPM KDF */
 		DEF_ALG_TYPE_KDF_TPM,
-		/** ANSI X9.63 */
+		/** SP800-135 KDF: ANSI X9.63 */
 		DEF_ALG_TYPE_ANSI_X963,
 		/** SP800-135 KDF: SRTP */
 		DEF_ALG_TYPE_KDF_SRTP,
 		/** SP800-185: XOF */
 		DEF_ALG_TYPE_XOF,
-		/** ANSI X9.42 */
+		/** SP800-135 KDF: ANSI X9.42 */
 		DEF_ALG_TYPE_ANSI_X942,
+		/** SP800-208: LMS */
+		DEF_ALG_TYPE_LMS,
 	} type;
 	union {
 		/** DEF_ALG_TYPE_SYM */
@@ -201,6 +204,8 @@ struct def_algo {
 		struct def_algo_xof xof;
 		/** DEF_ALG_TYPE_ANSI_X942 */
 		struct def_algo_ansi_x942 ansi_x942;
+		/** DEF_ALG_TYPE_LMS */
+		struct def_algo_lms lms;
 	} algo;
 };
 

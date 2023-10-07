@@ -118,7 +118,11 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 
 		/* Get details about cipher */
 		/* Get "algorithm ID" */
-		CKINT(json_get_string(algo, "url", &url));
+		ret = json_get_string(algo, "url", &url);
+		if (ret) {
+			logger(LOGGER_VERBOSE, LOGGER_C_ANY, "No detailed cipher information available for algorithm %s\n", algoname);
+			continue;
+		}
 		CKINT(acvp_get_trailing_number(url, &urlnum));
 
 		snprintf(tmpalgoname, sizeof(tmpalgoname), "%s", algoname);

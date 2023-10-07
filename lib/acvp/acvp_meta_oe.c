@@ -34,9 +34,25 @@
 static int acvp_oe_proc_name(const struct def_dependency *def_dep, char *tmp,
 			     size_t tmplen)
 {
-	snprintf(tmp, tmplen, "Processor %s (processor family %s) from %s",
-		 def_dep->proc_name, def_dep->proc_family,
-		 def_dep->manufacturer);
+	if (def_dep->proc_name &&
+	    def_dep->proc_family &&
+	    def_dep->manufacturer) {
+		snprintf(tmp, tmplen,
+			 "Processor %s (processor family %s) from %s",
+			 def_dep->proc_name, def_dep->proc_family,
+			 def_dep->manufacturer);
+	} else if (def_dep->proc_name &&
+		   !def_dep->proc_family &&
+		   def_dep->manufacturer) {
+		snprintf(tmp, tmplen,
+			 "Processor %s from %s",
+			 def_dep->proc_name, def_dep->manufacturer);
+	} else if (def_dep->proc_name) {
+		snprintf(tmp, tmplen, "Processor %s", def_dep->proc_name);
+	} else {
+		snprintf(tmp, tmplen, "Generic processor");
+	}
+
 	return 0;
 }
 
@@ -530,6 +546,13 @@ static int acvp_oe_register_dep(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
 	CKINT(acvp_meta_register(testid_ctx, json_dep, url, sizeof(url), id,
 				 submit_type));
+
+	if (req_details->dump_register) {
+		goto out;
+	}
+
+	CKINT(acvp_register_dump_request(testid_ctx, NIST_VAL_OP_DEPENDENCY,
+					 json_dep));
 
 out:
 	ACVP_JSON_PUT_NULL(json_dep);
@@ -1365,6 +1388,13 @@ static int acvp_oe_register_oe(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_meta_register(testid_ctx, json_oe, url, urllen,
 				 &def_oe->acvp_oe_id, type));
+
+	if (req_details->dump_register) {
+		goto out;
+	}
+
+	CKINT(acvp_register_dump_request(testid_ctx, NIST_VAL_OP_OE,
+					 json_oe));
 
 out:
 	ACVP_JSON_PUT_NULL(json_oe);

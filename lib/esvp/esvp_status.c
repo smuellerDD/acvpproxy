@@ -20,8 +20,97 @@
 
 #include <string.h>
 
+#include "base64.h"
 #include "esvp_internal.h"
 #include "json_wrapper.h"
+
+static int esvp_write_filehash(struct json_object *entry,
+			       const struct acvp_buf *data_hash,
+			       const char *keyword)
+{
+	char *base64_buf = NULL;
+	size_t base64_len;
+	int ret;
+
+	if (!data_hash->buf)
+		return 0;
+
+	CKINT(base64_encode(data_hash->buf, data_hash->len, &base64_buf,
+			    &base64_len));
+
+	CKINT(json_object_object_add(entry, keyword,
+				     json_object_new_string(base64_buf)));
+
+out:
+	free(base64_buf);
+	return ret;
+}
+
+static int esvp_read_filehash(struct json_object *entry,
+			      struct acvp_buf *data_hash,
+			      const char *keyword)
+{
+	const char *base64_buf;
+	uint8_t *base64_data = NULL;
+	size_t base64_len;
+	int ret;
+
+	CKINT(json_get_string(entry, keyword, &base64_buf));
+
+	if (data_hash->buf) {
+		CKINT(base64_decode(base64_buf, strlen(base64_buf),
+				    &base64_data, &base64_len));
+		if ((base64_len != data_hash->len) ||
+		    memcmp(base64_data, data_hash->buf, base64_len)) {
+			logger(LOGGER_DEBUG, LOGGER_C_ANY,
+			       "File hash mismatch for file %s\n", keyword);
+			ret = -ENOENT;
+		}
+	} else {
+		CKINT(base64_decode(base64_buf, strlen(base64_buf),
+				    &data_hash->buf, &base64_len));
+		if (base64_len > UINT32_MAX) {
+			ret = -ERANGE;
+		} else {
+			data_hash->len = (uint32_t)base64_len;
+			ret = -ENOENT;
+		}
+	}
+
+out:
+	free(base64_data);
+	return ret;
+}
+
+static int esvp_get_es(struct esvp_es_def **es_out,
+		       const struct acvp_testid_ctx *testid_ctx)
+{
+	/* TODO constify */
+	struct esvp_es_def *es;
+	int ret = 0;
+
+	CKNULL(testid_ctx, -EINVAL);
+
+	es = testid_ctx->es_def;
+
+	if (!es) {
+		const struct definition *def = testid_ctx->def;
+
+		CKNULL(def, -EFAULT);
+
+		/*
+		 * TODO This assignment requires single threaded operation -
+		 * see esvp_init_testid_ctx
+		 */
+		es = def->es;
+		CKNULL(es, -EFAULT);
+	}
+
+	*es_out = es;
+
+out:
+	return ret;
+}
 
 /***************************************************************************
  * ESVP status handling
@@ -29,7 +118,7 @@
 int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 		     struct json_object *status)
 {
-	struct esvp_es_def *es = testid_ctx->es_def;
+	struct esvp_es_def *es;
 	struct esvp_cc_def *cc;
 	struct esvp_sd_def *sd = NULL;
 	struct acvp_auth_ctx *auth;
@@ -40,26 +129,46 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 
 	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Parsing status of ESVP\n");
 
+	CKINT(esvp_get_es(&es, testid_ctx));
+
+	/* Allow those values to not exist - then they are marked as false */
+	json_get_string(status, "eaRuntimeResultsStatus", &str);
+	//TODO: remove call if es is testid-local
+	ACVP_PTR_FREE_NULL(es->ea_runtime_results_status);
+	CKINT(acvp_duplicate(&es->ea_runtime_results_status, str));
+	json_get_string(status, "eaRestartResultsStatus", &str);
+	//TODO: remove call if es is testid-local
+	ACVP_PTR_FREE_NULL(es->ea_restart_results_status);
+	CKINT(acvp_duplicate(&es->ea_restart_results_status, str));
+
 	CKINT(json_get_uint(status, "rawNoiseBitsId", &es->raw_noise_id));
 	CKINT(json_get_bool(status, "rawNoiseBitsSubmitted",
 			    &es->raw_noise_submitted));
+
 	CKINT(json_get_uint(status, "restartTestBitsId", &es->restart_id));
 	CKINT(json_get_bool(status, "restartTestBitsSubmitted",
 			    &es->restart_submitted));
 
 	/* Get access token */
 	CKINT(json_get_string(status, "eaAccessToken", &str));
+
+	/*
+	 * This call is only allowed because threading is disaled considering
+	 * that testid_ctx->es_def is shared between multiple testid_ctx.
+	 */
+	acvp_release_acvp_auth_ctx(es->es_auth);
+	ACVP_PTR_FREE_NULL(es->es_auth);
+
 	/* Store access token in ctx */
 	CKINT(acvp_init_acvp_auth_ctx(&es->es_auth));
 	auth = es->es_auth;
 	CKINT_LOG(acvp_set_authtoken_temp(auth, str),
 		  "Cannot set the new JWT token\n");
+	CKINT(json_get_uint64(status, "eaAccessTokenGenerated",
+			      (uint64_t *)&auth->jwt_token_generated));
 
 	/* Duplicate the authtoken for the testid context */
 	CKINT(acvp_copy_auth(testid_ctx->server_auth, auth));
-
-	CKINT(json_get_uint64(status, "eaAccessTokenGenerated",
-			      (uint64_t *)&auth->jwt_token_generated));
 
 	for (cc = es->cc; cc; cc = cc->next, seq_no++) {
 		struct json_object *stat_cc;
@@ -76,6 +185,15 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 		CKINT(json_get_uint(stat_cc, "conditionedBitsId", &cc->cc_id));
 		CKINT(json_get_bool(stat_cc, "conditionedBitsSubmitted",
 				    &cc->output_submitted));
+
+		/* Read hash */
+		ret = esvp_read_filehash(stat_cc, &cc->data_hash, "fileHash");
+		/* Hash does not match current hash -> (re-)submit file */
+		if (ret == -ENOENT) {
+			cc->output_submitted = false;
+			ret = 0;
+		} else if (ret)
+			goto out;
 	}
 
 	ret = json_find_key(status, "supportingDocumentation", &array,
@@ -105,6 +223,9 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 				      (uint64_t *)&auth->jwt_token_generated));
 
 		CKINT(json_get_uint(sd_entry, "sdId", &sd->sd_id));
+
+		/* Data was submitted */
+		sd->submit = true;
 
 		/* Old status handling */
 		ret = json_get_string(sd_entry, "filename", &str);
@@ -153,6 +274,18 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 				CKINT(acvp_duplicate(&file->filename, str));
 				CKINT(json_get_bool(file_entry, "submitted",
 						    &file->submitted));
+				ret = esvp_read_filehash(file_entry,
+							 &file->data_hash,
+							 "fileHash");
+				/*
+				 * Hash does not match current hash ->
+				 * (re-)submit file
+				 */
+				if (ret == -ENOENT) {
+					file->submitted = false;
+					ret = 0;
+				} else if (ret)
+					goto out;
 			}
 		}
 		ret = 0;
@@ -165,6 +298,16 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 			struct esvp_sd_def *iter_sd = es->sd;
 
 			while (iter_sd) {
+				/* Avoid duplicat entries */
+				if (iter_sd->sd_id == sd->sd_id) {
+					/*
+					 * As we have submitted it,
+					 * mark it so.
+					 */
+					iter_sd->submit = true;
+					esvp_def_sd_free(sd);
+					break;
+				}
 				if (!iter_sd->next) {
 					iter_sd->next = sd;
 					break;
@@ -186,9 +329,11 @@ out:
 int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
 		  struct json_object *sd_array, bool write_extended)
 {
-	const struct esvp_es_def *es = testid_ctx->es_def;
+	struct esvp_es_def *es;
 	const struct esvp_sd_def *sd;
 	int ret = 0;
+
+	CKINT(esvp_get_es(&es, testid_ctx));
 
 	if (!es->sd)
 		return 0;
@@ -239,6 +384,9 @@ int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
 						file_data, "submitted",
 						json_object_new_boolean(
 							file->submitted)));
+				CKINT(esvp_write_filehash(file_data,
+							  &file->data_hash,
+							  "fileHash"));
 
 				file = file->next;
 			}
@@ -253,7 +401,7 @@ int esvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
-	const struct esvp_es_def *es = testid_ctx->es_def;
+	struct esvp_es_def *es = testid_ctx->es_def;
 	const struct esvp_cc_def *cc;
 	struct json_object *sd_array, *stat = NULL;
 	struct acvp_buf stat_buf;
@@ -264,6 +412,19 @@ int esvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 
 	stat = json_object_new_object();
 	CKNULL(stat, -ENOMEM);
+
+	CKINT(esvp_get_es(&es, testid_ctx));
+
+	if (es->ea_runtime_results_status) {
+		CKINT(json_object_object_add(
+		      stat, "eaRuntimeResultsStatus",
+		      json_object_new_string(es->ea_runtime_results_status)));
+	}
+	if (es->ea_restart_results_status) {
+		CKINT(json_object_object_add(
+		      stat, "eaRestartResultsStatus",
+		      json_object_new_string(es->ea_restart_results_status)));
+	}
 
 	CKINT(json_object_object_add(
 		stat, "rawNoiseBitsId",
@@ -309,6 +470,8 @@ int esvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 		CKINT(json_object_object_add(
 			stat_cc, "conditionedBitsSubmitted",
 			json_object_new_boolean(cc->output_submitted)));
+		CKINT(esvp_write_filehash(stat_cc, &cc->data_hash,
+					  "fileHash"));
 	}
 
 	sd_array = json_object_new_array();

@@ -32,9 +32,27 @@
 /**************************************************************************
  * Hash Definitions
  **************************************************************************/
-#define LC_SHA(x)		GENERIC_SHA(x)
+
+/*
+ * leancrypto supports LC_SHA, but some target systems are too small memory
+ * which do not offer sufficient memory for LDT
+ */
+#define LC_SHA_NO_LDT(sha_def)						\
+	{								\
+	.type = DEF_ALG_TYPE_SHA,					\
+	.algo = {							\
+		.sha = {						\
+			.algorithm = sha_def,				\
+			.inbit = false,					\
+			.inempty = true,				\
+			DEF_ALG_DOMAIN(.messagelength, DEF_ALG_ZERO_VALUE, 65536, 8),\
+			}						\
+		},							\
+	}
+
 #define LC_HMAC(x)		GENERIC_HMAC(x)
 #define LC_SHAKE(x)		GENERIC_SHAKE(x)
+
 
 /**************************************************************************
  * XOF definitions
@@ -200,10 +218,10 @@ static const struct def_algo_prereqs sha_prereqs[] = {
  **************************************************************************/
 
 #define LC_SHA3_ALGOS							\
-	LC_SHA(ACVP_SHA3_224),						\
-	LC_SHA(ACVP_SHA3_256),						\
-	LC_SHA(ACVP_SHA3_384),						\
-	LC_SHA(ACVP_SHA3_512),						\
+	LC_SHA_NO_LDT(ACVP_SHA3_224),					\
+	LC_SHA_NO_LDT(ACVP_SHA3_256),					\
+	LC_SHA_NO_LDT(ACVP_SHA3_384),					\
+	LC_SHA_NO_LDT(ACVP_SHA3_512),					\
 	LC_SHAKE(ACVP_SHAKE128),					\
 	LC_SHAKE(ACVP_SHAKE256),					\
 	LC_XOF(ACVP_CSHAKE128),						\
@@ -220,8 +238,8 @@ static const struct def_algo lc_c[] = {
 	LC_AES_CTR,
 	LC_AES_KW,
 
-	LC_SHA(ACVP_SHA256),
-	LC_SHA(ACVP_SHA512),
+	LC_SHA_NO_LDT(ACVP_SHA256),
+	LC_SHA_NO_LDT(ACVP_SHA512),
 
 	LC_HMAC(ACVP_HMACSHA2_256),
 	LC_HMAC(ACVP_HMACSHA2_512),
@@ -252,6 +270,31 @@ static const struct def_algo lc_avx512[] = {
 static const struct def_algo lc_arm_neon[] = {
 	LC_SHA3_ALGOS
 };
+
+static const struct def_algo lc_arm_asm[] = {
+	LC_SHA3_ALGOS
+};
+
+static const struct def_algo lc_arm_ce[] = {
+	LC_AES_CBC,
+	LC_AES_CTR,
+	LC_AES_KW,
+
+	LC_SHA3_ALGOS
+};
+
+static const struct def_algo lc_aesni[] = {
+	LC_AES_CBC,
+	LC_AES_CTR,
+	LC_AES_KW
+};
+
+static const struct def_algo lc_risc64[] = {
+	LC_AES_CBC,
+	LC_AES_CTR,
+	LC_AES_KW
+};
+
 /**************************************************************************
  * Register operation
  **************************************************************************/
@@ -289,13 +332,46 @@ static struct def_algo_map lc_algo_map [] = {
 		.impl_name = "AVX512"
 	},
 
-/* ARM8 NEON cipher implementation, *******************************************/
+/* AESNI cipher implementation, ***********************************************/
+	{
+		SET_IMPLEMENTATION(lc_aesni),
+		.algo_name = "leancrypto",
+		.processor = "X86",
+		.impl_name = "AESNI"
+	},
+
+/* ARMv7 NEON cipher implementation, ******************************************/
 	{
 		SET_IMPLEMENTATION(lc_arm_neon),
 		.algo_name = "leancrypto",
-		.processor = "ARM",
+		.processor = "ARM32",
 		.impl_name = "ARM_NEON"
-	}
+	},
+
+/* ARMv8 ASM cipher implementation, ********************************************/
+	{
+		SET_IMPLEMENTATION(lc_arm_asm),
+		.algo_name = "leancrypto",
+		.processor = "ARM64",
+		.impl_name = "ARM_ASM"
+	},
+
+/* ARMv8 CE cipher implementation, ********************************************/
+	{
+		SET_IMPLEMENTATION(lc_arm_ce),
+		.algo_name = "leancrypto",
+		.processor = "ARM64",
+		.impl_name = "ARM_CE"
+	},
+
+/* RISC-V 64 cipher assembler implementation, *********************************/
+	{
+		SET_IMPLEMENTATION(lc_risc64),
+		.algo_name = "leancrypto",
+		.processor = "RISC-V 64",
+		.impl_name = "RISCV64"
+	},
+
 };
 
 ACVP_DEFINE_CONSTRUCTOR(lc_register)

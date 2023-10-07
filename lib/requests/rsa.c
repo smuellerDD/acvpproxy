@@ -29,27 +29,28 @@
 #include "internal.h"
 #include "request_helper.h"
 
-static int acvp_req_rsa_modulo(enum rsa_mode rsa_mode, enum rsa_modulo modulo,
-			       struct json_object *entry)
+static int acvp_req_rsa_modulo(enum rsa_revision revision,
+			       enum rsa_mode rsa_mode,
+			       enum rsa_modulo modulo, struct json_object *entry)
 {
 	int ret = 0;
 
 	switch (modulo) {
 	case DEF_ALG_RSA_MODULO_1024:
-		if (rsa_mode != DEF_ALG_RSA_MODE_SIGVER &&
-		    rsa_mode != DEF_ALG_RSA_MODE_LEGACY_SIGVER) {
-			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "RSA: modulo 1024 only allowed for (legacy) signature verification\n");
+		if ((rsa_mode != DEF_ALG_RSA_MODE_SIGVER &&
+		    rsa_mode != DEF_ALG_RSA_MODE_LEGACY_SIGVER) ||
+		    revision != DEF_ALG_RSA_186_4) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "RSA: modulo 1024 only allowed for FIPS 186-2/FIPS 186-4 signature verification\n");
 			return -EINVAL;
 		}
 		CKINT(json_object_object_add(entry, "modulo",
 					     json_object_new_int(1024)));
 		break;
 	case DEF_ALG_RSA_MODULO_1536:
-		if (rsa_mode != DEF_ALG_RSA_MODE_SIGVER &&
-		    rsa_mode != DEF_ALG_RSA_MODE_LEGACY_SIGVER) {
-			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "RSA: modulo 1536 only allowed for (legacy) signature verification\n");
+		if (rsa_mode != DEF_ALG_RSA_MODE_LEGACY_SIGVER) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "RSA: modulo 1536 only allowed for legacy (FIPS 186-2) signature verification\n");
 			return -EINVAL;
 		}
 		CKINT(json_object_object_add(entry, "modulo",
@@ -219,6 +220,34 @@ out:
 	return ret;
 }
 
+static int acvp_req_rsa_mask_function(unsigned int mask_function,
+				      struct json_object *entry)
+{
+	struct json_object *mask_function_array;
+	int ret = 0;
+
+	mask_function_array = json_object_new_array();
+	CKNULL(mask_function_array, -ENOMEM);
+	CKINT(json_object_object_add(entry, "maskFunction",
+				     mask_function_array));
+
+	if (mask_function & DEF_ALG_RSA_MASK_FUNC_MGF1) {
+		CKINT(json_object_array_add(mask_function_array,
+					    json_object_new_string("mgf1")));
+	}
+	if (mask_function & DEF_ALG_RSA_MASK_FUNC_SHAKE_128) {
+		CKINT(json_object_array_add(mask_function_array,
+					    json_object_new_string("shake-128")));
+	}
+	if (mask_function & DEF_ALG_RSA_MASK_FUNC_SHAKE_256) {
+		CKINT(json_object_array_add(mask_function_array,
+					    json_object_new_string("shake-256")));
+	}
+
+out:
+	return ret;
+}
+
 static int acvp_req_rsa_hashalg(cipher_t hashalg, enum rsa_modulo modulo,
 				struct json_object *entry, enum saltlen saltlen,
 				int saltlen_bytes)
@@ -270,7 +299,20 @@ static int acvp_req_rsa_hashalg(cipher_t hashalg, enum rsa_modulo modulo,
 						hashlen = 62;
 					else
 						hashlen = 64;
-				} else {
+				} else if (!strncmp(algo, "SHA3-224", 8))
+					hashlen = 28;
+				else if (!strncmp(algo, "SHA3-256", 8))
+					hashlen = 32;
+				else if (!strncmp(algo, "SHA3-384", 8))
+					hashlen = 48;
+				else if (!strncmp(algo, "SHA3-512", 8))
+					hashlen = 64;
+				// FIPS 186-5, Section 5.4, bullet b.
+				else if (!strncmp(algo, "SHAKE-128", 9))
+					hashlen = 32;
+				else if (!strncmp(algo, "SHAKE-256", 9))
+					hashlen = 64;
+				else {
 					logger(LOGGER_WARN, LOGGER_C_ANY,
 					       "RSA: Unknown hash value %s\n", algo);
 					ret = -EINVAL;
@@ -290,7 +332,8 @@ out:
 	return ret;
 }
 
-static int acvp_req_rsa_keygen_caps(enum rsa_mode rsa_mode,
+static int acvp_req_rsa_keygen_caps(enum rsa_revision revision,
+				    enum rsa_mode rsa_mode,
 				    enum rsa_randpq rsa_randpq,
 				    const struct def_algo_rsa_keygen_caps *caps,
 				    struct json_object *caps_entry)
@@ -298,11 +341,16 @@ static int acvp_req_rsa_keygen_caps(enum rsa_mode rsa_mode,
 	struct json_object *prime_array;
 	int ret = 0;
 
-	CKINT(acvp_req_rsa_modulo(rsa_mode, caps->rsa_modulo, caps_entry));
+	CKINT(acvp_req_rsa_modulo(revision, rsa_mode, caps->rsa_modulo,
+				  caps_entry));
 
 	/* Hashes are not needed for probable primes */
-	if (rsa_randpq != DEF_ALG_RSA_PQ_B33_PRIMES &&
-	    rsa_randpq != DEF_ALG_RSA_PQ_B36_PRIMES) {
+	if (rsa_randpq == DEF_ALG_RSA_PQ_B32_PRIMES ||
+	    rsa_randpq == DEF_ALG_RSA_PQ_B34_PRIMES ||
+	    rsa_randpq == DEF_ALG_RSA_PQ_B35_PRIMES ||
+	    rsa_randpq == DEF_ALG_RSA_PQ_PROVABLE_PRIMES ||
+	    rsa_randpq == DEF_ALG_RSA_PQ_PROVABLE_WITH_PROVABLE_AUX_PRIMES ||
+	    rsa_randpq == DEF_ALG_RSA_PQ_PROBABLE_WITH_PROVABLE_AUX_PRIMES) {
 		CKINT(acvp_req_cipher_to_array(caps_entry, caps->hashalg,
 					       ACVP_CIPHERTYPE_HASH,
 					       "hashAlg"));
@@ -320,12 +368,26 @@ static int acvp_req_rsa_keygen_caps(enum rsa_mode rsa_mode,
 		CKINT(json_object_array_add(prime_array,
 					    json_object_new_string("tblC3")));
 	}
+	if (caps->rsa_primetest & DEF_ALG_RSA_PRIMETEST_2POW100) {
+		CKINT(json_object_array_add(prime_array,
+					    json_object_new_string("2pow100")));
+	}
+	if (caps->rsa_primetest & DEF_ALG_RSA_PRIMETEST_2POWSECSTR) {
+		CKINT(json_object_array_add(prime_array,
+					    json_object_new_string("2powSecStr")));
+	}
+
+	CKINT(json_object_object_add(caps_entry, "pMod8",
+				     json_object_new_int(caps->p_mod8)));
+	CKINT(json_object_object_add(caps_entry, "qMod8",
+				     json_object_new_int(caps->q_mod8)));
 
 out:
 	return ret;
 }
 
-static int _acvp_req_rsa_keygen(enum rsa_mode rsa_mode,
+static int _acvp_req_rsa_keygen(enum rsa_revision revision,
+				enum rsa_mode rsa_mode,
 				const struct def_algo_rsa_keygen *keygen,
 			        struct json_object *algspec)
 {
@@ -354,6 +416,26 @@ static int _acvp_req_rsa_keygen(enum rsa_mode rsa_mode,
 		CKINT(json_object_object_add(algspec, "randPQ",
 					     json_object_new_string("B.3.6")));
 		break;
+	case DEF_ALG_RSA_PQ_PROVABLE_PRIMES:
+		CKINT(json_object_object_add(algspec, "randPQ",
+					     json_object_new_string("provable")));
+		break;
+	case DEF_ALG_RSA_PQ_PROBABLE_PRIMES:
+		CKINT(json_object_object_add(algspec, "randPQ",
+					     json_object_new_string("probable")));
+		break;
+	case DEF_ALG_RSA_PQ_PROVABLE_WITH_PROVABLE_AUX_PRIMES:
+		CKINT(json_object_object_add(algspec, "randPQ",
+					     json_object_new_string("provableWithProvableAux")));
+		break;
+	case DEF_ALG_RSA_PQ_PROBABLE_WITH_PROVABLE_AUX_PRIMES:
+		CKINT(json_object_object_add(algspec, "randPQ",
+					     json_object_new_string("probableWithProvableAux")));
+		break;
+	case DEF_ALG_RSA_PQ_PROBABLE_WITH_PROBABLE_AUX_PRIMES:
+		CKINT(json_object_object_add(algspec, "randPQ",
+					     json_object_new_string("probableWithProbableAux")));
+		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,
 		       "RSA: Unknown RSA randPQ definition\n");
@@ -373,7 +455,8 @@ static int _acvp_req_rsa_keygen(enum rsa_mode rsa_mode,
 		caps_entry = json_object_new_object();
 		CKNULL(caps_entry, -ENOMEM);
 		CKINT(json_object_array_add(caps_array, caps_entry));
-		CKINT(acvp_req_rsa_keygen_caps(rsa_mode, keygen->rsa_randpq,
+		CKINT(acvp_req_rsa_keygen_caps(revision, rsa_mode,
+					       keygen->rsa_randpq,
 					       caps, caps_entry));
 	}
 
@@ -457,14 +540,16 @@ static int acvp_req_rsa_keygen(const struct def_algo_rsa *rsa,
 		algspec = json_object_new_object();
 		CKNULL(algspec, -ENOMEM);
 		CKINT(json_object_array_add(algspec_array, algspec));
-		CKINT(_acvp_req_rsa_keygen(rsa->rsa_mode, keygen, algspec));
+		CKINT(_acvp_req_rsa_keygen(rsa->revision, rsa->rsa_mode, keygen,
+					   algspec));
 	}
 
 out:
 	return ret;
 }
 
-static int acvp_req_rsa_siggen_caps(enum rsa_mode rsa_mode,
+static int acvp_req_rsa_siggen_caps(enum rsa_revision revision,
+				    enum rsa_mode rsa_mode,
 				    const struct def_algo_rsa_siggen_caps *caps,
 				    struct json_object *caps_entry,
 				    enum saltlen saltlen,
@@ -472,7 +557,9 @@ static int acvp_req_rsa_siggen_caps(enum rsa_mode rsa_mode,
 {
 	int ret = 0;
 
-	CKINT(acvp_req_rsa_modulo(rsa_mode, caps->rsa_modulo, caps_entry));
+	CKINT(acvp_req_rsa_modulo(revision, rsa_mode, caps->rsa_modulo,
+				  caps_entry));
+	CKINT(acvp_req_rsa_mask_function(caps->mask_function, caps_entry));
 	CKINT(acvp_req_rsa_hashalg(caps->hashalg, caps->rsa_modulo, caps_entry,
 				   saltlen, saltlen_bytes));
 
@@ -480,7 +567,8 @@ out:
 	return ret;
 }
 
-static int _acvp_req_rsa_siggen(enum rsa_mode rsa_mode,
+static int _acvp_req_rsa_siggen(enum rsa_revision revision,
+				enum rsa_mode rsa_mode,
 				const struct def_algo_rsa_siggen *siggen,
 			        struct json_object *algspec)
 {
@@ -511,12 +599,13 @@ static int _acvp_req_rsa_siggen(enum rsa_mode rsa_mode,
 		}
 
 		if (siggen->sigtype == DEF_ALG_RSA_SIGTYPE_PSS) {
-			CKINT(acvp_req_rsa_siggen_caps(rsa_mode, caps,
-				caps_entry, caps->saltlen,
+			CKINT(acvp_req_rsa_siggen_caps(revision, rsa_mode,
+				caps, caps_entry, caps->saltlen,
 				caps->saltlen_bytes));
 		} else {
-			CKINT(acvp_req_rsa_siggen_caps(rsa_mode, caps,
-				caps_entry, DEF_ALG_RSA_PSS_SALT_IGNORE, 0));
+			CKINT(acvp_req_rsa_siggen_caps(revision, rsa_mode,
+				caps, caps_entry, DEF_ALG_RSA_PSS_SALT_IGNORE,
+				0));
 		}
 	}
 
@@ -542,14 +631,16 @@ static int acvp_req_rsa_siggen(const struct def_algo_rsa *rsa,
 		algspec = json_object_new_object();
 		CKNULL(algspec, -ENOMEM);
 		CKINT(json_object_array_add(algspec_array, algspec));
-		CKINT(_acvp_req_rsa_siggen(rsa->rsa_mode, siggen, algspec));
+		CKINT(_acvp_req_rsa_siggen(rsa->revision, rsa->rsa_mode, siggen,
+					   algspec));
 	}
 
 out:
 	return ret;
 }
 
-static int acvp_req_rsa_sigver_caps(enum rsa_mode rsa_mode,
+static int acvp_req_rsa_sigver_caps(enum rsa_revision revision,
+				    enum rsa_mode rsa_mode,
 				    const struct def_algo_rsa_sigver_caps *caps,
 				    struct json_object *caps_entry,
 				    enum saltlen saltlen,
@@ -557,7 +648,9 @@ static int acvp_req_rsa_sigver_caps(enum rsa_mode rsa_mode,
 {
 	int ret = 0;
 
-	CKINT(acvp_req_rsa_modulo(rsa_mode, caps->rsa_modulo, caps_entry));
+	CKINT(acvp_req_rsa_modulo(revision, rsa_mode, caps->rsa_modulo,
+				  caps_entry));
+	CKINT(acvp_req_rsa_mask_function(caps->mask_function, caps_entry));
 	CKINT(acvp_req_rsa_hashalg(caps->hashalg, caps->rsa_modulo, caps_entry,
 				   saltlen, saltlen_bytes));
 
@@ -565,7 +658,8 @@ out:
 	return ret;
 }
 
-static int _acvp_req_rsa_sigver(enum rsa_mode rsa_mode,
+static int _acvp_req_rsa_sigver(enum rsa_revision revision,
+				enum rsa_mode rsa_mode,
 				const struct def_algo_rsa_sigver *sigver,
 			        struct json_object *algspec)
 {
@@ -587,8 +681,8 @@ static int _acvp_req_rsa_sigver(enum rsa_mode rsa_mode,
 		caps_entry = json_object_new_object();
 		CKNULL(caps_entry, -ENOMEM);
 		CKINT(json_object_array_add(caps_array, caps_entry));
-		CKINT(acvp_req_rsa_sigver_caps(rsa_mode, caps, caps_entry,
-					       caps->saltlen,
+		CKINT(acvp_req_rsa_sigver_caps(revision, rsa_mode,
+					       caps, caps_entry, caps->saltlen,
 					       caps->saltlen_bytes));
 	}
 
@@ -618,35 +712,93 @@ static int acvp_req_rsa_sigver(const struct def_algo_rsa *rsa,
 		algspec = json_object_new_object();
 		CKNULL(algspec, -ENOMEM);
 		CKINT(json_object_array_add(algspec_array, algspec));
-		CKINT(_acvp_req_rsa_sigver(rsa->rsa_mode, s, algspec));
+		CKINT(_acvp_req_rsa_sigver(rsa->revision, rsa->rsa_mode, s,
+					   algspec));
 	}
 
 out:
 	return ret;
 }
 
-//TODO final JSON structure pending on decision of issue 539
 static int acvp_req_rsa_component_dec(const struct def_algo_rsa *rsa,
 				      struct json_object *entry)
 {
-	struct json_object *algspec_array, *algspec;
+	struct json_object *modulus_array, *keyformat_array;
 	unsigned int i;
 	int ret;
+	bool key_std = false, key_crt = false;
 
-	algspec_array = json_object_new_array();
-	CKNULL(algspec_array, -ENOMEM);
-	CKINT(json_object_object_add(entry, "capabilities", algspec_array));
+	modulus_array = json_object_new_array();
+	CKNULL(modulus_array, -ENOMEM);
+	CKINT(json_object_object_add(entry, "modulus", modulus_array));
+
+	keyformat_array = json_object_new_array();
+	CKNULL(keyformat_array, -ENOMEM);
+	CKINT(json_object_object_add(entry, "keyFormat", keyformat_array));
 
 	for (i = 0; i < rsa->algspecs_num; i++) {
 		const struct def_algo_rsa_component_dec *component_dec =
 						rsa->algspecs.component_dec + i;
+		switch (component_dec->rsa_modulo) {
+		case DEF_ALG_RSA_MODULO_2048:
+			CKINT(json_object_array_add(modulus_array,
+						    json_object_new_int(2048)));
+			break;
+		case DEF_ALG_RSA_MODULO_3072:
+			CKINT(json_object_array_add(modulus_array,
+						    json_object_new_int(3072)));
+			break;
+		case DEF_ALG_RSA_MODULO_4096:
+			CKINT(json_object_array_add(modulus_array,
+						    json_object_new_int(4096)));
+			break;
+		case DEF_ALG_RSA_MODULO_5120:
+			CKINT(json_object_array_add(modulus_array,
+						    json_object_new_int(5120)));
+			break;
+		case DEF_ALG_RSA_MODULO_6144:
+			CKINT(json_object_array_add(modulus_array,
+						    json_object_new_int(6144)));
+			break;
+		case DEF_ALG_RSA_MODULO_7168:
+			CKINT(json_object_array_add(modulus_array,
+						    json_object_new_int(7168)));
+			break;
+		case DEF_ALG_RSA_MODULO_8192:
+			CKINT(json_object_array_add(modulus_array,
+						    json_object_new_int(8192)));
+			break;
+		case DEF_ALG_RSA_MODULO_1024:
+		case DEF_ALG_RSA_MODULO_1536:
+		case DEF_ALG_RSA_MODULO_UNDEF:
+		default:
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			"RSA: Unknown RSA modulo definition\n");
+			return -EINVAL;
+		}
 
-		algspec = json_object_new_object();
-		CKNULL(algspec, -ENOMEM);
-		CKINT(json_object_array_add(algspec_array, algspec));
-		CKINT(acvp_req_rsa_modulo(
-			DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE,
-			component_dec->rsa_modulo, algspec));
+		switch (component_dec->keyformat) {
+		case DEF_ALG_RSA_KEYFORMAT_STANDARD:
+			if (!key_std) {
+				CKINT(json_object_array_add(keyformat_array,
+					json_object_new_string("standard")));
+				key_std = true;
+			}
+			break;
+		case DEF_ALG_RSA_KEYFORMAT_CRT:
+			if (!key_crt) {
+				CKINT(json_object_array_add(keyformat_array,
+					json_object_new_string("crt")));
+				key_crt = true;
+			}
+			break;
+		default:
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			"RSA: Unknown RSA keyFormat definition\n");
+			ret = -EINVAL;
+			goto out;
+			break;
+		}
 	}
 
 out:
@@ -667,9 +819,31 @@ static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 	if (full) {
 		switch (rsa->rsa_mode) {
 		case DEF_ALG_RSA_MODE_KEYGEN:
+			if (rsa->revision == DEF_ALG_RSA_186_5) {
+				CKINT(acvp_req_add_revision(entry,
+							    "FIPS186-5"));
+			} else {
+				CKINT(acvp_req_add_revision(entry,
+							    "FIPS186-4"));
+			}
+			break;
 		case DEF_ALG_RSA_MODE_SIGGEN:
+			if (rsa->revision == DEF_ALG_RSA_186_5) {
+				CKINT(acvp_req_add_revision(entry,
+							    "FIPS186-5"));
+			} else {
+				CKINT(acvp_req_add_revision(entry,
+							    "FIPS186-4"));
+			}
+			break;
 		case DEF_ALG_RSA_MODE_SIGVER:
-			CKINT(acvp_req_add_revision(entry, "FIPS186-4"));
+			if (rsa->revision == DEF_ALG_RSA_186_5) {
+				CKINT(acvp_req_add_revision(entry,
+							    "FIPS186-5"));
+			} else {
+				CKINT(acvp_req_add_revision(entry,
+							    "FIPS186-4"));
+			}
 			break;
 		case DEF_ALG_RSA_MODE_COMPONENT_SIG_PRIMITIVE:
 			if (rsa->gen_info.component_sig->rsa_modulo ==
@@ -680,7 +854,7 @@ static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 			}
 			break;
 		case DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE:
-			CKINT(acvp_req_add_revision(entry, "1.0"));
+			CKINT(acvp_req_add_revision(entry, "Sp800-56Br2"));
 			break;
 		case DEF_ALG_RSA_MODE_LEGACY_SIGVER:
 			CKINT(acvp_req_add_revision(entry, "FIPS186-2"));
@@ -723,7 +897,8 @@ static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 			json_object_new_string("signaturePrimitive")));
 		if (rsa->gen_info.component_sig->rsa_modulo !=
 		    DEF_ALG_RSA_MODULO_UNDEF) {
-			CKINT(acvp_req_rsa_modulo(rsa->rsa_mode,
+			CKINT(acvp_req_rsa_modulo(DEF_ALG_RSA_186_4,
+				rsa->rsa_mode,
 				rsa->gen_info.component_sig->rsa_modulo,
 				entry));
 		}

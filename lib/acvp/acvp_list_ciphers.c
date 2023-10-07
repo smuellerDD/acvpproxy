@@ -280,6 +280,9 @@ static int acvp_list_cipher_gatherer(const struct definition *def,
 		CKINT(acvp_list_algo_ansi_x942(&def_algo->algo.ansi_x942,
 					       &new));
 		break;
+	case DEF_ALG_TYPE_LMS:
+		CKINT(acvp_list_algo_lms(&def_algo->algo.lms, &new));
+		break;
 
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY,

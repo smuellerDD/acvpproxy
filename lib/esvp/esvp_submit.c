@@ -30,11 +30,13 @@
 #include "esvpproxy.h"
 #include "binhexbin.h"
 #include "esvp_internal.h"
+#include "hash/sha256.h"
 #include "internal.h"
 #include "json_wrapper.h"
 #include "logger.h"
 #include "request_helper.h"
 #include "sleep.h"
+#include "term_colors.h"
 #include "threading_support.h"
 
 #include <json-c/json.h>
@@ -77,7 +79,7 @@ static int esvp_register_build_cc(const struct esvp_cc_def *cc,
 		/* Check that the description points to one ACVTS cipher name */
 		ret = acvp_req_name_to_cipher(cc->description, &cipher);
 		if (ret) {
-			char *ciphers;
+			char *ciphers = NULL;
 
 			CKINT(acvp_req_all_cipher_to_stringarray(&ciphers));
 
@@ -131,9 +133,10 @@ static int esvp_register_build(const struct esvp_es_def *es,
 	CKINT(json_object_object_add(
 		entry, "bitsPerSample",
 		json_object_new_int((int)es->bits_per_sample)));
-	CKINT(json_object_object_add(
+	// Deprecated on 2023/03/08
+	/* CKINT(json_object_object_add(
 		entry, "alphabetSize",
-		json_object_new_int((int)es->alphabet_size)));
+		json_object_new_int((int)es->alphabet_size))); */
 	CKINT(json_object_object_add(
 		entry, "hminEstimate",
 		json_object_new_double(es->h_min_estimate)));
@@ -314,6 +317,9 @@ esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 		CKNULL(sd, -ENOMEM);
 	}
 
+	/* Data was submitted */
+	sd->submit = true;
+
 	/* Get access token */
 	CKINT(json_get_string(entry, "accessToken", &str));
 	/* Store access token in ctx */
@@ -324,21 +330,28 @@ esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(json_get_uint(entry, "sdId", &sd->sd_id));
 
-	file_new = calloc(1, sizeof(struct esvp_sd_file_def));
-	CKNULL(file_new, -ENOMEM);
+	if (!file) {
+		file_new = calloc(1, sizeof(struct esvp_sd_file_def));
+		CKNULL(file_new, -ENOMEM);
 
-	if (!sd->file) {
-		sd->file = file_new;
+		if (!sd->file) {
+			sd->file = file_new;
+		} else {
+			file = sd->file;
+			while (file->next)
+				file = file->next;
+
+			file->next = file_new;
+		}
+
+		CKINT(acvp_duplicate(&file_new->filename, pathname));
 	} else {
-		file = sd->file;
-		while (file->next)
-			file = file->next;
-
-		file->next = file_new;
+		file_new = file;
+		acvp_free_buf(&file_new->data_hash);
 	}
 
-	CKINT(acvp_duplicate(&file_new->filename, pathname));
 	file_new->submitted = true;
+	CKINT(acvp_hash_file(pathname, sha256, &file_new->data_hash));
 
 	/*
 	 * Append the new conditioning component entry at the end of the list
@@ -395,6 +408,7 @@ static int esvp_process_datafiles_post_one(
 	struct stat statbuf;
 	ACVP_EXT_BUFFER_INIT(data);
 	ACVP_BUFFER_INIT(response);
+	ACVP_BUFFER_INIT(data_hash);
 	int ret, ret2, fd;
 
 	if (submitted && *submitted) {
@@ -404,6 +418,8 @@ static int esvp_process_datafiles_post_one(
 		return 0;
 	}
 
+	CKNULL(pathname, -EINVAL);
+
 	/* Check whether supporting document file has been uploaded */
 	for (sd = es->sd; sd; sd = sd->next) {
 		struct esvp_sd_file_def *file = sd->file;
@@ -411,10 +427,39 @@ static int esvp_process_datafiles_post_one(
 		while (file) {
 			if (!acvp_str_match(file->filename, pathname,
 					    testid_ctx->testid)) {
-				logger(LOGGER_DEBUG, LOGGER_C_ANY,
-				       "Data found in %s already submitted, no resubmit\n",
-				       pathname);
-				return 0;
+
+				CKINT(acvp_hash_file(pathname, sha256,
+						     &data_hash));
+
+				/* Check hash value of file */
+				if (!file->data_hash.buf) {
+					/* Hash value not present, (re)submit */
+					file->data_hash.buf = data_hash.buf;
+					file->data_hash.len = data_hash.len;
+					data_hash.buf = NULL;
+					data_hash.len = 0;
+
+					break;
+				} else if (file->data_hash.len == data_hash.len &&
+					   !memcmp(file->data_hash.buf,
+						   data_hash.buf,
+						   data_hash.len)) {
+					/* Hash matches, no resubmit */
+					logger(LOGGER_DEBUG, LOGGER_C_ANY,
+					       "Data found in %s already submitted, no resubmit\n",
+					       pathname);
+
+					file->submitted = true;
+					if (submitted)
+						*submitted = true;
+
+					ret = 0;
+					goto out;
+				}
+
+				/* Hash value does not match - (re)submit */
+
+				break;
 			}
 
 			file = file->next;
@@ -462,6 +507,14 @@ static int esvp_process_datafiles_post_one(
 
 	logger_status(LOGGER_C_ANY, "Submitting file %s\n", pathname);
 
+	/* Refresh all auth tokens including ES and SD tokens */
+	if (acvp_login_need_refresh(testid_ctx)) {
+		CKINT(acvp_login_refresh(testid_ctx));
+	}
+
+	/* Write potentially changed auth tokens */
+	CKINT(esvp_write_status(testid_ctx));
+
 	/* Send the data to the ESVP server. */
 	ret2 = acvp_net_op(testid_ctx, url, &data, &response,
 			   acvp_http_post_multi);
@@ -483,19 +536,66 @@ static int esvp_process_datafiles_post_one(
 
 out:
 	acvp_free_buf(&response);
+	acvp_free_buf(&data_hash);
 	return ret;
 }
 
+static int
+esvp_process_status_info(const char *str, const char *type, const char *src)
+{
+	int ret = 0;
+
+	if (!str)
+		return -EINVAL;
+
+	if (!strncmp(str, "RunStarted", 10)) {
+		logger_status(LOGGER_C_ANY,
+			      "%s: ESVP server crunching numbers on raw data for %s - %swait%s\n",
+			      src, type, TERM_COLOR_YELLOW, TERM_COLOR_NORMAL);
+		ret = -EAGAIN;
+		goto out;
+	} else if (!strncmp(str, "Uploaded", 8)) {
+		logger_status(LOGGER_C_ANY,
+			      "%s: ESVP server crunching numbers on raw data for %s - %swait%s\n",
+			      src, type, TERM_COLOR_YELLOW, TERM_COLOR_NORMAL);
+		ret = -EAGAIN;
+		goto out;
+	} else if (!strncmp(str, "Initial", 7)) {
+		logger_status(LOGGER_C_ANY,
+			      "%s: ESVP server crunching numbers on raw data for %s - %swait%s\n",
+			      src, type, TERM_COLOR_YELLOW, TERM_COLOR_NORMAL);
+		ret = -EAGAIN;
+		goto out;
+	} else if (!strncmp(str, "RunSuccessful", 13)) {
+		logger_status(LOGGER_C_ANY,
+			      "%s: ESVP server finished calculating the entropy rate for %s - %ssuccess%s\n",
+			      src, type, TERM_COLOR_GREEN, TERM_COLOR_NORMAL);
+		goto out;
+	} else {
+		logger_status(LOGGER_C_ANY,
+			      "%s: ESVP server finished calculating the entropy rate for %s - %sfailure%s\n",
+			      src, type, TERM_COLOR_RED, TERM_COLOR_NORMAL);
+		ret = -EFAULT;
+		goto out;
+	}
+
+out:
+	return ret;
+}
 
 static int
 esvp_process_get_datafile_info(const struct acvp_testid_ctx *testid_ctx,
 			       const struct acvp_buf *response,
-			       const char *type)
+			       const char *type,
+			       char **parsed_info)
 {
+	struct esvp_es_def *es = testid_ctx->es_def;
 	struct json_object *req = NULL, *entry = NULL;
 	char pathname[FILENAME_MAX];
 	const char *str;
 	int ret;
+
+	CKNULL(es, -EFAULT);
 
 	if (!response->buf || !response->len) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY, "No response data found\n");
@@ -510,40 +610,14 @@ esvp_process_get_datafile_info(const struct acvp_testid_ctx *testid_ctx,
 		  "Cannot find ESVP response\n");
 
 	snprintf(pathname, sizeof(pathname), "%s-entropy-rate.json", type);
-	CKINT(acvp_store_file(testid_ctx, response, 1, pathname));
+	CKINT(acvp_store_file_public(testid_ctx, response, 1, pathname));
 
 	CKINT(json_get_string(entry, "status", &str));
-	if (!strncmp(str, "RunStarted", 10)) {
-		logger_status(LOGGER_C_ANY,
-			      "ESVP server crunching numbers on raw data for %s\n",
-			      type);
-		ret = -EAGAIN;
-		goto out;
-	} else if (!strncmp(str, "Uploaded", 8)) {
-		logger_status(LOGGER_C_ANY,
-			      "ESVP server crunching numbers on raw data for %s\n",
-			      type);
-		ret = -EAGAIN;
-		goto out;
-	} else if (!strncmp(str, "Initial", 7)) {
-		logger_status(LOGGER_C_ANY,
-			      "ESVP server crunching numbers on raw data for %s\n",
-			      type);
-		ret = -EAGAIN;
-		goto out;
-	} else if (!strncmp(str, "RunSuccessful", 13)) {
-		logger_status(LOGGER_C_ANY,
-			      "ESVP server finished calculating the entropy rate for %s - success\n",
-			      type);
-		ret = 0;
-		goto out;
-	} else {
-		logger_status(LOGGER_C_ANY,
-			      "ESVP server finished calculating the entropy rate for %s - failure\n",
-			      type);
-		ret = -EFAULT;
-		goto out;
+	if (parsed_info) {
+		CKINT(acvp_duplicate_string(parsed_info, str));
 	}
+	CKINT(esvp_process_status_info(str, type,
+				       "Fresh data from ESVP server"));
 
 out:
 	ACVP_JSON_PUT_NULL(req);
@@ -551,7 +625,8 @@ out:
 }
 
 /* GET /<raw noise files> */
-static int _esvp_get_datafile_info(struct acvp_testid_ctx *testid_ctx)
+/* Returns -EAGAIN if function needs to be rerun */
+static int esvp_get_datafile_info(struct acvp_testid_ctx *testid_ctx)
 {
 	struct esvp_es_def *es = testid_ctx->es_def;
 	struct esvp_cc_def *cc;
@@ -560,51 +635,95 @@ static int _esvp_get_datafile_info(struct acvp_testid_ctx *testid_ctx)
 	int ret = 0, ret2;
 	unsigned int seq_no = 1;
 	char type[20];
+	bool rerun = false;
 
-	/* Get the status on the raw noise data file */
-	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_ENTROPY_ASSESSMENT, url,
-				  sizeof(url)),
-		  "Creation of request URL failed\n");
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u/%s/%u",
-				 testid_ctx->testid, NIST_ESVP_VAL_OP_DATAFILE,
-				 es->raw_noise_id));
+	if (esvp_process_status_info(es->ea_runtime_results_status,
+				     "raw_noise",
+				     "Existing data in database")) {
+		/* Refresh all auth tokens including ES and SD tokens */
+		if (acvp_login_need_refresh(testid_ctx)) {
+			CKINT(acvp_login_refresh(testid_ctx));
+		}
+		/* Write potentially changed auth tokens */
+		CKINT(esvp_write_status(testid_ctx));
 
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Getting status on raw entropy data\n");
+		/* Get the status on the raw noise data file */
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_ENTROPY_ASSESSMENT,
+					  url, sizeof(url)),
+			  "Creation of request URL failed\n");
+		CKINT(acvp_extend_string(url, sizeof(url), "/%u/%s/%u",
+					 testid_ctx->testid,
+					 NIST_ESVP_VAL_OP_DATAFILE,
+					 es->raw_noise_id));
 
-	/* Send the data to the ESVP server. */
-	ret2 = acvp_net_op(testid_ctx, url, NULL, &response, acvp_http_get);
-	CKINT(acvp_request_error_handler(ret2));
-	ret2 = esvp_process_get_datafile_info(testid_ctx, &response,
-					     "raw_noise");
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Getting status on raw entropy data\n");
 
- 	acvp_free_buf(&response);
+		/* Send the data to the ESVP server. */
+		ret2 = acvp_net_op(testid_ctx, url, NULL, &response,
+				   acvp_http_get);
+		CKINT(acvp_request_error_handler(ret2));
+		ret2 = esvp_process_get_datafile_info(testid_ctx, &response,
+			"raw_noise", &es->ea_runtime_results_status);
 
-	if (ret2 && ret2 != -EAGAIN) {
-		ret = ret2;
-		goto out;
+		acvp_free_buf(&response);
+
+		/* Save server provided runtime status data */
+		CKINT(esvp_write_status(testid_ctx));
+
+		if (ret2 && ret2 != -EAGAIN) {
+			ret = ret2;
+			goto out;
+		}
+		if (ret2 == -EAGAIN)
+			rerun = true;
+	} else {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "ESVP server already provided runtime entropy rate data\n");
 	}
 
-	/* Get the status on the restart noise data file */
-	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_ENTROPY_ASSESSMENT, url,
-				  sizeof(url)),
-		  "Creation of request URL failed\n");
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u/%s/%u",
-				 testid_ctx->testid, NIST_ESVP_VAL_OP_DATAFILE,
-				 es->restart_id));
+	if (esvp_process_status_info(es->ea_restart_results_status,
+				     "restart", "Existing data in database")) {
+		/* Refresh all auth tokens including ES and SD tokens */
+		if (acvp_login_need_refresh(testid_ctx)) {
+			CKINT(acvp_login_refresh(testid_ctx));
+		}
+		/* Write potentially changed auth tokens */
+		CKINT(esvp_write_status(testid_ctx));
 
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Getting status on restart data\n");
+		/* Get the status on the restart noise data file */
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_ENTROPY_ASSESSMENT,
+					  url, sizeof(url)),
+			  "Creation of request URL failed\n");
+		CKINT(acvp_extend_string(url, sizeof(url), "/%u/%s/%u",
+					 testid_ctx->testid,
+					 NIST_ESVP_VAL_OP_DATAFILE,
+					 es->restart_id));
 
-	/* Send the data to the ESVP server. */
-	ret2 = acvp_net_op(testid_ctx, url, NULL, &response, acvp_http_get);
-	CKINT(acvp_request_error_handler(ret2));
-	ret2 = esvp_process_get_datafile_info(testid_ctx, &response,
-					      "restart");
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Getting status on restart data\n");
 
-	acvp_free_buf(&response);
+		/* Send the data to the ESVP server. */
+		ret2 = acvp_net_op(testid_ctx, url, NULL, &response,
+				   acvp_http_get);
+		CKINT(acvp_request_error_handler(ret2));
+		ret2 = esvp_process_get_datafile_info(testid_ctx, &response,
+			"restart", &es->ea_restart_results_status);
 
-	if (ret2 && ret2 != -EAGAIN) {
-		ret = ret2;
-		goto out;
+		acvp_free_buf(&response);
+
+		/* Save server provided restart status data */
+		CKINT(esvp_write_status(testid_ctx));
+
+		if (ret2 && ret2 != -EAGAIN) {
+			ret = ret2;
+			goto out;
+		}
+		if (ret2 == -EAGAIN)
+			rerun = true;
+	} else {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "ESVP server already provided restart entropy rate data\n");
 	}
 
 	for (cc = es->cc; cc; cc = cc->next, seq_no++) {
@@ -614,6 +733,13 @@ static int _esvp_get_datafile_info(struct acvp_testid_ctx *testid_ctx)
 		 */
 		if (cc->vetted || cc->bijective)
 			continue;
+
+		/* Refresh all auth tokens including ES and SD tokens */
+		if (acvp_login_need_refresh(testid_ctx)) {
+			CKINT(acvp_login_refresh(testid_ctx));
+		}
+		/* Write potentially changed auth tokens */
+		CKINT(esvp_write_status(testid_ctx));
 
 		/* Get the status on the conditioning component */
 		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_ENTROPY_ASSESSMENT,
@@ -633,7 +759,7 @@ static int _esvp_get_datafile_info(struct acvp_testid_ctx *testid_ctx)
 				   acvp_http_get);
 		CKINT(acvp_request_error_handler(ret2));
 		ret2 = esvp_process_get_datafile_info(testid_ctx, &response,
-						      type);
+						      type, NULL);
 		
 		acvp_free_buf(&response);
 
@@ -641,42 +767,19 @@ static int _esvp_get_datafile_info(struct acvp_testid_ctx *testid_ctx)
 			ret = ret2;
 			goto out;
 		}
+		if (ret2 == -EAGAIN)
+			rerun = true;
 	}
 
 out:
 	acvp_free_buf(&response);
-	return ret;
-}
-
-static int esvp_get_datafile_info(struct acvp_testid_ctx *testid_ctx)
-{
-	int ret = 0;
-
-#define ESVP_GET_DATAFILE_INFO_SLEEPTIME 30
-	do {
-		/* Wait the requested amount of seconds */
-		if (ret) {
-			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-			       "ESVP server needs more time - sleeping for %u seconds for testID %u again\n",
-			       ESVP_GET_DATAFILE_INFO_SLEEPTIME,
-			       testid_ctx->testid);
-			CKINT(sleep_interruptible(
-				ESVP_GET_DATAFILE_INFO_SLEEPTIME,
-				&acvp_op_interrupted));
-		}
-
-		ret = _esvp_get_datafile_info(testid_ctx);
-	} while (ret == -EAGAIN);
-
-out:
-	return ret;
+	return rerun ? -EAGAIN : ret;
 }
 
 static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 {
 	struct esvp_es_def *es = testid_ctx->es_def;
 	struct esvp_cc_def *cc;
-	struct esvp_sd_def *sd;
 	DIR *doc_dir = NULL;
 	struct dirent *doc_dirent;
 	ACVP_EXT_BUFFER_INIT(itar);
@@ -755,31 +858,11 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 	desc.next = &sdtype;
 
 	while ((doc_dirent = readdir(doc_dir)) != NULL) {
-		bool submitted = false;
-
 		if (!acvp_usable_dirent(doc_dirent, NULL))
 			continue;
 
 		snprintf(pathname, sizeof(pathname), "%s/%s", doc_dir_name,
 			 doc_dirent->d_name);
-
-		/* Did we already submit it? */
-		for (sd = es->sd; sd; sd = sd->next) {
-			struct esvp_sd_file_def *file = sd->file;
-
-			while (file) {
-				if (!strncmp(file->filename, pathname,
-					     strlen(file->filename))) {
-					submitted = file->submitted;
-					break;
-				}
-
-				file = file->next;
-			}
-
-			if (submitted)
-				break;
-		}
 
 		desc.buf = (uint8_t *)doc_dirent->d_name;
 		desc.len = (uint32_t)strlen(doc_dirent->d_name);
@@ -817,9 +900,36 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 					  sizeof(url)),
 			  "Creation of request URL failed\n");
 
+		// ITAR was deprecated on 2023/03/08. But the ESV server still wants to see it. Leave it for now.
 		CKINT(esvp_process_datafiles_post_one(
-			testid_ctx, url, pathname, &submitted, "sdFile", &itar,
+			testid_ctx, url, pathname, NULL, "sdFile", &itar,
 			esvp_process_post_one_sd_response));
+	}
+
+	if (es->ear_file) {
+		sdtype.buf = (uint8_t *)"EntropyAssessmentReport";
+		sdtype.len = 23;
+
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_SUPPDOC, url,
+					  sizeof(url)),
+			  "Creation of request URL failed\n");
+		CKINT(esvp_process_datafiles_post_one(
+			testid_ctx, url, (char *)es->ear_file, NULL,
+			"sdFile", &itar, esvp_process_post_one_sd_response));
+
+	}
+
+	if (es->pud_file) {
+		sdtype.buf = (uint8_t *)"PublicUseDocument";
+		sdtype.len = 17;
+
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_SUPPDOC, url,
+					  sizeof(url)),
+			  "Creation of request URL failed\n");
+		CKINT(esvp_process_datafiles_post_one(
+			testid_ctx, url, (char *)es->pud_file, NULL,
+			"sdFile", &itar, esvp_process_post_one_sd_response));
+
 	}
 
 out:
@@ -922,8 +1032,17 @@ static int esvp_process_req(struct acvp_testid_ctx *testid_ctx,
 		  "Cannot submit data files\n");
 
 	/* Get the status information on the raw data */
-	CKINT_LOG(esvp_get_datafile_info(testid_ctx),
-		  "Cannot get status information on raw data\n");
+	ret = esvp_get_datafile_info(testid_ctx);
+	if (ret) {
+		/*
+		 * -EAGAIN only states that operation is not complete and we
+		 * cannot certify.
+		 */
+		if (ret == -EAGAIN)
+			ret = 0;
+
+		goto out;
+	}
 
 	CKINT_LOG(esvp_certify(testid_ctx), "Cannot certify\n");
 
@@ -1026,28 +1145,22 @@ static int esvp_continue_op(struct acvp_testid_ctx *testid_ctx)
 	CKNULL_LOG(testid_ctx, -EINVAL,
 		   "ACVP volatile request context missing\n");
 
+	thread_set_name(acvp_testid, testid_ctx->testid);
+
 	CKINT(acvp_init_auth(testid_ctx));
 
 	testid_ctx->status_parse = esvp_read_status;
+	testid_ctx->status_write = esvp_write_status;
 
 	/* Get auth token for test session */
 	CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
-
-	/* Refresh all auth tokens including ES and SD tokens */
-	CKINT(acvp_login_refresh(testid_ctx));
-
-	/* Write potentially changed auth tokens */
-	CKINT(esvp_write_status(testid_ctx));
 
 	/* Check if all files are uploaded and retry if not */
 	CKINT_LOG(esvp_process_datafiles_post(testid_ctx),
 		  "Cannot submit data files\n");
 
-	CKINT(esvp_process_datafiles_post(testid_ctx));
-
 	/* Get the status information on the raw data */
-	CKINT_LOG(esvp_get_datafile_info(testid_ctx),
-		  "Cannot get status information on raw data\n");
+	CKINT(esvp_get_datafile_info(testid_ctx));
 
 out:
 	return ret;
@@ -1060,13 +1173,18 @@ out:
 static int esvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
 				const struct acvp_ctx *ctx,
 				const struct definition *def,
-				struct esvp_es_def *es_def,
 				const uint32_t testid)
 {
 	int ret;
 
 	CKINT(acvp_init_testid_ctx(testid_ctx, ctx, def, testid));
-	testid_ctx->es_def = es_def;
+
+	/*
+	 * TODO this assignment (instead of a duplication) implies single
+	 * threading. Either duplicate the full es_def, or make the es_def
+	 * const and extract all volatile data from it.
+	 */
+	testid_ctx->es_def = def->es;
 
 out:
 	return ret;
@@ -1076,7 +1194,6 @@ static int esvp_process_one_es(const struct acvp_ctx *ctx,
 			       const struct definition *def, uint32_t testid)
 {
 	struct acvp_testid_ctx *testid_ctx = NULL;
-	struct esvp_es_def *es = def->es;
 	int ret;
 
 	(void)testid;
@@ -1084,7 +1201,7 @@ static int esvp_process_one_es(const struct acvp_ctx *ctx,
 	/* Put the context on heap for signal handler */
 	testid_ctx = calloc(1, sizeof(*testid_ctx));
 	CKNULL(testid_ctx, -ENOMEM);
-	CKINT(esvp_init_testid_ctx(testid_ctx, ctx, def, es, 0));
+	CKINT(esvp_init_testid_ctx(testid_ctx, ctx, def, 0));
 
 	CKINT(esvp_register_op(testid_ctx));
 
@@ -1115,14 +1232,45 @@ acvp_process_testids_esvp_release(struct acvp_testid_ctx *testid_ctx)
 static int _esvp_continue(void *_testid_ctx)
 {
 	struct acvp_testid_ctx *t_ctx, *testid_ctx = _testid_ctx;
-	int ret;
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *opts = &ctx->options;
+	char str[4096];
+	int ret = 0;
+	bool incomplete = false;
 
-	thread_set_name(acvp_testid, testid_ctx->testid);
+	str[0] = '\0';
 
-	for (t_ctx = testid_ctx; t_ctx; t_ctx = t_ctx->next)
-		CKINT(esvp_continue_op(t_ctx));
+	for (t_ctx = testid_ctx; t_ctx; t_ctx = t_ctx->next) {
+		int ret2 = esvp_continue_op(t_ctx);
+
+		if (ret2 && ret2 != -EAGAIN) {
+			ret = ret2;
+			goto out;
+		}
+
+		if (ret2 == -EAGAIN)
+			incomplete = true;
+	}
+
+	for (t_ctx = testid_ctx; t_ctx; t_ctx = t_ctx->next) {
+		CKINT(acvp_extend_string(str, sizeof(str), " --testid %u",
+					 t_ctx->testid));
+	}
+
+	if (incomplete) {
+		logger_status(LOGGER_C_ANY,
+			      "ESVP server number crunching not complete - to check the server again with all test sessions at once use%s\n",
+			      str);
+		goto out;
+	}
 
 	CKINT_LOG(esvp_certify(testid_ctx), "Cannot certify\n");
+
+	if (!opts->esv_certify) {
+		logger_status(LOGGER_C_ANY,
+			      "Certify operation skipped - to certify all test sessions at once use%s --publish to certify current request\n",
+			      str);
+	}
 
 out:
 	acvp_process_testids_esvp_release(testid_ctx);
@@ -1257,7 +1405,7 @@ acvp_process_testids_esvp(const struct acvp_ctx *ctx,
 					sizeof(*new_testid_ctx));
 				CKNULL(new_testid_ctx, -ENOMEM);
 				CKINT(esvp_init_testid_ctx(new_testid_ctx,
-					ctx, def, def->es, testids[i]));
+					ctx, def, testids[i]));
 
 				/* Enqueue it into list of testid_ctx */
 				if (testid_ctx) {
@@ -1276,7 +1424,7 @@ acvp_process_testids_esvp(const struct acvp_ctx *ctx,
 				}
 			}
 
-			/* Unconsitfy harmless */
+			/* Unconsitfy harmless - requires single threadings */
 			tmp_def = (struct definition *)def;
 			/* Definition is processed - skip it next time */
 			tmp_def->processed = true;
@@ -1331,7 +1479,8 @@ int esvp_continue(const struct acvp_ctx *ctx)
 {
 	int ret;
 
-	CKINT(acvp_testids_refresh(ctx));
+	CKINT(acvp_testids_refresh(ctx, esvp_init_testid_ctx,
+				   esvp_read_status, esvp_write_status));
 
 	CKINT(acvp_process_testids_esvp(ctx, &_esvp_continue));
 

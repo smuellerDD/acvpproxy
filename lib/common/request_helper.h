@@ -180,6 +180,8 @@ int acvp_create_url(const char *path, char *url, size_t urllen);
  * @param urllen [in] Length of the URL buffer allocated by caller
  */
 int acvp_create_urlpath(const char *path, char *url, uint32_t urllen);
+int acvp_create_urlpath_proto(const struct acvp_net_proto *proto,
+			      const char *path, char *url, uint32_t urllen);
 
 /**
  * Append HTTP options to an URL - the options must be given without HTTP
