@@ -1,6 +1,6 @@
 /* Object encapsulating TLS client credential and server certificate
  *
- * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -68,7 +68,7 @@
 - (SecCertificateRef)loadServerCertFromFile:(const struct acvp_net_ctx *)net
 {
 	if (!net->certs_ca_file) {
-		logger(LOGGER_ERR, LOGGER_C_CURL,
+		logger(LOGGER_VERBOSE, LOGGER_C_CURL,
 		       "No server certificate file available for verification\n");
 		return nil;
 	}

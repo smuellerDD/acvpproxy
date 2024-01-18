@@ -9,5 +9,6 @@
 	"iid": false,
 	"physical": false,
 	"itar": false,
-	"additionalNoiseSources": false
+	"additionalNoiseSources": false,
+	"limitEntropyAssessmentToSingleModule": false
 }

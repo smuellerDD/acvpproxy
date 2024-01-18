@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -56,7 +56,7 @@ struct def_algo_kdf_108 {
 	/*
 	 * The KDF mode for testing.
 	 *
-	 * required: always
+	 * required: always for HMAC or CMAC based KDFs
 	 */
 	enum kdf_108_type {
 		DEF_ALG_KDF_108_COUNTER,
@@ -77,27 +77,29 @@ struct def_algo_kdf_108 {
 	 * ACVP_HMACSHA2_256
 	 * ACVP_HMACSHA2_384
 	 * ACVP_HMACSHA2_512
+	 * ACVP_KMAC128
+	 * ACVP_KMAC256
 	 *
 	 * required: always
 	 */
 	cipher_t macalg;
 
 	/*
-	 * The lengths of data the IUT supports.
+	 * The supported derived keying material lengths in bits.
 	 *
 	 * Minimum must be greater or equal to 1. Maximum must be less than
 	 * or equal to 4096.
 	 *
 	 * You may define a range with DEF_ALG_DOMAIN.
 	 *
-	 * required: always
+	 * required: always for HMAC or CMAC based KDFs
 	 */
 	int supported_lengths[DEF_ALG_MAX_INT];
 
 	/*
 	 * Describes where the counter appears in the fixed data.
 	 *
-	 * required: always
+	 * required: always for HMAC or CMAC based KDFs
 	 */
 #define DEF_ALG_KDF_108_COUNTER_ORDER_NONE (1 << 0)
 #define DEF_ALG_KDF_108_COUNTER_ORDER_AFTER_FIXED_DATA (1 << 1)
@@ -109,7 +111,7 @@ struct def_algo_kdf_108 {
 	/*
 	 * Valid counter lengths that appears in the fixed data.
 	 *
-	 * required: always
+	 * required: always for HMAC or CMAC based KDFs
 	 */
 #define DEF_ALG_KDF_108_COUNTER_LENGTH_0 (1 << 0)
 #define DEF_ALG_KDF_108_COUNTER_LENGTH_8 (1 << 1)
@@ -121,16 +123,73 @@ struct def_algo_kdf_108 {
 	/*
 	 * Whether the IUT supports an empty IV.
 	 *
-	 * required: always
+	 * required: always for HMAC or CMAC based KDFs
 	 */
 	bool supports_empty_iv;
 
 	/*
 	 * Whether the IUT requires an empty IV.
 	 *
-	 * required: always
+	 * required: always for HMAC or CMAC based KDFs
 	 */
 	bool requires_empty_iv;
+
+	/*
+	 * Optional value used to control the length of the keyIn produced by
+	 * the ACVP server for the capability.
+	 *
+	 * required: optional for HMAC or CMAC based KDFs
+	 */
+	int custom_key_in_length;
+
+	/*
+	 * The length of the key derivation key in bits.
+	 *
+	 * Minimum must be greater or equal to 112. Maximum must be less than
+	 * or equal to 4096.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * required: always for KMAC based KDFs
+	 */
+	int key_derivation_key_length[DEF_ALG_MAX_INT];
+
+	/*
+	 * The length of the context field in bits.
+	 *
+	 * Minimum must be greater or equal to 8. Maximum must be less than
+	 * or equal to 4096.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * required: always for KMAC based KDFs
+	 */
+	int context_length[DEF_ALG_MAX_INT];
+
+	/*
+	 * The lengths of the label field in bits. This field can be excluded
+	 * if no label is used.
+	 *
+	 * Minimum must be greater or equal to 8. Maximum must be less than
+	 * or equal to 4096.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * required: optional for KMAC based KDFs
+	 */
+	int label_length[DEF_ALG_MAX_INT];
+
+	/*
+	 * The lengths of the derived keys in bits.
+	 *
+	 * Minimum must be greater or equal to 112. Maximum must be less than
+	 * or equal to 4096.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * required: always for KMAC based KDFs
+	 */
+	int derived_key_length[DEF_ALG_MAX_INT];
 };
 
 #ifdef __cplusplus

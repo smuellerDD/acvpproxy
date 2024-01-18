@@ -1,6 +1,6 @@
 /* Base64 encoder and decoder
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

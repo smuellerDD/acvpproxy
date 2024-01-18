@@ -1,6 +1,6 @@
 /* Loading of the ESVP dependency configurations
  *
- * Copyright (C) 2021 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -338,16 +338,13 @@ static int esvp_read_es_def(const char *directory, struct esvp_es_def **es_out)
 
 	CKINT(json_get_bool(es_conf, "iid", &es->iid));
 	CKINT(json_get_bool(es_conf, "physical", &es->physical));
-	/* Deprecated on 2023/03/08, but ESV server still wants to see it.
-	   Do not parse the JSON file for the itar field anymore. Leave the default setting at false,
-	   because the ESV server will need it still. */
-	/* CKINT(json_get_bool(es_conf, "itar", &es->itar)); */
-	es->itar = false;
 
-	/* Allow this option to be not present in the config file */
-	es->limit_es_single_module = false;
-	json_get_bool(es_conf, "limitEntropyAssessmentToSingleModule",
-		      &es->limit_es_single_module);
+	/*
+	 * limitEntropyAssessmentToSingleModule no longer optional to force it
+	 * visible to testers.
+	 */
+	CKINT(json_get_bool(es_conf, "limitEntropyAssessmentToSingleModule",
+			    &es->limit_es_single_module));
 	CKINT(json_get_bool(es_conf, "additionalNoiseSources",
 			    &es->additional_noise_sources));
 

@@ -1,6 +1,6 @@
 /* Handle the ACVP purchase requests
  *
- * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -121,7 +121,8 @@ out:
 
 /* POST /purchase */
 DSO_PUBLIC
-int acvp_purchase(const struct acvp_ctx *ctx, uint32_t opt, uint32_t qty)
+int acvp_purchase(const struct acvp_ctx *ctx, uint32_t opt, uint32_t qty,
+		  const char *ponumber)
 {
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	struct json_object *request = NULL, *array, *entry, *resp = NULL;
@@ -149,6 +150,11 @@ int acvp_purchase(const struct acvp_ctx *ctx, uint32_t opt, uint32_t qty)
 	entry = json_object_new_object();
 	CKNULL(entry, -ENOMEM);
 	CKINT(json_object_array_add(request, entry));
+
+	if (ponumber) {
+		CKINT(json_object_object_add(entry, "purchaseOrderNumber",
+					     json_object_new_string(ponumber)));
+	}
 
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);

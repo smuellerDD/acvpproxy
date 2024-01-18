@@ -214,9 +214,6 @@ noise source.
 
 * `bitsPerSample`: the number of bits per sample outputted by the noise source
 
-* `alphabetSize`: the total number of distinct samples possibly outputted by the
-noise source
-
 * `numberOfRestarts`: the number of restarts used to generate the restart bits
 data file - this should be 1000
 
@@ -232,14 +229,20 @@ independent and identically distributed
 * `physical`: boolean indicating whether the noise source is physical or
 non-physical
 
-* `itar`: boolean indicating whether the entropy source claims heightened
-security for an ITAR validation
-
-* `limitEntropyAssessmentToSingleModule` optional boolean indicating whether
-ES is limited to one single module
+* `limitEntropyAssessmentToSingleModule`: boolean indicating whether
+ES is limited to one single module, i.e., if FALSE, ES will be open for reuse;
+if TRUE, ES will be restricted to vendor
 
 * `additionalNoiseSources`: boolean indicating whether additional noise sources
 are incorporated in the entropy source
+
+* `earFile`: optional string of file name pointing to the EAR document. Note,
+if the common documentation directory contains any EAR document as mentioned
+above, the proxy will submit *both*.
+
+* `pudFile`: optional string of file name pointing to the PUD document. Note,
+if the common documentation directory contains any PUD document as mentioned
+above, the proxy will submit *both*.
 
 # Author
 

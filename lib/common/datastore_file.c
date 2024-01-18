@@ -1,6 +1,6 @@
 /* Datastore backend storing files
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -211,7 +211,7 @@ acvp_datastore_file_target_dir(const struct acvp_testid_ctx *testid_ctx,
 		return 0;
 
 	if (secure_location) {
-		snprintf(pathname, pathnamelen, "%s/",
+		snprintf(pathname, pathnamelen, "%s",
 			 datastore->secure_basedir);
 
 		if (!atomic_read(&ds_secure_ver_checked)) {
@@ -318,7 +318,7 @@ acvp_datastore_file_rename_version(const struct acvp_testid_ctx *testid_ctx,
 	info->module_version_filesafe = newversion;
 	CKINT(acvp_sanitize_string(info->module_version_filesafe));
 	CKINT(acvp_datastore_file_vectordir(testid_ctx, newpathname,
-					    sizeof(pathname), true, true));
+					    sizeof(newpathname), true, true));
 	info->module_version_filesafe = currver;
 	ret = rename(pathname, newpathname);
 	if (ret) {
@@ -332,7 +332,7 @@ acvp_datastore_file_rename_version(const struct acvp_testid_ctx *testid_ctx,
 	info->module_version_filesafe = newversion;
 	CKINT(acvp_sanitize_string(info->module_version_filesafe));
 	CKINT(acvp_datastore_file_vectordir(testid_ctx, newpathname,
-					    sizeof(pathname), true, false));
+					    sizeof(newpathname), true, false));
 	info->module_version_filesafe = currver;
 	ret = rename(pathname, newpathname);
 	if (ret) {

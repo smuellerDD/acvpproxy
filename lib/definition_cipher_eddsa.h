@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -75,14 +75,6 @@ struct def_algo_eddsa {
 	 * required: always
 	 */
 	cipher_t curve;
-
-	/*
-	 * The method used to generate the randomness incorporated in the key.
-	 * required: always for ECDSA keygen
-	 */
-#define DEF_ALG_EDDSA_EXTRA_BITS (1 << 0)
-#define DEF_ALG_EDDSA_TESTING_CANDIDATES (1 << 1)
-	unsigned int secretgenerationmode;
 
 	/*
 	 * If the IUT supports normal 'pure' sigGen functionality.

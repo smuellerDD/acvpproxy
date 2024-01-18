@@ -1,6 +1,6 @@
 /* Perform ESVP certification operation
  *
- * Copyright (C) 2021 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -217,8 +217,6 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 	if (ret < 0)
 		goto unlock_vendor;
 
-	CKINT_ULCK(json_object_object_add(certdata, "itar",
-					  json_object_new_boolean(es->itar)));
 	CKINT_ULCK(json_object_object_add(certdata,
 		   "limitEntropyAssessmentToSingleModule",
 		   json_object_new_boolean(es->limit_es_single_module)));
@@ -290,7 +288,7 @@ esvp_process_certify(const struct acvp_testid_ctx *testid_ctx,
 {
 	int ret;
 
-	CKINT(acvp_store_file(testid_ctx, response, 0,
+	CKINT(acvp_store_file(testid_ctx, response, 1,
 			      "certify-response.json"));
 	CKINT(esvp_analyze_certify(testid_ctx, response));
 

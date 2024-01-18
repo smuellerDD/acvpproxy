@@ -1,6 +1,6 @@
 /* ACVP Proxy hash and HMAC module definition
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -44,7 +44,6 @@ static const struct def_algo_prereqs tests_eddsa_prereqs[] = {
 			.eddsa_mode = DEF_ALG_EDDSA_MODE_KEYGEN,	\
 			DEF_PREREQS(tests_eddsa_prereqs),		\
 			.curve = ACVP_ED25519,				\
-			.secretgenerationmode = DEF_ALG_EDDSA_TESTING_CANDIDATES \
 			}						\
 		}							\
 	}
@@ -57,7 +56,6 @@ static const struct def_algo_prereqs tests_eddsa_prereqs[] = {
 			.eddsa_mode = DEF_ALG_EDDSA_MODE_KEYVER,	\
 			DEF_PREREQS(tests_eddsa_prereqs),		\
 			.curve = ACVP_ED25519,				\
-			.secretgenerationmode = DEF_ALG_EDDSA_TESTING_CANDIDATES \
 			}						\
 		}							\
 	}

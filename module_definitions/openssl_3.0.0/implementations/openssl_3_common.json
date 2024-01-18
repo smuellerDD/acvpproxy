@@ -1,0 +1,58 @@
+{
+	"implementations": [
+		"TDES_C",
+		"KBKDF",
+		"KDA",
+		"ECDSA K/B",
+		"ECDSA SHA3 K/B",
+		"ECDH K/B",
+		"TLS v1.3",
+		"FFC_DH",
+		"DRBG_3",
+		"AESASM",
+		"AESASM_ASM",
+		"SHA_ASM",
+		"SSH_ASM",
+		"SHA3_ASM",
+		"EDDSA",
+	],
+	"dependencies-internal": {
+		"KBKDF": {
+			"AES": "AES",
+			"TDES" : "TDES",
+			"CMAC" : "AES",
+			"CMAC" : "TDES",
+			"HMAC" : "SHA_",
+			"SHA": "SHA_"
+		},
+		"KDA": {
+			"SHA": "SHA_",
+			"HMAC": "SHA_",
+			"DRBG": "DRBG_3"
+		},
+		"FFC_DH": {
+			"SHA": "SHA_",
+			"DRBG": "DRBG_3",
+			"DSA": "SHA_"
+		},
+		"AESASM_ASM": {
+			"AES": "AESASM",
+			"DRBG": "DRBG_3"
+		},
+		"SHA_ASM": {
+			"DRBG": "DRBG_3"
+		},
+		"SSH_ASM": {
+			"AES": "AES",
+			"TDES" : "TDES",
+			"SHA": "SHA_ASM"
+		},
+		"SHA3_ASM": {
+			"DRBG": "DRBG_3"
+		},
+		"EDDSA": {
+			"DRBG": "DRBG_3",
+			"SHA": "SHA_"
+		}
+	}
+}

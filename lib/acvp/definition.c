@@ -1,6 +1,6 @@
 /* ACVP definition handling
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -57,6 +57,7 @@ static struct def_dependency_type_names type_name[] = {
 	{ def_dependency_os, "Operating System" },
 	{ def_dependency_hardware, "processor" },
 	{ def_dependency_hardware, "cpu" },
+	{ def_dependency_hardware, "hardware" },
 	{ def_dependency_software, "software" },
 	{ def_dependency_firmware, "firmware" }
 };
@@ -326,7 +327,10 @@ static int acvp_export_def_search_dep_v1(const struct def_oe *oe,
 		if (def_dep->name && !execenv_done) {
 			CKINT(json_object_object_add(
 				s, "execenv",
-				acvp_export_string_to_json(def_dep->name)));
+				acvp_export_string_to_json(
+					def_dep->name_newname ?
+					def_dep->name_newname :
+					def_dep->name)));
 			/* we only store one */
 			execenv_done = true;
 		}
@@ -336,18 +340,27 @@ static int acvp_export_def_search_dep_v1(const struct def_oe *oe,
 			if (def_dep->proc_name) {
 				CKINT(json_object_object_add(
 				      s, "processor",
-				      acvp_export_string_to_json(def_dep->proc_name)));
+				      acvp_export_string_to_json(
+					def_dep->proc_name_newname ?
+					def_dep->proc_name_newname :
+					def_dep->proc_name)));
 			}
 			if (def_dep->proc_family) {
 				CKINT(json_object_object_add(
 				      s, "processorFamily",
-				      acvp_export_string_to_json(def_dep->proc_family)));
+				      acvp_export_string_to_json(
+					def_dep->proc_family_newname ?
+					def_dep->proc_family_newname :
+					def_dep->proc_family)));
 			}
 
 			if (def_dep->proc_series) {
 				CKINT(json_object_object_add(
 				      s, "processorSeries",
-				      acvp_export_string_to_json(def_dep->proc_series)));
+				      acvp_export_string_to_json(
+					def_dep->proc_series_newname ?
+					def_dep->proc_series_newname :
+					def_dep->proc_series)));
 			}
 			cpu_done = true;
 		}
@@ -383,18 +396,30 @@ static int acvp_export_def_search_dep_v2(const struct def_oe *oe,
 		case def_dependency_software:
 			CKINT(json_object_object_add(
 				entry, "execenv",
-				acvp_export_string_to_json(def_dep->name)));
+				acvp_export_string_to_json(
+					def_dep->name_newname ?
+					def_dep->name_newname :
+					def_dep->name)));
 			break;
 		case def_dependency_hardware:
 			CKINT(json_object_object_add(
 				entry, "processor",
-				acvp_export_string_to_json(def_dep->proc_name)));
+				acvp_export_string_to_json(
+					def_dep->proc_name_newname ?
+					def_dep->proc_name_newname :
+					def_dep->proc_name)));
 			CKINT(json_object_object_add(
 				entry, "processorFamily",
-				acvp_export_string_to_json(def_dep->proc_family)));
+				acvp_export_string_to_json(
+					def_dep->proc_family_newname ?
+					def_dep->proc_family_newname :
+					def_dep->proc_family)));
 			CKINT(json_object_object_add(
 				entry, "processorSeries",
-				acvp_export_string_to_json(def_dep->proc_series)));
+				acvp_export_string_to_json(
+					def_dep->proc_series_newname ?
+					def_dep->proc_series_newname :
+					def_dep->proc_series)));
 			break;
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -429,10 +454,14 @@ int acvp_export_def_search(const struct acvp_testid_ctx *testid_ctx)
 
 	CKINT(json_object_object_add(
 		s, "moduleName",
-		acvp_export_string_to_json(mod_info->module_name)));
+		acvp_export_string_to_json(mod_info->module_name_newname ?
+					   mod_info->module_name_newname :
+					   mod_info->module_name)));
 	CKINT(json_object_object_add(
 		s, "moduleVersion",
-		acvp_export_string_to_json(mod_info->module_version)));
+		acvp_export_string_to_json(mod_info->module_version_newname ?
+					   mod_info->module_version_newname :
+					   mod_info->module_version)));
 	CKINT(json_object_object_add(
 		s, "vendorName",
 		acvp_export_string_to_json(vendor->vendor_name)));
@@ -712,13 +741,18 @@ int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 void acvp_def_free_info(struct def_info *info)
 {
 	ACVP_PTR_FREE_NULL(info->module_name);
+	ACVP_PTR_FREE_NULL(info->module_name_newname);
 	ACVP_PTR_FREE_NULL(info->impl_name);
 	ACVP_PTR_FREE_NULL(info->impl_description);
 	ACVP_PTR_FREE_NULL(info->orig_module_name);
+	ACVP_PTR_FREE_NULL(info->orig_module_name_newname);
 	ACVP_PTR_FREE_NULL(info->module_name_filesafe);
+	ACVP_PTR_FREE_NULL(info->module_name_filesafe_newname);
 	ACVP_PTR_FREE_NULL(info->module_name_internal);
 	ACVP_PTR_FREE_NULL(info->module_version);
 	ACVP_PTR_FREE_NULL(info->module_version_filesafe);
+	ACVP_PTR_FREE_NULL(info->module_version_newname);
+	ACVP_PTR_FREE_NULL(info->module_version_filesafe_newname);
 	ACVP_PTR_FREE_NULL(info->module_description);
 	ACVP_PTR_FREE_NULL(info->def_module_file);
 	acvp_def_put_lock(info->def_lock);
@@ -779,15 +813,20 @@ static void acvp_def_free_dep(struct def_oe *oe)
 	while (def_dep) {
 		struct def_dependency *tmp = def_dep;
 
+		ACVP_PTR_FREE_NULL(def_dep->def_dependency_type_name);
 		ACVP_PTR_FREE_NULL(def_dep->name);
+		ACVP_PTR_FREE_NULL(def_dep->name_newname);
 		ACVP_PTR_FREE_NULL(def_dep->cpe);
 		ACVP_PTR_FREE_NULL(def_dep->swid);
 		ACVP_PTR_FREE_NULL(def_dep->description);
 		ACVP_PTR_FREE_NULL(def_dep->manufacturer);
 		ACVP_PTR_FREE_NULL(def_dep->proc_family);
+		ACVP_PTR_FREE_NULL(def_dep->proc_family_newname);
 		ACVP_PTR_FREE_NULL(def_dep->proc_family_internal);
 		ACVP_PTR_FREE_NULL(def_dep->proc_name);
+		ACVP_PTR_FREE_NULL(def_dep->proc_name_newname);
 		ACVP_PTR_FREE_NULL(def_dep->proc_series);
+		ACVP_PTR_FREE_NULL(def_dep->proc_series_newname);
 
 		def_dep = def_dep->next;
 		free(tmp);
@@ -990,6 +1029,8 @@ static int acvp_def_add_dep(struct def_oe *oe, const struct def_dependency *src)
 
 	def_dep->acvp_dep_id = src->acvp_dep_id;
 	def_dep->def_dependency_type = src->def_dependency_type;
+	CKINT(acvp_duplicate(&def_dep->def_dependency_type_name,
+			     src->def_dependency_type_name));
 
 out:
 	return ret;
@@ -2284,6 +2325,8 @@ static int acvp_def_load_config_dep(struct json_object *dep_entry,
 		  "dependencyType %s is unknown\n", str);
 	CKINT(acvp_def_load_config_dep_typed(dep_entry, def_dep,
 					     local_proc_family));
+	CKINT(acvp_duplicate(&def_dep->def_dependency_type_name, str));
+
 
 out:
 	return ret;

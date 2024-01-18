@@ -1,6 +1,6 @@
 /* leancrypto module definition
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -214,6 +214,62 @@ static const struct def_algo_prereqs sha_prereqs[] = {
 	}
 
 /**************************************************************************
+ * EDDSA Definitions
+ **************************************************************************/
+static const struct def_algo_prereqs lc_eddsa_prereqs[] = {
+	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+
+#define LC_EDDSA_KEYGEN							\
+	{								\
+	.type = DEF_ALG_TYPE_EDDSA,					\
+	.algo = {							\
+		.eddsa = {						\
+			.eddsa_mode = DEF_ALG_EDDSA_MODE_KEYGEN,	\
+			DEF_PREREQS(lc_eddsa_prereqs),			\
+			.curve = ACVP_ED25519,				\
+			}						\
+		}							\
+	}
+
+#define LC_EDDSA_SIGGEN							\
+	{								\
+	.type = DEF_ALG_TYPE_EDDSA,					\
+	.algo = {							\
+		.eddsa = {						\
+			.eddsa_mode = DEF_ALG_EDDSA_MODE_SIGGEN,	\
+			DEF_PREREQS(lc_eddsa_prereqs),			\
+			.curve = ACVP_ED25519,				\
+			.eddsa_pure = DEF_ALG_EDDSA_PURE_SUPPORTED,	\
+			.eddsa_prehash = DEF_ALG_EDDSA_PREHASH_UNSUPPORTED,\
+			}						\
+		}							\
+	}
+
+#define LC_EDDSA_SIGVER							\
+	{								\
+	.type = DEF_ALG_TYPE_EDDSA,					\
+	.algo = {							\
+		.eddsa = {						\
+			.eddsa_mode = DEF_ALG_EDDSA_MODE_SIGVER,	\
+			DEF_PREREQS(lc_eddsa_prereqs),		\
+			.curve = ACVP_ED25519,				\
+			.eddsa_pure = DEF_ALG_EDDSA_PURE_SUPPORTED,	\
+			.eddsa_prehash = DEF_ALG_EDDSA_PREHASH_UNSUPPORTED,\
+			}						\
+		}							\
+	}
+
+
+/**************************************************************************
  * Implementation Definitions
  **************************************************************************/
 
@@ -251,7 +307,11 @@ static const struct def_algo lc_c[] = {
 	LC_DRBG_HMAC,
 	LC_DRBG_HASH,
 
-	LC_HKDF
+	LC_HKDF,
+
+	LC_EDDSA_KEYGEN,
+	LC_EDDSA_SIGGEN,
+	LC_EDDSA_SIGVER
 };
 
 static const struct def_algo lc_avx2[] = {
@@ -259,6 +319,11 @@ static const struct def_algo lc_avx2[] = {
 };
 
 static const struct def_algo lc_shake_avx2_4x[] = {
+	LC_SHAKE(ACVP_SHAKE128),
+	LC_SHAKE(ACVP_SHAKE256),
+};
+
+static const struct def_algo lc_shake_armv8_2x[] = {
 	LC_SHAKE(ACVP_SHAKE128),
 	LC_SHAKE(ACVP_SHAKE256),
 };
@@ -362,6 +427,14 @@ static struct def_algo_map lc_algo_map [] = {
 		.algo_name = "leancrypto",
 		.processor = "ARM64",
 		.impl_name = "ARM_CE"
+	},
+
+/* ARMv8 cipher implementation, ***********************************************/
+	{
+		SET_IMPLEMENTATION(lc_shake_armv8_2x),
+		.algo_name = "leancrypto",
+		.processor = "ARM64",
+		.impl_name = "ARM_2X"
 	},
 
 /* RISC-V 64 cipher assembler implementation, *********************************/

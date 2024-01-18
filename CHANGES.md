@@ -1,3 +1,20 @@
+v1.8.1:
+- fix: rename now works for multiple test sessions
+- enhancement: leancrypto - add EDDSA
+- Update DRBG numbers to be consistent with spec
+- Support SHA-3-based DRBGs and test using OpenSSL 3
+- Support HKDF SP 800-56Cr2 and add to OpenSSL
+- Add SP 800-108r1 KMAC KBKDF to OpenSSL 3.1 and above
+- Support SP 800-108r1 KMAC KBKDF
+- Add EdDSA to OpenSSL
+- Fix bitwise checks across various algorithms
+- Add option to set customKeyInLength for KBKDF
+- fix handling of OE type processing
+- Support RSA Signature Component revision 2.0
+- fix rename for multiple sessions
+- update RSA decprim with fixed pub exp mode
+- OpenSSL 3 supports KAS2
+
 v1.8.0
 - fix: ESV register multiple OEs in one certify operation
 - enhancement: AMVP client working as of Hackathon Mid Aug 2023

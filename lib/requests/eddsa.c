@@ -1,6 +1,6 @@
 /* JSON generator for EDDSA ciphers
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -32,8 +32,6 @@
 static int acvp_req_eddsa_keygen(const struct def_algo_eddsa *eddsa,
 				 struct json_object *entry)
 {
-	struct json_object *tmp;
-	unsigned int found = 0;
 	int ret;
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));
@@ -41,27 +39,6 @@ static int acvp_req_eddsa_keygen(const struct def_algo_eddsa *eddsa,
 	CKINT_LOG(acvp_req_cipher_to_array(entry, eddsa->curve,
 					   ACVP_CIPHERTYPE_ECC, "curve"),
 		  "EDDSA: Addition of curve specification failed\n");
-
-	tmp = json_object_new_array();
-	CKNULL(tmp, -ENOMEM);
-	CKINT(json_object_object_add(entry, "secretGenerationMode", tmp));
-	if (eddsa->secretgenerationmode & DEF_ALG_EDDSA_EXTRA_BITS) {
-		CKINT(json_object_array_add(tmp,
-					json_object_new_string("extra bits")));
-		found = 1;
-	}
-	if (eddsa->secretgenerationmode & DEF_ALG_EDDSA_TESTING_CANDIDATES) {
-		CKINT(json_object_array_add(tmp,
-				json_object_new_string("testing candidates")));
-		found = 1;
-	}
-
-	if (!found) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "EDDSA: SecretGenerationMode not defined\n");
-		ret = -EINVAL;
-		goto out;
-	}
 
 out:
 	return ret;

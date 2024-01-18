@@ -1,6 +1,6 @@
 /* JSON request generator for SHAKE
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -57,8 +57,8 @@ int acvp_req_set_algo_xof(const struct def_algo_xof *xof,
 	struct json_object *tmp_array = NULL;
 	int ret;
 
-	if ((xof->algorithm & ACVP_SHAKE128 ||
-	     xof->algorithm & ACVP_SHAKE256) &&
+	if (((xof->algorithm & ACVP_SHAKE128) == ACVP_SHAKE128 ||
+	    (xof->algorithm & ACVP_SHAKE256) == ACVP_SHAKE256) &&
 	    (!(xof->outlength[0] & DEF_ALG_RANGE_TYPE) ||
 	     xof->outlength[1] > 65536 ||
 	     acvp_range_min_val(xof->outlength) < 16)) {
@@ -77,7 +77,8 @@ int acvp_req_set_algo_xof(const struct def_algo_xof *xof,
 
 	CKINT(acvp_req_algo_int_array(entry, xof->messagelength, "msgLen"));
 
-	if (xof->algorithm & ACVP_KMAC128 || xof->algorithm & ACVP_KMAC256) {
+	if ((xof->algorithm & ACVP_KMAC128) == ACVP_KMAC128 ||
+	    (xof->algorithm & ACVP_KMAC256) == ACVP_KMAC256) {
 		tmp_array = json_object_new_array();
 		CKNULL(tmp_array, -ENOMEM);
 		if (xof->xof & DEF_ALG_XOF_NOT_PRESENT)

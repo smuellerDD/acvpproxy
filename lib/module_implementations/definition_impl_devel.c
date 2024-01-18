@@ -1,6 +1,6 @@
 /* Development module definition
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -742,28 +742,54 @@ static const struct def_algo_prereqs devel_rsa_prereqs[] = {
 	},
 };
 
-static const struct def_algo_rsa_component_dec devel_rsa_component_dec_alg[] = { {
-	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
-// }, {
-// 	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
-// }, {
-// 	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
-} };
+#define DEVEL_RSA_DEC_PRIMITIVE10					\
+	{								\
+	.type = DEF_ALG_TYPE_RSA,					\
+	.algo = {							\
+		.rsa = {						\
+			.rsa_mode = DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE,\
+			DEF_PREREQS(devel_rsa_prereqs),\
+			}						\
+		}							\
+	}
 
-static const struct def_algo_rsa_component_sig_gen devel_rsa_component_dec = {
-	.keyformat = DEF_ALG_RSA_KEYFORMAT_STANDARD,
-	.pubexpmode = DEF_ALG_RSA_PUBEXTMODE_FIXED,
-	.fixedpubexp = "010001",
+#else
+#define DEVEL_RSA_DEC_PRIMITIVE10
+#endif
+
+#if 1
+
+static const struct def_algo_prereqs devel_rsa_prereqs[] = {
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
 };
 
-#define DEVEL_RSA_DEC_PRIMITIVE					\
+static const struct def_algo_rsa_component_dec devel_rsa_component_dec_alg[] = { {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_2048,
+	.keyformat = DEF_ALG_RSA_KEYFORMAT_CRT,
+	.pubexpmode = DEF_ALG_RSA_PUBEXTMODE_FIXED,
+	.fixedpubexp = "010001",
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_3072,
+	.keyformat = DEF_ALG_RSA_KEYFORMAT_CRT,
+	.pubexpmode = DEF_ALG_RSA_PUBEXTMODE_FIXED,
+	.fixedpubexp = "010001",
+}, {
+	.rsa_modulo = DEF_ALG_RSA_MODULO_4096,
+	.keyformat = DEF_ALG_RSA_KEYFORMAT_CRT,
+	.pubexpmode = DEF_ALG_RSA_PUBEXTMODE_FIXED,
+	.fixedpubexp = "010001",
+} };
+
+#define DEVEL_RSA_DEC_PRIMITIVE56Br2					\
 	{								\
 	.type = DEF_ALG_TYPE_RSA,					\
 	.algo = {							\
 		.rsa = {						\
 			.rsa_mode = DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE,\
 			DEF_PREREQS(devel_rsa_prereqs),			\
-			.gen_info.component_sig = &devel_rsa_component_dec,\
 			.algspecs.component_dec = devel_rsa_component_dec_alg,\
 			.algspecs_num = ARRAY_SIZE(devel_rsa_component_dec_alg),\
 			}						\
@@ -771,7 +797,7 @@ static const struct def_algo_rsa_component_sig_gen devel_rsa_component_dec = {
 	}
 
 #else
-#define DEVEL_RSA_DEC_PRIMITIVE
+#define DEVEL_RSA_DEC_PRIMITIVE56Br2
 #endif
 
 /**************************************************************************
@@ -1081,7 +1107,7 @@ static const struct def_algo_kas_kdf_onestepkdf_aux kas_kdf_onestepkdf_aux[] = {
 #define ONESTEPNOCTR
 #endif
 
-#if 1
+#if 0
 static const struct def_algo_prereqs devel_rsa_prereqs[] = {
 	{
 		.algorithm = "SHA",
@@ -1398,7 +1424,8 @@ static const struct def_algo devel[] = {
 	DEVEL_KAS_KDF_ONESTEP
 	DEVEL_KAS_KDF_TWOSTEP
 
-	DEVEL_RSA_DEC_PRIMITIVE
+	DEVEL_RSA_DEC_PRIMITIVE10
+	DEVEL_RSA_DEC_PRIMITIVE56Br2
 
 	DEVEL_KDF_TPM
 

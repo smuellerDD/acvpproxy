@@ -1,6 +1,6 @@
 /* JSON generator for ECDSA ciphers
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -36,7 +36,11 @@ static int acvp_req_ecdsa_keygen(const struct def_algo_ecdsa *ecdsa,
 	unsigned int found = 0;
 	int ret;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
+	if (ecdsa->revision == DEF_ALG_ECDSA_186_5) {
+		CKINT(acvp_req_add_revision(entry, "FIPS186-5"));
+	} else {
+		CKINT(acvp_req_add_revision(entry, "1.0"));
+	}
 
 	CKINT(acvp_req_cipher_to_array(entry, ecdsa->curve,
 				       ACVP_CIPHERTYPE_ECC, "curve"));
@@ -71,7 +75,13 @@ static int acvp_req_ecdsa_keyver(const struct def_algo_ecdsa *ecdsa,
 {
 	int ret;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
+
+	if (ecdsa->revision == DEF_ALG_ECDSA_186_5) {
+		CKINT(acvp_req_add_revision(entry, "FIPS186-5"));
+	} else {
+		CKINT(acvp_req_add_revision(entry, "1.0"));
+	}
+
 	CKINT(acvp_req_cipher_to_array(entry, ecdsa->curve,
 				       ACVP_CIPHERTYPE_ECC, "curve"));
 
@@ -107,7 +117,7 @@ static int acvp_req_ecdsa_siggen(const struct def_algo_ecdsa *ecdsa,
 {
 	int ret;
 
-	if (ecdsa->ecdsa_mode == DEF_ALG_ECDSA_MODE_DETERMINISTIC_SIGGEN) {
+	if (ecdsa->revision == DEF_ALG_ECDSA_186_5) {
 		CKINT(acvp_req_add_revision(entry, "FIPS186-5"));
 	} else {
 		CKINT(acvp_req_add_revision(entry, "1.0"));
@@ -127,7 +137,11 @@ static int acvp_req_ecdsa_sigver(const struct def_algo_ecdsa *ecdsa,
 {
 	int ret;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
+	if (ecdsa->revision == DEF_ALG_ECDSA_186_5) {
+		CKINT(acvp_req_add_revision(entry, "FIPS186-5"));
+	} else {
+		CKINT(acvp_req_add_revision(entry, "1.0"));
+	}
 
 	CKINT(json_object_object_add(entry, "componentTest",
 			json_object_new_boolean(ecdsa->component_test)));

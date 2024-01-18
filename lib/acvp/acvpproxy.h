@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -60,7 +60,7 @@ extern "C" {
 #define NIST_VAL_OP_AVAIL_VSIDS NIST_VAL_OP_LAB "/availablevectorsets"
 #define NIST_VAL_OP_LABS "labs"
 #define NIST_VAL_OP_CRSESSIONS "crSessions"
-#define NIST_VAL_OP_CERTREQUESTS "crSessions" //"certRequests"
+#define NIST_VAL_OP_CERTREQUESTS "certRequests"
 #define NIST_VAL_OP_EVIDENCESETS "evSets"
 #define NIST_VAL_OP_ACVP "acvp"
 #define NIST_VAL_OP_ESVP "esv"
@@ -914,10 +914,13 @@ int acvp_purchase_list_available_vsids(const struct acvp_ctx *ctx);
  * @param opt [in] ACVP purchase option number that is returned by
  *		   acvp_get_purchase_options
  * @param qty [in] Amount how many the purchase option shall be bought
+ * @param ponumber [in] Purchase order number - optional field that may be
+ *			sent to NIST for making the payment request
  *
  * @return 0 on success, < 0 on error
  */
-int acvp_purchase(const struct acvp_ctx *ctx, uint32_t opt, uint32_t qty);
+int acvp_purchase(const struct acvp_ctx *ctx, uint32_t opt, uint32_t qty,
+		  const char *ponumber);
 
 #ifdef __cplusplus
 }

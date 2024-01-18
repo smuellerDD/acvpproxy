@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -38,6 +38,16 @@ extern "C" {
  * ECDSA common data data
  ****************************************************************************/
 struct def_algo_ecdsa {
+	/*
+	 * FIPS 186 revision to use.
+	 *
+	 * required: default is set to FIPS 186-4
+	 */
+	enum ecdsa_revision {
+		DEF_ALG_ECDSA_186_4,
+		DEF_ALG_ECDSA_186_5,
+	} revision;
+
 	/*
 	 * ECDSA mode type
 	 * required: always

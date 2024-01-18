@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -101,7 +101,6 @@ struct esvp_es_def {
 
 	bool iid;
 	bool physical;
-	bool itar;
 	bool additional_noise_sources;
 	bool limit_es_single_module;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -44,6 +44,10 @@ struct def_algo_drbg_caps {
 	 *	SHA2-512
 	 *	SHA2-512/224
 	 *	SHA2-512/256
+	 *	SHA3-224
+	 *	SHA3-256
+	 *	SHA3-384
+	 *	SHA3-512
 	 *
 	 * HMAC DRBG:
 	 *	SHA-1
@@ -53,6 +57,10 @@ struct def_algo_drbg_caps {
 	 *	SHA2-512
 	 *	SHA2-512/224
 	 *	SHA2-512/256
+	 *	SHA3-224
+	 *	SHA3-256
+	 *	SHA3-384
+	 *	SHA3-512
 	 *
 	 * CTR DRBG:
 	 *	TDES
@@ -162,7 +170,7 @@ struct def_algo_drbg {
 	 * One or more entries defining the capabilities
 	 * required: always
 	 */
-	struct def_algo_drbg_caps capabilities[7];
+	struct def_algo_drbg_caps capabilities[11];
 
 	/*
 	 * Number of capabilities

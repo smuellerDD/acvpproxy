@@ -1,6 +1,6 @@
 /* JSON request generator for RFC8446 KDF TLS 1.3
  *
- * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -62,6 +62,15 @@ int acvp_list_algo_kdf_tls13(const struct def_algo_kdf_tls13 *kdf_tls13,
 
 	CKINT(acvp_duplicate(&tmp->cipher_name, "TLS-v1.3"));
 	CKINT(acvp_duplicate(&tmp->cipher_mode, "KDF"));
+
+	if (kdf_tls13->hashalg & ~(ACVP_SHA256 | ACVP_SHA384)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "KDF TLS 1.3: only ACVP_SHA256 and ACVP_SHA384 allowed for cipher definition\n");
+		ret = -EINVAL;
+		goto out;
+
+	}
+
 	CKINT(acvp_req_cipher_to_stringarray(kdf_tls13->hashalg,
 					     ACVP_CIPHERTYPE_HASH,
 					     &tmp->cipher_aux));

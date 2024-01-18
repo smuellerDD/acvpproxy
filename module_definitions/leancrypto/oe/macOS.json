@@ -1,0 +1,13 @@
+{
+  "oeEnvName":"macOS Ventura 13",
+  "cpe":"cpe:2.3:o:apple:macOS:13:*:*:*:*:*:Apple_M_Series:*",
+  "manufacturer":"Apple",
+  "procFamily":"ARM64",
+  "procName":"M2",
+  "procSeries":"M Series",
+  "features":0,
+  "envType":0,
+  "acvpOeId":0,
+  "acvpOeDepProcId":0,
+  "acvpOeDepSwId":0
+}

@@ -1,6 +1,6 @@
 /* Registering of entropy source and submit of data
  *
- * Copyright (C) 2021 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -142,8 +142,6 @@ static int esvp_register_build(const struct esvp_es_def *es,
 		json_object_new_double(es->h_min_estimate)));
 	CKINT(json_object_object_add(entry, "physical",
 				     json_object_new_boolean(es->physical)));
-	CKINT(json_object_object_add(entry, "itar",
-				     json_object_new_boolean(es->itar)));
 	CKINT(json_add_bin2hex(entry, "rawNoiseSHA256",
 			       &es->raw_noise_data_hash));
 	CKINT(json_object_object_add(
@@ -481,6 +479,14 @@ static int esvp_process_datafiles_post_one(
 		return -EINVAL;
 	}
 
+	if (strcmp(data_type, "dataFile") == 0 &&
+	    (size_t)statbuf.st_size > ESVP_DATA_FILE_LIMIT) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "File %s is too large (limit: %lu bytes). Truncate or otherwise reduce the file size\n",
+		       pathname, ESVP_DATA_FILE_LIMIT);
+		return -EINVAL;
+	}
+
 	fd = open(pathname, O_RDONLY | O_CLOEXEC);
 	if (fd < 0) {
 		ret = -errno;
@@ -782,7 +788,6 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 	struct esvp_cc_def *cc;
 	DIR *doc_dir = NULL;
 	struct dirent *doc_dirent;
-	ACVP_EXT_BUFFER_INIT(itar);
 	ACVP_EXT_BUFFER_INIT(desc);
 	ACVP_EXT_BUFFER_INIT(sdtype);
 	char doc_dir_name[FILENAME_MAX - 256], pathname[FILENAME_MAX],
@@ -845,13 +850,13 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 		 ESVP_ES_DIR_DOCUMENTATION);
 
 	doc_dir = opendir(doc_dir_name);
-	CKNULL_LOG(doc_dir, -errno, "Failed to open directory %s\n",
-		   doc_dir_name);
+	if (doc_dir == NULL) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Documentation directory %s not found, ignoring\n",
+		       doc_dir_name);
+		goto out;
+	}
 
-	itar.buf = (uint8_t *)(es->itar ? "true" : "false");
-	itar.len = es->itar ? 4 : 5;
-	itar.data_type = "isITAR";
-	itar.next = &desc;
 	desc.data_type = "sdComments";
 
 	sdtype.data_type = "sdType";
@@ -902,7 +907,7 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 
 		// ITAR was deprecated on 2023/03/08. But the ESV server still wants to see it. Leave it for now.
 		CKINT(esvp_process_datafiles_post_one(
-			testid_ctx, url, pathname, NULL, "sdFile", &itar,
+			testid_ctx, url, pathname, NULL, "sdFile", &desc,
 			esvp_process_post_one_sd_response));
 	}
 
@@ -915,7 +920,7 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 			  "Creation of request URL failed\n");
 		CKINT(esvp_process_datafiles_post_one(
 			testid_ctx, url, (char *)es->ear_file, NULL,
-			"sdFile", &itar, esvp_process_post_one_sd_response));
+			"sdFile", &desc, esvp_process_post_one_sd_response));
 
 	}
 
@@ -928,7 +933,7 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 			  "Creation of request URL failed\n");
 		CKINT(esvp_process_datafiles_post_one(
 			testid_ctx, url, (char *)es->pud_file, NULL,
-			"sdFile", &itar, esvp_process_post_one_sd_response));
+			"sdFile", &desc, esvp_process_post_one_sd_response));
 
 	}
 

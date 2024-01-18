@@ -1,6 +1,6 @@
 /* JSON request generator for KAS ECC rev 3 (SP800-56A rev. 3)
  *
- * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -100,7 +100,19 @@ int acvp_list_algo_kdf_onestep(const struct def_algo_kdf_onestep *kdf_onestep,
 	CKNULL(tmp, -ENOMEM);
 	*new = tmp;
 
-	CKINT(acvp_duplicate(&tmp->cipher_name, "KDA Sp800-56Cr1"));
+	switch (kdf_onestep->kdf_spec) {
+	case DEF_ALG_KDF_SP800_56Crev1:
+		CKINT(acvp_duplicate(&tmp->cipher_name, "KDA Sp800-56Cr1"));
+		break;
+	case DEF_ALG_KDF_SP800_56Crev2:
+		CKINT(acvp_duplicate(&tmp->cipher_name, "KDA Sp800-56Cr2"));
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "SP800-56C: Unknown KDF specification\n");
+		return -EINVAL;
+	}
+
 	CKINT(acvp_duplicate(&tmp->cipher_mode, "OneStep"));
 
 	tmp->prereqs = kdf_onestep->prereqvals;

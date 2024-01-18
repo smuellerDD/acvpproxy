@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the operational env information
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -75,7 +75,12 @@ static int acvp_oe_build_dep_proc(const struct def_dependency *def_dep,
 	 * }
 	 */
 
-	CKINT(acvp_dep_type2name(def_dep->def_dependency_type, &typename));
+	if (def_dep->def_dependency_type_name) {
+		typename = def_dep->def_dependency_type_name;
+	} else {
+		CKINT(acvp_dep_type2name(def_dep->def_dependency_type,
+					 &typename));
+	}
 
 	dep = json_object_new_object();
 	CKNULL(dep, -ENOMEM);
@@ -178,7 +183,12 @@ static int acvp_oe_build_dep_sw(const struct def_dependency *def_dep,
 	 * }
 	 */
 
-	CKINT(acvp_dep_type2name(def_dep->def_dependency_type, &typename));
+	if (def_dep->def_dependency_type_name) {
+		typename = def_dep->def_dependency_type_name;
+	} else {
+		CKINT(acvp_dep_type2name(def_dep->def_dependency_type,
+					 &typename));
+	}
 
 	dep = json_object_new_object();
 	CKNULL(dep, -ENOMEM);

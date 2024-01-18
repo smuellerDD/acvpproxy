@@ -1,6 +1,6 @@
 /* JSON request generator for KAS ECC
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -113,7 +113,7 @@ static int acvp_req_kas_ecc_mac(cipher_t mac,
 		CKINT(json_object_object_add(tmp2, "macLen",
 					     json_object_new_int(maclen)));
 
-	if ((mac & ACVP_CCM)) {
+	if ((mac & ACVP_CCM) == ACVP_CCM) {
 		CKNULL_LOG(noncelen, -EINVAL,
 			   "KAS ECC: noncelen not provided\n");
 		CKNULL_LOG(maclen, -EINVAL, "KAS ECC: maclen not provided\n");

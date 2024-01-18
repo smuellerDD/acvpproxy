@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2023 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -25,6 +25,7 @@
 #include "internal.h"
 #include "json_wrapper.h"
 #include "request_helper.h"
+#include "sleep.h"
 
 struct amvp_build_data {
 	struct json_object *acvp_array, *esvp_array, *module_array;
@@ -38,7 +39,8 @@ struct amvp_build_data {
  * 	uses Initial instead of initial
  *	implements acvp_get_accesstoken as module registration returns new JWT
  */
-static int amvp_certrequest_process(struct acvp_buf *response, uint32_t *id)
+static int amvp_certrequest_process(const struct acvp_buf *response,
+				    uint32_t *id)
 {
 	struct json_object *resp = NULL, *data = NULL;
 	uint32_t status_flag = 0, tmp_id;
@@ -61,7 +63,9 @@ static int amvp_certrequest_process(struct acvp_buf *response, uint32_t *id)
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Request response indicates successful opoeration: %s\n",
 		       status);
-	} else if (!strncmp(status, "Initial", 7)) {
+	} else if (!strncmp(status, "initial", 7) ||
+		//TODO remove
+		   !strncmp(status, "Initial", 7)) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Request response indicates initial request processing: %s\n",
 		       status);
@@ -102,8 +106,7 @@ static int amvp_certrequest_process(struct acvp_buf *response, uint32_t *id)
 	}
 
 	tmp_id = acvp_id(tmp_id);
-	if (0)
-		tmp_id |= status_flag;
+	tmp_id |= status_flag;
 
 	*id = tmp_id;
 
@@ -121,7 +124,7 @@ out:
  *	implements acvp_get_accesstoken as module registration returns new JWT
  */
 static int amvp_module_process(struct acvp_testid_ctx *testid_ctx,
-			       struct acvp_buf *response, uint32_t *id)
+			       const struct acvp_buf *response, uint32_t *id)
 {
 	struct json_object *resp = NULL, *data = NULL;
 	uint32_t status_flag = 0, tmp_id;
@@ -131,7 +134,8 @@ static int amvp_module_process(struct acvp_testid_ctx *testid_ctx,
 	/* Strip the version array entry and get the oe URI data. */
 	CKINT(acvp_req_strip_version(response, &resp, &data));
 
-	CKINT(acvp_get_accesstoken(testid_ctx, data, false));
+	(void)testid_ctx;
+//	CKINT(acvp_get_accesstoken(testid_ctx, data, false));
 
 	/*
 	 * {
@@ -238,6 +242,75 @@ out:
 	return ret;
 }
 
+/* GET /certRequests/<ID> */
+static int amvp_certrequest_get(struct acvp_testid_ctx *testid_ctx,
+				uint32_t *module_id)
+{
+	ACVP_BUFFER_INIT(get_response_buf);
+	char url[ACVP_NET_URL_MAXLEN];
+	int ret, ret2;
+
+	CKINT_LOG(acvp_create_url(NIST_VAL_OP_CERTREQUESTS, url, sizeof(url)),
+		  "Creation of request URL failed\n");
+	CKINT(acvp_extend_string(url, sizeof(url), "/%u", acvp_id(*module_id)));
+
+	/* Send the capabilities to the ACVP server. */
+	ret2 = acvp_net_op(testid_ctx, url, NULL, &get_response_buf,
+			   acvp_http_get);
+
+	if (ret2)
+		testid_ctx->sig_cancel_send_delete = false;
+
+	CKINT(acvp_request_error_handler(ret2));
+
+	CKINT(amvp_certrequest_process(&get_response_buf, module_id));
+
+out:
+	acvp_free_buf(&get_response_buf);
+	return ret;
+}
+
+static int amvp_certrequest_get_op(struct acvp_testid_ctx *testid_ctx,
+				   const struct acvp_buf *response,
+				   uint32_t *module_id)
+{
+	int ret;
+
+	/* Analyze the result from the POST */
+(void)response;
+//	CKINT(amvp_certrequest_process(response, module_id));
+
+//	if (!acvp_request_id(*module_id)) {
+//		logger(LOGGER_DEBUG, LOGGER_C_ANY, "Cert request: %u\n",
+//		       *module_id);
+//		goto out;
+//	}
+    
+	/* Remove */
+	CKINT(sleep_interruptible(60, &acvp_op_interrupted));
+	/* Implement the waiting */
+#define AMVP_GET_DATAFILE_INFO_SLEEPTIME 30
+	for (;;) {
+		CKINT(amvp_certrequest_get(testid_ctx, module_id));
+
+		/* Wait the requested amount of seconds */
+		if (acvp_request_id(*module_id)) {
+			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+			       "AMVP server needs more time - sleeping for %u seconds for requestID %u again\n",
+			       AMVP_GET_DATAFILE_INFO_SLEEPTIME,
+			       acvp_id(*module_id));
+			CKINT(sleep_interruptible(
+				AMVP_GET_DATAFILE_INFO_SLEEPTIME,
+				&acvp_op_interrupted));
+		} else {
+			break;
+		}
+	}
+
+out:
+	return ret;
+}
+
 /* POST /certRequests */
 static int amvp_register_op(struct acvp_testid_ctx *testid_ctx,
 			    struct json_object *request)
@@ -292,6 +365,7 @@ static int amvp_register_op(struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_request_error_handler(ret2));
 
 	CKINT(amvp_certrequest_process(&response_buf, &module_id));
+	module_id = acvp_id(module_id);
 	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Obtained certRequest ID %u\n",
 	       module_id);
 
@@ -330,6 +404,7 @@ static int amvp_register_op(struct acvp_testid_ctx *testid_ctx,
 	 * data for AMVP.
 	 */
 	//CKINT(acvp_process_req(testid_ctx, request, &response_buf));
+	CKINT(amvp_certrequest_get_op(testid_ctx, &response_buf, &module_id));
 
 out:
 	testid_ctx->server_auth = NULL;
@@ -376,7 +451,12 @@ static int amvp_registration_build(struct acvp_testid_ctx *testid_ctx,
 
 	array = json_object_new_array();
 	CKNULL(array, -ENOMEM);
-	CKINT(json_object_object_add(entry, "contactId",  json_object_new_int(1)));
+	CKINT(json_object_object_add(entry, "contactId",  array));
+	CKINT(json_object_array_add(array,
+				    json_object_new_string("CVP-01234")));
+	CKINT(json_object_array_add(array,
+				    json_object_new_string("CVP-12345")));
+
 
 	*json_registration = registration;
 
@@ -384,9 +464,93 @@ out:
 	return ret;
 }
 
-/* GET /modules */
-static int amvp_module_get_op(struct acvp_testid_ctx *testid_ctx,
-			      uint32_t module_id)
+/*
+ * TOOD: use acvp_meta_register_get_id
+ *
+ * ISSUES:
+ *	uses ID and not url
+ * 	uses Initial instead of initial
+ *	implements acvp_get_accesstoken as module registration returns new JWT
+ */
+static int amvp_module_process_id(const struct acvp_buf *response, uint32_t *id)
+{
+	struct json_object *resp = NULL, *data = NULL;
+	uint32_t status_flag = 0, tmp_id;
+	int ret;
+	const char *status;
+
+	/* Strip the version array entry and get the oe URI data. */
+	CKINT(acvp_req_strip_version(response, &resp, &data));
+
+	/*
+	 * {
+	 *	"url": "/acvp/v1/requests/2",
+	 *	"status": "approved",
+	 *	"approvedUrl" : "/acvp/v1/vendors/2"
+	 * }
+	 */
+
+	CKINT(json_get_string(data, "status", &status));
+	if (!strncmp(status, "approved", 8)) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Request response indicates successful opoeration: %s\n",
+		       status);
+		CKINT(json_get_string(data, "approvedUrl", &status));
+	} else if (!strncmp(status, "initial", 7)) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Request response indicates initial request processing: %s\n",
+		       status);
+		status_flag = ACVP_REQUEST_INITIAL;
+		CKINT(json_get_string(data, "url", &status));
+	} else if (!strncmp(status, "processing", 10)) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Request response indicates request processing: %s\n",
+		       status);
+		status_flag = ACVP_REQUEST_PROCESSING;
+		CKINT(json_get_string(data, "url", &status));
+	} else if (!strncmp(status, "rejected", 10)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Request response indicates rejection of request: %s - Request information discarded locally to allow re-trying of publication.\n",
+		       status);
+		/*
+		 * Set the ID to zero to allow performing a complete new
+		 * publication operation. Yet, we throw an error to allow
+		 * the user to know about the issue.
+		 */
+		ret = -EPERM;
+		*id = 0;
+		goto out;
+	} else {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Request response indicates unsuccessful operation: %s\n",
+		       status);
+		ret = -EOPNOTSUPP;
+		goto out;
+	}
+
+	CKINT(acvp_get_trailing_number(status, &tmp_id));
+
+	/* Reject a request ID */
+	if (acvp_request_id(tmp_id)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Invalid request ID received from ACVP server (did the request IDs became so large that it interferes with the indicator bits?)\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	tmp_id = acvp_id(tmp_id);
+	tmp_id |= status_flag;
+
+	*id = tmp_id;
+
+out:
+	ACVP_JSON_PUT_NULL(resp);
+	return ret;
+}
+
+/* GET /modules/<id> */
+static int amvp_module_get(struct acvp_testid_ctx *testid_ctx,
+			   uint32_t *module_id)
 {
 	ACVP_BUFFER_INIT(response_buf);
 	char url[ACVP_NET_URL_MAXLEN];
@@ -394,7 +558,7 @@ static int amvp_module_get_op(struct acvp_testid_ctx *testid_ctx,
 
 	CKINT_LOG(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)),
 		  "Creation of request URL failed\n");
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u", module_id));
+	CKINT(acvp_extend_string(url, sizeof(url), "/%u", *module_id));
 
 	/* Send the capabilities to the ACVP server. */
 	ret2 = acvp_net_op(testid_ctx, url, NULL, &response_buf,
@@ -408,10 +572,83 @@ static int amvp_module_get_op(struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_request_error_handler(ret2));
 
+	CKINT(amvp_module_process(testid_ctx, &response_buf, module_id));
+
 out:
-	testid_ctx->server_auth = NULL;
 	acvp_free_buf(&response_buf);
 
+	return ret;
+}
+
+/* GET /requests/<id> */
+static int amvp_module_get_id(struct acvp_testid_ctx *testid_ctx,
+			      uint32_t *module_id)
+{
+	ACVP_BUFFER_INIT(response_buf);
+	char url[ACVP_NET_URL_MAXLEN];
+	int ret = 0, ret2;
+
+	CKINT_LOG(acvp_create_url(NIST_VAL_OP_REQUESTS, url, sizeof(url)),
+		  "Creation of request URL failed\n");
+	CKINT(acvp_extend_string(url, sizeof(url), "/%u", acvp_id(*module_id)));
+
+	/* Send the capabilities to the ACVP server. */
+	ret2 = acvp_net_op(testid_ctx, url, NULL, &response_buf,
+			   acvp_http_get);
+
+	if (ret2)
+		testid_ctx->sig_cancel_send_delete = false;
+
+	/* Store the debug version of the result unconditionally. */
+	CKINT(acvp_store_register_debug(testid_ctx, &response_buf, ret2));
+
+	CKINT(acvp_request_error_handler(ret2));
+
+	CKINT(amvp_module_process_id(&response_buf, module_id));
+
+	if (!acvp_request_id(*module_id))
+		CKINT(amvp_module_get(testid_ctx, module_id));
+
+out:
+	acvp_free_buf(&response_buf);
+
+	return ret;
+}
+
+static int amvp_module_get_op(struct acvp_testid_ctx *testid_ctx,
+			      const struct acvp_buf *response,
+			      uint32_t *module_id)
+{
+	int ret;
+
+	/* Analyze the result from the POST */
+	CKINT(amvp_module_process_id(response, module_id));
+
+	if (!acvp_request_id(*module_id)) {
+		CKINT(amvp_module_get(testid_ctx, module_id));
+		goto out;
+	}
+
+	/* Implement the waiting */
+#define AMVP_GET_DATAFILE_INFO_SLEEPTIME 30
+	for (;;) {
+		CKINT(amvp_module_get_id(testid_ctx, module_id));
+
+		/* Wait the requested amount of seconds */
+		if (acvp_request_id(*module_id)) {
+			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+			       "AMVP server needs more time - sleeping for %u seconds for requestID %u again\n",
+			       AMVP_GET_DATAFILE_INFO_SLEEPTIME,
+			       acvp_id(*module_id));
+			CKINT(sleep_interruptible(
+				AMVP_GET_DATAFILE_INFO_SLEEPTIME,
+				&acvp_op_interrupted));
+		} else {
+			break;
+		}
+	}
+
+out:
 	return ret;
 }
 
@@ -480,13 +717,10 @@ static int amvp_module_register_op(struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_store_register_debug(testid_ctx, &response_buf, ret2));
 
 	CKINT(acvp_request_error_handler(ret2));
-
-	CKINT(amvp_module_process(testid_ctx, &response_buf, &module_id));
+   
+	CKINT(amvp_module_get_op(testid_ctx, &response_buf, &module_id));
 	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Obtained module ID %u\n",
 	       module_id);
-
-	if (0)
-		CKINT(amvp_module_get_op(testid_ctx, module_id));
 
 	CKINT(amvp_registration_build(testid_ctx, module_id, &registration));
 
@@ -966,6 +1200,8 @@ static int amvp_register_module(struct acvp_ctx *ctx)
 	int ret;
 
 	CKNULL(ctx, -EINVAL);
+
+	memset(&testid_ctx, 0, sizeof(testid_ctx));
 
 	CKINT(amvp_module_build(&testid_ctx, &module));
 

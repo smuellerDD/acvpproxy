@@ -1,0 +1,12 @@
+{
+  "oeEnvName":"openSUSE Tumbleweed 20230514",
+  "manufacturer":"Intel",
+  "procFamily":"X86",
+  "procName":"i7",
+  "procSeries":"Alder Lake",
+  "features":7,
+  "envType":0,
+  "acvpOeId":0,
+  "acvpOeDepProcId":0,
+  "acvpOeDepSwId":0
+}

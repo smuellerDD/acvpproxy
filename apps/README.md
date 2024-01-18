@@ -88,13 +88,12 @@ To create a certificate bundle, simply concatenate them like the following:
 
 ### Using Apple Secure Transport
 
-If you have configured your libcurl on MacOS to use Apple Secure Transport,
-you can only use a PKCS12 bundle holding your private and public key.
+You can only use a PKCS12 bundle holding your private and public key.
 
 To create a PKCS12 bundle and set it in the ACVP Proxy configuration file,
 follow these steps:
 
-. Create the PKCS12 bundle from your PEM or DER files (if you have a PKCS12
+* Create the PKCS12 bundle from your PEM or DER files (if you have a PKCS12
   bundle already, skip this step)
 
   `openssl pkcs12 -export -out <yourbundle>.p12 -inkey <yourprivatekey>.pem -in <yourcertificate>.pem -certificate <CAcert_or_CAbundle>.pem`
@@ -104,12 +103,15 @@ follow these steps:
   During that command execution, you are requested to provide a password
   wrapping the PKCS12 bundle.
 
-. Point to the PKCS12 bundle file with the `tlsCertFile` option and remove
+  NOTE: With newer openssl commands, use the `-legacy` option as otherwise the
+  PKCS12 file is wrapped with AES which is not supported by macOS.
+
+* Point to the PKCS12 bundle file with the `tlsCertFile` option and remove
   the `tlsKeyFile` option from the ACVP Proxy configuration file. Also, set
   your password in `tlsKeyPasscode` if you do not want to enter the
   passcode during each ACVP Proxy run.
 
-  Note: During the first invocation of ACVP Proxy, MacOS will ask you
+  Note: During the first invocation of ACVP Proxy, macOS will ask you
   whether the ACVP Proxy is granted access to the key chain. Please approve
   as the PKCS12 bundle will be processed with the Apple Key Chain services.
 

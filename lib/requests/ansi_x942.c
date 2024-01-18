@@ -153,6 +153,15 @@ int acvp_req_set_algo_ansi_x942(const struct def_algo_ansi_x942 *ansi_x942,
 
 	CKNULL_LOG(found, -EINVAL, "oid contains wrong data\n");
 
+	if (ansi_x942->hashalg & ~(ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 |
+	    ACVP_SHA384 | ACVP_SHA512 | ACVP_SHA512224 | ACVP_SHA512256 |
+	    ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 | ACVP_SHA3_512)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "ANSI X9.42: only ACVP_SHA1, ACVP_SHA2*, and ACVP_SHA3* allowed for cipher definition\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	CKINT(acvp_req_cipher_to_array(entry, ansi_x942->hashalg,
 				       ACVP_CIPHERTYPE_HASH, "hashAlg"));
 

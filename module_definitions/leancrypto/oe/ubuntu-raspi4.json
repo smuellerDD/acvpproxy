@@ -1,0 +1,12 @@
+{
+  "oeEnvName":"Ubuntu 23.04",
+  "manufacturer":"Broadcom",
+  "procFamily":"ARM64",
+  "procName":"BCM2711",
+  "procSeries":"ARMv8",
+  "features":0,
+  "envType":0,
+  "acvpOeId":0,
+  "acvpOeDepProcId":0,
+  "acvpOeDepSwId":0
+}

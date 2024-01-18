@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the vendor information
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -66,13 +66,15 @@ static int acvp_vendor_build(const struct def_vendor *def_vendor,
 	CKNULL(vendor, -ENOMEM);
 
 	/* Name, website */
-	if (acvp_check_ignore(check_ignore_flag, def_vendor->vendor_name_i)) {
+	if (def_vendor->vendor_name &&
+	    acvp_check_ignore(check_ignore_flag, def_vendor->vendor_name_i)) {
 		CKINT(json_object_object_add(
 			vendor, "name",
 			json_object_new_string(def_vendor->vendor_name)));
 	}
 
-	if (acvp_check_ignore(check_ignore_flag, def_vendor->vendor_url_i)) {
+	if (def_vendor->vendor_url &&
+	    acvp_check_ignore(check_ignore_flag, def_vendor->vendor_url_i)) {
 		CKINT(json_object_object_add(
 			vendor, "website",
 			json_object_new_string(def_vendor->vendor_url)));

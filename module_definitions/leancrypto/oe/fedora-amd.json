@@ -1,0 +1,12 @@
+{
+  "oeEnvName":"Fedora 38",
+  "manufacturer":"AMD",
+  "procFamily":"X86",
+  "procName":"Ryzen 9 5950X",
+  "procSeries":"Ryzen",
+  "features":7,
+  "envType":0,
+  "acvpOeId":0,
+  "acvpOeDepProcId":0,
+  "acvpOeDepSwId":0
+}

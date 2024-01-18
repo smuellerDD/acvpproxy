@@ -1,6 +1,6 @@
 /* JSON request generator for SP800-108 KDF
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -196,6 +196,10 @@ int acvp_req_set_algo_kdf_108_details(const struct def_algo_kdf_108 *kdf_108,
 	CKINT(json_object_object_add(entry, "requiresEmptyIv",
 			json_object_new_boolean(kdf_108->requires_empty_iv)));
 
+	if (kdf_108->custom_key_in_length) {
+		CKINT(json_object_object_add(entry, "customKeyInLength",
+			json_object_new_int(kdf_108->custom_key_in_length)));
+	}
 out:
 	return ret;
 }
@@ -209,19 +213,43 @@ int acvp_req_set_algo_kdf_108(const struct def_algo_kdf_108 *kdf_108,
 	struct json_object *array, *tmp;
 	int ret;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
-
 	CKINT(acvp_req_set_prereq_kdf_108(kdf_108, NULL, entry, false));
 
-	array = json_object_new_array();
-	CKNULL(array, -ENOMEM);
-	CKINT(json_object_object_add(entry, "capabilities", array));
+	if ((kdf_108->macalg & ACVP_KMAC128) == ACVP_KMAC128 ||
+	    (kdf_108->macalg & ACVP_KMAC256) == ACVP_KMAC256) {
+		CKINT(acvp_req_add_revision(entry, "Sp800-108r1"));
+		CKINT(json_object_object_add(entry, "mode",
+					     json_object_new_string("KMAC")));
 
-	tmp = json_object_new_object();
-	CKNULL(tmp, -ENOMEM);
-	CKINT(json_object_array_add(array, tmp));
+		CKINT(acvp_req_cipher_to_array(entry, kdf_108->macalg,
+					       ACVP_CIPHERTYPE_MAC, "macMode"));
 
-	CKINT(acvp_req_set_algo_kdf_108_details(kdf_108, tmp));
+		CKINT(acvp_req_algo_int_array(entry,
+					      kdf_108->key_derivation_key_length,
+					      "keyDerivationKeyLength"));
+
+		CKINT(acvp_req_algo_int_array(entry, kdf_108->context_length,
+					      "contextLength"));
+
+		CKINT(acvp_req_algo_int_array(entry, kdf_108->label_length,
+					      "labelLength"));
+
+		CKINT(acvp_req_algo_int_array(entry,
+					      kdf_108->derived_key_length,
+					      "derivedKeyLength"));
+	} else {
+		CKINT(acvp_req_add_revision(entry, "1.0"));
+
+		array = json_object_new_array();
+		CKNULL(array, -ENOMEM);
+		CKINT(json_object_object_add(entry, "capabilities", array));
+
+		tmp = json_object_new_object();
+		CKNULL(tmp, -ENOMEM);
+		CKINT(json_object_array_add(array, tmp));
+
+		CKINT(acvp_req_set_algo_kdf_108_details(kdf_108, tmp));
+	}
 
 out:
 	return ret;

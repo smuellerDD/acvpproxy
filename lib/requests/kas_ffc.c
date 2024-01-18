@@ -1,6 +1,6 @@
 /* JSON request generator for KAS FFC
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -125,7 +125,7 @@ static int acvp_req_kas_ffc_mac(cipher_t mac,
 
 	CKINT(acvp_req_algo_int_array(tmp2, keylen, "keyLen"));
 
-	if ((mac & ACVP_CCM)) {
+	if ((mac & ACVP_CCM) == ACVP_CCM) {
 		CKNULL_LOG(noncelen, -EINVAL,
 			   "KAS FFC: noncelen not provided\n");
 		CKNULL_LOG(maclen, -EINVAL, "KAS FFC: maclen not provided\n");

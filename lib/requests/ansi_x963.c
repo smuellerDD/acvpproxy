@@ -1,6 +1,6 @@
 /* JSON request generator for ANSI X9.63 KDF
  *
- * Copyright (C) 2021 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -120,12 +120,13 @@ int acvp_req_set_algo_ansi_x963(const struct def_algo_ansi_x963 *ansi_x963,
 	CKINT(acvp_req_algo_int_array(entry, ansi_x963->key_data_len,
 				      "keyDataLength"));
 
-	if (!(ansi_x963->hashalg & ACVP_SHA224 ||
-	      ansi_x963->hashalg & ACVP_SHA256 ||
-	      ansi_x963->hashalg & ACVP_SHA384 ||
-	      ansi_x963->hashalg & ACVP_SHA512)) {
-		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "ANSI X9.63: only ACVP_SHA224, ACVP_SHA256, ACVP_SHA384 and ACVP_SHA512 allowed for cipher definition\n");
+	if (ansi_x963->hashalg & ~(ACVP_SHA224 | ACVP_SHA256 |
+	    ACVP_SHA384 | ACVP_SHA512 | ACVP_SHA512224 | ACVP_SHA512256 |
+	    ACVP_SHA3_224 | ACVP_SHA3_256 | ACVP_SHA3_384 | ACVP_SHA3_512)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "ANSI X9.63: only ACVP_SHA2* and ACVP_SHA3* allowed for cipher definition\n");
+		ret = -EINVAL;
+		goto out;
 	}
 
 	CKINT(acvp_req_cipher_to_array(entry, ansi_x963->hashalg,

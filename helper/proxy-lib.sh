@@ -660,7 +660,7 @@ register() {
 	local ret=$?
 	if [ $ret -eq 0 ]
 	then
-		echo "Please wait a while so the server can process all the raw data. Use the getstat command to retrieve all statistical results, or the \"--testid n\" parameter to retrieve specific results. Using the git register command has the same effect, make sure you always include --testid parameter."
+		echo "Please wait a while so the server can process all the raw data. Use the getstats command to retrieve all statistical results, or the \"--testid n\" parameter to retrieve specific results. Using the register command has the same effect, make sure you always include --testid parameter."
 	else
 		echo "register command returned error code $ret"
 	fi

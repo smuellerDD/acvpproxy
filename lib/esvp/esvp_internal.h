@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -81,6 +81,9 @@ int esvp_certify(struct acvp_testid_ctx *testid_ctx);
 /* Data store directory for testvectors and other regular data */
 #define ESVP_DS_DATADIR "esvp-testvectors"
 #define ESVP_DS_DATADIR_PRODUCTION "esvp-testvectors-production"
+
+/* Data files are limited to 1 million bytes as of 2023-12-12 */
+#define ESVP_DATA_FILE_LIMIT 1000000UL
 
 #ifdef __cplusplus
 }

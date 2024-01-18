@@ -1,6 +1,6 @@
 /* JSON request generator for TLS v1.2 with extended secret verification
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -84,11 +84,11 @@ int acvp_req_set_algo_kdf_tls12(const struct def_algo_kdf_tls *kdf_tls,
 
 	CKINT(acvp_req_add_revision(entry, "RFC7627"));
 
-	if (!(kdf_tls->hashalg & ACVP_SHA256 ||
-	      kdf_tls->hashalg & ACVP_SHA384 ||
-	      kdf_tls->hashalg & ACVP_SHA512)) {
-		logger(LOGGER_WARN, LOGGER_C_ANY,
+	if (kdf_tls->hashalg & ~(ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "KDF TLS: only ACVP_SHA256, ACVP_SHA384 and ACVP_SHA512 allowed for cipher definition\n");
+		ret = -EINVAL;
+		goto out;
 	}
 
 	CKINT(acvp_req_cipher_to_array(entry, kdf_tls->hashalg,

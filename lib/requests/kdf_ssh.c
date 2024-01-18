@@ -1,6 +1,6 @@
 /* JSON request generator for SP800-135 KDF SSH
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -66,13 +66,13 @@ int acvp_list_algo_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
 	tmp->prereqs = kdf_ssh->prereqvals;
 	tmp->prereq_num = kdf_ssh->prereqvals_num;
 
-	if (kdf_ssh->cipher & ACVP_AES128)
+	if ((kdf_ssh->cipher & ACVP_AES128) == ACVP_AES128)
 		tmp->keylen[entry++] = 128;
-	if (kdf_ssh->cipher & ACVP_AES192)
+	if ((kdf_ssh->cipher & ACVP_AES192) == ACVP_AES192)
 		tmp->keylen[entry++] = 192;
-	if (kdf_ssh->cipher & ACVP_AES256)
+	if ((kdf_ssh->cipher & ACVP_AES256) == ACVP_AES256)
 		tmp->keylen[entry++] = 256;
-	if (kdf_ssh->cipher & ACVP_TDES)
+	if ((kdf_ssh->cipher & ACVP_TDES) == ACVP_TDES)
 		tmp->keylen[entry++] = 168;
 
 	tmp->keylen[entry] = DEF_ALG_ZERO_VALUE;
@@ -93,15 +93,25 @@ int acvp_req_set_algo_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
 
 	CKINT(acvp_req_set_prereq_kdf_ssh(kdf_ssh, NULL, entry, false));
 
-	if (!(kdf_ssh->cipher & ACVP_AES128 || kdf_ssh->cipher & ACVP_AES192 ||
-	      kdf_ssh->cipher & ACVP_AES256 || kdf_ssh->cipher & ACVP_TDES)) {
-		logger(LOGGER_WARN, LOGGER_C_ANY,
+	if (kdf_ssh->cipher & ~(ACVP_AES128 | ACVP_AES192 | ACVP_AES256 |
+	    ACVP_TDES)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "KDF SSH: only ACVP_AES128, ACVP_AES192, ACVP_AES256 and ACVP_TDES allowed for cipher definition\n");
 		ret = -EINVAL;
 		goto out;
 
 	}
+
 	CKINT(acvp_req_cipher_to_array(entry, kdf_ssh->cipher, 0, "cipher"));
+
+	if (kdf_ssh->hashalg & ~(ACVP_SHA1 | ACVP_SHA256 | ACVP_SHA256 |
+	    ACVP_SHA384 | ACVP_SHA512)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "KDF SSH: only ACVP_AES128, ACVP_AES192, ACVP_AES256 and ACVP_TDES allowed for cipher definition\n");
+		ret = -EINVAL;
+		goto out;
+
+	}
 
 	CKINT(acvp_req_cipher_to_array(entry, kdf_ssh->hashalg,
 				       ACVP_CIPHERTYPE_HASH, "hashAlg"));

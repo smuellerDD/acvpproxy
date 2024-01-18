@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -77,6 +77,23 @@ struct def_algo_hkdf_cipher {
 	 * required: always
 	 */
 	unsigned int l;
+
+	/*
+	 * Whether the IUT uses a hybrid shared secret.
+	 *
+	 * required: if kdf_spec is set to DEF_ALG_HKDF_SP800_56Crev2
+	 */
+	bool hybrid_shared_secret;
+
+	/*
+	 * The domain of values representing the min/max lengths of T the
+	 * implementation can support.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * required: if hybrid_shared_secret is set to true
+	 */
+	int tlen[DEF_ALG_MAX_INT];
 };
 
 struct def_algo_hkdf {
@@ -93,6 +110,16 @@ struct def_algo_hkdf {
 	 * entry of an array of prerequisites!
 	 */
 	unsigned int prereqvals_num;
+
+	/*
+	 * HKDF specification that is to be applied
+	 *
+	 * required: optional - if not set SP800-56Cr1 is assumed
+	 */
+	enum hkdf_spec {
+		DEF_ALG_HKDF_SP800_56Crev1 = 0,
+		DEF_ALG_HKDF_SP800_56Crev2
+	} hkdf_spec;
 
 	/*
 	 * How the salt is determined

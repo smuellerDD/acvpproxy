@@ -1,6 +1,6 @@
 /* Listing of locally stored certificates with various output formats
  *
- * Copyright (C) 2019 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

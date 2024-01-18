@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -574,9 +574,16 @@ static int acvp_server_db_write_def(const struct def_dependency *def_dep,
 	const char *type_name;
 	int ret;
 
-	CKINT(acvp_dep_type2name(def_dep->def_dependency_type, &type_name));
-	CKINT(json_object_object_add(dep_entry, "dependencyType",
-				     json_object_new_string(type_name)));
+	if (def_dep->def_dependency_type_name) {
+		CKINT(json_object_object_add(dep_entry, "dependencyType",
+			json_object_new_string(
+				def_dep->def_dependency_type_name)));
+	} else {
+		CKINT(acvp_dep_type2name(def_dep->def_dependency_type,
+					 &type_name));
+		CKINT(json_object_object_add(dep_entry, "dependencyType",
+			json_object_new_string(type_name)));
+	}
 
 	switch (def_dep->def_dependency_type) {
 	case def_dependency_firmware:
@@ -737,6 +744,10 @@ static int acvp_server_db_process_one_oe(struct acvp_ctx *ctx,
 				       str);
 				def_dep->def_dependency_type =
 					def_dependency_hardware;
+			} else {
+				CKINT(acvp_duplicate(
+					&def_dep->def_dependency_type_name,
+					str));
 			}
 		}
 

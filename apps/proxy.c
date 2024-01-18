@@ -1,6 +1,6 @@
 /* ACVP Proxy application
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -49,6 +49,7 @@ struct opt_data {
 
 	uint32_t purchase_opt;
 	uint32_t purchase_qty;
+	const char *ponumber;
 
 	struct opt_cred cred;
 
@@ -305,7 +306,12 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\tserver\n");
 	fprintf(stderr,
 		"\t   --purchase <OPTION>\t\tPurchase option <OPTION>\n");
-	fprintf(stderr, "\t\t\t\t\t- see output of --list-purchase-opts\n\n");
+	fprintf(stderr, "\t\t\t\t\t- see output of --list-purchase-opts\n");
+	fprintf(stderr,
+		"\t   --ponumber <STRING>\t\tPurchase order - arbitrary string\n");
+	fprintf(stderr, "\t\t\t\t\tto be used by NIST when creating invoice\n");
+	fprintf(stderr, "\t\t\t\t\tto allow assigning the invoice in local\n");
+	fprintf(stderr, "\t\t\t\t\tpayment system\n\n");
 
 	fprintf(stderr, "\tAuxiliary options:\n");
 	fprintf(stderr,
@@ -598,6 +604,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{ "list-purchased-vs", no_argument, 0, 0 },
 			{ "list-purchase-opts", no_argument, 0, 0 },
 			{ "purchase", required_argument, 0, 0 },
+			{ "ponumber", required_argument, 0, 0 },
 
 			{ "fetch-verdicts", no_argument, 0, 0 },
 
@@ -1077,14 +1084,18 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				opts->acvp_ctx_options.threading_disabled =
 					true;
 				break;
+			case 66:
+				/* ponumber */
+				opts->ponumber = optarg;
+				break;
 
-			case 66: /* fetch-verdicts */
+			case 67: /* fetch-verdicts */
 				/* force the proxy to contact server */
 				opts->acvp_ctx_options.resubmit_result = true;
 				opts->fetch_verdicts = true;
 				break;
 
-			case 67:
+			case 68:
 				/* request-json */
 				opts->request = true;
 				snprintf(opts->acvp_ctx_options.caller_json_request,
@@ -1692,7 +1703,8 @@ static int do_purchase(struct opt_data *opts)
 	CKINT(initialize_ctx(&ctx, opts, true));
 
 	ctx->req_details.dump_register = opts->dump_register;
-	CKINT(acvp_purchase(ctx, opts->purchase_opt, opts->purchase_qty));
+	CKINT(acvp_purchase(ctx, opts->purchase_opt, opts->purchase_qty,
+			    opts->ponumber));
 
 out:
 	acvp_ctx_release(ctx);

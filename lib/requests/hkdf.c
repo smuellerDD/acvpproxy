@@ -1,6 +1,6 @@
 /* JSON request generator for SP800-56C HKDF
  *
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -59,15 +59,27 @@ int acvp_list_algo_hkdf(const struct def_algo_hkdf *hkdf,
 	CKNULL(tmp, -ENOMEM);
 	*new = tmp;
 
-	CKINT(acvp_duplicate(&tmp->cipher_name, "HKDF"));
-	CKINT(acvp_duplicate(&tmp->cipher_mode, "SP800-56C"));
+	switch (hkdf->hkdf_spec) {
+	case DEF_ALG_KDF_SP800_56Crev1:
+		CKINT(acvp_duplicate(&tmp->cipher_name, "HKDF Sp800-56Cr1"));
+		break;
+	case DEF_ALG_KDF_SP800_56Crev2:
+		CKINT(acvp_duplicate(&tmp->cipher_name, "HKDF Sp800-56Cr2"));
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "SP800-56C: Unknown KDF specification\n");
+		return -EINVAL;
+	}
+
 	CKINT(acvp_req_cipher_to_stringarray(cipher_spec->macalg,
 					     ACVP_CIPHERTYPE_HASH,
 					     &tmp->cipher_aux));
 	tmp->prereqs = hkdf->prereqvals;
 	tmp->prereq_num = hkdf->prereqvals_num;
 
-	tmp->keylen[0] = DEF_ALG_ZERO_VALUE;
+	tmp->keylen[0] = cipher_spec->l;
+	tmp->keylen[1] = DEF_ALG_ZERO_VALUE;
 
 out:
 	return ret;
@@ -101,6 +113,17 @@ static int acvp_req_set_algo_hkdf_details(const struct def_algo_hkdf *hkdf,
 				  hkdf->fixed_info_encoding,
 				  "fixedInfoPattern", entry));
 
+	if (hkdf->hkdf_spec == DEF_ALG_HKDF_SP800_56Crev2) {
+		CKINT(json_object_object_add(entry, "usesHybridSharedSecret",
+		    json_object_new_boolean(cipher_spec->hybrid_shared_secret)));
+
+		if (cipher_spec->hybrid_shared_secret) {
+			CKINT(acvp_req_algo_int_array(entry,
+						      cipher_spec->tlen,
+						      "auxSharedSecretLen"));
+		}
+	}
+
 out:
 	return ret;
 }
@@ -115,7 +138,18 @@ int acvp_req_set_algo_hkdf(const struct def_algo_hkdf *hkdf,
 
 	//TODO 56Cr2 with multiExpansion testing missing
 
-	CKINT(acvp_req_add_revision(entry, "Sp800-56Cr1"));
+	switch (hkdf->hkdf_spec) {
+	case DEF_ALG_KDF_SP800_56Crev1:
+		CKINT(acvp_req_add_revision(entry, "Sp800-56Cr1"));
+		break;
+	case DEF_ALG_KDF_SP800_56Crev2:
+		CKINT(acvp_req_add_revision(entry, "Sp800-56Cr2"));
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "SP800-56C: Unknown KDF specification\n");
+		return -EINVAL;
+	}
 
 	CKINT(acvp_req_set_prereq_hkdf(hkdf, NULL, entry, false));
 

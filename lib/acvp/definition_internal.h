@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -92,6 +92,9 @@ struct def_lock {
  * @var module_name_filesafe Same information as @var module_name except
  *			     that the string is cleared of characters
  *			     inappropriate for file names.
+ * @var module_name_newname New name used during rename
+ * @var orig_module_name_newname New name used during rename
+ * @var module_name_filesafe_newname New name used during rename
  * @var module_name_internal If this is set, this name is used to map to
  *			     uninstantiated definitions. This name is not
  *			     used for external reference.
@@ -100,6 +103,8 @@ struct def_lock {
  * @var module_version_filesafe Same information as @var module_version
  *				except that the string is cleared of
  *				characters inappropriate for file names.
+ * @var module_version_newname New name used during rename
+ * @var module_version_filesafe_newname New name used during rename
  * @var module_description Provide a brief description of the module.
  * @var def_module_file Configuration file holding the information
  * @var acvp_vendor_id Identifier assigned by the ACVP server to vendor
@@ -118,9 +123,17 @@ struct def_info {
 	char *orig_module_name;
 	char *module_name_filesafe;
 	char *module_name_internal;
+
+	char *module_name_newname;
+	char *orig_module_name_newname;
+	char *module_name_filesafe_newname;
+
 	enum def_mod_type module_type;
 	char *module_version;
 	char *module_version_filesafe;
+	char *module_version_newname;
+	char *module_version_filesafe_newname;
+
 	char *module_description;
 
 	/* Flags to ignore the respective entries during building */
@@ -229,6 +242,7 @@ enum def_dependency_type {
  * @var acvp_dep_id Identifier assigned by the ACVP server to dependency
  *		    information, if there is any.
  * @var def_dependency_type Type of the dependency
+ * @var def_dependency_type_name Type string of the dependency
  *
  * The following are usually for all types of dependencies (except CPU)
  * @var name Name of the dependency (e.g. operating system or SoC)
@@ -248,9 +262,11 @@ enum def_dependency_type {
 struct def_dependency {
 	uint32_t acvp_dep_id;
 	enum def_dependency_type def_dependency_type;
+	char *def_dependency_type_name;
 
 	/* software */
 	char *name;
+	char *name_newname;
 	char *description;
 	char *cpe;
 	char *swid;
@@ -258,9 +274,12 @@ struct def_dependency {
 	/* cpu */
 	char *manufacturer;
 	char *proc_family;
+	char *proc_family_newname;
 	char *proc_family_internal;
 	char *proc_name;
+	char *proc_name_newname;
 	char *proc_series;
+	char *proc_series_newname;
 	uint64_t features;
 
 	/* Flags to ignore the respective entries during building */

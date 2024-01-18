@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -383,6 +383,13 @@ struct def_algo_rsa_sigver {
  ****************************************************************************/
 struct def_algo_rsa_component_sig_gen {
 	/*
+	 * Supported RSA modulo for the signature primitive (2048, 3072, 4096)
+	 *
+	 * required: optional
+	 */
+	enum rsa_modulo rsa_modulo[3];
+
+	/*
 	 * The preferred private key format. The DEF_ALG_RSA_KEYFORMAT_STANDARD
 	 * format has "p", "q", and "d" as the component of the private key.
 	 * The DEF_ALG_RSA_KEYFORMAT_CRT (Chinese Remainder Theorem) format has
@@ -406,19 +413,19 @@ struct def_algo_rsa_component_sig_gen {
 	 * pubexpmode.
 	 */
 	const char *fixedpubexp;
-
-	/*
-	 * Supported RSA modulo for the signature primitive (2048, 3072, 4096)
-	 *
-	 * required: optional
-	 */
-	enum rsa_modulo rsa_modulo;
 };
 
 /****************************************************************************
  * RSA component decryption specific data
  ****************************************************************************/
 struct def_algo_rsa_component_dec {
+	/*
+	 * Supported RSA modulo for the decryption primitive
+	 *
+	 * required: always
+	 */
+	enum rsa_modulo rsa_modulo;
+
 	/*
 	 * The preferred private key format. The DEF_ALG_RSA_KEYFORMAT_STANDARD
 	 * format has "p", "q", and "d" as the component of the private key.
@@ -431,11 +438,18 @@ struct def_algo_rsa_component_dec {
 	enum keyformat keyformat;
 
 	/*
-	 * Supported RSA modulo for the decryption primitive
-	 *
+	 * Supports fixed or random public key exponent e
 	 * required: always
 	 */
-	enum rsa_modulo rsa_modulo;
+	enum pubexpmode pubexpmode;
+
+	/*
+	 * The value of the public key exponent e in hex
+	 *
+	 * required: only if DEF_ALG_RSA_PUBEXTMODE_FIXED is selected in
+	 * pubexpmode.
+	 */
+	const char *fixedpubexp;
 };
 
 /****************************************************************************
@@ -487,7 +501,6 @@ struct def_algo_rsa {
 	 * * RSA key generation
 	 * * RSA signature verification
 	 * * RSA component signature
-	 * * RSA component decryption
 	 */
 	union {
 		const struct def_algo_rsa_keygen_gen *keygen;
@@ -501,7 +514,9 @@ struct def_algo_rsa {
 	 * they must all be allocated adjacent in memory and the @param
 	 * algspecs_num variable must indicate the number of instances.
 	 *
-	 * required: always
+	 * required: always - exception is
+	 *	     DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE which implies
+	 *	     that the revision 1.0 is used.
 	 */
 	union {
 		const struct def_algo_rsa_keygen *keygen;
@@ -514,6 +529,10 @@ struct def_algo_rsa {
 	 * Number of algspecs, if 0, no entry is added to JSON
 	 * Note, the algspecs pointer above must point to the first
 	 * entry of an array of schemes!
+	 *
+	 * NOTE: For DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE it is permissible
+	 * to have NO algspecs definitions. Either set 0 or do not include
+	 * this variable into your definition.
 	 */
 	unsigned int algspecs_num;
 };

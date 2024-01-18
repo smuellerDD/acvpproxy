@@ -4,6 +4,10 @@
 		"AVX2",
 		"AVX2_4X",
 		"AVX512",
-		"ARM"
+		"AESNI",
+		"ARM_CE",
+		"ARM_NEON",
+		"ARM_ASM",
+		"RISCV64"
 	]
 }

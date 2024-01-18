@@ -1,6 +1,6 @@
 /* Invocation of NSURLSession network operation and TLS authentiation handling
  *
- * Copyright (C) 2020 - 2023, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -120,8 +120,9 @@ taskIsWaitingForConnectivity:(NSURLSessionTask *)task
 /* Perform the trust validation of the server certificate */
 - (BOOL)validateServerCert:(NSURLProtectionSpace *)protectionSpace
 {
+	/* If no server certificate is configured, trust the server */
 	if (!acvp_certs.serverCertificate)
-		return false;
+		return true;
 
 	SecTrustRef serverTrust = protectionSpace.serverTrust;
 	SecTrustSetAnchorCertificates(serverTrust,
@@ -170,7 +171,7 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
 			return;
 		}
 	}
-	
+
 	/* Validate server */
 	if ([challenge.protectionSpace.authenticationMethod
 	     isEqualToString:NSURLAuthenticationMethodServerTrust]) {
