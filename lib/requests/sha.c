@@ -69,10 +69,6 @@ int acvp_req_set_algo_sha(const struct def_algo_sha *sha,
 
 	CKINT(acvp_req_cipher_to_string(entry, sha->algorithm,
 				        ACVP_CIPHERTYPE_HASH, "algorithm"));
-	CKINT(json_object_object_add(entry, "inBit",
-				     json_object_new_boolean(sha->inbit)));
-	CKINT(json_object_object_add(entry, "inEmpty",
-				     json_object_new_boolean(sha->inempty)));
 	CKINT(acvp_req_algo_int_array(entry, sha->messagelength,
 				      "messageLength"));
 	CKINT(acvp_req_algo_int_array(entry, sha->largetest,

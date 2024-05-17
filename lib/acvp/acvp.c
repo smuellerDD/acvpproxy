@@ -104,6 +104,7 @@ static void acvp_release_datastore(struct acvp_datastore_ctx *datastore)
 	ACVP_PTR_FREE_NULL(datastore->srcserver);
 	ACVP_PTR_FREE_NULL(datastore->expectedfile);
 	ACVP_PTR_FREE_NULL(datastore->esvp_statusfile);
+	ACVP_PTR_FREE_NULL(datastore->amvp_evidencesetfile);
 }
 
 static void acvp_release_search(struct acvp_search_ctx *search)
@@ -519,6 +520,7 @@ int acvp_set_module(struct acvp_ctx *ctx,
 	ctx_search->processor_fuzzy_search =
 		caller_search->processor_fuzzy_search;
 	ctx_search->with_es_def = caller_search->with_es_def;
+	ctx_search->with_amvp_def = caller_search->with_amvp_def;
 
 	for (i = 0; i < caller_search->nr_submit_testid; i++)
 		ctx_search->submit_testid[i] = caller_search->submit_testid[i];
@@ -745,6 +747,8 @@ int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 	CKINT(acvp_duplicate(&datastore->srcserver, ACVP_DS_SRCSERVER));
 	CKINT(acvp_duplicate(&datastore->expectedfile, ACVP_DS_EXPECTED));
 	CKINT(acvp_duplicate(&datastore->esvp_statusfile, ACVP_DS_ESVPSTATUS));
+	CKINT(acvp_duplicate(&datastore->amvp_evidencesetfile,
+			     ACVP_DS_AMVPEVIDENCE));
 
 	CKINT(acvp_init_auth_ctx(*ctx));
 

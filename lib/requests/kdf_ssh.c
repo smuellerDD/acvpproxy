@@ -104,10 +104,10 @@ int acvp_req_set_algo_kdf_ssh(const struct def_algo_kdf_ssh *kdf_ssh,
 
 	CKINT(acvp_req_cipher_to_array(entry, kdf_ssh->cipher, 0, "cipher"));
 
-	if (kdf_ssh->hashalg & ~(ACVP_SHA1 | ACVP_SHA256 | ACVP_SHA256 |
+	if (kdf_ssh->hashalg & ~(ACVP_SHA1 | ACVP_SHA224 | ACVP_SHA256 |
 	    ACVP_SHA384 | ACVP_SHA512)) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "KDF SSH: only ACVP_AES128, ACVP_AES192, ACVP_AES256 and ACVP_TDES allowed for cipher definition\n");
+		       "KDF SSH: only ACVP_SHA1, ACVP_SHA224, ACVP_SHA256, ACVP_SHA384 and ACVP_SHA512 allowed for hashalg definition\n");
 		ret = -EINVAL;
 		goto out;
 

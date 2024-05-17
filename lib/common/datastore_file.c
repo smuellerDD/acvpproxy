@@ -115,7 +115,7 @@ static int acvp_datastore_read_data(uint8_t **buf, size_t *buflen,
 			len -= read;
 			ptr += read;
 		}
-	} while ((ret > 0 || EINTR == errno) && len);
+	} while (!feof(file) && !ferror(file) && len);
 
 	fclose(file);
 
@@ -521,6 +521,8 @@ acvp_datastore_file_write_authtoken(const struct acvp_testid_ctx *testid_ctx)
 	/* Handle the possible race condition */
 	if (ret == -EEXIST)
 		ret = 0;
+	if (ret)
+		goto out;
 
 	CKINT(acvp_datastore_write_status(testid_ctx));
 

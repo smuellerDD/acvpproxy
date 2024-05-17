@@ -93,6 +93,19 @@ struct def_algo_eddsa {
 		DEF_ALG_EDDSA_PREHASH_SUPPORTED,
 		DEF_ALG_EDDSA_PREHASH_UNSUPPORTED,
 	} eddsa_prehash;
+
+	/*
+	 * The lengths the IUT supports in octets for generated context strings.
+	 * Only used for EDDSA siggen.
+	 *
+	 * Minimum must be greater or equal to 0. Maximum must be less than
+	 * or equal to 255.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * required: always for EDDSA siggen
+	 */
+	int context_length[DEF_ALG_MAX_INT];
 };
 
 #ifdef __cplusplus

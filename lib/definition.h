@@ -55,6 +55,8 @@
 #include "definition_cipher_kdf_twostep.h"
 #include "definition_cipher_xof.h"
 #include "definition_cipher_lms.h"
+#include "definition_cipher_ml_dsa.h"
+#include "definition_cipher_ml_kem.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -138,6 +140,10 @@ struct def_algo {
 		DEF_ALG_TYPE_ANSI_X942,
 		/** SP800-208: LMS */
 		DEF_ALG_TYPE_LMS,
+		/** FIPS 203: ML-KEM */
+		DEF_ALG_TYPE_ML_KEM,
+		/** FIPS 204: ML-DSA */
+		DEF_ALG_TYPE_ML_DSA,
 	} type;
 	union {
 		/** DEF_ALG_TYPE_SYM */
@@ -206,6 +212,10 @@ struct def_algo {
 		struct def_algo_ansi_x942 ansi_x942;
 		/** DEF_ALG_TYPE_LMS */
 		struct def_algo_lms lms;
+		/** DEF_ALG_TYPE_ML_KEM */
+		struct def_algo_ml_kem ml_kem;
+		/** DEF_ALG_TYPE_ML_DSA */
+		struct def_algo_ml_dsa ml_dsa;
 	} algo;
 };
 

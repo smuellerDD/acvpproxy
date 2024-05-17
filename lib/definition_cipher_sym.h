@@ -188,7 +188,7 @@ struct def_algo_sym {
 
 	/*
 	 * AEAD IV generation mode
-	 * required: only for AES-GCM mode
+	 * required: only for AES-GCM, AES-GMAC, and AES-XPN modes
 	 */
 	enum ivgen {
 		DEF_ALG_SYM_IVGEN_UNDEF = 0,
@@ -198,7 +198,7 @@ struct def_algo_sym {
 
 	/*
 	 * AEAD IV generation mode
-	 * required: only for AES-GCM mode
+	 * required: only if ivgen is set to DEF_ALG_SYM_IVGEN_INTERNAL
 	 */
 	enum ivgenmode {
 		DEF_ALG_SYM_IVGENMODE_UNDEF = 0,

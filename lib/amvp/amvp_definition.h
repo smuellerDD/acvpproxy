@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2024, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -17,35 +17,30 @@
  * DAMAGE.
  */
 
-#ifndef AMV_PROTO_H
-#define AMV_PROTO_H
+#ifndef AMVP_DEFINITION_H
+#define AMVP_DEFINITION_H
 
-#include "amvp_internal.h"
-#include "internal.h"
+#include "definition_internal.h"
+#include "json_wrapper.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-static const struct acvp_net_proto amv_proto_def = {
-	.url_base = "amvp/v1",
-	.proto_version = "1.0",
-	.proto_version_keyword = "amvVersion",
-	.proto = amv_protocol,
-	.proto_name = "AMVP",
-	.basedir = AMVP_DS_DATADIR,
-	.basedir_production = AMVP_DS_DATADIR_PRODUCTION,
-	.secure_basedir = AMVP_DS_CREDENTIALDIR,
-	.secure_basedir_production = AMVP_DS_CREDENTIALDIR_PRODUCTION,
-
-	.session_url = NIST_VAL_OP_CERTREQUESTS,
-	.vector_url = NIST_VAL_OP_EVIDENCESETS,
-	.session_url_keyword = "certRequestId",
-	.vector_url_keyword = "crUrls",
+struct amvp_def {
+	struct json_object *validation_definition;
+	struct json_object *registration_definition;
 };
+
+struct definition;
+
+void amvp_def_free(struct amvp_def *amvp);
+int amvp_def_config(const char *directory, const struct definition *def,
+		    struct amvp_def **amvp);
+
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* AMV_PROTO_H */
+#endif /* AMVP_DEFINITION_H */

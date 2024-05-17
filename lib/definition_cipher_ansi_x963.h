@@ -45,6 +45,12 @@ struct def_algo_ansi_x963 {
 	 * ACVP_SHA256
 	 * ACVP_SHA384
 	 * ACVP_SHA512
+	 * ACVP_SHA512224
+	 * ACVP_SHA512256
+	 * ACVP_SHA3_224
+	 * ACVP_SHA3_256
+	 * ACVP_SHA3_384
+	 * ACVP_SHA3_512
 	 * required: always
 	 */
 	cipher_t hashalg;

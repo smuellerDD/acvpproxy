@@ -271,7 +271,7 @@ struct def_algo_kas_ifc {
 	 *   * partialVal - IUT can perform partial public key validation (
 	 *     [SP800-56Br2] section 6.4.2.2)
 	 *
-	 * requred: optional (if not defined, use DEF_ALG_KAS_IFC_UNDEFINED)
+	 * required: optional (if not defined, use DEF_ALG_KAS_IFC_UNDEFINED)
 	 */
 #define DEF_ALG_KAS_IFC_UNDEFINED (1 << 0)
 #define DEF_ALG_KAS_IFC_KEYPAIRGEN (1 << 1)

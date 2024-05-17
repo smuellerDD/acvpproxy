@@ -36,6 +36,14 @@ extern "C" {
 #define AMVP_DS_DATADIR "amvp-testvectors"
 #define AMVP_DS_DATADIR_PRODUCTION "amvp-testvectors-production"
 
+/* Directory of AMVP configuration information */
+#define AMVP_DEF_DIR_CMVP "cmvp"
+#define AMVP_DEF_FILE_VAL_INFO "module_validation_definition.json"
+#define AMVP_DEF_FILE_REGISTRATION "registration_data.json"
+
+/* File holding the metadata about the test session provided by ACVP server */
+#define AMVP_DS_MODULEIDMETA "moduleid_metadata.json"
+
 #ifdef __cplusplus
 }
 #endif

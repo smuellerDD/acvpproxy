@@ -1,5 +1,5 @@
 v1.8.1:
-- fix: rename now works for multiple test sessions
+- fix: rename now works for multiple test sessions 
 - enhancement: leancrypto - add EDDSA
 - Update DRBG numbers to be consistent with spec
 - Support SHA-3-based DRBGs and test using OpenSSL 3
@@ -14,6 +14,9 @@ v1.8.1:
 - fix rename for multiple sessions
 - update RSA decprim with fixed pub exp mode
 - OpenSSL 3 supports KAS2
+- enhancement: Support multiple emails and phone numbers in the vendor definition
+- enhancement: add ML-KEM and ML-DSA
+- enhancement: integrate AMVP with ACVP/ESVP
 
 v1.8.0
 - fix: ESV register multiple OEs in one certify operation

@@ -29,7 +29,7 @@
  * Process the response of GET /requests/<requestID> without the HTTP
  * operation
  */
-static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
+int acvp_meta_register_get_id(const struct acvp_buf *response, uint32_t *id)
 {
 	struct json_object *resp = NULL, *data = NULL;
 	uint32_t status_flag = 0, tmp_id;
@@ -48,21 +48,21 @@ static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 	 */
 
 	CKINT(json_get_string(data, "status", &status));
-	if (!strncmp(status, "approved", 8)) {
+	if (!strncasecmp(status, "approved", 8)) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Request response indicates successful opoeration: %s\n",
 		       status);
-	} else if (!strncmp(status, "initial", 7)) {
+	} else if (!strncasecmp(status, "initial", 7)) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Request response indicates initial request processing: %s\n",
 		       status);
 		status_flag = ACVP_REQUEST_INITIAL;
-	} else if (!strncmp(status, "processing", 10)) {
+	} else if (!strncasecmp(status, "processing", 10)) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "Request response indicates request processing: %s\n",
 		       status);
 		status_flag = ACVP_REQUEST_PROCESSING;
-	} else if (!strncmp(status, "rejected", 10)) {
+	} else if (!strncasecmp(status, "rejected", 10)) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "Request response indicates rejection of request: %s - Request information discarded locally to allow re-trying of publication.\n",
 		       status);
@@ -83,13 +83,20 @@ static int acvp_meta_register_get_id(struct acvp_buf *response, uint32_t *id)
 	}
 
 	if (status_flag) {
-		CKINT(json_get_string(data, "url", &uri));
+		ret = json_get_string(data, "url", &uri);
 	} else {
-		CKINT(json_get_string(data, "approvedUrl", &uri));
+		ret = json_get_string(data, "approvedUrl", &uri);
 	}
 
-	/* Get the oe ID which is the last pathname component */
-	CKINT(acvp_get_trailing_number(uri, &tmp_id));
+	/* AMVP speciality for GET /certRequests/<ID> */
+	if (ret == -ENOENT) {
+		CKINT(json_get_uint(data, "certRequestId", &tmp_id));
+	} else if (ret) {
+		goto out;
+	} else {
+		/* Get the oe ID which is the last pathname component */
+		CKINT(acvp_get_trailing_number(uri, &tmp_id));
+	}
 
 	/* Reject a request ID */
 	if (acvp_request_id(tmp_id)) {

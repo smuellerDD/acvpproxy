@@ -421,13 +421,76 @@ keywords:
 
 * `contactName`: Name of the contact person at the vendor.
 
-* `contactEmail`: Email address of the vendor's contact person.
+* `contactEmail`: Email address of the vendor's contact person. It is permissible to use either a JSON string or an array of strings. Thus, the following is allowed:
+
+    "contactEmail": [ "cst-info@atsec.com", "bar@atsec.com" ],
+    "contactEmail": "cst-info@atsec.com",
+
+* `contactPhone`: Phone number of the vendor's contact person. It is permissibl
+e to use either a JSON string or an array of strings. Thus, the following is all
+owed:
+
+    "contactPhone": [ "+1-512-615-7300", "+49-89-44249830" ],
+    "contactPhone": "+1-512-615-7300",
 
 * `dependencies-internal`: This keyword is optional. For details, see section
   about automated dependency handling.
 
 * `dependencies-external`: This keyword is optional. For details, see section
   about manual dependency handling.
+
+#### Multiple Persons
+
+It is permissible that per vendor, multiple persons are specified. With the
+definition documented in [Vendor Configuration], one person can only be defined.
+In order to define multiple persons, the JSON key words of `contactName`,
+`contactEmail`, and `contactPhone` must be removed from the
+[Vendor Configuration] and placed into an array of objects registered with the
+[Vendor Configuration] under the keyword `persons`. The following example should
+make it clear:
+
+The simple person definition allowing only one person looks like:
+
+```
+{
+  "vendorName":"atsec corp.",
+  "vendorUrl":"www.atsec.com",
+  "contactName":"Stephan Müller",
+  "contactEmail":"cst-info@atsec.com",
+  "contactPhone":"+1-512-615-7300",
+  "addressStreet":"9130 Jollyville Rd",
+  "addressCity":"Austin",
+  "addressState":"TX",
+  "addressCountry":"USA",
+  "addressZip":"78759",
+}
+```
+
+The complex person definition allowing one or more persons looks like:
+
+```
+{
+  "vendorName":"atsec corp.",
+  "vendorUrl":"www.atsec.com",
+  "persons": [
+    {
+      "contactName":"Stephan Müller",
+      "contactEmail": [ "cst-info@atsec.com", "bar@atsec.com" ],
+      "contactPhone": [ "+1-512-615-7300", "+49-89-44249830" ]
+    },
+    {
+      "contactName":"John Doe",
+      "contactEmail": "jdoe@atsec.com",
+      "contactPhone": "+1-555-555-5555"
+    }
+  ],
+  "addressStreet":"9130 Jollyville Rd",
+  "addressCity":"Austin",
+  "addressState":"TX",
+  "addressCountry":"USA",
+  "addressZip":"78759",
+}
+```
 
 ### Module Configuration
 

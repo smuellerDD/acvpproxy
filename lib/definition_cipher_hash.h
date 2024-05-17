@@ -65,13 +65,13 @@ struct def_algo_sha {
 
 	/*
 	 * Implementation accepts bit-oriented messages
-	 * required: always
+	 * required: unused
 	 */
 	bool inbit;
 
 	/*
 	 * Implementation does accept null (zero-length) messages
-	 * required: always
+	 * required: unused
 	 */
 	bool inempty;
 

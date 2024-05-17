@@ -346,6 +346,22 @@ int acvp_req_set_prereq_lms(const struct def_algo_lms *lms,
 int acvp_list_algo_lms(const struct def_algo_lms *lms,
 		       struct acvp_list_ciphers **new);
 
+int acvp_req_set_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
+			     struct json_object *entry);
+int acvp_req_set_prereq_ml_kem(const struct def_algo_ml_kem *ml_kem,
+			       const struct acvp_test_deps *deps,
+			       struct json_object *entry, bool publish);
+int acvp_list_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
+		          struct acvp_list_ciphers **new);
+
+int acvp_req_set_algo_ml_dsa(const struct def_algo_ml_dsa *ml_dsa,
+			     struct json_object *entry);
+int acvp_req_set_prereq_ml_dsa(const struct def_algo_ml_dsa *ml_dsa,
+			       const struct acvp_test_deps *deps,
+			       struct json_object *entry, bool publish);
+int acvp_list_algo_ml_dsa(const struct def_algo_ml_dsa *ml_dsa,
+		          struct acvp_list_ciphers **new);
+
 struct acvp_net_proto {
 	char *url_base; /* Base path of URL */
 	char *proto_version;
@@ -702,6 +718,12 @@ int acvp_vsid_url(const struct acvp_vsid_ctx *vsid_ctx, char *url,
 int acvp_module_type_name_to_enum(const char *str, enum def_mod_type *env_type);
 
 /**
+ * @brief Convert an environment ID to a string
+ */
+int acvp_module_type_enum_to_name(const enum def_mod_type env_type,
+				  const char **out_string);
+
+/**
  * @brief Convert environment ID to string.
  */
 int acvp_module_oe_type(const enum def_mod_type env_type,
@@ -948,6 +970,11 @@ int acvp_get_testid_metadata(const struct acvp_testid_ctx *testid_ctx,
  */
 int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
 				    uint32_t *id);
+
+/**
+ * @brief Parse the status of the request
+ */
+int acvp_meta_register_get_id(const struct acvp_buf *response, uint32_t *id);
 
 /**
  * @brief Fetch all outstanding meta data requests with the ACVP server
@@ -1226,6 +1253,8 @@ int acvp_req_kas_r3_kc_method(const struct def_algo_kas_r3_kc *kcm,
 #define ACVP_DS_EXPECTED "testvector-expected.json"
 /* File holding the status of the test session */
 #define ACVP_DS_ESVPSTATUS "esvp_status.json"
+/* File holding the status of the test session */
+#define ACVP_DS_AMVPEVIDENCE "amvp_evidenceset.json"
 /* File holding the metadata about the test session provided by ACVP server */
 #define ACVP_DS_TESTIDMETA "testid_metadata.json"
 /* File holding the time in seconds the testID/vsID communication took */

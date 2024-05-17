@@ -46,8 +46,16 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
 		  struct json_object *sd_array, bool write_extended);
 
+
+int esvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
+			 const struct acvp_ctx *ctx,
+			 const struct definition *def,
+			 const uint32_t testid);
+
 /**
  * Start certification operation
+ *
+ * This operation includes the OE addition operation
  */
 int esvp_certify(struct acvp_testid_ctx *testid_ctx);
 

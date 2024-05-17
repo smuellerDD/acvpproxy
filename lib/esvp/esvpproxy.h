@@ -34,6 +34,8 @@ extern "C" {
 #define NIST_ESVP_VAL_OP_DATAFILE "dataFiles"
 #define NIST_ESVP_VAL_OP_SUPPDOC "supportingDocumentation"
 #define NIST_ESVP_VAL_OP_CERTIFY "certify"
+#define NIST_ESVP_VAL_OP_OEADD "addOE"
+#define NIST_ESVP_VAL_OP_PUDUPDATE "updatePUD"
 
 /**
  * @brief Perform network operation to register a new entropy source with

@@ -433,7 +433,7 @@ bool acvp_find_match(const char *searchstr, const char *defstr,
 			return false;
 		}
 
-		if (strncmp(searchstr, defstr, defstr_len)) {
+		if (strncasecmp(searchstr, defstr, defstr_len)) {
 			logger(LOGGER_DEBUG2, LOGGER_C_ANY,
 			       "Strings mismatch\n");
 			return false;

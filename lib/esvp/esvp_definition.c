@@ -134,6 +134,7 @@ void esvp_def_es_free(struct esvp_es_def *es)
 
 	ACVP_PTR_FREE_NULL(es->primary_noise_source_desc);
 	ACVP_PTR_FREE_NULL(es->lab_test_id);
+	ACVP_PTR_FREE_NULL(es->esv_certificate);
 	ACVP_PTR_FREE_NULL(es->config_dir);
 
 	ACVP_CONST_PTR_FREE_NULL(es->ear_file);
@@ -316,6 +317,16 @@ static int esvp_read_es_def(const char *directory, struct esvp_es_def **es_out)
 	CKINT(json_get_string(es_conf, "labTestId", &str));
 	CKINT(acvp_duplicate(&es->lab_test_id, str));
 
+	/*
+	 * Try to get the certificate reference. But it is equally acceptable
+	 * to not get it. The subsequent code is able to handle a NULL value
+	 * here.
+	 */
+	ret = json_get_string(es_conf, "esvCertificate", &str);
+	if (ret == 0) {
+		CKINT(acvp_duplicate(&es->esv_certificate, str));
+	}
+
 	snprintf(es_data_file, sizeof(es_data_file), "%s/%s/%s%s",
 		 es->config_dir, ESVP_ES_DIR_ENTROPY_SOURCE,
 		 ESVP_ES_FILE_RAW_NOISE, ESVP_ES_BINARY_FILE_EXTENSION);
@@ -339,12 +350,18 @@ static int esvp_read_es_def(const char *directory, struct esvp_es_def **es_out)
 	CKINT(json_get_bool(es_conf, "iid", &es->iid));
 	CKINT(json_get_bool(es_conf, "physical", &es->physical));
 
-	/*
-	 * limitEntropyAssessmentToSingleModule no longer optional to force it
-	 * visible to testers.
-	 */
-	CKINT(json_get_bool(es_conf, "limitEntropyAssessmentToSingleModule",
-			    &es->limit_es_single_module));
+	ret = json_get_bool(es_conf, "limitEntropyAssessmentToVendor",
+			    &es->limit_es_vendor);
+	if (ret < 0) {
+		ret = json_get_bool(es_conf,
+				    "limitEntropyAssessmentToSingleModule",
+				    &es->limit_es_vendor);
+		if (ret < 0)
+			goto out;
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "limitEntropyAssessmentToSingleModule is deprecated, please use limitEntropyAssessmentToVendor\n");
+	}
+
 	CKINT(json_get_bool(es_conf, "additionalNoiseSources",
 			    &es->additional_noise_sources));
 

@@ -26,10 +26,12 @@
 #include <json-c/json.h>
 
 #include "acvpproxy.h"
+#include "amvp_definition.h"
 #include "atomic.h"
 #include "constructor.h"
 #include "definition.h"
 #include "esvp_definition.h"
+#include "list.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,14 +42,19 @@ enum def_mod_type {
 	MOD_TYPE_SOFTWARE,
 	MOD_TYPE_HARDWARE,
 	MOD_TYPE_FIRMWARE,
+	MOD_TYPE_SOFTWARE_HYBRID,
+	MOD_TYPE_FIRMWARE_HYBRID,
 };
 
 static const struct def_mod_type_conversion {
 	enum def_mod_type type;
 	char *type_name;
-} def_mod_type_conversion[] = { { MOD_TYPE_SOFTWARE, "Software" },
-				{ MOD_TYPE_HARDWARE, "Hardware" },
-				{ MOD_TYPE_FIRMWARE, "Firmware" } };
+} def_mod_type_conversion[] = { { MOD_TYPE_SOFTWARE, "software" },
+				{ MOD_TYPE_HARDWARE, "hardware" },
+				{ MOD_TYPE_FIRMWARE, "firmware" },
+				{ MOD_TYPE_SOFTWARE_HYBRID, "software-hybrid" },
+				{ MOD_TYPE_FIRMWARE_HYBRID, "firmware-hybrid" },
+};
 
 /* Warning, we operate with a signed int, so leave the highest bit untouched */
 #define ACVP_REQUEST_INITIAL (1 << 30)
@@ -141,23 +148,58 @@ struct def_info {
 	bool module_version_i;
 	bool module_description_i;
 	bool acvp_vendor_id_i;
-	bool acvp_person_id_i;
+	uint8_t *acvp_person_id_i;
 	bool acvp_addr_id_i;
 	bool module_type_i;
 
 	char *def_module_file;
 	uint32_t acvp_vendor_id;
-	uint32_t acvp_person_id;
+	size_t acvp_person_cnt;
+	uint32_t *acvp_person_id;
 	uint32_t acvp_addr_id;
 	uint32_t acvp_module_id;
 
 	struct def_lock *def_lock;
 };
 
+struct def_list {
+	struct def_list *list;
+	char *data;
+};
+
+/*
+ * @var contact_name Specify the contact person responsible for the CAVS
+ *		     test request.
+ * @var contact_email Specify the contact email of the person responsible for
+ *		      the CAVS test request.
+ * @var contact_phone Specify the contact telephone number
+ * @var acvp_person_id Identifier assigned by the ACVP server to person /
+ *		       contact information.
+ */
+struct def_person {
+	struct list_entry list;
+	char *contact_name;
+	struct def_list contact_email_list;
+	struct def_list contact_phone_list;
+	uint32_t acvp_person_id;
+
+	uint32_t acvp_vendor_id;
+
+	bool contact_name_i;
+	bool contact_email_i;
+	bool contact_phone_i;
+};
+
 /**
  * @brief This data structure contains the required details about the vendor
  *	  of the cipher implementation. Note, this information will be posted
  *	  at the CAVS web site.
+ *
+ * @var config_file_version Version of configuration file:
+ *	v0 == v1: one person ID
+ *	v2: persons - each array member will internally be represented with one
+ *	struct def_person representation in the same order as found in the JSON
+ *	file
  *
  * @var vendor_name Specify the name of the vendor.
  * @var vendor_name_filesafe Same information as @var vendor_name except
@@ -167,13 +209,7 @@ struct def_info {
  * @var acvp_vendor_id Identifier assigned by the ACVP server to vendor
  *		       information.
  *
- * @var contact_name Specify the contact person responsible for the CAVS
- *		     test request.
- * @var contact_email Specify the contact email of the person responsible for
- *		      the CAVS test request.
- * @var contact_phone Specify the contact telephone number
- * @var acvp_person_id Identifier assigned by the ACVP server to person /
- *		       contact information.
+ * @var person Contact persons
  *
  * @var addr_street Address: Street
  * @var addr_locality Address: City
@@ -186,15 +222,14 @@ struct def_info {
  * @var def_vendor_file Configuration file holding the information
  */
 struct def_vendor {
+	uint32_t config_file_version;
+
 	char *vendor_name;
 	char *vendor_name_filesafe;
 	char *vendor_url;
 	uint32_t acvp_vendor_id;
 
-	char *contact_name;
-	char *contact_email;
-	char *contact_phone;
-	uint32_t acvp_person_id;
+	struct def_person person;
 
 	char *addr_street;
 	char *addr_locality;
@@ -206,9 +241,6 @@ struct def_vendor {
 	/* Flags to ignore the respective entries during building */
 	bool vendor_name_i;
 	bool vendor_url_i;
-	bool contact_name_i;
-	bool contact_email_i;
-	bool contact_phone_i;
 	bool addr_street_i;
 	bool addr_locality_i;
 	bool addr_region_i;
@@ -386,6 +418,7 @@ struct definition {
 	struct def_vendor *vendor;
 	struct def_oe *oe;
 	struct esvp_es_def *es;
+	struct amvp_def *amvp;
 	struct def_algo_map *uninstantiated_def;
 	struct def_deps *deps;
 	bool processed;

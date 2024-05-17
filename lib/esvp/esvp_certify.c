@@ -36,7 +36,6 @@ static int esvp_certify_build_one(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	const struct esvp_es_def *es = testid_ctx->es_def;
 	const struct definition *def;
-	struct acvp_auth_ctx *auth;
 	struct def_info *def_info;
 	struct def_vendor *def_vendor;
 	struct def_oe *def_oe;
@@ -86,20 +85,46 @@ static int esvp_certify_build_one(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-	auth = es->es_auth;
-	ea_entry = json_object_new_object();
-	CKNULL(ea_entry, -ENOMEM);
-	CKINT(json_object_array_add(ea_array, ea_entry));
-	CKINT(json_object_object_add(
-		ea_entry, "eaId",
-		json_object_new_int((int)testid_ctx->testid)));
-	CKINT(json_object_object_add(
-		ea_entry, "oeId",
-		json_object_new_int((int)def_oe->acvp_oe_id)));
-	CKINT(json_object_object_add(ea_entry, "accessToken",
-				     json_object_new_string(auth->jwt_token)));
+	/* If ea_array is NULL, we have a PUDAdd */
+	if (ea_array) {
+		struct acvp_auth_ctx *auth = es->es_auth;
 
-	CKINT_ULCK(esvp_build_sd(testid_ctx, sd_array, false));
+		ea_entry = json_object_new_object();
+		CKNULL(ea_entry, -ENOMEM);
+		CKINT(json_object_array_add(ea_array, ea_entry));
+		CKINT(json_object_object_add(
+			ea_entry, "eaId",
+			json_object_new_int((int)testid_ctx->testid)));
+		CKINT(json_object_object_add(
+			ea_entry, "oeId",
+			json_object_new_int((int)def_oe->acvp_oe_id)));
+		CKINT(json_object_object_add(ea_entry, "accessToken",
+			json_object_new_string(auth->jwt_token)));
+	} else {
+		/*
+		 * Iterate through the SD and mark all non-PUD documents as
+		 * not to be submitted.
+		 */
+		struct esvp_sd_def *sd;
+
+		for (sd = es->sd; sd; sd = sd->next) {
+			if (sd->document_type != esvp_document_pud) {
+				logger(LOGGER_DEBUG, LOGGER_C_ANY,
+				       "Marking %s as not to be submitted\n",
+				       sd->file->filename);
+				sd->submit = false;
+			} else {
+				logger(LOGGER_ERR, LOGGER_C_ANY,
+				       "Marking %s as to be submitted\n",
+				       sd->file->filename);
+				sd->submit = true;
+			}
+		}
+	}
+
+	if (sd_array) {
+		CKINT_ULCK(esvp_build_sd(testid_ctx, sd_array, false));
+	}
 
 unlock:
 	ret |= acvp_def_put_module_id(def_info);
@@ -124,7 +149,7 @@ static int esvp_analyze_sd(const struct acvp_testid_ctx *testid_ctx_list,
 	for (sd = es->sd; sd; sd = sd->next) {
 		submit = true;
 
-		/* Check entire array of testids for existance of SD */
+		/* Check entire array of testids for existence of SD */
 		for (t_ctx = testid_ctx_list; t_ctx; t_ctx = t_ctx->next) {
 			const struct esvp_es_def *t_es = t_ctx->es_def;
 			const struct esvp_sd_def *t_sd;
@@ -173,18 +198,20 @@ out:
 }
 
 static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
-			      struct json_object *certify)
+			      struct json_object *certify, bool *oeadd,
+			      bool pudupdate)
 {
 	const struct acvp_testid_ctx *t_ctx;
 	const struct esvp_es_def *es;
 	const struct definition *def;
 	struct def_info *def_info;
 	struct def_vendor *def_vendor;
-	struct json_object *certdata, *ea_array, *sd_array;
+	struct json_object *certdata, *ea_array = NULL, *sd_array = NULL;
 	int ret;
 
 	CKNULL_LOG(testid_ctx, -EINVAL, "ES building: testid_ctx missing\n");
 	es = testid_ctx->es_def;
+	CKNULL_LOG(es, -EINVAL, "ES building: ES information missing\n");
 	def = testid_ctx->def;
 	CKNULL_LOG(def, -EINVAL, "ES building: cipher definitions missing\n");
 	def_info = def->info;
@@ -194,6 +221,24 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 	CKNULL_LOG(def_vendor, -EINVAL,
 		   "ES building: vendor definitions missing\n");
 
+	if (pudupdate && !es->esv_certificate) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "PUD Update operation requested. Yet, the current ES does not have an ESV certificate reference. Add esvCertificate to the entropy source definition JSON file.\n");
+		ret = -EOPNOTSUPP;
+		goto out;
+	} else if (pudupdate && es->esv_certificate) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Identified PUD Update operation\n");
+	} else if (!pudupdate && es->esv_certificate) {
+		*oeadd = true;
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Identified OE add operation\n");
+	} else {
+		*oeadd = false;
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Identified regular publishing operation\n");
+	}
+
 	/* Array entry for version */
 	CKINT(acvp_req_add_version(certify));
 
@@ -202,10 +247,15 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 	CKNULL(certdata, -ENOMEM);
 	CKINT(json_object_array_add(certify, certdata));
 
-	ea_array = json_object_new_array();
-	CKNULL(ea_array, -ENOMEM);
-	CKINT(json_object_object_add(certdata, "entropyAssessments", ea_array));
+	/* When having a PUD update we do not want ANY EAR related info. */
+	if (!pudupdate) {
+		ea_array = json_object_new_array();
+		CKNULL(ea_array, -ENOMEM);
+		CKINT(json_object_object_add(certdata, "entropyAssessments",
+					     ea_array));
+	}
 
+	/* When having an OE add, we do not want ANY SD related info. */
 	sd_array = json_object_new_array();
 	CKNULL(sd_array, -ENOMEM);
 	CKINT(json_object_object_add(certdata, "supportingDocumentation",
@@ -219,14 +269,24 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT_ULCK(json_object_object_add(certdata,
 		   "limitEntropyAssessmentToSingleModule",
-		   json_object_new_boolean(es->limit_es_single_module)));
+		   json_object_new_boolean(es->limit_es_vendor)));
 
 	CKINT_ULCK(json_object_object_add(certdata, "entropyId",
 		   json_object_new_string(es->lab_test_id)));
-	CKINT_ULCK(json_object_object_add(certdata, "moduleId",
-		   json_object_new_int((int)def_info->acvp_module_id)));
-	CKINT_ULCK(json_object_object_add(certdata, "vendorId",
-		   json_object_new_int((int)def_vendor->acvp_vendor_id)));
+
+	if (es->esv_certificate) {
+		CKINT_ULCK(json_object_object_add(certdata,
+						  "entropyCertificate",
+			   json_object_new_string(es->esv_certificate)));
+	} else {
+		CKINT_ULCK(json_object_object_add(certdata, "moduleId",
+			   json_object_new_int((int)def_info->acvp_module_id)));
+	}
+
+	if (!es->esv_certificate) {
+		CKINT_ULCK(json_object_object_add(certdata, "vendorId",
+			json_object_new_int((int)def_vendor->acvp_vendor_id)));
+	}
 
 	for (t_ctx = testid_ctx; t_ctx; t_ctx = t_ctx->next)
 		CKINT_ULCK(esvp_analyze_sd(testid_ctx, t_ctx));
@@ -296,8 +356,8 @@ out:
 	return ret;
 }
 
-/* POST /certify */
-int esvp_certify(struct acvp_testid_ctx *testid_ctx)
+/* POST /certify or /addOE or /updatePUD */
+static int esvp_certify_internal(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *opts = &ctx->options;
@@ -308,6 +368,7 @@ int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 	char url[ACVP_NET_URL_MAXLEN];
 	const char *json_request;
 	int ret, ret2;
+	bool oeadd = false;
 
 	CKNULL(ctx, -EFAULT);
 
@@ -323,7 +384,8 @@ int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 	certify = json_object_new_array();
 	CKNULL(certify, -ENOMEM);
 
-	CKINT(esvp_certify_build(testid_ctx, certify));
+	CKINT(esvp_certify_build(testid_ctx, certify, &oeadd,
+				 opts->esv_pudupdate));
 
 	if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_DEBUG &&
 	    !req_details->dump_register) {
@@ -357,8 +419,19 @@ int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 	submit.buf = (uint8_t *)json_request;
 	submit.len = (uint32_t)strlen(json_request);
 
-	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_CERTIFY, url, sizeof(url)),
-		  "Creation of request URL failed\n");
+	if (opts->esv_pudupdate) {
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_PUDUPDATE, url,
+					  sizeof(url)),
+			  "Creation of request URL failed\n");
+	} else if (oeadd) {
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_OEADD, url,
+					  sizeof(url)),
+			  "Creation of request URL failed\n");
+	} else {
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_CERTIFY, url,
+					  sizeof(url)),
+			  "Creation of request URL failed\n");
+	}
 
 	/* Send the data to the ESVP server. */
 	ret2 = acvp_net_op(testid_ctx, url, &submit, &response, acvp_http_post);
@@ -372,4 +445,10 @@ out:
 	acvp_free_buf(&response);
 	ACVP_JSON_PUT_NULL(certify);
 	return ret;
+}
+
+int esvp_certify(struct acvp_testid_ctx *testid_ctx)
+{
+
+	return esvp_certify_internal(testid_ctx);
 }

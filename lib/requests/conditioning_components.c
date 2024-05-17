@@ -113,6 +113,21 @@ int acvp_req_set_algo_cond_comp(const struct def_algo_cond_comp *cond_comp,
 					      "payloadLen"));
 	} else {
 		CKINT(acvp_req_sym_keylen(entry, cond_comp->keylen));
+
+		if (cond_comp->keys[0] != NULL) {
+			struct json_object *keys = json_object_new_array();
+			CKNULL(keys, -ENOMEM);
+			CKINT(json_object_object_add(entry, "keys", keys));
+
+			size_t i = 0;
+			while (cond_comp->keys[i] != NULL) {
+				struct json_object *key =
+					json_object_new_string(cond_comp->keys[i]);
+				CKINT(json_object_array_add(keys, key));
+				i += 1;
+			}
+		}
+
 		CKINT(acvp_req_algo_int_array(entry, cond_comp->payload_len,
 					      "payloadLen"));
 	}

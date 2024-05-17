@@ -225,95 +225,100 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	CKINT(acvp_req_algo_int_array(entry, sym->ptlen, "payloadLen"));
 	CKINT(acvp_req_algo_int_array(entry, sym->ivlen, "ivLen"));
 
-	if (acvp_match_cipher(sym->algorithm, ACVP_GCM) && !sym->ivgen) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "GCM mode definition: ivgen setting missing\n");
-		ret = -EINVAL;
-		goto out;
-	}
-	switch (sym->ivgen) {
-	case DEF_ALG_SYM_IVGEN_UNDEF:
-		/* Do nothing */
-		break;
-	case DEF_ALG_SYM_IVGEN_INTERNAL:
-		CKINT(json_object_object_add(entry, "ivGen",
-					json_object_new_string("internal")));
-		break;
-	case DEF_ALG_SYM_IVGEN_EXTERNAL:
-		CKINT(json_object_object_add(entry, "ivGen",
-					json_object_new_string("external")));
-		break;
-	default:
-		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Symmetric ciphers: Unknown IV generator definition\n");
-		ret = -EINVAL;
-		goto out;
-		break;
-	}
-
-	if (acvp_match_cipher(sym->algorithm, ACVP_GCM) &&
-	    (sym->ivgen == DEF_ALG_SYM_IVGEN_INTERNAL) && !sym->ivgenmode) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "GCM mode definition: ivgenmode setting for internal IV generation missing\n");
-		ret = -EINVAL;
-		goto out;
-	}
-	switch (sym->ivgenmode) {
-	case DEF_ALG_SYM_IVGENMODE_UNDEF:
-		/* Do nothing */
-		break;
-	case DEF_ALG_SYM_IVGENMODE_821:
-		CKINT(json_object_object_add(entry, "ivGenMode",
-					     json_object_new_string("8.2.1")));
-		break;
-	case DEF_ALG_SYM_IVGENMODE_822:
-		CKINT(json_object_object_add(entry, "ivGenMode",
-					     json_object_new_string("8.2.2")));
-		break;
-	default:
-		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Symmetric ciphers: Unknown IV generator mode definition\n");
-		ret = -EINVAL;
-		goto out;
-		break;
-	}
-
-	switch (sym->saltgen) {
-	case DEF_ALG_SYM_SALTGEN_UNDEF:
-		/* Do nothing */
-		break;
-	case DEF_ALG_SYM_SALTGEN_INTERNAL:
-		CKINT(json_object_object_add(entry, "saltGen",
-					json_object_new_string("internal")));
-		break;
-	case DEF_ALG_SYM_SALTGEN_EXTERNAL:
-		CKINT(json_object_object_add(entry, "saltGen",
-					json_object_new_string("external")));
-		break;
-	default:
-		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Symmetric ciphers: Unknown salt generator definition\n");
-		ret = -EINVAL;
-		goto out;
-		break;
+	if (acvp_match_cipher(sym->algorithm, ACVP_GCM) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_GMAC) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_XPN)) {
+		switch (sym->ivgen) {
+		case DEF_ALG_SYM_IVGEN_UNDEF:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "GCM/GMAC/XPN mode definition: ivgen setting missing\n");
+			ret = -EINVAL;
+			goto out;
+		case DEF_ALG_SYM_IVGEN_INTERNAL:
+			CKINT(json_object_object_add(entry, "ivGen",
+						     json_object_new_string("internal")));
+			break;
+		case DEF_ALG_SYM_IVGEN_EXTERNAL:
+			CKINT(json_object_object_add(entry, "ivGen",
+						     json_object_new_string("external")));
+			break;
+		default:
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			       "Symmetric ciphers: Unknown IV generation definition\n");
+			ret = -EINVAL;
+			goto out;
+		}
 	}
 
 	if ((acvp_match_cipher(sym->algorithm, ACVP_GCM) ||
-	     acvp_match_cipher(sym->algorithm, ACVP_CCM) ||
-	     acvp_match_cipher(sym->algorithm, ACVP_GCMSIV)) &&
+	    acvp_match_cipher(sym->algorithm, ACVP_GMAC) ||
+	    acvp_match_cipher(sym->algorithm, ACVP_XPN)) &&
+	    sym->ivgen == DEF_ALG_SYM_IVGEN_INTERNAL) {
+		switch (sym->ivgenmode) {
+		case DEF_ALG_SYM_IVGENMODE_UNDEF:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "GCM/GMAC/XPN mode definition: ivgenmode setting missing\n");
+			ret = -EINVAL;
+			goto out;
+		case DEF_ALG_SYM_IVGENMODE_821:
+			CKINT(json_object_object_add(entry, "ivGenMode",
+						     json_object_new_string("8.2.1")));
+			break;
+		case DEF_ALG_SYM_IVGENMODE_822:
+			CKINT(json_object_object_add(entry, "ivGenMode",
+						     json_object_new_string("8.2.2")));
+			break;
+		default:
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			       "Symmetric ciphers: Unknown IV generation mode definition\n");
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+
+	if (acvp_match_cipher(sym->algorithm, ACVP_XPN)) {
+		switch (sym->saltgen) {
+		case DEF_ALG_SYM_SALTGEN_UNDEF:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "XPN mode definition: saltgen setting missing\n");
+			ret = -EINVAL;
+			goto out;
+		case DEF_ALG_SYM_SALTGEN_INTERNAL:
+			CKINT(json_object_object_add(entry, "saltGen",
+						json_object_new_string("internal")));
+			break;
+		case DEF_ALG_SYM_SALTGEN_EXTERNAL:
+			CKINT(json_object_object_add(entry, "saltGen",
+						json_object_new_string("external")));
+			break;
+		default:
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			    "Symmetric ciphers: Unknown salt generator definition\n");
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+
+	if ((acvp_match_cipher(sym->algorithm, ACVP_GCM) ||
+	     acvp_match_cipher(sym->algorithm, ACVP_GCMSIV) ||
+	     acvp_match_cipher(sym->algorithm, ACVP_GMAC) ||
+	     acvp_match_cipher(sym->algorithm, ACVP_XPN) ||
+	     acvp_match_cipher(sym->algorithm, ACVP_CCM)) &&
 	    !sym->aadlen[0]) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "GCM/CCM mode definition: aadlen setting missing\n");
+		       "GCM/GMAC/XPN/CCM mode definition: aadlen setting missing\n");
 		ret = -EINVAL;
 		goto out;
 	}
 	CKINT(acvp_req_algo_int_array(entry, sym->aadlen, "aadLen"));
 
 	if ((acvp_match_cipher(sym->algorithm, ACVP_GCM) ||
+	     acvp_match_cipher(sym->algorithm, ACVP_GMAC) ||
+	     acvp_match_cipher(sym->algorithm, ACVP_XPN) ||
 	     acvp_match_cipher(sym->algorithm, ACVP_CCM)) &&
 	    !sym->taglen[0]) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "GCM/CCM mode definition: taglen setting missing\n");
+		       "GCM/GMAC/XPN/CCM mode definition: taglen setting missing\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -384,8 +389,6 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 					json_object_new_boolean(true)));
 		}
 	}
-
-	CKINT(acvp_req_algo_int_array(entry, sym->taglen, "tagLen"));
 
 	CKINT(acvp_req_tdes_keyopt(entry, sym->algorithm));
 

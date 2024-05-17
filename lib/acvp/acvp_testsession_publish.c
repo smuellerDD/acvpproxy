@@ -344,6 +344,14 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 			CKINT(acvp_req_set_prereq_lms(
 				&def_algo->algo.lms, deps, entry, true));
 			break;
+		case DEF_ALG_TYPE_ML_KEM:
+			CKINT(acvp_req_set_prereq_ml_kem(
+				&def_algo->algo.ml_kem, deps, entry, true));
+			break;
+		case DEF_ALG_TYPE_ML_DSA:
+			CKINT(acvp_req_set_prereq_ml_dsa(
+				&def_algo->algo.ml_dsa, deps, entry, true));
+			break;
 
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,

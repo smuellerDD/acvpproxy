@@ -68,6 +68,15 @@ struct def_algo_cond_comp {
 	unsigned int keylen;
 
 	/*
+	 * Fixed key(s) to use for AES CBC-MAC as hexadecimal strings.
+	 * Length(s) must match key length(s) given in keylen.
+	 *
+	 * required: optional
+	 */
+	// will anyone ever need more than 10 keys?
+	char *keys[10];
+
+	/*
 	 * Length of the input data to be processed by the conditioning
 	 * component. It allows a range between
 	 * 1 and 65536.

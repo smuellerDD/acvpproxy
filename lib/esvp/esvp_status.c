@@ -189,10 +189,9 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 		/* Read hash */
 		ret = esvp_read_filehash(stat_cc, &cc->data_hash, "fileHash");
 		/* Hash does not match current hash -> (re-)submit file */
-		if (ret == -ENOENT) {
+		if (ret == -ENOENT)
 			cc->output_submitted = false;
-			ret = 0;
-		} else if (ret)
+		else if (ret)
 			goto out;
 	}
 
@@ -274,6 +273,11 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 				CKINT(acvp_duplicate(&file->filename, str));
 				CKINT(json_get_bool(file_entry, "submitted",
 						    &file->submitted));
+
+				/* Allow this being optional */
+				json_get_uint(file_entry, "documentType",
+					      &sd->document_type);
+
 				ret = esvp_read_filehash(file_entry,
 							 &file->data_hash,
 							 "fileHash");
@@ -281,10 +285,9 @@ int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
 				 * Hash does not match current hash ->
 				 * (re-)submit file
 				 */
-				if (ret == -ENOENT) {
+				if (ret == -ENOENT)
 					file->submitted = false;
-					ret = 0;
-				} else if (ret)
+				else if (ret)
 					goto out;
 			}
 		}
@@ -384,6 +387,10 @@ int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
 						file_data, "submitted",
 						json_object_new_boolean(
 							file->submitted)));
+				CKINT(json_object_object_add(
+						file_data, "documentType",
+						json_object_new_int(
+							(int)sd->document_type)));
 				CKINT(esvp_write_filehash(file_data,
 							  &file->data_hash,
 							  "fileHash"));

@@ -69,6 +69,7 @@ struct opt_data {
 	bool rename;
 	bool request;
 	bool publish;
+	bool esv_pudupdate;
 	bool list_available_ids;
 	bool list_pending_request_ids;
 	bool list_pending_request_ids_sparse;
@@ -86,6 +87,8 @@ struct opt_data {
 	bool list_purchased_vs;
 	bool list_available_purchase_opts;
 	bool fetch_verdicts;
+	bool check_health;
+
 	bool esvp_proxy;
 	bool amvp_proxy;
 };
@@ -313,6 +316,10 @@ static void usage(void)
 	fprintf(stderr, "\t\t\t\t\tto allow assigning the invoice in local\n");
 	fprintf(stderr, "\t\t\t\t\tpayment system\n\n");
 
+	fprintf(stderr, "\tESVP specific options:\n");
+	fprintf(stderr,
+		"\t   --pudupdate\t\tStart a PUD-Update process\n\n");
+
 	fprintf(stderr, "\tAuxiliary options:\n");
 	fprintf(stderr,
 		"\t   --proxy-extension <SO-FILE>\tShared library of ACVP Proxy extension\n");
@@ -341,6 +348,8 @@ static void usage(void)
 	fprintf(stderr,
 		"\t   --upload-only\t\tOnly upload test responses without\n");
 	fprintf(stderr, "\t\t\t\t\tdownloading test verdicts\n");
+	fprintf(stderr,
+		"\t   --health\t\t\tCheck the health of the server\n");
 	fprintf(stderr,
 		"\t-v --verbose\t\t\tVerbose logging, multiple options\n");
 	fprintf(stderr, "\t\t\t\t\tincrease verbosity\n");
@@ -609,6 +618,9 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{ "fetch-verdicts", no_argument, 0, 0 },
 
 			{ "request-json", required_argument, 0, 0 },
+			{ "health", no_argument, 0, 0 },
+
+			{ "pudupdate", no_argument, 0, 0 },
 
 			{ 0, 0, 0, 0 }
 		};
@@ -1105,6 +1117,18 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					true;
 				break;
 
+			case 69:
+				/* health */
+				opts->check_health = true;
+				opts->acvp_ctx_options.threading_disabled =
+					true;
+				break;
+
+			case 70:
+				/* pudupdate */
+				opts->esv_pudupdate = true;
+				break;
+
 			default:
 				usage();
 				ret = -EINVAL;
@@ -1192,6 +1216,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 	/* Only operate on entropy sources */
 	if (opts->esvp_proxy)
 		search->with_es_def = true;
+	if (opts->amvp_proxy)
+		search->with_amvp_def = true;
 
 	if (opts->acvp_ctx_options.delete_db_entry == ACVP_OPTS_DELUP_FORCE) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -1725,12 +1751,45 @@ out:
 	return ret;
 }
 
-static int esvp_proxy_handling(struct opt_data *opts)
+static int do_check_health(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
 	int ret;
 
-	opts->acvp_ctx_options.esv_certify = opts->publish;
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	CKINT(acvp_health(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int esv_proxy_pudupdate(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	opts->acvp_ctx_options.esv_certify = true;
+	opts->acvp_ctx_options.esv_pudupdate = true;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	ctx->req_details.dump_register = opts->dump_register;
+	ctx->req_details.request_sample = opts->request_sample;
+
+	//CKINT(esvp_pudupdate(ctx));
+	CKINT(esvp_continue(ctx));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int esvp_proxy_handling(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
 
 	/*
 	 * The ES definitions we operate on have one instance only as read
@@ -1739,6 +1798,12 @@ static int esvp_proxy_handling(struct opt_data *opts)
 	 * stored in the ES definitions any more, we can enable multi-threading.
 	 */
 	opts->acvp_ctx_options.threading_disabled = true;
+
+	opts->acvp_ctx_options.esv_certify = opts->publish;
+
+	if (opts->esv_pudupdate) {
+		return esv_proxy_pudupdate(opts);
+	}
 
 	CKINT(initialize_ctx(&ctx, opts, true));
 
@@ -1856,13 +1921,6 @@ static int amvp_proxy_handling(struct opt_data *opts)
 {
 	int ret;
 
-	// TODO - see amvp_set_paths for this limitation
-	if (opts->secure_basedir || opts->basedir) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "The AMVP Proxy currently cannot handle setting the basedir/secure_basedir\n");
-		return -EOPNOTSUPP;
-	}
-
 	if (opts->request) {
 		CKINT(amvp_do_register(opts));
 	} else {
@@ -1883,10 +1941,15 @@ int main(int argc, char *argv[])
 
 	basen = basename(argv[0]);
 	CKNULL(basen, -EFAULT);
-	if (!strncmp("esvp-proxy", basen, 10))
+	if (!strncmp("esvp-proxy", basen, 10)) {
 		opts.esvp_proxy = true;
-	if (!strncmp("amvp-proxy", basen, 10))
+		CKINT(acvp_set_proto(esv_protocol));
+	} else if (!strncmp("amvp-proxy", basen, 10)) {
 		opts.amvp_proxy = true;
+		CKINT(acvp_set_proto(amv_protocol));
+	} else {
+		CKINT(acvp_set_proto(acv_protocol));
+	}
 
 	macos_disable_nap();
 
@@ -1945,6 +2008,8 @@ int main(int argc, char *argv[])
 		CKINT(list_cipher_options(&opts));
 	} else if (opts.list_certificates_detailed) {
 		CKINT(list_certificates_detailed(&opts));
+	} else if (opts.check_health) {
+		CKINT(do_check_health(&opts));
 	} else {
 		CKINT(do_submit(&opts));
 	}

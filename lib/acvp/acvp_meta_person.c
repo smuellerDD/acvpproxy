@@ -28,12 +28,52 @@
 #include "logger.h"
 #include "request_helper.h"
 
-static int acvp_person_build(const struct def_vendor *def_vendor,
+static int acvp_person_build_email_list(const struct def_list *list,
+					struct json_object *array)
+{
+	int ret;
+
+	while (list) {
+		CKINT(json_object_array_add(
+			array, json_object_new_string(list->data)));
+
+		list = list->list;
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_person_build_phone_list(const struct def_list *list,
+					struct json_object *array)
+{
+	struct json_object *phone;
+	int ret;
+
+	while (list) {
+		phone = json_object_new_object();
+		CKNULL(phone, -ENOMEM);
+		CKINT(json_object_array_add(array, phone));
+
+		CKINT(json_object_object_add(
+			phone, "number", json_object_new_string(list->data)));
+		CKINT(json_object_object_add(phone, "type",
+					     json_object_new_string("voice")));
+
+		list = list->list;
+		phone = NULL;
+	}
+
+out:
+	ACVP_JSON_PUT_NULL(phone);
+	return ret;
+}
+
+static int acvp_person_build(const struct def_person *def_person,
 			     struct json_object **json_person,
 			     bool check_ignore_flag)
 {
-	struct json_object *array = NULL, *entry = NULL, *person = NULL,
-			   *phone = NULL;
+	struct json_object *array = NULL, *entry = NULL, *person = NULL;
 	char vendor_url[ACVP_NET_URL_MAXLEN];
 	int ret = -EINVAL;
 
@@ -58,36 +98,36 @@ static int acvp_person_build(const struct def_vendor *def_vendor,
 	CKNULL(person, -ENOMEM);
 
 	/* Name */
-	if ((check_ignore_flag && !def_vendor->contact_name_i) ||
+	if ((check_ignore_flag && !def_person->contact_name_i) ||
 	    !check_ignore_flag) {
 		CKINT(json_object_object_add(
 			person, "fullName",
-			json_object_new_string(def_vendor->contact_name)));
+			json_object_new_string(def_person->contact_name)));
 	}
 
 	/* Reference to Vendor definition */
 	CKINT(acvp_create_urlpath(NIST_VAL_OP_VENDOR, vendor_url,
 				  sizeof(vendor_url)));
 	CKINT(acvp_extend_string(vendor_url, sizeof(vendor_url), "/%u",
-				 def_vendor->acvp_vendor_id));
+				 def_person->acvp_vendor_id));
 	CKINT(json_object_object_add(person, "vendorUrl",
 				     json_object_new_string(vendor_url)));
 
 	/* Emails */
-	if (acvp_check_ignore(check_ignore_flag, def_vendor->contact_email_i)) {
+	if (acvp_check_ignore(check_ignore_flag, def_person->contact_email_i)) {
 		array = json_object_new_array();
 		CKNULL(array, -ENOMEM);
-		CKINT(json_object_array_add(
-			array, json_object_new_string(def_vendor->contact_email)));
 		CKINT(json_object_object_add(person, "emails", array));
+		CKINT(acvp_person_build_email_list(
+			&def_person->contact_email_list, array));
 		array = NULL;
 	}
 
 	/* Phone numbers */
-	if (def_vendor->contact_phone ||
+	if (def_person->contact_phone_list.data ||
 	    (acvp_check_ignore(check_ignore_flag,
-			       def_vendor->contact_phone_i))) {
-		if (def_vendor->contact_phone) {
+			       def_person->contact_phone_i))) {
+		if (def_person->contact_phone_list.data) {
 			/*
 			 * {
 			 *    "vendorUrl":"/acvp/v1/vendors/12666",
@@ -99,19 +139,13 @@ static int acvp_person_build(const struct def_vendor *def_vendor,
 			 *    ]
 			 * }
 			 */
-			phone = json_object_new_object();
-			CKNULL(phone, -ENOMEM);
-			CKINT(json_object_object_add(
-			      phone, "number",
-			      json_object_new_string(def_vendor->contact_phone)));
-			CKINT(json_object_object_add(phone, "type",
-					     json_object_new_string("voice")));
+
 			array = json_object_new_array();
 			CKNULL(array, -ENOMEM);
-			CKINT(json_object_array_add(array, phone));
-			phone = NULL;
 			CKINT(json_object_object_add(person, "phoneNumbers",
 						     array));
+			CKINT(acvp_person_build_phone_list(
+				&def_person->contact_phone_list, array));
 			array = NULL;
 		} else {
 			/*
@@ -135,11 +169,26 @@ out:
 	ACVP_JSON_PUT_NULL(array);
 	ACVP_JSON_PUT_NULL(entry);
 	ACVP_JSON_PUT_NULL(person);
-	ACVP_JSON_PUT_NULL(phone);
 	return ret;
 }
 
-static int acvp_person_match(struct def_vendor *def_vendor,
+static bool acvp_list_match(const struct def_list *list, const char *str,
+			    uint32_t id)
+{
+	bool ret = false;
+
+	while (list) {
+		ret |= !acvp_str_match(list->data, str, id);
+		if (ret)
+			return ret;
+
+		list = list->list;
+	}
+
+	return ret;
+}
+
+static int acvp_person_match(struct def_person *def_person,
 			     struct json_object *json_vendor)
 {
 	struct json_object *tmp;
@@ -153,20 +202,20 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 	CKINT(acvp_get_trailing_number(personurl, &person_id));
 
 	CKINT(json_get_string(json_vendor, "fullName", &name));
-	ret = acvp_str_match(def_vendor->contact_name, name, person_id);
-	def_vendor->contact_name_i = !ret;
+	ret = acvp_str_match(def_person->contact_name, name, person_id);
+	def_person->contact_name_i = !ret;
 	ret2 = ret;
 
 	/* No error handling as we check for the NULL value below */
 	json_get_string(json_vendor, "vendorUrl", &organizationurl);
 	CKINT(acvp_get_trailing_number(organizationurl, &organizationurl_id));
 
-	if (!def_vendor->contact_name_i ||
-	    organizationurl_id != def_vendor->acvp_vendor_id) {
+	if (!def_person->contact_name_i ||
+	    organizationurl_id != def_person->acvp_vendor_id) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Contact name mismatch for contact ID %u (expected: %s, found: %s, vendor ID %u)\n",
-		       person_id, def_vendor->contact_name, name,
-		       def_vendor->acvp_vendor_id);
+		       person_id, def_person->contact_name, name,
+		       def_person->acvp_vendor_id);
 		ret2 = -ENOENT;
 	}
 
@@ -174,11 +223,11 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 	for (i = 0; i < json_object_array_length(tmp); i++) {
 		struct json_object *email = json_object_array_get_idx(tmp, i);
 
-		def_vendor->contact_email_i =
-			!acvp_str_match(def_vendor->contact_email,
+		def_person->contact_email_i =
+			acvp_list_match(&def_person->contact_email_list,
 					json_object_get_string(email),
 					person_id);
-		if (def_vendor->contact_email_i) {
+		if (def_person->contact_email_i) {
 			found = true;
 			break;
 		}
@@ -187,7 +236,7 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 	if (!found) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Person email address not found for person ID %u\n",
-		       def_vendor->acvp_person_id);
+		       def_person->acvp_person_id);
 		ret2 |= -ENOENT;
 	}
 
@@ -195,13 +244,13 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 	ret = json_find_key(json_vendor, "phoneNumbers", &tmp, json_type_array);
 	if (ret) {
 		/* if we did not find a phone number and we have none, match */
-		if (!def_vendor->contact_phone) {
-			def_vendor->contact_phone_i = true;
+		if (!def_person->contact_phone_list.data) {
+			def_person->contact_phone_i = true;
 			goto found;
 		} else {
 			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 			       "Person phone number not found for person ID %u\n",
-			       def_vendor->acvp_person_id);
+			       def_person->acvp_person_id);
 			ret2 |= -ENOENT;
 		}
 	} else {
@@ -213,11 +262,11 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 			CKINT(json_get_string(number_def, "number", &number));
 			CKINT(json_get_string(number_def, "type", &type));
 
-			def_vendor->contact_phone_i =
-				!acvp_str_match(def_vendor->contact_phone,
+			def_person->contact_phone_i =
+				acvp_list_match(&def_person->contact_phone_list,
 						number, person_id);
 
-			if (def_vendor->contact_phone_i &&
+			if (def_person->contact_phone_i &&
 			    !strncmp("voice", type, 5)) {
 				found = true;
 				break;
@@ -228,14 +277,14 @@ static int acvp_person_match(struct def_vendor *def_vendor,
 	if (!found) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Person phone number not found for person ID %u\n",
-		       def_vendor->acvp_person_id);
+		       def_person->acvp_person_id);
 		ret2 = -ENOENT;
 	}
 
 found:
 	if (!ret2) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY, "Person found\n");
-		def_vendor->acvp_person_id = person_id;
+		def_person->acvp_person_id = person_id;
 	}
 
 	ret = ret2;
@@ -246,7 +295,7 @@ out:
 
 /* GET /persons/<personId> */
 static int acvp_person_get_match(const struct acvp_testid_ctx *testid_ctx,
-				 struct def_vendor *def_vendor,
+				 struct def_person *def_person,
 				 struct json_object **resp,
 				 struct json_object **data)
 {
@@ -256,7 +305,7 @@ static int acvp_person_get_match(const struct acvp_testid_ctx *testid_ctx,
 
 	CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
-				 def_vendor->acvp_person_id));
+				 def_person->acvp_person_id));
 
 	ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);
 
@@ -268,7 +317,7 @@ static int acvp_person_get_match(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	CKINT(acvp_req_strip_version(&buf, resp, data));
-	CKINT(acvp_person_match(def_vendor, *data));
+	CKINT(acvp_person_match(def_person, *data));
 
 out:
 	acvp_free_buf(&buf);
@@ -277,7 +326,7 @@ out:
 
 /* POST / PUT / DELETE /persons */
 static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
-				struct def_vendor *def_vendor, char *url,
+				struct def_person *def_person, char *url,
 				const unsigned int urllen,
 				const enum acvp_http_type type,
 				const bool asked)
@@ -290,7 +339,8 @@ static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Build JSON object with the vendor specification */
 	if (type != acvp_http_delete) {
-		CKINT(acvp_person_build(def_vendor, &json_person, asked));
+		CKINT(acvp_person_build(def_person, &json_person,
+					asked));
 	}
 
 	if (!req_details->dump_register && !ctx_opts->register_new_vendor &&
@@ -310,7 +360,7 @@ static int acvp_person_register(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	CKINT(acvp_meta_register(testid_ctx, json_person, url, urllen,
-				 &def_vendor->acvp_person_id, type));
+				 &def_person->acvp_person_id, type));
 
 	if (req_details->dump_register) {
 		goto out;
@@ -325,7 +375,7 @@ out:
 }
 
 static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
-				    struct def_vendor *def_vendor)
+				    struct def_person *def_person)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
@@ -337,14 +387,15 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	bool asked = false;
 
 	logger_status(LOGGER_C_ANY, "Validating person reference %u\n",
-		      def_vendor->acvp_person_id);
+		      def_person->acvp_person_id);
 
-	ret = acvp_person_get_match(testid_ctx, def_vendor, &resp, &found_data);
+	ret = acvp_person_get_match(testid_ctx, def_person, &resp,
+				    &found_data);
 
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_PERSON, ctx_opts,
-				       def_vendor->acvp_person_id, &http_type);
+				       def_person->acvp_person_id, &http_type);
 	if (ret == -ENOENT) {
-		CKINT(acvp_person_build(def_vendor, &json_person,
+		CKINT(acvp_person_build(def_person, &json_person,
 					!!found_data));
 		if (json_person) {
 			logger_status(
@@ -385,7 +436,8 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	} else if (http_type == acvp_http_put) {
 		/* Update requested */
-		CKINT(acvp_person_build(def_vendor, &json_person, true));
+		CKINT(acvp_person_build(def_person, &json_person,
+					true));
 		if (json_person) {
 			logger_status(
 				LOGGER_C_ANY, "Data to be registered: %s\n",
@@ -433,8 +485,8 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 
 	CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
-	CKINT(acvp_person_register(testid_ctx, def_vendor, url, sizeof(url),
-				   http_type, asked));
+	CKINT(acvp_person_register(testid_ctx, def_person, url,
+				   sizeof(url), http_type, asked));
 
 out:
 	ACVP_JSON_PUT_NULL(resp);
@@ -442,13 +494,12 @@ out:
 	return ret;
 }
 
-static int acvp_person_match_cb(void *private, struct json_object *json_vendor)
+static int acvp_person_match_cb(void *private, struct json_object *json_person)
 {
-	struct def_vendor *def_vendor = private;
+	struct def_person *def_person = private;
 	int ret;
 
-	ret = acvp_person_match(def_vendor, json_vendor);
-
+	ret = acvp_person_match(def_person, json_person);
 	/* We found a match */
 	if (!ret)
 		return EINTR;
@@ -462,7 +513,7 @@ static int acvp_person_match_cb(void *private, struct json_object *json_vendor)
 
 /* GET /persons */
 static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
-				    struct def_vendor *def_vendor)
+				    struct def_person *def_person)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *opts = &ctx->options;
@@ -475,15 +526,15 @@ static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
 
 	/* Set a query option consisting of contact name */
-	CKINT(bin2hex_html(def_vendor->contact_name,
-			   (uint32_t)strlen(def_vendor->contact_name),
+	CKINT(bin2hex_html(def_person->contact_name,
+			   (uint32_t)strlen(def_person->contact_name),
 			   personstr, sizeof(personstr)));
 	snprintf(queryoptions, sizeof(queryoptions), "fullName[0]=contains:%s",
 		 personstr);
 	CKINT(acvp_append_urloptions(queryoptions, url, sizeof(url)));
 
 	CKINT(acvp_paging_get(testid_ctx, url, ACVP_OPTS_SHOW_PERSON,
-			      def_vendor, &acvp_person_match_cb));
+			      def_person, &acvp_person_match_cb));
 
 	/* We found an entry and do not need to do anything */
 	if (ret > 0 || opts->show_db_entries) {
@@ -492,7 +543,7 @@ static int acvp_person_validate_all(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
-	CKINT(acvp_person_register(testid_ctx, def_vendor, url, sizeof(url),
+	CKINT(acvp_person_register(testid_ctx, def_person, url, sizeof(url),
 				   acvp_http_post, false));
 
 out:
@@ -503,6 +554,7 @@ int acvp_person_handle_open_requests(const struct acvp_testid_ctx *testid_ctx)
 {
 	const struct definition *def;
 	struct def_vendor *def_vendor;
+	struct def_person *def_person;
 	int ret;
 
 	CKNULL_LOG(testid_ctx, -EINVAL,
@@ -516,8 +568,18 @@ int acvp_person_handle_open_requests(const struct acvp_testid_ctx *testid_ctx)
 
 	CKINT(acvp_def_get_vendor_id(def_vendor));
 
-	ret = acvp_meta_obtain_request_result(testid_ctx,
-					      &def_vendor->acvp_person_id);
+	/* Static entry */
+	ret = acvp_meta_obtain_request_result(
+		testid_ctx, &def_vendor->person.acvp_person_id);
+
+	/* Now the list */
+	list_for_each(def_person, &def_vendor->person.list, list) {
+		if (ret)
+			break;
+		ret = acvp_meta_obtain_request_result(
+			testid_ctx, &def_person->acvp_person_id);
+	}
+
 
 	ret |= acvp_def_put_vendor_id(def_vendor);
 
@@ -525,13 +587,27 @@ out:
 	return ret;
 }
 
+static int acvp_person_handle_one(const struct acvp_testid_ctx *testid_ctx,
+				  struct def_person *def_person)
+{
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_opts_ctx *opts = &ctx->options;
+
+	if (def_person->acvp_person_id && !(opts->show_db_entries)) {
+		return acvp_person_validate_one(testid_ctx, def_person);
+	} else {
+		return acvp_person_validate_all(testid_ctx, def_person);
+	}
+
+}
+
 int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details;
-	const struct acvp_opts_ctx *opts;
 	const struct definition *def;
 	struct def_vendor *def_vendor;
+	struct def_person *def_person;
 	struct json_object *json_vendor = NULL;
 	int ret = 0;
 
@@ -546,7 +622,6 @@ int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx)
 	CKNULL_LOG(ctx, -EINVAL, "Vendor validation: ACVP context missing\n");
 
 	req_details = &ctx->req_details;
-	opts = &ctx->options;
 
 	/* Lock def_vendor */
 	CKINT(acvp_def_get_person_id(def_vendor));
@@ -559,25 +634,47 @@ int acvp_person_handle(const struct acvp_testid_ctx *testid_ctx)
 		goto unlock;
 	}
 
+	/* Map the vendor ID */
+	def_vendor->person.acvp_vendor_id = def_vendor->acvp_vendor_id;
+	/* Now the list */
+	list_for_each(def_person, &def_vendor->person.list, list)
+		def_person->acvp_vendor_id = def_vendor->acvp_vendor_id;
+
 	if (req_details->dump_register) {
 		char url[ACVP_NET_URL_MAXLEN];
 
-		CKINT_ULCK(
-			acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
-		acvp_person_register(testid_ctx, def_vendor, url, sizeof(url),
+		CKINT_ULCK(acvp_create_url(NIST_VAL_OP_PERSONS, url,
+					   sizeof(url)));
+
+		/* Static entry */
+		acvp_person_register(testid_ctx, &def_vendor->person, url, sizeof(url),
 				     acvp_http_post, false);
+
+		/* Now the list */
+		list_for_each(def_person, &def_vendor->person.list, list) {
+			acvp_person_register(testid_ctx, def_person, url,
+					     sizeof(url), acvp_http_post,
+					     false);
+		}
+
 		goto unlock;
 	}
 
 	/* Check if we have an outstanding request */
 	CKINT_ULCK(acvp_meta_obtain_request_result(
-		testid_ctx, &def_vendor->acvp_person_id));
-
-	if (def_vendor->acvp_person_id && !(opts->show_db_entries)) {
-		CKINT_ULCK(acvp_person_validate_one(testid_ctx, def_vendor));
-	} else {
-		CKINT_ULCK(acvp_person_validate_all(testid_ctx, def_vendor));
+		testid_ctx, &def_vendor->person.acvp_person_id));
+	/* Now the list */
+	list_for_each(def_person, &def_vendor->person.list, list) {
+		CKINT_ULCK(acvp_meta_obtain_request_result(
+			testid_ctx, &def_person->acvp_person_id));
 	}
+
+	/* Handle static entry */
+	CKINT_ULCK(acvp_person_handle_one(testid_ctx, &def_vendor->person));
+	/* Handle list */
+	list_for_each(def_person, &def_vendor->person.list, list)
+		CKINT_ULCK(acvp_person_handle_one(testid_ctx, def_person));
+
 
 unlock:
 	ret |= acvp_def_put_person_id(def_vendor);

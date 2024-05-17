@@ -301,6 +301,8 @@ const struct definition *acvp_find_def(const struct acvp_search_ctx *search,
 
 		if (search->with_es_def && !tmp_def->es)
 			continue;
+		if (search->with_amvp_def && !tmp_def->amvp)
+			continue;
 
 		break;
 	}
@@ -755,6 +757,8 @@ void acvp_def_free_info(struct def_info *info)
 	ACVP_PTR_FREE_NULL(info->module_version_filesafe_newname);
 	ACVP_PTR_FREE_NULL(info->module_description);
 	ACVP_PTR_FREE_NULL(info->def_module_file);
+	ACVP_PTR_FREE_NULL(info->acvp_person_id);
+	ACVP_PTR_FREE_NULL(info->acvp_person_id_i);
 	acvp_def_put_lock(info->def_lock);
 }
 
@@ -771,14 +775,88 @@ static void acvp_def_del_info(struct definition *def)
 	ACVP_PTR_FREE_NULL(def->info);
 }
 
+static void acvp_def_del_list_raw(struct def_list *list)
+{
+	struct def_list *tmp = list;
+
+	if (!list)
+		return;
+
+	/* We do not free the first entry as this is static */
+	list = list->list;
+	tmp->list = NULL;
+
+	while (list) {
+		tmp = list;
+		list = list->list;
+
+		free(tmp);
+	}
+}
+
+static void acvp_def_del_vendor_raw(struct def_vendor *vendor)
+{
+	struct def_person *person, *tmp;
+
+	/*
+	 * Only release the potentially allocated list - do not release the
+	 * data pointers as they are managed by JSON.
+	 */
+
+	/* First, clear out the static entry */
+	acvp_def_del_list_raw(&vendor->person.contact_email_list);
+	acvp_def_del_list_raw(&vendor->person.contact_phone_list);
+
+	/* Now clear out the volatile entries */
+	list_for_each_guarded(person, tmp, &vendor->person.list, list) {
+		acvp_def_del_list_raw(&person->contact_email_list);
+		acvp_def_del_list_raw(&person->contact_phone_list);
+		free(person);
+	}
+}
+
+static void acvp_def_del_list(struct def_list *list)
+{
+	struct def_list *tmp = list;
+
+	if (!list)
+		return;
+
+	/* We do not free the first entry as this is static */
+	ACVP_PTR_FREE_NULL(list->data);
+	list = list->list;
+	tmp->list = NULL;
+
+	while (list) {
+		tmp = list;
+		list = list->list;
+
+		ACVP_PTR_FREE_NULL(tmp->data);
+		free(tmp);
+	}
+}
+
+static void acvp_def_del_person(struct def_person *person)
+{
+	ACVP_PTR_FREE_NULL(person->contact_name);
+	acvp_def_del_list(&person->contact_email_list);
+	acvp_def_del_list(&person->contact_phone_list);
+}
+
 void acvp_def_free_vendor(struct def_vendor *vendor)
 {
+	struct def_person *person, *tmp;
+
 	ACVP_PTR_FREE_NULL(vendor->vendor_name);
 	ACVP_PTR_FREE_NULL(vendor->vendor_name_filesafe);
 	ACVP_PTR_FREE_NULL(vendor->vendor_url);
-	ACVP_PTR_FREE_NULL(vendor->contact_name);
-	ACVP_PTR_FREE_NULL(vendor->contact_email);
-	ACVP_PTR_FREE_NULL(vendor->contact_phone);
+
+	acvp_def_del_person(&vendor->person);
+	list_for_each_guarded(person, tmp, &vendor->person.list, list) {
+		acvp_def_del_person(person);
+		free(person);
+	}
+
 	ACVP_PTR_FREE_NULL(vendor->addr_street);
 	ACVP_PTR_FREE_NULL(vendor->addr_locality);
 	ACVP_PTR_FREE_NULL(vendor->addr_region);
@@ -887,7 +965,7 @@ int acvp_def_module_name(char **newname, const char *module_name,
 	char *tmp;
 	int ret = 0;
 
-	if (impl_name) {
+	if (impl_name && strlen(impl_name)) {
 		size_t len = strlen(module_name) + strlen(impl_name) + 4;
 
 		tmp = malloc(len);
@@ -953,9 +1031,54 @@ out:
 	return ret;
 }
 
+static int acvp_def_duplicate_list(struct def_list *new_list,
+				   const struct def_list *old_list)
+{
+	int ret;
+
+	CKINT(acvp_duplicate(&new_list->data, old_list->data));
+
+	/* Point to the next entry in the old list */
+	old_list = old_list->list;
+
+	while (old_list) {
+		/* Allocate new list entry */
+		new_list->list = calloc(1, sizeof(struct def_list));
+		CKNULL(new_list->list, -ENOMEM);
+
+		/* Point to the new list entry */
+		new_list = new_list->list;
+
+		/* Copy the data */
+		CKINT(acvp_duplicate(&new_list->data, old_list->data));
+
+		/* Point to the next entry in the old list */
+		old_list = old_list->list;
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_def_add_person(struct def_person *dst,
+			       const struct def_person *src)
+{
+	int ret;
+
+	CKINT(acvp_duplicate(&dst->contact_name, src->contact_name));
+	CKINT(acvp_def_duplicate_list(&dst->contact_email_list,
+				      &src->contact_email_list));
+	CKINT(acvp_def_duplicate_list(&dst->contact_phone_list,
+				      &src->contact_phone_list));
+
+out:
+	return ret;
+}
+
 static int acvp_def_add_vendor(struct definition *def,
 			       const struct def_vendor *src)
 {
+	struct def_person *person, *new_person;
 	struct def_vendor *vendor;
 	int ret = 0;
 
@@ -970,9 +1093,19 @@ static int acvp_def_add_vendor(struct definition *def,
 	CKINT(acvp_sanitize_string(vendor->vendor_name_filesafe));
 
 	CKINT(acvp_duplicate(&vendor->vendor_url, src->vendor_url));
-	CKINT(acvp_duplicate(&vendor->contact_name, src->contact_name));
-	CKINT(acvp_duplicate(&vendor->contact_email, src->contact_email));
-	CKINT(acvp_duplicate(&vendor->contact_phone, src->contact_phone));
+
+	LIST_ENTRY_INIT(vendor->person.list);
+	CKINT(acvp_def_add_person(&vendor->person, &src->person));
+	list_for_each(person, &src->person.list, list) {
+		new_person = calloc(1, sizeof(struct def_person));
+		CKNULL(new_person, -ENOMEM);
+
+		LIST_ENTRY_INIT(new_person->list);
+		list_add_end(&new_person->list, &vendor->person.list);
+
+		CKINT(acvp_def_add_person(new_person, person));
+	}
+
 	CKINT(acvp_duplicate(&vendor->addr_street, src->addr_street));
 	CKINT(acvp_duplicate(&vendor->addr_locality, src->addr_locality));
 	CKINT(acvp_duplicate(&vendor->addr_region, src->addr_region));
@@ -983,6 +1116,9 @@ static int acvp_def_add_vendor(struct definition *def,
 
 	/* Use a global lock for all vendor definitions */
 	vendor->def_lock = src->def_lock;
+
+	vendor->config_file_version = src->config_file_version;
+
 	acvp_def_get_lock(vendor->def_lock);
 
 out:
@@ -1306,6 +1442,7 @@ static void acvp_def_release(struct definition *def)
 	acvp_def_del_info(def);
 	acvp_def_del_deps(def);
 	esvp_def_es_free(def->es);
+	amvp_def_free(def->amvp);
 	free(def);
 }
 
@@ -1597,8 +1734,75 @@ out:
 	return ret;
 }
 
-static void acvp_def_read_person_id(const struct json_object *vendor_config,
-				    struct def_vendor *def_vendor)
+static int acvp_def_vendor_config_get_person(
+	const struct def_vendor *def_vendor,
+	const struct json_object *config,
+	struct json_object **person_array_out)
+{
+	struct json_object *person_array;
+	struct def_person *person;
+	unsigned int i = 0;
+	int ret;
+
+	CKINT(json_find_key(config, "persons", &person_array,
+			    json_type_array));
+
+	/*
+	 * The following loop implicitly assumes that the order of the entries
+	 * in the in-memory linked list are identical to the order of the
+	 * entries in the JSON array found in the configuration file.
+	 */
+	list_for_each(person, &def_vendor->person.list, list)
+		i++;
+
+	/* Count the first static entry, too */
+	i++;
+
+	if (i != json_object_array_length(person_array)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "JSON configuration file %s inconsistent with in-memory representation of the file read during startup\n",
+		       def_vendor->def_vendor_file);
+		ret = -EFAULT;
+		goto out;
+	}
+
+	*person_array_out = person_array;
+
+out:
+	return ret;
+}
+
+static void acvp_def_read_person_id_v2(const struct json_object *vendor_config,
+				       struct def_vendor *def_vendor)
+{
+	struct json_object *person_array, *entry;
+	struct def_person *person;
+	unsigned int i = 0;
+
+	if (acvp_def_vendor_config_get_person(def_vendor, vendor_config,
+					      &person_array))
+		return;
+
+	/* Get the static definition */
+	entry = json_object_array_get_idx(person_array, i);
+	i++;
+	json_get_uint(entry, ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
+		      &def_vendor->person.acvp_person_id);
+
+	/*
+	 * Iterate over configuration file dependency array and in-memory
+	 * dependency definition in unison.
+	 */
+	list_for_each(person, &def_vendor->person.list, list) {
+		entry = json_object_array_get_idx(person_array, i);
+		i++;
+		json_get_uint(entry, ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
+			      &person->acvp_person_id);
+	}
+}
+
+static void acvp_def_read_person_id_v1(const struct json_object *vendor_config,
+				       struct def_vendor *def_vendor)
 {
 	/*
 	 * No error handling - in case we cannot find entry, it will be
@@ -1606,7 +1810,7 @@ static void acvp_def_read_person_id(const struct json_object *vendor_config,
 	 */
 
 	json_get_uint(vendor_config, ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
-		      &def_vendor->acvp_person_id);
+		      &def_vendor->person.acvp_person_id);
 }
 
 int acvp_def_get_person_id(struct def_vendor *def_vendor)
@@ -1623,7 +1827,22 @@ int acvp_def_get_person_id(struct def_vendor *def_vendor)
 
 	/* Person ID depends on vendor ID and thus we read it. */
 	acvp_def_read_vendor_id(vendor_config, def_vendor);
-	acvp_def_read_person_id(vendor_config, def_vendor);
+
+	switch (def_vendor->config_file_version) {
+	case 0:
+	case 1:
+		acvp_def_read_person_id_v1(vendor_config, def_vendor);
+		break;
+	case 2:
+		acvp_def_read_person_id_v2(vendor_config, def_vendor);
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Unknown vendor configuration file version %u\n",
+		       def_vendor->config_file_version);
+		ret = -EFAULT;
+		goto out;
+	}
 
 out:
 	if (ret)
@@ -1633,14 +1852,58 @@ out:
 	return ret;
 }
 
-static int acvp_def_update_person_id(const struct def_vendor *def_vendor)
+static int acvp_def_update_person_id_v1(const struct def_vendor *def_vendor)
 {
 	struct acvp_def_update_id_entry list;
 
 	list.name = ACVP_DEF_PRODUCTION_ID("acvpPersonId");
-	list.id = def_vendor->acvp_person_id;
+	list.id = def_vendor->person.acvp_person_id;
 
 	return acvp_def_update_id(def_vendor->def_vendor_file, &list, 1);
+}
+
+static int acvp_def_update_person_id_v2(const struct def_vendor *def_vendor)
+{
+	struct json_object *entry, *config = NULL, *person_array;
+	struct def_person *person;
+	unsigned int i = 0;
+	int ret = 0;
+	bool updated = false, updated_total = false;
+
+	CKINT_LOG(acvp_def_read_json(&config, def_vendor->def_vendor_file),
+		  "Cannot parse config file %s\n", def_vendor->def_vendor_file);
+
+	CKINT(acvp_def_vendor_config_get_person(def_vendor, config,
+						&person_array));
+
+	/*
+	 * Update entry for static component
+	 */
+	entry = json_object_array_get_idx(person_array, i);
+	i++;
+	CKINT(acvp_def_set_value(entry, ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
+				 def_vendor->person.acvp_person_id, &updated));
+	updated_total |= updated;
+
+	/*
+	 * Iterate over configuration file dependency array and in-memory
+	 * dependency definition in unison.
+	 */
+	list_for_each(person, &def_vendor->person.list, list) {
+		entry = json_object_array_get_idx(person_array, i);
+		i++;
+		CKINT(acvp_def_set_value(entry,
+					 ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
+					 person->acvp_person_id, &updated));
+		updated_total |= updated;
+	}
+
+	if (updated_total)
+		CKINT(acvp_def_write_json(config, def_vendor->def_vendor_file));
+
+out:
+	ACVP_JSON_PUT_NULL(config);
+	return ret;
 }
 
 int acvp_def_put_person_id(const struct def_vendor *def_vendor)
@@ -1650,7 +1913,22 @@ int acvp_def_put_person_id(const struct def_vendor *def_vendor)
 	if (!def_vendor)
 		return 0;
 
-	CKINT(acvp_def_update_person_id(def_vendor));
+	switch (def_vendor->config_file_version) {
+	case 0:
+	case 1:
+		CKINT(acvp_def_update_person_id_v1(def_vendor));
+		break;
+	case 2:
+		CKINT(acvp_def_update_person_id_v2(def_vendor));
+		break;
+	default:
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Unknown OE configuration file version %u\n",
+		       def_vendor->config_file_version);
+		ret = -EFAULT;
+		goto out;
+	}
+
 	acvp_def_lock_unlock(def_vendor->def_lock);
 
 out:
@@ -2325,7 +2603,9 @@ static int acvp_def_load_config_dep(struct json_object *dep_entry,
 		  "dependencyType %s is unknown\n", str);
 	CKINT(acvp_def_load_config_dep_typed(dep_entry, def_dep,
 					     local_proc_family));
-	CKINT(acvp_duplicate(&def_dep->def_dependency_type_name, str));
+
+	/* Unconstify is of no concern as the structure is not freed */
+	def_dep->def_dependency_type_name = (char *)str;
 
 
 out:
@@ -2462,6 +2742,74 @@ out:
 	return ret;
 }
 
+static int acvp_def_load_config_list(const struct json_object *vendor_config,
+				     const char *keyword, struct def_list *list)
+{
+	struct json_object *array, *entry;
+	unsigned int i;
+	int ret;
+
+	ret = json_get_string_zero_to_null(vendor_config, keyword,
+					   (const char **)&list->data);
+
+	/*
+	 * Loading was successful, i.e. we had:
+	 *
+	 * "contactEmail":"cst-info@atsec.com",
+	 */
+	if (!ret)
+		goto out;
+
+	/*
+	 * Loading was unsuccessful, i.e. we assume to have an array:
+	 *
+	 * "contactEmail": [ "cst-info@atsec.com", "bar@atsec.com" ]
+	 */
+	CKINT(json_find_key(vendor_config, keyword, &array, json_type_array));
+
+	for (i = 0; i < json_object_array_length(array); i++) {
+		entry = json_object_array_get_idx(array, i);
+
+		if (!entry)
+			break;
+
+		/* Allocate the next entry */
+		if (i > 0) {
+			list->list = calloc(1, sizeof(struct def_list));
+			CKNULL(list->list, -ENOMEM);
+			list = list->list;
+		}
+
+		/*
+		 * Unconstify is ok, because we use acvp_def_del_list_raw
+		 * for cleanup.
+		 */
+		list->data = (char *)json_object_get_string(entry);
+		if (strlen(list->data) == 0)
+			list->data = NULL;
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_def_load_config_person(const struct json_object *config,
+				       struct def_person *person)
+{
+	int ret;
+
+	CKINT(json_get_string_zero_to_null(config, "contactName",
+					(const char **)&person->contact_name));
+	CKINT(acvp_def_load_config_list(config, "contactEmail",
+					&person->contact_email_list));
+	/* no error handling */
+	acvp_def_load_config_list(config, "contactPhone",
+				  &person->contact_phone_list);
+
+out:
+	return ret;
+}
+
 static int acvp_def_load_config_vendor(const struct json_object *vendor_config,
 				       struct def_vendor *vendor)
 {
@@ -2472,13 +2820,79 @@ static int acvp_def_load_config_vendor(const struct json_object *vendor_config,
 					(const char **)&vendor->vendor_name));
 	CKINT(json_get_string_zero_to_null(vendor_config, "vendorUrl",
 					(const char **)&vendor->vendor_url));
-	CKINT(json_get_string_zero_to_null(vendor_config, "contactName",
-					(const char **)&vendor->contact_name));
-	CKINT(json_get_string_zero_to_null(vendor_config, "contactEmail",
-					(const char **)&vendor->contact_email));
-	/* no error handling */
-	json_get_string_zero_to_null(vendor_config, "contactPhone",
-					(const char **)&vendor->contact_phone);
+
+	/*
+	 * Load the person definition. Note, we can have 2 formats:
+	 *
+	 * v1: in vendor.json
+	 * {
+	 *   "vendorName":"atsec corp.",
+	 *   ...
+	 *   "contactName":"Stephan Müller",
+	 *   "contactEmail": [ "cst-info@atsec.com", "bar@atsec.com" ],
+	 *   "contactPhone": [ "+1-512-615-7300", "+49-89-44249830" ],
+	 *   ...
+	 *
+	 * v2: in vendor.json
+	 *
+	 * {
+	 *   "vendorName":"atsec corp.",
+	 *   ...
+	 *   "persons": [
+	 *     {
+	 *       "contactName":"Stephan Müller",
+	 *       "contactEmail": [ "cst-info@atsec.com", "bar@atsec.com" ],
+	 *       "contactPhone": [ "+1-512-615-7300", "+49-89-44249830" ]
+	 *     },
+	 *     {
+	 *       "contactName":"John Doe",
+	 *       "contactEmail": "jdoe@atsec.com",
+	 *       "contactPhone": "+1-555-555-5555"
+	 *     }
+	 *   ],
+	 * ...
+	 */
+	ret = acvp_def_load_config_person(vendor_config, &vendor->person);
+	if (ret) {
+		/* v1 structure is not present, try v2 structure */
+		struct json_object *person_array, *entry;
+		size_t i = 0;
+
+		CKINT(json_find_key(vendor_config, "persons", &person_array,
+				    json_type_array));
+
+		if (json_object_array_length(person_array) == 0) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Empty persons array found\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* Get the static definition */
+		entry = json_object_array_get_idx(person_array, i);
+		i++;
+		CKINT(acvp_def_load_config_person(entry,
+						  &vendor->person));
+
+		for (; i < json_object_array_length(person_array); i++) {
+			struct def_person *new_person =
+				calloc(1, sizeof(struct def_person));
+			CKNULL(new_person, -ENOMEM);
+
+			LIST_ENTRY_INIT(new_person->list);
+			list_add_end(&new_person->list, &vendor->person.list);
+
+			entry = json_object_array_get_idx(person_array, i);
+
+			CKINT(acvp_def_load_config_person(entry, new_person));
+		}
+
+		vendor->config_file_version = 2;
+	} else {
+		/* We found v1 structure */
+		vendor->config_file_version = 1;
+	}
+
 	CKINT(json_get_string_zero_to_null(vendor_config, "addressStreet",
 					(const char **)&vendor->addr_street));
 	CKINT(json_get_string_zero_to_null(vendor_config, "addressCity",
@@ -2518,6 +2932,7 @@ static int acvp_def_load_config(const char *basedir, const char *oe_file,
 	memset(&oe, 0, sizeof(oe));
 	memset(&info, 0, sizeof(info));
 	memset(&vendor, 0, sizeof(vendor));
+	LIST_ENTRY_INIT(vendor.person.list);
 
 	CKNULL_LOG(
 		oe_file, -EINVAL,
@@ -2631,6 +3046,7 @@ static int acvp_def_load_config(const char *basedir, const char *oe_file,
 		CKINT_ULCK(acvp_def_add_info(def, &info, map->impl_name,
 					     map->impl_description));
 		CKINT_ULCK(esvp_def_config(basedir, &def->es));
+		CKINT_ULCK(amvp_def_config(basedir, def, &def->amvp));
 
 		/* First stage of dependencies */
 		CKINT_ULCK(acvp_def_load_deps(impl_config, def));
@@ -2654,6 +3070,7 @@ static int acvp_def_load_config(const char *basedir, const char *oe_file,
 		CKINT_ULCK(acvp_def_add_vendor(def, &vendor));
 		CKINT_ULCK(acvp_def_add_info(def, &info, NULL, NULL));
 		CKINT_ULCK(esvp_def_config(basedir, &def->es));
+		CKINT_ULCK(amvp_def_config(basedir, def, &def->amvp));
 
 		/* First stage of dependencies */
 		CKINT_ULCK(acvp_def_load_deps(impl_config, def));
@@ -2672,6 +3089,7 @@ out:
 	ACVP_JSON_PUT_NULL(info_config);
 	ACVP_JSON_PUT_NULL(impl_config);
 	acvp_def_free_dep(&oe);
+	acvp_def_del_vendor_raw(&vendor);
 
 	/*
 	 * In error case, acvp_def_release will free the lock, in successful

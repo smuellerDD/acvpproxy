@@ -104,12 +104,16 @@ struct def_algo_ecdsa {
 
 	/*
 	 * One or more of the following:
-	 * "SHA2-224"
-	 * "SHA2-256"
-	 * "SHA2-384"
-	 * "SHA2-512"
-	 * "SHA2-512/224"
-	 * "SHA2-512/256"
+	 * ACVP_SHA224
+	 * ACVP_SHA256
+	 * ACVP_SHA384
+	 * ACVP_SHA512
+	 * ACVP_SHA512224
+	 * ACVP_SHA512256
+	 * ACVP_SHA3_224
+	 * ACVP_SHA3_256
+	 * ACVP_SHA3_384
+	 * ACVP_SHA3_512
 	 *
 	 * required: always for ECDSA siggen and sigver
 	 */

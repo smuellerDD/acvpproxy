@@ -118,7 +118,102 @@ the following steps:
 
 3. Upload the ESV data for both ES definitions: `esvp-proxy`
 
-4. Certify both ES definitions: `esvp-proxy --testid <ID_ES1> --testid <ID_ES2>`
+4. Certify both ES definitions: `esvp-proxy --publish --testid <ID_ES1> --testid <ID_ES2>`
+
+## Addition of OEs to Existing Certificates
+
+The OEAdd support is provided as follows: It is an *identical* operation
+compared to the certify operation. Its only difference is that the
+`entropy_source/definition.json` JSON file is extended by the keyword
+`esvCertificate` which refers to the certificate reference as a string:
+
+```
+{
+        "primaryNoiseSource": "Jitter RNG",
+        "labTestId":"JENT",
+        "bitsPerSample": 8,
+        "alphabetSize": 256,
+        ...
+        "esvCertificate": "ESV1234",
+        ...
+}
+```
+When using this JSON configuration, the associated OE is *added* to the
+referenced certificate instead of a new certificate being requested.
+
+Thus, to perform an OE addition operation, do:
+
+1. You have a particular ES which was successfully validated and you have the
+associated certificate reference.
+
+2. Duplicate the `module_definitions` directory with the validated ES
+definition and give it a new name.
+
+3. The newly created `module_definition` now needs to be modified:
+
+	1. add the `esvCertificate` as outlined above,
+
+	2. modify the OE definition in the `module_definitions/<NAME>/oe`
+	directory to cover the new OE.
+
+	3. Add the new entropy data, perhaps additional documents
+
+4. Optionally do that again to add multiple OEs (i.e. the statements given in
+section [Multiple Operational Environments with one Entropy Source] apply).
+
+5. Synchronize the new OE meta data with the server using
+`acvp-proxy --sync-meta`.
+
+6. Upload the ESV data for both ES definitions: `esvp-proxy` and obtain the testID(s).
+
+7. Certify the newly created ES definition(s):
+`esvp-proxy --publish --testid <ID_NEW_ES>`
+
+With these steps it is clear that the OE Add operation is identical from a usage perspective compared to a "regular" certify operation.
+
+## Update of PUD Document
+
+It is permissible to update the PUD document for an already certified ES.
+According to NIST: "This can be helpful for corrections or rebranding. There is
+no cost recovery associated with this request."
+
+Consider the note from NIST: "Please include a comment on what changed in the
+document compared to the existing PUD. This will greatly expedite the review
+process."
+
+This PUD document update is only supported for an ES that has an ESV
+certificate. Specify the ESV certificate in the `entropy_source/definition.json`
+JSON file is extended by the keyword `esvCertificate` which refers to the
+certificate reference as a string:
+
+```
+{
+        "primaryNoiseSource": "Jitter RNG",
+        "labTestId":"JENT",
+        "bitsPerSample": 8,
+        "alphabetSize": 256,
+        ...
+        "esvCertificate": "ESV1234",
+        ...
+}
+```
+To perform a PUD update operation, perform the following steps:
+
+1. Optionally duplicate the `module_definitions` directory with the validated ES
+definition in case you want to retain the old state.
+
+2. The `module_definition` now needs to be modified:
+
+	1. add the `esvCertificate` as outlined above.
+
+3. Replace the existing PUD with the new PUD.
+
+3. Upload the new PUD to the NIST ESVP server: `esvp-proxy` and obtain the testID(s).
+
+4. Request the PUD update process: `esvp-proxy --pudupdate --testid <ID_NEW_ES>`
+
+With the last step you get a simple acknowledgment which you then need to report
+to NIST.
 
 ## Entropy Source Configuration
 
@@ -229,9 +324,10 @@ independent and identically distributed
 * `physical`: boolean indicating whether the noise source is physical or
 non-physical
 
-* `limitEntropyAssessmentToSingleModule`: boolean indicating whether
-ES is limited to one single module, i.e., if FALSE, ES will be open for reuse;
-if TRUE, ES will be restricted to vendor
+* `limitEntropyAssessmentToVendor`: boolean indicating whether
+ES is limited to one vendor, i.e., if FALSE, ES will be open for reuse;
+if TRUE, ES will be restricted to vendor. Previously named
+`limitEntropyAssessmentToSingleModule`; the old name is still accepted.
 
 * `additionalNoiseSources`: boolean indicating whether additional noise sources
 are incorporated in the entropy source

@@ -56,12 +56,12 @@ extern "C" {
 #define NIST_VAL_OP_VALIDATIONS "validations"
 #define NIST_VAL_OP_PURCHASE "purchase"
 #define NIST_VAL_OP_PURCHASE_OPTIONS NIST_VAL_OP_PURCHASE "/options"
+#define NIST_VAL_OP_HEALTH "/health"
 #define NIST_VAL_OP_LAB "lab"
 #define NIST_VAL_OP_AVAIL_VSIDS NIST_VAL_OP_LAB "/availablevectorsets"
 #define NIST_VAL_OP_LABS "labs"
-#define NIST_VAL_OP_CRSESSIONS "crSessions"
 #define NIST_VAL_OP_CERTREQUESTS "certRequests"
-#define NIST_VAL_OP_EVIDENCESETS "evSets"
+#define NIST_VAL_OP_EVIDENCESETS "evidenceSets"
 #define NIST_VAL_OP_ACVP "acvp"
 #define NIST_VAL_OP_ESVP "esv"
 
@@ -131,7 +131,8 @@ struct acvp_modinfo_ctx {
  *			       (i.e. use strstr to search the name and not
  *			       strncmp) for processor
  *
- * @var only return when entropy source definition present
+ * @var with_es_def only return when entropy source definition present
+ * @var with_amvp_def only return when AMVP source definition present
  *
  * @var submit_vsids Array of vsIds to be processed (if empty, all vsIDs are
  *		     in scope).
@@ -154,6 +155,7 @@ struct acvp_search_ctx {
 	bool processor_fuzzy_search;
 
 	bool with_es_def;
+	bool with_amvp_def;
 
 	unsigned int submit_vsid[MAX_SUBMIT_ID];
 	unsigned int nr_submit_vsid;
@@ -180,6 +182,7 @@ struct acvp_datastore_ctx {
 	char *srcserver;
 	char *expectedfile;
 	char *esvp_statusfile;
+	char *amvp_evidencesetfile;
 };
 
 struct acvp_req_ctx {
@@ -241,6 +244,11 @@ struct acvp_opts_ctx {
 	 * Certify request for ESVP proxy
 	 */
 	bool esv_certify;
+
+	/*
+	 * Request a PUD update
+	 */
+	bool esv_pudupdate;
 
 	/*
 	 * Resubmit an already submitted vsID result.
@@ -921,6 +929,15 @@ int acvp_purchase_list_available_vsids(const struct acvp_ctx *ctx);
  */
 int acvp_purchase(const struct acvp_ctx *ctx, uint32_t opt, uint32_t qty,
 		  const char *ponumber);
+
+/**
+ * @brief Query the health status of the server
+ *
+ * @param ctx [in] ACVP Proxy library context
+ *
+ * @return 0 on success, < 0 on error
+ */
+int acvp_health(const struct acvp_ctx *ctx);
 
 #ifdef __cplusplus
 }

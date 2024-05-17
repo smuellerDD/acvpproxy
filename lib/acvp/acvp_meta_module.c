@@ -28,8 +28,8 @@
 #include "logger.h"
 #include "request_helper.h"
 
-static int acvp_module_type_enum_to_name(const enum def_mod_type env_type,
-					 const char **out_string)
+int acvp_module_type_enum_to_name(const enum def_mod_type env_type,
+				  const char **out_string)
 {
 	unsigned int i;
 
@@ -65,6 +65,8 @@ int acvp_module_oe_type(const enum def_mod_type env_type,
 	case MOD_TYPE_SOFTWARE:
 	case MOD_TYPE_HARDWARE:
 	case MOD_TYPE_FIRMWARE:
+	case MOD_TYPE_SOFTWARE_HYBRID:
+	case MOD_TYPE_FIRMWARE_HYBRID:
 		break;
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY, "Wrong OE type provided\n");
@@ -97,7 +99,7 @@ static int acvp_module_description(const struct def_info *def_info, char *str,
 	int ret = 0;
 
 	snprintf(str, str_len, "%s", def_info->module_description);
-	if (def_info->impl_description) {
+	if (def_info->impl_description && strlen(def_info->impl_description)) {
 		CKINT(acvp_extend_string(
 			str, str_len,
 			" The following cipher implementation is covered: %s.",
@@ -164,15 +166,22 @@ static int acvp_module_build(const struct def_info *def_info,
 	}
 
 	if (acvp_check_ignore(check_ignore_flag, def_info->acvp_person_id_i)) {
-		CKINT(acvp_create_urlpath(NIST_VAL_OP_PERSONS, url,
-					  sizeof(url)));
-		CKINT(acvp_extend_string(url, sizeof(url), "/%u",
-					 def_info->acvp_person_id));
+		size_t person_cnt;
+
 		array = json_object_new_array();
 		CKNULL(array, -ENOMEM);
-		CKINT(json_object_array_add(array,
-					    json_object_new_string(url)));
 		CKINT(json_object_object_add(entry, "contactUrls", array));
+
+		for (person_cnt = 0; person_cnt < def_info->acvp_person_cnt;
+		     person_cnt++) {
+			CKINT(acvp_create_urlpath(NIST_VAL_OP_PERSONS, url,
+						  sizeof(url)));
+			CKINT(acvp_extend_string(
+				url, sizeof(url), "/%u",
+				def_info->acvp_person_id[person_cnt]));
+			CKINT(json_object_array_add(
+				array, json_object_new_string(url)));
+		}
 		array = NULL;
 	}
 
@@ -225,7 +234,7 @@ static int acvp_module_match(struct def_info *def_info,
 	int ret, ret2;
 	const char *str, *type_string, *moduleurl;
 	char desc[FILENAME_MAX];
-	bool found = false;
+	bool not_found = false;
 
 	CKINT(json_get_string(json_module, "url", &moduleurl));
 	CKINT(acvp_get_trailing_number(moduleurl, &module_id));
@@ -259,16 +268,24 @@ static int acvp_module_match(struct def_info *def_info,
 	CKINT(json_find_key(json_module, "contactUrls", &tmp, json_type_array));
 	for (i = 0; i < json_object_array_length(tmp); i++) {
 		struct json_object *contact = json_object_array_get_idx(tmp, i);
+		size_t person_cnt;
+		bool found_one = false;
 
-		/* Get the oe ID which is the last pathname component */
+		/* Get the ID which is the last pathname component */
 		CKINT(acvp_get_id_from_url(json_object_get_string(contact),
 					   &id));
 
-		if (id == def_info->acvp_person_id) {
-			found = true;
-			def_info->acvp_person_id_i = true;
-			break;
+		for (person_cnt = 0; person_cnt < def_info->acvp_person_cnt;
+		     person_cnt++) {
+			if (id == def_info->acvp_person_id[person_cnt]) {
+				found_one = true;
+				def_info->acvp_person_id_i[person_cnt] = true;
+				break;
+			}
 		}
+
+		if (!found_one)
+			not_found = true;
 	}
 
 	CKINT(json_get_string(json_module, "description", &str));
@@ -277,7 +294,7 @@ static int acvp_module_match(struct def_info *def_info,
 	def_info->module_description_i = !ret;
 	ret2 |= ret;
 
-	if (!found) {
+	if (not_found) {
 		logger(LOGGER_WARN, LOGGER_C_ANY, "Module ID %u not found\n",
 		       module_id);
 		ret2 |= -ENOENT;
@@ -580,8 +597,11 @@ int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx)
 	const struct definition *def;
 	struct def_info *def_info;
 	struct def_vendor *def_vendor;
+	struct def_person *def_person;
 	struct json_object *json_module = NULL;
+	size_t person_cnt = 0;
 	int ret = 0;
+	bool invalid = false;
 
 	CKNULL_LOG(testid_ctx, -EINVAL,
 		   "Module handling: testid_ctx missing\n");
@@ -598,13 +618,41 @@ int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx)
 	req_details = &ctx->req_details;
 	opts = &ctx->options;
 
+	/* Static entry */
+	person_cnt++;
+	/* List entries */
+	list_for_each(def_person, &def_vendor->person.list, list)
+		person_cnt++;
+
+	def_info->acvp_person_id = calloc(person_cnt, sizeof(uint32_t));
+	CKNULL(def_info->acvp_person_id, -ENOMEM);
+	def_info->acvp_person_id_i = calloc(person_cnt, sizeof(uint8_t));
+	CKNULL(def_info->acvp_person_id, -ENOMEM);
+	def_info->acvp_person_cnt = person_cnt;
+
+	/* Static entry */
+	person_cnt = 0;
+	def_info->acvp_person_id[person_cnt] =
+		def_vendor->person.acvp_person_id;
+	person_cnt++;
+	/* List entries */
+	list_for_each(def_person, &def_vendor->person.list, list) {
+		def_info->acvp_person_id[person_cnt] =
+			def_person->acvp_person_id;
+		person_cnt++;
+	}
+
 	def_info->acvp_vendor_id = def_vendor->acvp_vendor_id;
-	def_info->acvp_person_id = def_vendor->acvp_person_id;
 	def_info->acvp_addr_id = def_vendor->acvp_addr_id;
 
-	if (!acvp_valid_id(def_vendor->acvp_vendor_id) ||
-	    !acvp_valid_id(def_vendor->acvp_person_id) ||
-	    !acvp_valid_id(def_vendor->acvp_addr_id)) {
+	invalid |= !acvp_valid_id(def_vendor->acvp_vendor_id);
+	for (person_cnt = 0; person_cnt < def_info->acvp_person_cnt;
+	     person_cnt++)
+		invalid |= !acvp_valid_id(def_info->acvp_person_id[person_cnt]);
+
+	invalid |= !acvp_valid_id(def_vendor->acvp_addr_id);
+
+	if (invalid) {
 		logger(req_details->dump_register ? LOGGER_WARN : LOGGER_ERR,
 		       LOGGER_C_ANY,
 		       "Module handling: vendor / person / address ID missing\n");

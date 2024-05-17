@@ -347,6 +347,12 @@ static int acvp_req_set_algo(struct json_object *algorithms,
 	case DEF_ALG_TYPE_LMS:
 		CKINT(acvp_req_set_algo_lms(&def_algo->algo.lms, entry));
 		break;
+	case DEF_ALG_TYPE_ML_KEM:
+		CKINT(acvp_req_set_algo_ml_kem(&def_algo->algo.ml_kem, entry));
+		break;
+	case DEF_ALG_TYPE_ML_DSA:
+		CKINT(acvp_req_set_algo_ml_dsa(&def_algo->algo.ml_dsa, entry));
+		break;
 
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY,

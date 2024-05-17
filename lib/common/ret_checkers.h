@@ -67,6 +67,18 @@ extern "C" {
 		}                                                              \
 	}
 
+#define CKNULL_ULOCK(v, r)                                                     \
+	{                                                                      \
+		if (!v) {                                                      \
+			ret = r;                                               \
+			if (ret) {                                             \
+				logger(LOGGER_DEBUG, LOGGER_C_ANY,             \
+				       "Failure with return code %d\n", ret);  \
+			}                                                      \
+			goto unlock;                                           \
+		}                                                              \
+	}
+
 #define CKNULL_LOG(v, r, ...)                                                  \
 	{                                                                      \
 		if (!v) {                                                      \

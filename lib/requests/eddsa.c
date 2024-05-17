@@ -99,6 +99,9 @@ static int acvp_req_eddsa_siggen(const struct def_algo_eddsa *eddsa,
 	CKINT(json_object_object_add(entry, "preHash",
 				     json_object_new_boolean(boolean)));
 
+	CKINT(acvp_req_algo_int_array(entry, eddsa->context_length,
+				      "contextLength"));
+
 out:
 	return ret;
 }

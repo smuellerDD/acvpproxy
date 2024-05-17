@@ -33,11 +33,20 @@ struct esvp_sd_file_def {
 	struct esvp_sd_file_def *next;
 };
 
+enum esvp_document_type {
+	esvp_document_unknown,
+	esvp_document_other,
+	esvp_document_ear,
+	esvp_document_pud,
+};
+
 struct esvp_sd_def {
 	struct acvp_auth_ctx *sd_auth;
 	unsigned int sd_id;
 	struct esvp_sd_file_def *file;
 	bool submit;
+
+	enum esvp_document_type document_type;
 
 	struct esvp_sd_def *next;
 };
@@ -88,6 +97,8 @@ struct esvp_es_def {
 	char *primary_noise_source_desc;
 	char *lab_test_id;
 
+	char *esv_certificate;
+
 	char *config_dir;
 
 	const char *ear_file;
@@ -102,7 +113,7 @@ struct esvp_es_def {
 	bool iid;
 	bool physical;
 	bool additional_noise_sources;
-	bool limit_es_single_module;
+	bool limit_es_vendor;
 
 	struct esvp_cc_def *cc;
 	struct esvp_sd_def *sd;

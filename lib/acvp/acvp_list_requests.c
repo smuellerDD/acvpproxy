@@ -316,7 +316,8 @@ static int acvp_list_ids_cb(const struct acvp_ctx *ctx,
 	CKINT(acvp_def_put_vendor_id(def_vendor));
 
 	CKINT(acvp_def_get_person_id(def_vendor));
-	list_func(def_vendor->acvp_person_id, def_info->module_name, proc,
+	// NOTE We only list the first person ID
+	list_func(def_vendor->person.acvp_person_id, def_info->module_name, proc,
 		  acvp_list_type_person, testid);
 	CKINT(acvp_def_put_person_id(def_vendor));
 

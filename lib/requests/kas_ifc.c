@@ -375,6 +375,14 @@ acvp_req_set_function(const struct def_algo_kas_ifc *kas_ifc,
 	if (kas_ifc->function & DEF_ALG_KAS_IFC_SSC)
 		return 0;
 
+	CKNULL_LOG(kas_ifc->iut_identifier, -EINVAL,
+		   "KAS IFC: IUT identifier missing");
+	CKINT(json_object_object_add(entry, "iutId",
+			json_object_new_string(kas_ifc->iut_identifier)));
+
+	if (kas_ifc->function & DEF_ALG_KAS_IFC_UNDEFINED)
+		return 0;
+
 	tmp = json_object_new_array();
 	CKNULL(tmp, -ENOMEM);
 	CKINT(json_object_object_add(entry, "function", tmp));
@@ -390,11 +398,6 @@ acvp_req_set_function(const struct def_algo_kas_ifc *kas_ifc,
 	}
 	CKNULL_LOG(found, -EINVAL,
 		   "KAS IFC: No applicable entry for function found\n");
-
-	CKNULL_LOG(kas_ifc->iut_identifier, -EINVAL,
-		   "KAS IFC: IUT identifier missing");
-	CKINT(json_object_object_add(entry, "iutId",
-			json_object_new_string(kas_ifc->iut_identifier)));
 
 out:
 	return ret;

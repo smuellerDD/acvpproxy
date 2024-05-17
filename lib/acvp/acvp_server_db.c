@@ -367,7 +367,9 @@ static int acvp_server_db_process_vendor(struct acvp_ctx *ctx,
 
 	vendor.acvp_vendor_id = info->acvp_vendor_id;
 	vendor.acvp_addr_id = info->acvp_addr_id;
-	vendor.acvp_person_id = info->acvp_person_id;
+
+	// TODO we fetch only one entry
+	vendor.person.acvp_person_id = info->acvp_person_id[0];
 
 	CKINT(_acvp_server_db_fetch_id(ctx, NIST_SERVER_DB_SEARCH_VENDOR,
 				       info->acvp_vendor_id, &response));
@@ -431,28 +433,36 @@ static int acvp_server_db_process_vendor(struct acvp_ctx *ctx,
 	ACVP_JSON_PUT_NULL(req);
 
 	CKINT(_acvp_server_db_fetch_id(ctx, NIST_SERVER_DB_SEARCH_PERSONS,
-				       info->acvp_person_id, &response));
+				       info->acvp_person_id[0], &response));
 	CKINT(acvp_req_strip_version(&response, &req, &entry));
 
 	CKINT(json_get_string(entry, "fullName", &str));
-	CKINT(acvp_duplicate(&vendor.contact_name, str));
+
+	//TODO we fetch only one entry
+	CKINT(acvp_duplicate(&vendor.person.contact_name, str));
 	CKINT(acvp_server_db_add_config(pathname, "contactName",
-					vendor.contact_name));
+					vendor.person.contact_name));
 
 	CKINT(json_find_key(entry, "emails", &addr, json_type_array));
 	str = json_object_get_string(json_object_array_get_idx(addr, 0));
 	CKNULL(str, -ENOENT);
-	CKINT(acvp_duplicate(&vendor.contact_email, str));
+
+	/* For ease of pain, only store one entry */
+	CKINT(acvp_duplicate(&vendor.person.contact_email_list.data, str));
 	CKINT(acvp_server_db_add_config(pathname, "contactEmail",
-					vendor.contact_email));
+					vendor.person.contact_email_list.data));
 
 	if (!json_find_key(entry, "phoneNumbers", &addr, json_type_array)) {
 		tmp = json_object_array_get_idx(addr, 0);
 		CKNULL(tmp, -ENOENT);
 		CKINT(json_get_string(tmp, "number", &str));
-		CKINT(acvp_duplicate(&vendor.contact_phone, str));
-		CKINT(acvp_server_db_add_config(pathname, "contactPhone",
-						vendor.contact_phone));
+
+		/* For ease of pain, only store one entry */
+		CKINT(acvp_duplicate(&vendor.person.contact_phone_list.data,
+				     str));
+		CKINT(acvp_server_db_add_config(
+			pathname, "contactPhone",
+			vendor.person.contact_phone_list.data));
 	}
 
 	CKINT(acvp_def_put_person_id(&vendor));
@@ -475,6 +485,11 @@ static int acvp_server_db_process_module(struct acvp_ctx *ctx, char *configdir,
 	int ret;
 
 	memset(&info, 0, sizeof(info));
+
+	//TODO we fetch only one
+	info.acvp_person_id = calloc(1, sizeof(uint32_t));
+	CKNULL(info.acvp_person_id, -ENOMEM);
+	info.acvp_person_cnt = 1;
 
 	CKINT(acvp_def_alloc_lock(&info.def_lock));
 
@@ -529,7 +544,7 @@ static int acvp_server_db_process_module(struct acvp_ctx *ctx, char *configdir,
 			    json_type_array));
 	str = json_object_get_string(json_object_array_get_idx(contact, 0));
 	CKNULL(str, -ENOENT);
-	CKINT(acvp_get_trailing_number(str, &info.acvp_person_id));
+	CKINT(acvp_get_trailing_number(str, &info.acvp_person_id[0]));
 
 	CKINT(acvp_def_put_module_id(&info));
 

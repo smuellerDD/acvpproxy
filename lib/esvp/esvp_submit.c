@@ -258,6 +258,38 @@ out:
 	return ret;
 }
 
+static int esvp_name_to_doctype(const char *pathname,
+				enum esvp_document_type *type)
+{
+	if (!strncasecmp(pathname, "entropy-analysis", 16) ||
+	    !strncasecmp(pathname, "entropy_analysis", 16) ||
+	    !strncasecmp(pathname, "entropyanalysis", 15) ||
+	    !strncasecmp(pathname, "ear", 3) ||
+	    strstr(pathname, "EntropyAnalysis") ||
+	    strstr(pathname, "Entropy-Analysis") ||
+	    strstr(pathname, "Entropy_Analysis") ||
+	    strstr(pathname, "entropyanalysis") ||
+	    strstr(pathname, "entropy-analysis") ||
+	    strstr(pathname, "entropy_analysis") ||
+	    strstr(pathname, "EntropyAssessment") ||
+	    strstr(pathname, "Entropy-Assessment") ||
+	    strstr(pathname, "Entropy_Assessment") ||
+	    strstr(pathname, "entropyassessment") ||
+	    strstr(pathname, "entropy-assessment") ||
+	    strstr(pathname, "entropy_assessment") ||
+	    strstr(pathname, "ear")) {
+		*type = esvp_document_ear;
+	} else if (strstr(pathname, "public") ||
+		   strstr(pathname, "Public") ||
+		   strstr(pathname, "PUBLIC")) {
+		*type = esvp_document_pud;
+	} else {
+		*type = esvp_document_other;
+	}
+
+	return 0;
+}
+
 static int
 esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 				  const struct acvp_buf *response,
@@ -327,6 +359,7 @@ esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 		  "Cannot set the new JWT token\n");
 
 	CKINT(json_get_uint(entry, "sdId", &sd->sd_id));
+	CKINT(esvp_name_to_doctype(pathname, &sd->document_type));
 
 	if (!file) {
 		file_new = calloc(1, sizeof(struct esvp_sd_file_def));
@@ -863,6 +896,8 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 	desc.next = &sdtype;
 
 	while ((doc_dirent = readdir(doc_dir)) != NULL) {
+		enum esvp_document_type type;
+
 		if (!acvp_usable_dirent(doc_dirent, NULL))
 			continue;
 
@@ -872,33 +907,27 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 		desc.buf = (uint8_t *)doc_dirent->d_name;
 		desc.len = (uint32_t)strlen(doc_dirent->d_name);
 
-		if (!strncasecmp(doc_dirent->d_name, "entropy-analysis", 16) ||
-		    !strncasecmp(doc_dirent->d_name, "entropy_analysis", 16) ||
-		    !strncasecmp(doc_dirent->d_name, "entropyanalysis", 15) ||
-		    !strncasecmp(doc_dirent->d_name, "ear", 3) ||
-		    strstr(doc_dirent->d_name, "EntropyAnalysis") ||
-		    strstr(doc_dirent->d_name, "Entropy-Analysis") ||
-		    strstr(doc_dirent->d_name, "Entropy_Analysis") ||
-		    strstr(doc_dirent->d_name, "entropyanalysis") ||
-		    strstr(doc_dirent->d_name, "entropy-analysis") ||
-		    strstr(doc_dirent->d_name, "entropy_analysis") ||
-		    strstr(doc_dirent->d_name, "EntropyAssessment") ||
-		    strstr(doc_dirent->d_name, "Entropy-Assessment") ||
-		    strstr(doc_dirent->d_name, "Entropy_Assessment") ||
-		    strstr(doc_dirent->d_name, "entropyassessment") ||
-		    strstr(doc_dirent->d_name, "entropy-assessment") ||
-		    strstr(doc_dirent->d_name, "entropy_assessment") ||
-		    strstr(doc_dirent->d_name, "ear")) {
+		CKINT(esvp_name_to_doctype(doc_dirent->d_name, &type));
+
+		switch (type) {
+		case esvp_document_ear:
 			sdtype.buf = (uint8_t *)"EntropyAssessmentReport";
 			sdtype.len = 23;
-		} else if (strstr(doc_dirent->d_name, "public") ||
-			   strstr(doc_dirent->d_name, "Public") ||
-			   strstr(doc_dirent->d_name, "PUBLIC")) {
+			break;
+		case esvp_document_pud:
 			sdtype.buf = (uint8_t *)"PublicUseDocument";
 			sdtype.len = 17;
-		} else {
+			break;
+		case esvp_document_other:
 			sdtype.buf = (uint8_t *)"Other";
 			sdtype.len = 5;
+			break;
+		case esvp_document_unknown:
+		default:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Unknown document type %u\n", type);
+			ret = -EFAULT;
+			goto out;
 		}
 
 		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_SUPPDOC, url,
@@ -1175,10 +1204,10 @@ out:
  * APIs
  ******************************************************************************/
 
-static int esvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
-				const struct acvp_ctx *ctx,
-				const struct definition *def,
-				const uint32_t testid)
+int esvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
+			 const struct acvp_ctx *ctx,
+			 const struct definition *def,
+			 const uint32_t testid)
 {
 	int ret;
 
