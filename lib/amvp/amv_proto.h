@@ -42,6 +42,8 @@ static const struct acvp_net_proto amv_proto_def = {
 	.vector_url = NIST_VAL_OP_EVIDENCESETS,
 	.session_url_keyword = "certRequestId",
 	.vector_url_keyword = "crUrls",
+
+	.resultsfile = AMVP_DEF_FILE_TE,
 };
 
 #ifdef __cplusplus

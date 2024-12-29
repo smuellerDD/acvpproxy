@@ -30,6 +30,19 @@ void amvp_def_free(struct amvp_def *amvp)
 
 	ACVP_JSON_PUT_NULL(amvp->validation_definition);
 	ACVP_JSON_PUT_NULL(amvp->registration_definition);
+	ACVP_JSON_PUT_NULL(amvp->sp_general);
+	ACVP_JSON_PUT_NULL(amvp->sp_crypt_mod_interfaces);
+	ACVP_JSON_PUT_NULL(amvp->sp_crypt_mod_spec);
+	ACVP_JSON_PUT_NULL(amvp->sp_lifecycle);
+	ACVP_JSON_PUT_NULL(amvp->sp_oe);
+	ACVP_JSON_PUT_NULL(amvp->sp_mitigation_other_attacks);
+	ACVP_JSON_PUT_NULL(amvp->sp_non_invasive_sec);
+	ACVP_JSON_PUT_NULL(amvp->sp_phys_sec);
+	ACVP_JSON_PUT_NULL(amvp->sp_roles_services);
+	ACVP_JSON_PUT_NULL(amvp->sp_self_tests);
+	ACVP_JSON_PUT_NULL(amvp->sp_ssp_mgmt);
+	ACVP_JSON_PUT_NULL(amvp->sp_sw_fw_sec);
+
 	free(amvp);
 }
 
@@ -147,7 +160,7 @@ static int amvp_read_validation_def(const char *directory,
 	CKINT(json_object_object_add(module_def, "opEnvType",
 				     json_object_new_string("opEnvType1")));
 	CKINT(json_object_object_add(module_def, "submissionLevel",
-				     json_object_new_string("submissionLevel1")));
+				     json_object_new_string("Level 1")));
 
 	CKINT(json_find_key(validation, "secLevels", &seclevel,
 			    json_type_array));
@@ -190,6 +203,97 @@ out:
 	return ret;
 }
 
+static int amvp_read_sp_one(const char *pathname,
+			    struct json_object **out)
+{
+	struct stat statbuf;
+	struct json_object *data;
+	int ret = 0;
+
+	if (*out) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Refusing to overwrite used memory pointer\n");
+		return -EFAULT;
+	}
+
+	if (stat(pathname, &statbuf)) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "CMVP module definition not found at %s - skipping CMVP definitions\n",
+		       pathname);
+		/* This is no error as we allow the absence of an SP part */
+		goto out;
+	}
+
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Reading SP file %s\n",
+	       pathname);
+
+	/* Read configuration data in */
+	data = json_object_from_file(pathname);
+	CKNULL(data, -EFAULT);
+
+	*out = data;
+
+out:
+	return ret;
+}
+
+static int amvp_read_sp_def(const char *directory, struct amvp_def *amvp)
+{
+	char pathname[FILENAME_MAX];
+	int ret = 0;
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_GENERAL);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_general));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_CRYPT_MOD_INTERFACES);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_crypt_mod_interfaces));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_CRYPT_MOD_SPEC);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_crypt_mod_spec));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_LIFECYCLE);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_lifecycle));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_OE);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_oe));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_MITIGATION_OTHER_ATTACKS);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_mitigation_other_attacks));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_NON_INVASIVE_SEC);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_non_invasive_sec));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_PHYS_SEC);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_phys_sec));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_ROLES_SERVICES);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_roles_services));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_SELF_TESTS);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_self_tests));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SSP_MGMT);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_ssp_mgmt));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SW_FW_SEC);
+	CKINT(amvp_read_sp_one(pathname, &amvp->sp_sw_fw_sec));
+
+out:
+	return ret;
+}
+
 int amvp_def_config(const char *directory, const struct definition *def,
 		    struct amvp_def **amvp_out)
 {
@@ -211,6 +315,9 @@ int amvp_def_config(const char *directory, const struct definition *def,
 	/* Read the registration meta data */
 	if (!ret)
 		ret = amvp_read_tester_def(directory, def->vendor, amvp);
+
+	if (!ret)
+		ret = amvp_read_sp_def(directory, amvp);
 
 	if (ret) {
 		/*

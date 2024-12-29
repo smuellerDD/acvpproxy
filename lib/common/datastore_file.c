@@ -579,7 +579,17 @@ static int acvp_datastore_process_certinfo(const char *pathname,
 
 		CKINT(json_read_data(file, &certinfo));
 		CKINT(json_split_version(certinfo, &certdata, &certversion));
-		CKINT(json_get_string(certdata, "validationId", &valId));
+
+		/* validationId is used in ACVP */
+		ret = json_get_string(certdata, "validationId", &valId);
+		if (ret) {
+			/* certificate is used in AMVP - optional */
+			ret = json_get_string(certdata, "certificate", &valId);
+			if (ret) {
+				ret = 0;
+				goto out;
+			}
+		}
 		CKINT(acvp_duplicate(cert_no, valId));
 	}
 
@@ -590,7 +600,7 @@ out:
 
 static int acvp_datastore_parse_status(const char *pathname,
 				       const char *filename,
-				       const struct acvp_testid_ctx *testid_ctx)
+				       struct acvp_testid_ctx *testid_ctx)
 {
 	struct stat statbuf;
 	struct json_object *status = NULL;
@@ -616,7 +626,7 @@ out:
 }
 
 static int
-acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
+acvp_datastore_file_read_authtoken(struct acvp_testid_ctx *testid_ctx)
 {
 	struct acvp_auth_ctx *auth;
 	const struct acvp_ctx *ctx;
@@ -703,6 +713,8 @@ acvp_datastore_file_read_authtoken(const struct acvp_testid_ctx *testid_ctx)
 
 	CKINT(acvp_datastore_parse_status(pathname, datastore->esvp_statusfile,
 					  testid_ctx));
+	CKINT(acvp_datastore_parse_status(pathname, datastore->amvp_statusfile,
+					  testid_ctx));
 
 out:
 	return ret;
@@ -748,6 +760,8 @@ static int acvp_datastore_file_write_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 	logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
 	       "data written for testID %u / vsID %u to file %s\n",
 	       testid_ctx->testid, vsid_ctx->vsid, filename);
+
+	CKINT(acvp_datastore_write_status(testid_ctx));
 
 out:
 	return ret;

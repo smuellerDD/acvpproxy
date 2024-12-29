@@ -63,6 +63,16 @@ struct def_algo_ml_dsa {
 #define DEF_ALG_ML_DSA_SIGGEN_NON_DETERMINISTIC (1 << 0)
 #define DEF_ALG_ML_DSA_SIGGEN_DETERMINISTIC (1 << 1)
 	unsigned int deterministic;
+
+	/*
+	 * The message lengths in bits supported by the IUT.
+	 * Minimum allowed is 0, maximum allowed is 65535.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * required: always
+	 */
+	int messagelength[DEF_ALG_MAX_INT];
 };
 
 #ifdef __cplusplus

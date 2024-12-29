@@ -249,7 +249,8 @@ static const struct def_algo_prereqs lc_eddsa_prereqs[] = {
 			DEF_PREREQS(lc_eddsa_prereqs),			\
 			.curve = ACVP_ED25519,				\
 			.eddsa_pure = DEF_ALG_EDDSA_PURE_SUPPORTED,	\
-			.eddsa_prehash = DEF_ALG_EDDSA_PREHASH_UNSUPPORTED,\
+			.eddsa_prehash = DEF_ALG_EDDSA_PREHASH_SUPPORTED,\
+			.context_length = { DEF_ALG_ZERO_VALUE },	\
 			}						\
 		}							\
 	}
@@ -263,7 +264,8 @@ static const struct def_algo_prereqs lc_eddsa_prereqs[] = {
 			DEF_PREREQS(lc_eddsa_prereqs),			\
 			.curve = ACVP_ED25519,				\
 			.eddsa_pure = DEF_ALG_EDDSA_PURE_SUPPORTED,	\
-			.eddsa_prehash = DEF_ALG_EDDSA_PREHASH_UNSUPPORTED,\
+			.eddsa_prehash = DEF_ALG_EDDSA_PREHASH_SUPPORTED,\
+			.context_length = { DEF_ALG_ZERO_VALUE },	\
 			}						\
 		}							\
 	}
@@ -308,11 +310,8 @@ static const struct def_algo_prereqs lc_eddsa_prereqs[] = {
 #define LC_ML_KEM_KEYGEN_FULL						\
 	GENERIC_ML_KEM_KEYGEN(LC_ML_KEM_ALGO_SET_FULL)
 
-#define LC_ML_KEM_ENCAPSULATION_FULL					\
-	GENERIC_ML_KEM_ENCAPSULATION(LC_ML_KEM_ALGO_SET_FULL)
-
-#define LC_ML_KEM_DECAPSULATION_FULL					\
-	GENERIC_ML_KEM_DECAPSULATION(LC_ML_KEM_ALGO_SET_FULL)
+#define LC_ML_KEM_ENCAPDECAP_FULL					\
+	GENERIC_ML_KEM_ENCAPDECAP(LC_ML_KEM_ALGO_SET_FULL)
 
 #define LC_ML_KEM_ALGO_SET_STRONG					\
 	(DEF_ALG_ML_KEM_768 | DEF_ALG_ML_KEM_1024)
@@ -320,11 +319,8 @@ static const struct def_algo_prereqs lc_eddsa_prereqs[] = {
 #define LC_ML_KEM_KEYGEN_STRONG						\
 	GENERIC_ML_KEM_KEYGEN(LC_ML_KEM_ALGO_SET_STRONG)
 
-#define LC_ML_KEM_ENCAPSULATION_STRONG					\
-	GENERIC_ML_KEM_ENCAPSULATION(LC_ML_KEM_ALGO_SET_STRONG)
-
-#define LC_ML_KEM_DECAPSULATION_STRONG					\
-	GENERIC_ML_KEM_DECAPSULATION(LC_ML_KEM_ALGO_SET_STRONG)
+#define LC_ML_KEM_ENCAPDECAP_STRONG					\
+	GENERIC_ML_KEM_ENCAPDECAP(LC_ML_KEM_ALGO_SET_STRONG)
 
 /**************************************************************************
  * Implementation Definitions
@@ -375,25 +371,23 @@ static const struct def_algo lc_c[] = {
 	LC_ML_DSA_SIGVER_FULL,
 
 	LC_ML_KEM_KEYGEN_FULL,
-	LC_ML_KEM_ENCAPSULATION_FULL,
-	LC_ML_KEM_DECAPSULATION_FULL
+	LC_ML_KEM_ENCAPDECAP_FULL
 };
 
 static const struct def_algo lc_avx2[] = {
 	LC_SHA3_ALGOS,
-};
-
-static const struct def_algo lc_shake_avx2_4x[] = {
-	LC_SHAKE(ACVP_SHAKE128),
-	LC_SHAKE(ACVP_SHAKE256),
 
 	LC_ML_DSA_KEYGEN_STRONG,
 	LC_ML_DSA_SIGGEN_STRONG,
 	LC_ML_DSA_SIGVER_STRONG,
 
 	LC_ML_KEM_KEYGEN_STRONG,
-	LC_ML_KEM_ENCAPSULATION_STRONG,
-	LC_ML_KEM_DECAPSULATION_STRONG,
+	LC_ML_KEM_ENCAPDECAP_STRONG
+};
+
+static const struct def_algo lc_shake_avx2_4x[] = {
+	LC_SHAKE(ACVP_SHAKE128),
+	LC_SHAKE(ACVP_SHAKE256),
 };
 
 static const struct def_algo lc_shake_armv8_2x[] = {
@@ -423,8 +417,7 @@ static const struct def_algo lc_arm_asm[] = {
 	LC_ML_DSA_SIGVER_STRONG,
 
 	LC_ML_KEM_KEYGEN_STRONG,
-	LC_ML_KEM_ENCAPSULATION_STRONG,
-	LC_ML_KEM_DECAPSULATION_STRONG,
+	LC_ML_KEM_ENCAPDECAP_STRONG
 };
 
 static const struct def_algo lc_arm_ce[] = {
@@ -490,6 +483,46 @@ static struct def_algo_map lc_algo_map [] = {
 		.algo_name = "leancrypto",
 		.processor = "X86",
 		.impl_name = "AESNI"
+	},
+
+/* C cipher implementation, C block-chaining **********************************/
+	{
+		SET_IMPLEMENTATION(lc_c),
+		.algo_name = "leancrypto",
+		.processor = "",
+		.impl_name = "Kernel_C"
+	},
+
+/* AVX2 cipher implementation, ************************************************/
+	{
+		SET_IMPLEMENTATION(lc_avx2),
+		.algo_name = "leancrypto",
+		.processor = "X86",
+		.impl_name = "Kernel_AVX2"
+	},
+
+/* AVX2 cipher implementation, ************************************************/
+	{
+		SET_IMPLEMENTATION(lc_shake_avx2_4x),
+		.algo_name = "leancrypto",
+		.processor = "X86",
+		.impl_name = "Kernel_AVX2_4X"
+	},
+
+/* AVX512 cipher implementation, **********************************************/
+	{
+		SET_IMPLEMENTATION(lc_avx512),
+		.algo_name = "leancrypto",
+		.processor = "X86",
+		.impl_name = "Kernel_AVX512"
+	},
+
+/* AESNI cipher implementation, ***********************************************/
+	{
+		SET_IMPLEMENTATION(lc_aesni),
+		.algo_name = "leancrypto",
+		.processor = "X86",
+		.impl_name = "Kernel_AESNI"
 	},
 
 /* ARMv7 NEON cipher implementation, ******************************************/

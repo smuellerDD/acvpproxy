@@ -329,7 +329,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
  * @brief AES GCM definition.
  *
  * Cipher definition properties
- *	* encryption only
+ *	* encryption / decryption
  *	* key sizes: 128, 192, 256
  *	* all allowed tag lengths
  *	* support for zero values of plaintext and AAD
@@ -341,12 +341,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
  */
 #define GENERIC_AES_GCM_IIV_NONNULL(mode)				\
 	{								\
-	.type = DEF_ALG_TYPE_SYM,					\
-	.algo.sym.algorithm = ACVP_GCM,					\
-	.algo.sym.direction = DEF_ALG_SYM_DIRECTION_ENCRYPTION,		\
-	.algo.sym.keylen = DEF_ALG_SYM_KEYLEN_128 |			\
-			   DEF_ALG_SYM_KEYLEN_192 |			\
-			   DEF_ALG_SYM_KEYLEN_256,			\
+	GENERIC_AES_ALGO_GEN(ACVP_GCM),					\
 	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
 	.algo.sym.ivlen = { 96, },					\
 	.algo.sym.ivgen = DEF_ALG_SYM_IVGEN_INTERNAL,			\
@@ -988,7 +983,7 @@ static const struct def_algo_prereqs generic_hkdf_prereqs[] = {
 				DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO },\
 		.cipher_spec = {					\
 			.macalg = mac_def,				\
-			DEF_ALG_DOMAIN(.z, 224, 2048, 8),		\
+			DEF_ALG_DOMAIN(.z, 224, 8192, 8),		\
 			.l = 2048,					\
 			.hybrid_shared_secret = false,			\
 			}						\
@@ -1790,6 +1785,9 @@ static const struct def_algo_prereqs generic_eddsa_prereqs[] = {
 /**
  * @brief ML-DSA Signature Generation
  *
+ *  * Cipher definition properties
+ *	* message length 8 - 65536 bits
+ *
  * @param param_set One or more ML-DSA parameter sets combined with an OR
  * @param determ Specification of deterministic and/or nondeterministic
  *		 operation combined with an OR
@@ -1802,6 +1800,7 @@ static const struct def_algo_prereqs generic_eddsa_prereqs[] = {
 			.ml_dsa_mode = DEF_ALG_ML_DSA_MODE_SIGGEN,	\
 			.parameter_set = parm_set,			\
 			.deterministic = determ,			\
+			DEF_ALG_DOMAIN(.messagelength, 8, 65536, 8),	\
 			}						\
 		}							\
 	}
@@ -1865,6 +1864,23 @@ static const struct def_algo_prereqs generic_eddsa_prereqs[] = {
 	.algo = {							\
 		.ml_kem = {						\
 			.ml_kem_mode = DEF_ALG_ML_KEM_MODE_DECAPSULATION,\
+			.parameter_set = parm_set,			\
+			}						\
+		}							\
+	}
+
+/**
+ * @brief ML-KEM Encapsulation and Decapsulation
+ *
+ * @param param_set One or more ML-KEM parameter sets combined with an OR
+ */
+#define GENERIC_ML_KEM_ENCAPDECAP(parm_set)				\
+	{								\
+	.type = DEF_ALG_TYPE_ML_KEM,					\
+	.algo = {							\
+		.ml_kem = {						\
+			.ml_kem_mode = DEF_ALG_ML_KEM_MODE_ENCAPSULATION |\
+				       DEF_ALG_ML_KEM_MODE_DECAPSULATION,\
 			.parameter_set = parm_set,			\
 			}						\
 		}							\

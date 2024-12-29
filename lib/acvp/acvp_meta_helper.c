@@ -20,6 +20,7 @@
 #define _XOPEN_SOURCE 600
 #include <time.h>
 #include <string.h>
+#include <strings.h>
 
 #include "internal.h"
 #include "json_wrapper.h"
@@ -41,6 +42,32 @@ int acvp_str_match(const char *exp, const char *found, const uint32_t id)
 	len = strlen(exp);
 
 	if (len != strlen(found) || strncmp(exp, found, len)) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Mismatch for ID %u (expected: %s, found: %s)\n", id,
+		       exp, found);
+		return -ENOENT;
+	}
+
+	return 0;
+}
+
+int acvp_str_case_match(const char *exp, const char *found, const uint32_t id)
+{
+	size_t len;
+
+	if (!exp && !found)
+		return 0;
+
+	/*
+	 * It is possible to have a JSON NULL value - on one side. In this
+	 * case, we have a mismatch.
+	 */
+	if ((!exp && found) || (exp && !found))
+		return -ENOENT;
+
+	len = strlen(exp);
+
+	if (len != strlen(found) || strncasecmp(exp, found, len)) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Mismatch for ID %u (expected: %s, found: %s)\n", id,
 		       exp, found);

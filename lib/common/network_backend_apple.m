@@ -76,11 +76,13 @@ static void acvp_nsurl_write_cb(struct acvp_buf *response_buf,
 	
 	text = [[NSString alloc] initWithData: data
 				     encoding: NSUTF8StringEncoding];
-	if (text == nil)
-		goto out;
-
-	bufsize = text.length;
-	ptr = text.UTF8String;
+	if (text == nil) {
+		bufsize = data.length;
+		ptr = data.bytes;
+	} else {
+		bufsize = text.length;
+		ptr = text.UTF8String;
+	}
 
 	if (!response_buf) {
 		logger(LOGGER_DEBUG, LOGGER_C_CURL,

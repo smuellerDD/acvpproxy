@@ -143,3 +143,75 @@ Note, a module definition only is `eligible` for AMVP operations, if it is confi
         ]
 }
 ```
+
+## AMVP Individual Steps
+
+The main goal of the AMVP-Proxy is to not get into the way of the user. Therefore, it is possible with AMVP to perform each step of the server communication individually. The following sections outline the possibilities.
+
+### One-Shot Registration
+
+The common operation is a one-shot operation where a user invokes the proxy once and the proxy proceeds by executing as many steps automatically as possible. If at one step the proxy fails to complete the operation or data is missing, the proxy will stop the processing, outline the state and give guidance on the next steps.
+
+Command: `amvp-proxy --request`
+
+Response: Command attempts to proceed as far as possible, usually to the point of [Submit Data]. The output of the proxy will tell which next step to take.
+
+Purpose: Initial registration of the module to the point where uploading of data is possible.
+
+Next steps: Those are specified by the proxy - usually the next step is [Submit Data].
+
+### Register Module Only
+
+Command: `amvp-proxy --request --register-only`
+
+Response: Module request ID
+
+Purpose: Initial registration of a module.
+
+Next steps: Have the request ID approved by NIST. Once approved, fetch it as outlined in [Fetch Module ID].
+
+### Fetch Module ID
+
+Command: `amvp-proxy --modulereqid <ID>` where `<ID>` is the ID obtained from [Register Module ID]
+
+Response: Module ID
+
+Purpose: The Module ID is required to register the certification request.
+
+Next steps: The command tries to fetch the module ID. This ID is required to obtain register the certification request. If somehow that fails, you can re-initiate the certification request as outlined in [Certification Request].
+
+### Certification Request
+
+Command: `amvp-proxy --moduleid <ID>` where `<ID>` is the module ID obtained as outlined in [Fetch Module ID].
+
+Response: certification request ID
+
+Purpose: Register the certification request. The certification request is the session to interact with the AMVP server to upload any data, including TE and security policy data to the server.
+
+Next steps: Submit data as outlined in [Submit Data].
+
+### Submit Data
+
+Command: `amvp-proxy --vsid <certification request ID>` where `<certification request ID>` is the ID obtained as outlined in [Certification Request].
+
+Prerequisite: Data stored in `amvp-testvectors/.../<module ID>/<certification request ID>/te.json` and SP data as provided in `module_definition/cmvp` must be provided by the user.
+
+Purpose: Upload the data to AMVP server.
+
+Next step: Repeat operation as often as needed to upload evidence to server.
+
+### Fetch Status
+
+Command: `amvp-proxy --vsid <certification request ID> --fetch-status` where `<certification request ID>` is the ID obtained as outlined in [Certification Request].
+
+Purpose: Fetch the current status of the certification request.
+
+Next step: Repeat [Submit Data] as often as needed to send all data and receive a certificate.
+
+### Fetch Security Policy
+
+Command: `amvp-proxy --vsid <certification request ID> --fetch-sp` where `<certification request ID>` is the ID obtained as outlined in [Certification Request].
+
+Purpose: Fetch the security policy PDF of the certification request.
+
+Next step: N/A

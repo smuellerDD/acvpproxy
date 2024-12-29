@@ -1,0 +1,78 @@
+{
+	"physicalSecurity":{
+		"mechanismsAndActionsRequired": {
+			"physicalSecurityMechanismsList": [
+			{
+				"physicalSecurityMechanism": "N/A",
+				"recommendedFrequency": "N/A",
+				"inspectionOrTestGuidanceDetails": "N/A"
+			}
+			],
+			"additionalInformation": "N/A",
+			"image": "N/A"
+		},
+		"userPlacedTamperSeals": {
+			"number": "dolore irure deserunt occaecat",
+			"placement": "sit",
+			"surfacePreparation": "aute consequat enim Duis",
+			"operatorResponsibleForSecuringUnusedSeals": "sed esse consectetur ut",
+			"partNumbers": "tempor laborum",
+			"image": "sit adipisicing ipsum"
+		},
+		"fillerPanels": {
+			"additionalInformation": "ea aliqua dolor sed",
+			"image": "consequat consectetur"
+		},
+		"faultInductionMitigation": "incididunt",
+		"efpEftInformation": {
+			"efpEftInfoList": [
+			{
+				"temperatureOrVoltageMeasurement": "velit",
+				"specifyIfEfpOrEft": "est magna sint",
+				"specifyIfShutdownOrZerization": "ea officia aute nisi"
+			},
+			{
+				"temperatureOrVoltageMeasurement": "nostrud labore",
+				"specifyIfEfpOrEft": "nulla Duis non magna",
+				"specifyIfShutdownOrZerization": "reprehenderit dolore officia nostrud est"
+			}
+			],
+			"lowTempMeasurement": "Excepteur Duis Ut do velit",
+			"lowTempEfpOrEft": "commodo adipisicing",
+			"lowTempResults": "ipsum",
+			"highTempMeasurement": "cillum dolore",
+			"highTempEfpOrEft": "dolore elit esse reprehenderit anim",
+			"highTempResult": "Ut irure minim",
+			"lowVoltMeasurement": "occaecat magna",
+			"lowVoltEfpOrEft": "non mollit dolore ullamco elit",
+			"lowVoltResults": "incididunt aliquip dolor Duis",
+			"highVoltMeasurement": "Excepteur amet tempor voluptate",
+			"highVoltEfpOrEft": "dolore eu",
+			"highVoltResults": "dolore in reprehenderit Ut laborum",
+			"additionalInformation": "qui aliquip ullamco"
+		},
+		"hardnessTestingTemperatureRanges": {
+			"hardnessTestTempList": [
+			{
+				"hardnessTestTempMeasurement": "deserunt eu cupidatat consequat non"
+			},
+			{
+				"hardnessTestTempMeasurement": "ea nostrud"
+			},
+			{
+				"hardnessTestTempMeasurement": "Ut aliqua"
+			},
+			{
+				"hardnessTestTempMeasurement": "officia"
+			},
+			{
+				"hardnessTestTempMeasurement": "ut do consequat exercitation enim"
+			}
+			],
+			"lowHardnessTemperatureMeasurement": "proident labore magna cupidatat",
+			"highHardnessTemperatureMeasurement": "Lorem minim ipsum consequat",
+			"additionalInformation": "sit elit velit"
+		},
+		"additionalInformation": "dolore reprehenderit aliqua"
+	}
+}

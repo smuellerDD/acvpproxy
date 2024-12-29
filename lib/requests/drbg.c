@@ -46,16 +46,16 @@ struct acvp_req_drbg_limits {
 
 const struct acvp_req_drbg_limits drbg_limits[] = {
 	// See https://github.com/usnistgov/ACVP/blob/master/src/drbg/sections/05-capabilities.adoc
-	{ ACVP_AES128, false,		{ 256, 256, 8 },	{ 0, 256, 8 },		{ 0, 256, 8 },		{ 0, INT_MAX, 8 }, },
+	{ ACVP_AES128, false,		{ 256, 256, 8 },	{ 0, 256, 8 },		{ 0, 256, 8 },		{ 0, 0, 8 }, },
 	{ ACVP_AES128, true,		{ 128, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 64, INT_MAX, 8 }, },
 
-	{ ACVP_AES192, false,		{ 320, 320, 8 },	{ 0, 320, 8 },		{ 0, 320, 8 },		{ 0, INT_MAX, 8 }, },
+	{ ACVP_AES192, false,		{ 320, 320, 8 },	{ 0, 320, 8 },		{ 0, 320, 8 },		{ 0, 0, 8 }, },
 	{ ACVP_AES192, true,		{ 192, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 96, INT_MAX, 8 }, },
 
-	{ ACVP_AES256, false,		{ 384, 384, 8 },	{ 0, 384, 8 },		{ 0, 384, 8 },		{ 0, INT_MAX, 8 }, },
+	{ ACVP_AES256, false,		{ 384, 384, 8 },	{ 0, 384, 8 },		{ 0, 384, 8 },		{ 0, 0, 8 }, },
 	{ ACVP_AES256, true,		{ 256, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 128, INT_MAX, 8 }, },
 
-	{ ACVP_TDES, false,		{ 112, 232, 8 },	{ 0, 232, 8 },		{ 0, 232, 8 },		{ 0, INT_MAX, 8 }, },
+	{ ACVP_TDES, false,		{ 112, 232, 8 },	{ 0, 232, 8 },		{ 0, 232, 8 },		{ 0, 0, 8 }, },
 	{ ACVP_TDES, true,		{ 112, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 56, INT_MAX, 8 }, },
 
 	{ ACVP_SHA1, false,		{ 128, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 64, INT_MAX, 8 }, },

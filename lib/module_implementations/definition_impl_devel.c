@@ -757,7 +757,7 @@ static const struct def_algo_prereqs devel_rsa_prereqs[] = {
 #define DEVEL_RSA_DEC_PRIMITIVE10
 #endif
 
-#if 1
+#if 0
 
 static const struct def_algo_prereqs devel_rsa_prereqs[] = {
 	{
@@ -1398,6 +1398,93 @@ static const struct def_algo_lms_specific_caps lms_specific_capabilities[] = { {
 #else
 #define LMS
 #endif
+
+#if 1
+static const struct def_algo_slh_dsa_caps slh_dsa_keygen_capabilities[] = { {
+	.parameter_set = DEF_ALG_SLH_DSA_SHA2_128S | DEF_ALG_SLH_DSA_SHAKE_128S |
+			 DEF_ALG_SLH_DSA_SHA2_128F | DEF_ALG_SLH_DSA_SHAKE_128F |
+			 DEF_ALG_SLH_DSA_SHA2_192S | DEF_ALG_SLH_DSA_SHAKE_192S |
+			 DEF_ALG_SLH_DSA_SHA2_192F | DEF_ALG_SLH_DSA_SHAKE_192F |
+			 DEF_ALG_SLH_DSA_SHA2_256S | DEF_ALG_SLH_DSA_SHAKE_256S |
+			 DEF_ALG_SLH_DSA_SHA2_256F | DEF_ALG_SLH_DSA_SHAKE_256F,
+} };
+static const struct def_algo_slh_dsa_caps slh_dsa_sig_capabilities[] = { {
+	.parameter_set = DEF_ALG_SLH_DSA_SHA2_128S | DEF_ALG_SLH_DSA_SHAKE_192S |
+			 DEF_ALG_SLH_DSA_SHA2_256F | DEF_ALG_SLH_DSA_SHAKE_128F,
+	DEF_ALG_DOMAIN(.messagelength, 8, 65536, 8),
+}, {
+	.parameter_set = DEF_ALG_SLH_DSA_SHA2_192S | DEF_ALG_SLH_DSA_SHAKE_256S |
+			 DEF_ALG_SLH_DSA_SHA2_128F | DEF_ALG_SLH_DSA_SHAKE_192F,
+	DEF_ALG_DOMAIN(.messagelength, 16, 65536, 16),
+}, {
+	.parameter_set = DEF_ALG_SLH_DSA_SHA2_256S | DEF_ALG_SLH_DSA_SHAKE_128S |
+			 DEF_ALG_SLH_DSA_SHA2_192F | DEF_ALG_SLH_DSA_SHAKE_256F,
+	DEF_ALG_DOMAIN(.messagelength, 32, 65536, 32),
+}, {
+	.parameter_set = DEF_ALG_SLH_DSA_SHA2_128S | DEF_ALG_SLH_DSA_SHAKE_128S |
+			 DEF_ALG_SLH_DSA_SHA2_128F | DEF_ALG_SLH_DSA_SHAKE_128F |
+			 DEF_ALG_SLH_DSA_SHA2_192S | DEF_ALG_SLH_DSA_SHAKE_192S |
+			 DEF_ALG_SLH_DSA_SHA2_192F | DEF_ALG_SLH_DSA_SHAKE_192F |
+			 DEF_ALG_SLH_DSA_SHA2_256S | DEF_ALG_SLH_DSA_SHAKE_256S |
+			 DEF_ALG_SLH_DSA_SHA2_256F | DEF_ALG_SLH_DSA_SHAKE_256F,
+	DEF_ALG_DOMAIN(.messagelength, 128, 65536, 128),
+}, {
+	.parameter_set = DEF_ALG_SLH_DSA_SHA2_128S,
+	.messagelength = { 8, 16, 32, 128 },
+}, {
+	.parameter_set = DEF_ALG_SLH_DSA_SHA2_192S,
+	.messagelength = { 8 },
+}, {
+	.parameter_set = DEF_ALG_SLH_DSA_SHA2_256S,
+	.messagelength = { 65536 },
+} };
+
+#define DEVEL_SLH_DSA_KEYGEN						\
+	{								\
+	.type = DEF_ALG_TYPE_SLH_DSA,					\
+	.algo = {							\
+		.slh_dsa = {						\
+			.slh_dsa_mode = DEF_ALG_SLH_DSA_MODE_KEYGEN,	\
+			.capabilities.keygen = slh_dsa_keygen_capabilities,\
+			.capabilities_num = ARRAY_SIZE(slh_dsa_keygen_capabilities),\
+			}						\
+		}							\
+	}
+
+#define DEVEL_SLH_DSA_SIGGEN						\
+	{								\
+	.type = DEF_ALG_TYPE_SLH_DSA,					\
+	.algo = {							\
+		.slh_dsa = {						\
+			.slh_dsa_mode = DEF_ALG_SLH_DSA_MODE_SIGGEN,	\
+			.capabilities.siggen = slh_dsa_sig_capabilities,\
+			.capabilities_num = ARRAY_SIZE(slh_dsa_sig_capabilities),\
+			.deterministic = DEF_ALG_SLH_DSA_SIGGEN_NON_DETERMINISTIC |\
+					 DEF_ALG_SLH_DSA_SIGGEN_DETERMINISTIC,\
+			}						\
+		}							\
+	}
+
+#define DEVEL_SLH_DSA_SIGVER						\
+	{								\
+	.type = DEF_ALG_TYPE_SLH_DSA,					\
+	.algo = {							\
+		.slh_dsa = {						\
+			.slh_dsa_mode = DEF_ALG_SLH_DSA_MODE_SIGVER,	\
+			.capabilities.sigver = slh_dsa_sig_capabilities,\
+			.capabilities_num = ARRAY_SIZE(slh_dsa_sig_capabilities),\
+			}						\
+		}							\
+	}
+
+#define DEVEL_SLH_DSA							\
+	DEVEL_SLH_DSA_KEYGEN,						\
+	DEVEL_SLH_DSA_SIGGEN,						\
+	DEVEL_SLH_DSA_SIGVER
+#else
+#define DEVEL_SLH_DSA
+#endif
+
 /**************************************************************************
  * Devel Implementation Definitions
  **************************************************************************/
@@ -1451,6 +1538,8 @@ static const struct def_algo devel[] = {
 	DEVEL_RSA_186_5
 
 	LMS
+
+	DEVEL_SLH_DSA
 };
 
 /**************************************************************************

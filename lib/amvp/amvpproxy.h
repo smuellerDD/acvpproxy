@@ -42,10 +42,35 @@ extern "C" {
  * @brief Perform network operation to register a new entropy source with
  *	  AMVP.
  *
- * @param ctx [in] ACVP Proxy library context
+ * @param [in] ctx ACVP Proxy library context
  * @return 0 on success, < 0 on error
  */
 int amvp_register(struct acvp_ctx *ctx);
+
+/**
+ * @brief Register a certificate request from a module request ID
+ *
+ * This operation is used after registering a module and the caller received
+ * the module request ID. This ID can now be provided here to continue the
+ * operation.
+ *
+ * @param [in] ctx ACVP Proxy library context
+ * @param [in] module_request_id Module request ID
+ * @return 0 on success, < 0 on error
+ */
+int amvp_certrequest_from_module_request_id(struct acvp_ctx *ctx,
+					    uint32_t module_request_id);
+
+/**
+ * @brief Register a certificate request from a valid module ID
+ *
+ * Using the valid module ID, a certificate request is issued
+ *
+ * @param [in] ctx ACVP Proxy library context
+ * @param [in] module_id Module ID
+ * @return 0 on success, < 0 on error
+ */
+int amvp_certrequest_from_module_id(struct acvp_ctx *ctx, uint32_t module_id);
 
 /**
  * @brief Perform network operation to submit AMVP results to CMVP and retrieve
@@ -57,16 +82,16 @@ int amvp_register(struct acvp_ctx *ctx);
  * yet not downloaded test vectors! This allows the restart of a download if
  * the download somehow failed before.
  *
- * @param ctx [in] ACVP Proxy library context
+ * @param [in] ctx ACVP Proxy library context
  * @return 0 on success, < 0 on error
  */
-int amvp_respond(const struct acvp_ctx *ctx);
+int amvp_continue(const struct acvp_ctx *ctx);
 
 /**
  * @brief Load all module definition configurations from the default
  *	  configuration directory.
  *
-  @param config_basedir [in] Root directory holding the configuration files.
+  @param [in] config_basedir Root directory holding the configuration files.
  *			     The caller is allowed to provide a NULL string
  *			     where the ACVP proxy library uses the default
  *			     directory.

@@ -987,7 +987,7 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx,
 				     const struct acvp_ctx *ctx,
 				     const struct definition *def,
 				     const uint32_t testid),
-			 int (*status_parse)(const struct acvp_testid_ctx *testid_ctx,
+			 int (*status_parse)(struct acvp_testid_ctx *testid_ctx,
 					     struct json_object *status),
 			 int (*status_write)(const struct acvp_testid_ctx *testid_ctx))
 {

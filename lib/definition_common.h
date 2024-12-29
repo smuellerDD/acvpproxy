@@ -33,7 +33,7 @@ extern "C" {
 #define DEF_ALG_ZERO_VALUE ((1 << 30) - 1)
 
 /* Maximum number of integer-based entries */
-#define DEF_ALG_MAX_INT 10
+#define DEF_ALG_MAX_INT 12
 
 /*
  * Domain definition

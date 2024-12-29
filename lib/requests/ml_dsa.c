@@ -30,7 +30,7 @@
 #include "request_helper.h"
 
 int acvp_list_algo_ml_dsa(const struct def_algo_ml_dsa *ml_dsa,
-			struct acvp_list_ciphers **new)
+			  struct acvp_list_ciphers **new)
 {
 	struct acvp_list_ciphers *tmp;
 	unsigned int idx = 0;
@@ -39,6 +39,25 @@ int acvp_list_algo_ml_dsa(const struct def_algo_ml_dsa *ml_dsa,
 	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
 	CKNULL(tmp, -ENOMEM);
 	*new = tmp;
+
+	CKINT(acvp_duplicate(&tmp->cipher_name, "ML-DSA"));
+	switch (ml_dsa->ml_dsa_mode) {
+	case DEF_ALG_ML_DSA_MODE_KEYGEN:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "keyGen"));
+		break;
+	case DEF_ALG_ML_DSA_MODE_SIGGEN:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "sigGen"));
+		break;
+	case DEF_ALG_ML_DSA_MODE_SIGVER:
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "sigVer"));
+		break;
+	default:
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "ML-DSA: Unknown cipher type\n");
+		ret = -EINVAL;
+		goto out;
+		break;
+	}
 
 	if (ml_dsa->parameter_set & DEF_ALG_ML_DSA_44) {
 		tmp->keylen[idx++] = 44;
@@ -49,8 +68,7 @@ int acvp_list_algo_ml_dsa(const struct def_algo_ml_dsa *ml_dsa,
 	if (ml_dsa->parameter_set & DEF_ALG_ML_DSA_87) {
 		tmp->keylen[idx++] = 87;
 	}
-
-	CKINT(acvp_duplicate(&tmp->cipher_name, "ML-DSA"));
+	tmp->keylen[idx] = DEF_ALG_ZERO_VALUE;
 
 out:
 	return ret;
@@ -99,6 +117,8 @@ int acvp_req_set_algo_ml_dsa(const struct def_algo_ml_dsa *ml_dsa,
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigGen")));
 
+		CKINT(acvp_req_algo_int_array(entry, ml_dsa->messagelength,
+					      "messageLength"));
 		array = json_object_new_array();
 		CKNULL(array, -ENOMEM);
 		CKINT(json_object_object_add(entry, "deterministic", array));

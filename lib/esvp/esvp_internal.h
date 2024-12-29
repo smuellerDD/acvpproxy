@@ -37,7 +37,7 @@ int esvp_write_status(const struct acvp_testid_ctx *testid_ctx);
 /**
  * Status handing: read the status file
  */
-int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
+int esvp_read_status(struct acvp_testid_ctx *testid_ctx,
 		     struct json_object *status);
 
 /**

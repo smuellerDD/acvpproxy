@@ -164,6 +164,10 @@ static const struct def_algo_prereqs aes_prereqs[] = {
 
 static const struct def_algo_prereqs hmac_prereqs[] = {
 	{
+		.algorithm = "SHA",
+		.valvalue = "same"
+	},
+	{
 		.algorithm = "HMAC",
 		.valvalue = "same"
 	},
@@ -1054,6 +1058,21 @@ const struct def_algo_kas_ifc_schema openssl_kas_ifc_schema_kts[] = { {
 #define OPENSSL_EDDSA_KEYGEN(curves)					\
 	GENERIC_EDDSA_KEYGEN(curves)
 #define OPENSSL_EDDSA_SIGGEN(curves, prehash)				\
+	{								\
+	.type = DEF_ALG_TYPE_EDDSA,					\
+	.algo = {							\
+		.eddsa = {						\
+			.eddsa_mode = DEF_ALG_EDDSA_MODE_SIGGEN,	\
+			DEF_PREREQS(generic_eddsa_prereqs),		\
+			.curve = curves,				\
+			.eddsa_pure = DEF_ALG_EDDSA_PURE_SUPPORTED,	\
+			.eddsa_prehash = prehash,			\
+			/* Versions below 3.2.0 don't support context */\
+			.context_length = { DEF_ALG_ZERO_VALUE }	\
+			}						\
+		}							\
+	}
+#define OPENSSL_3_2_EDDSA_SIGGEN(curves, prehash)			\
 	GENERIC_EDDSA_SIGGEN(curves, DEF_ALG_EDDSA_PURE_SUPPORTED, prehash)
 #define OPENSSL_EDDSA_SIGVER(curves, prehash)				\
 	GENERIC_EDDSA_SIGVER(curves, DEF_ALG_EDDSA_PURE_SUPPORTED, prehash)
@@ -1270,7 +1289,8 @@ static const struct def_algo_kas_ecc_cdh_component openssl_kas_ecc_cdh = {
 	GENERIC_KAS_ECC_SSC_R3(curves)
 
 #define OPENSSL_KAS_FFC_SSC_R3						\
-	GENERIC_KAS_FFC_SSC_R3(ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |	\
+	GENERIC_KAS_FFC_SSC_R3(ACVP_DH_FB | ACVP_DH_FC |		\
+			       ACVP_DH_MODP_2048 | ACVP_DH_MODP_3072 |	\
 			       ACVP_DH_MODP_4096 | ACVP_DH_MODP_6144 |	\
 			       ACVP_DH_MODP_8192 | ACVP_DH_FFDHE_2048 |	\
 			       ACVP_DH_FFDHE_3072 | ACVP_DH_FFDHE_4096 |\
@@ -1429,7 +1449,7 @@ const struct def_algo_kas_kdf_onestepkdf_aux openssl_kas_kdf_onestepkdf_aux[] = 
 				DEF_ALG_KAS_KDF_FI_PATTERN_V_PARTY_INFO },\
 		},							\
 		.length = 2048,						\
-		DEF_ALG_DOMAIN(.zlen, 224, 2048, 8),			\
+		DEF_ALG_DOMAIN(.zlen, 224, 8192, 8),			\
 		}							\
 	}
 
@@ -1463,7 +1483,7 @@ const struct def_algo_kas_kdf_twostepkdf openssl_kas_kdf_twostepkdf[] = { {
 			  ACVP_HMACSHA2_512 | ACVP_HMACSHA2_512224 |
 			  ACVP_HMACSHA2_512256 | ACVP_HMACSHA3_224 |
 			  ACVP_HMACSHA3_256 | ACVP_HMACSHA3_384 |
-			  ACVP_HMACSHA3_384,
+			  ACVP_HMACSHA3_512,
 		.supported_lengths = { 2048 },
 		.fixed_data_order = DEF_ALG_KDF_108_COUNTER_ORDER_AFTER_FIXED_DATA,
 		.counter_lengths = DEF_ALG_KDF_108_COUNTER_LENGTH_8,
@@ -1481,7 +1501,7 @@ const struct def_algo_kas_kdf_twostepkdf openssl_kas_kdf_twostepkdf[] = { {
 		.twostep = openssl_kas_kdf_twostepkdf,			\
 		.twostep_num = ARRAY_SIZE(openssl_kas_kdf_twostepkdf),	\
 		.length = 2048,						\
-		DEF_ALG_DOMAIN(.zlen, 224, 2048, 8),			\
+		DEF_ALG_DOMAIN(.zlen, 224, 8192, 8),			\
 		.hybrid_shared_secret = false,				\
 		},							\
 	}
@@ -1661,7 +1681,7 @@ static const struct def_algo openssl_gcm [] = {
 	OPENSSL_AES_GCM_IIV,
 };
 
-static const struct def_algo openssl_ffcdh [] = {
+static const struct def_algo openssl_ffc_dh [] = {
 	//SP800-56A rev 1 is not supported any more (arbitrary primes are
 	//rejected)
 	//OPENSSL_KAS_FFC,
@@ -1795,7 +1815,8 @@ static const struct def_algo openssl_ffcdh [] = {
 		      ACVP_SHA512256),					\
 									\
 	OPENSSL_ANSI_X942,						\
-	OPENSSL_ANSI_X963
+	OPENSSL_ANSI_X963,						\
+	OPENSSL_KDF_SSH
 
 static const struct def_algo openssl_sha [] = {
 	OPENSSL_1_SHA_COMMON
@@ -1924,7 +1945,7 @@ static const struct def_algo openssl_tls13 [] = {
 static const struct def_algo openssl_3_eddsa [] = {
 	/* OpenSSL 3.0 and 3.1 */
 	OPENSSL_EDDSA_KEYGEN(ACVP_ED25519 | ACVP_ED448),
-	OPENSSL_EDDSA_SIGGEN(ACVP_ED25519,
+	OPENSSL_EDDSA_SIGGEN(ACVP_ED25519 | ACVP_ED448,
 			     DEF_ALG_EDDSA_PREHASH_UNSUPPORTED),
 	OPENSSL_EDDSA_SIGVER(ACVP_ED25519 | ACVP_ED448,
 			     DEF_ALG_EDDSA_PREHASH_UNSUPPORTED),
@@ -1933,8 +1954,8 @@ static const struct def_algo openssl_3_eddsa [] = {
 static const struct def_algo openssl_3_2_eddsa [] = {
 	/* OpenSSL 3.2+ */
 	OPENSSL_EDDSA_KEYGEN(ACVP_ED25519 | ACVP_ED448),
-	OPENSSL_EDDSA_SIGGEN(ACVP_ED25519 | ACVP_ED448,
-			     DEF_ALG_EDDSA_PREHASH_SUPPORTED),
+	OPENSSL_3_2_EDDSA_SIGGEN(ACVP_ED25519 | ACVP_ED448,
+				 DEF_ALG_EDDSA_PREHASH_SUPPORTED),
 	OPENSSL_EDDSA_SIGVER(ACVP_ED25519 | ACVP_ED448,
 			     DEF_ALG_EDDSA_PREHASH_SUPPORTED),
 };
@@ -2030,7 +2051,7 @@ static struct def_algo_map openssl_algo_map [] = {
 			    "TLS v1.3", "TLS v1.3 implementation"),
 
 	/* OpenSSL FFC DH implementation **************************************/
-	OPENSSL_IMPL_COMMON(openssl_ffcdh, openssl_ffcdh, "", "FFC_DH",
+	OPENSSL_IMPL_COMMON(openssl_ffc_dh, openssl_ffc_dh, "", "FFC_DH",
 			    "Generic C non-optimized DH implementation"),
 
 	/*
@@ -2194,24 +2215,24 @@ static struct def_algo_map openssl_algo_map [] = {
 
 	/* OpenSSL SHA-NI implementation **************************************/
 	OPENSSL_IMPL_SHA("X86", "SHA_SHANI", "Intel SHA-NI implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "X86", "SSH_SHANI",
-			    "SSH KDF using Intel SHA-NI implementation"),
+	IMPLEMENTATION(openssl_ssh, "OpenSSL", "X86", "SSH_SHANI",
+		       "SSH KDF using Intel SHA-NI implementation"),
 	/* OpenSSL SHA AVX2 implementation ************************************/
 	OPENSSL_IMPL_SHA("X86", "SHA_AVX2", "AVX2 SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "X86", "SSH_AVX2",
-			    "SSH KDF using AVX2 SHA implementation"),
+	IMPLEMENTATION(openssl_ssh, "OpenSSL", "X86", "SSH_AVX2",
+		       "SSH KDF using AVX2 SHA implementation"),
 	/* OpenSSL SHA AVX implementation *************************************/
 	OPENSSL_IMPL_SHA("X86", "SHA_AVX", "AVX SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "X86", "SSH_AVX",
-			    "SSH KDF using AVX SHA implementation"),
+	IMPLEMENTATION(openssl_ssh, "OpenSSL", "X86", "SSH_AVX",
+		       "SSH KDF using AVX SHA implementation"),
 	/* OpenSSL SHA SSSE3 implementation ***********************************/
 	OPENSSL_IMPL_SHA("X86", "SHA_SSSE3", "SSSE3 SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "X86", "SSH_SSSE3",
-			    "SSH KDF using SSSE3 SHA implementation"),
+	IMPLEMENTATION(openssl_ssh, "OpenSSL", "X86", "SSH_SSSE3",
+		       "SSH KDF using SSSE3 SHA implementation"),
 	/* OpenSSL SHA assembler implementation *******************************/
 	OPENSSL_IMPL_SHA("X86", "SHA_ASM", "Assembler SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "X86", "SSH_ASM",
-			    "SSH KDF using assembler SHA implementation"),
+	IMPLEMENTATION(openssl_ssh, "OpenSSL", "X86", "SSH_ASM",
+		       "SSH KDF using assembler SHA implementation"),
 
 	/* Finally, we come to SHA-3. OpenSSL has 4 different implementations
 	 * for SHA-3, but only one of them is currently actually used. Still, we
@@ -2304,8 +2325,8 @@ static struct def_algo_map openssl_algo_map [] = {
 			    "ARMv7 NEON SHA implementation"),
 	/* OpenSSL ARM Assembler implementation *******************************/
 	OPENSSL_IMPL_SHA("ARM64", "SHA_ASM", "Assembler SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "ARM64", "SSH_ASM",
-			    "SSH KDF using Assembler SHA implementation"),
+	IMPLEMENTATION(openssl_ssh, "OpenSSL", "ARM64", "SSH_ASM",
+		       "SSH KDF using Assembler SHA implementation"),
 
 	/* For SHA-3, there is either:
 	 * a) crypto/sha/asm/keccak1600-armv4.pl for 32-bit ARM families.
@@ -2389,12 +2410,12 @@ static struct def_algo_map openssl_algo_map [] = {
 
 	/* OpenSSL s390x CPACF SHA implementations ****************************/
 	OPENSSL_IMPL_SHA("S390", "SHA_CPACF", "CPACF SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "S390", "SSH_CPACF",
-			    "SSH KDF using CPACF SHA implementation"),
+	IMPLEMENTATION(openssl_ssh, "OpenSSL", "S390", "SSH_CPACF",
+		       "SSH KDF using CPACF SHA implementation"),
 	/* OpenSSL s390x SHA assembler implementations ************************/
 	OPENSSL_IMPL_SHA("S390", "SHA_ASM", "Assembler SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "S390", "SSH_ASM",
-			    "SSH KDF using assembler SHA implementation"),
+	IMPLEMENTATION(openssl_ssh, "OpenSSL", "S390", "SSH_ASM",
+		       "SSH KDF using assembler SHA implementation"),
 
 	/* OpenSSL s390x CPACF SHA-3 implementations **************************/
 	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "S390", "SHA3_CPACF",
@@ -2455,8 +2476,8 @@ static struct def_algo_map openssl_algo_map [] = {
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "POWER", "AESASM_ASM",
 			    "Assembler AES using GCM with assembler GHASH implementation"),
 	OPENSSL_IMPL_SHA("POWER", "SHA_ASM", "Assembler SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "POWER", "SSH_ASM",
-			    "SSH KDF using assembler SHA implementation"),
+	IMPLEMENTATION(openssl_ssh, "OpenSSL", "POWER", "SSH_ASM",
+		       "SSH KDF using assembler SHA implementation"),
 	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "POWER", "SHA3_ASM",
 			    "Assembler SHA-3 implementation"),
 
@@ -2467,14 +2488,51 @@ static struct def_algo_map openssl_algo_map [] = {
 			    "ISA assembler AES using GCM with 4-bit assembler GHASH implementation"),
 	OPENSSL_IMPL_SHA_POWER("POWER", "SHA_ISA",
 			       "ISA assembler SHA implementation"),
-	OPENSSL_IMPL_COMMON(openssl_ssh, openssl_ssh, "POWER", "SSH_ISA",
-			    "SSH KDF using ISA assembler SHA implementation"),
+	IMPLEMENTATION(openssl_ssh, "OpenSSL", "POWER", "SSH_ISA",
+		       "SSH KDF using ISA assembler SHA implementation"),
 
 	/* OpenSSL POWER Altivec assembler implementation *********************/
 	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "POWER", "AES_Altivec",
 			    "Altivec assembler AES implementation"),
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "POWER", "AES_Altivec_ASM",
 			    "Altivec assembler AES using GCM with 4-bit assembler GHASH implementation"),
+
+	/* MIPS64 starts here. We won't repeat all the precedence rules. *******/
+
+	/* OpenSSL POWER Assembler implementation *****************************
+	 * Note: we may execute more ciphers than strictly provided by the ASM
+	 * implementation, but we do not care
+	 *
+	 * OpenSSL currently does not provide any accelerated implementations
+	 * for MIPS. Of course, the assembly implementations are still provided
+	 * as those are generally used as fall-back implementations.
+	 *
+	 * Therefore, we simply test assembly for all AES and SHA.
+	 *
+	 * For SHA-3, OpenSSL doesn't even provide a MIPS assembly
+	 * implementation, so we test the C implementation (this implementation
+	 * is only compiled if there is no assembly implementation).
+	 *
+	 * Source: crypto/aes/asm/aes-mips.pl
+	 * Source: crypto/sha/asm/sha1-mips.pl
+	 * Source: crypto/sha/asm/sha512-mips.pl
+	 * Source: crypto/sha/keccak1600.c
+	 */
+	/* OpenSSL AES assembler implementation *******************************/
+	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "MIPS64", "AESASM",
+			    "Assembler AES implementation"),
+	/* OpenSSL AES assembler with 4-bit assembler GHASH multiplication
+	 * implementation *****************************************************/
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "MIPS64", "AESASM_ASM",
+			    "Assembler AES using GCM with 4-bit assembler GHASH implementation"),
+	/* OpenSSL SHA assembler implementation *******************************/
+	OPENSSL_IMPL_SHA("MIPS64", "SHA_ASM", "Assembler SHA implementation"),
+	IMPLEMENTATION(openssl_ssh, "OpenSSL", "MIPS64", "SSH_ASM",
+		       "SSH KDF using assembler SHA implementation"),
+	/* OpenSSL SHA3 C implementation **************************************/
+	OPENSSL_IMPL_COMMON(openssl_sha3, openssl_3_sha3, "MIPS64", "SHA3_C",
+			    "Generic C SHA-3 implementation"),
+
 };
 
 ACVP_DEFINE_CONSTRUCTOR(openssl_register)

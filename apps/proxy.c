@@ -66,6 +66,9 @@ struct opt_data {
 	size_t cipher_options_algo_idx;
 	bool cipher_list;
 
+	uint32_t amvp_modulereqid;
+	uint32_t amvp_moduleid;
+
 	bool rename;
 	bool request;
 	bool publish;
@@ -318,7 +321,21 @@ static void usage(void)
 
 	fprintf(stderr, "\tESVP specific options:\n");
 	fprintf(stderr,
-		"\t   --pudupdate\t\tStart a PUD-Update process\n\n");
+		"\t   --pudupdate\t\t\tStart a PUD-Update process\n\n");
+
+	fprintf(stderr, "\tAMVP options:\n");
+	fprintf(stderr,
+		"\t   --modulereqid <ID>\t\tPerform certificate request registration\n");
+	fprintf(stderr, "\t\t\t\t\tfrom module request ID\n");
+	fprintf(stderr,
+		"\t   --moduleid <ID>\t\tPerform certificate request registration\n");
+	fprintf(stderr, "\t\t\t\t\tfrom module ID\n");
+	fprintf(stderr,
+		"\t   --fetch-status\t\tFetch the AMVP status of certification\n");
+	fprintf(stderr, "\t\t\t\t\trequest pointed to with --vsid\n");
+	fprintf(stderr,
+		"\t   --fetch-sp\t\t\tFetch the SP PDF of certification\n");
+	fprintf(stderr, "\t\t\t\t\trequest pointed to with --vsid\n\n");
 
 	fprintf(stderr, "\tAuxiliary options:\n");
 	fprintf(stderr,
@@ -621,6 +638,11 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{ "health", no_argument, 0, 0 },
 
 			{ "pudupdate", no_argument, 0, 0 },
+
+			{ "modulereqid", required_argument, 0, 0 },
+			{ "moduleid", required_argument, 0, 0 },
+			{ "fetch-status", no_argument, 0, 0},
+			{ "fetch-sp", no_argument, 0, 0},
 
 			{ 0, 0, 0, 0 }
 		};
@@ -1127,6 +1149,43 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			case 70:
 				/* pudupdate */
 				opts->esv_pudupdate = true;
+				break;
+
+			case 71:
+				/* modulereqid */
+				lval = strtol(optarg, NULL, 10);
+				if (lval == UINT32_MAX || lval <= 0) {
+					logger(LOGGER_ERR, LOGGER_C_ANY,
+					       "undefined purchase option\n");
+					usage();
+					ret = -EINVAL;
+					goto out;
+				}
+
+				opts->amvp_modulereqid = (uint32_t)lval;
+				break;
+
+			case 72:
+				/* moduleid */
+				lval = strtol(optarg, NULL, 10);
+				if (lval == UINT32_MAX || lval <= 0) {
+					logger(LOGGER_ERR, LOGGER_C_ANY,
+					       "undefined purchase option\n");
+					usage();
+					ret = -EINVAL;
+					goto out;
+				}
+
+				opts->amvp_moduleid = (uint32_t)lval;
+				break;
+			case 73:
+				/* fetch-status */
+				opts->acvp_ctx_options.fetch_status = true;
+				break;
+			case 74:
+				/* fetch-sp */
+				opts->acvp_ctx_options.fetch_status = true;
+				opts->acvp_ctx_options.fetch_sp = true;
 				break;
 
 			default:
@@ -1845,7 +1904,7 @@ static int amvp_do_register(struct opt_data *opts)
 		 * particular testIDs or vsIDs?).
 		 */
 		ctx->req_details.download_pending_vsid = true;
-		CKINT(amvp_respond(ctx));
+		CKINT(amvp_continue(ctx));
 	} else {
 		CKINT(amvp_register(ctx));
 	}
@@ -1865,6 +1924,41 @@ out:
 	return ret;
 }
 
+static int amvp_do_register_with_module_request_id(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	ctx->req_details.dump_register = opts->dump_register;
+	ctx->req_details.request_sample = opts->request_sample;
+
+	CKINT(amvp_certrequest_from_module_request_id(ctx,
+						      opts->amvp_modulereqid));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int amvp_do_register_with_module_id(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	ctx->req_details.dump_register = opts->dump_register;
+	ctx->req_details.request_sample = opts->request_sample;
+
+	CKINT(amvp_certrequest_from_module_id(ctx, opts->amvp_moduleid));
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 static int amvp_do_submit(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
@@ -1875,12 +1969,13 @@ static int amvp_do_submit(struct opt_data *opts)
 	CKINT(initialize_ctx(&ctx, opts, true));
 
 	ctx->req_details.request_sample = opts->request_sample;
+	ctx->req_details.dump_register = opts->dump_register;
 
 	/*
 	 * We want to list the verdicts we obtained irrespective of
 	 * the return status.
 	 */
-	ret2 = amvp_respond(ctx);
+	ret2 = amvp_continue(ctx);
 
 	/* Fetch vsID with passing verdicts */
 	while (!(ret = acvp_list_verdict_vsid(&idx, &vsid, true))) {
@@ -1923,6 +2018,10 @@ static int amvp_proxy_handling(struct opt_data *opts)
 
 	if (opts->request) {
 		CKINT(amvp_do_register(opts));
+	} else if (opts->amvp_modulereqid) {
+		CKINT(amvp_do_register_with_module_request_id(opts));
+	} else if (opts->amvp_moduleid) {
+		CKINT(amvp_do_register_with_module_id(opts));
 	} else {
 		CKINT(amvp_do_submit(opts));
 	}

@@ -115,7 +115,7 @@ out:
 /***************************************************************************
  * ESVP status handling
  ***************************************************************************/
-int esvp_read_status(const struct acvp_testid_ctx *testid_ctx,
+int esvp_read_status(struct acvp_testid_ctx *testid_ctx,
 		     struct json_object *status)
 {
 	struct esvp_es_def *es;

@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "acvp_error_handler.h"
+#include "amvp_internal.h"
 #include "atomic_bool.h"
 #include "logger.h"
 #include "acvpproxy.h"
@@ -158,6 +159,7 @@ void acvp_release_testid(struct acvp_testid_ctx *testid_ctx)
 		return;
 
 	acvp_release_verdict(&testid_ctx->verdict);
+	amvp_release_state(testid_ctx);
 
 	free(testid_ctx);
 }
@@ -352,6 +354,10 @@ static int acvp_req_set_algo(struct json_object *algorithms,
 		break;
 	case DEF_ALG_TYPE_ML_DSA:
 		CKINT(acvp_req_set_algo_ml_dsa(&def_algo->algo.ml_dsa, entry));
+		break;
+	case DEF_ALG_TYPE_SLH_DSA:
+		CKINT(acvp_req_set_algo_slh_dsa(&def_algo->algo.slh_dsa,
+						entry));
 		break;
 
 	default:

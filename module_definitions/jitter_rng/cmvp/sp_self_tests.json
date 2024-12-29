@@ -1,0 +1,76 @@
+{
+	"selfTests":{
+		"preOperationalSelfTests": {
+			"preOperationalSelfTestList": [
+			{
+				"algorithm": "SHA3-256",
+				"implementation": "Lorem Ut deserunt Duis ad",
+				"testProperties": "N/A",
+				"testMethod": "Secure Hash",
+				"type": "KAT",
+				"indicator": "Successful execution",
+				"details": "Runs KAT at power-up time."
+			}
+			],
+			"additionalInformation": "N/A"
+		},
+		"conditionalSelfTests": {
+			"conditionalSelfTestList": [
+			{
+				"algorithm": "AES",
+				"implementation": "adipisicing",
+				"testProperties": "128 bit key",
+				"testMethod": "KAT",
+				"type": "CAST",
+				"indicator": "Successful operation",
+				"details": "Symmetric operation",
+				"condition": "Use of AES algorithm"
+			}
+			],
+			"additionalInformation": "N/A"
+		},
+		"periodicSelfTestsInformation": {
+			"preOperationalPeriodicSelfTestList": [
+			{
+				"algorithm": "N/A",
+				"implementation": "N/A",
+				"testProperties": "N/A",
+				"testMethod": "N/A",
+				"type": "N/A",
+				"indicator": "N/A",
+				"details": "N/A",
+				"period": "N/A",
+				"periodicMethod": "N/A"
+			}
+			],
+			"conditionalPeriodicSelfTestList": [
+			{
+				"algorithm": "N/A",
+				"implementation": "N/A",
+				"testProperties": "N/A",
+				"testMethod": "N/A",
+				"type": "N/A",
+				"indicator": "N/A",
+				"details": "N/A",
+				"period": "N/A",
+				"periodicMethod": "N/A"
+			}
+			],
+			"additionalInformation": "N/A"
+		},
+		"errorStates": {
+			"errorStateList": [
+			{
+				"stateName": "Error State",
+				"description": "1) The SHA3-256 value computed over the module did not match the pre-computed value.",
+				"conditions": "1) Pre-operational Software Integrity Test failure",
+				"recoveryMethod": "Power cycle the module which results in the module being reloaded into memory and reperforming the pre-operational software integrity test.",
+				"indicator": "1) Module does not load and enter operational state."
+			}
+			],
+			"additionalInformation": "N/A"
+		},
+		"operatorInitiationOfSelfTests": "Power cycle the module.",
+		"additionalInformation": "N/A"
+	}
+}

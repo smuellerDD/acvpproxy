@@ -22,6 +22,7 @@
 
 #include "definition_internal.h"
 #include "json_wrapper.h"
+#include "sha256.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,6 +31,57 @@ extern "C" {
 struct amvp_def {
 	struct json_object *validation_definition;
 	struct json_object *registration_definition;
+
+	/* SP parts */
+	struct json_object *sp_general;
+	struct json_object *sp_crypt_mod_interfaces;
+	struct json_object *sp_crypt_mod_spec;
+	struct json_object *sp_lifecycle;
+	struct json_object *sp_oe;
+	struct json_object *sp_mitigation_other_attacks;
+	struct json_object *sp_non_invasive_sec;
+	struct json_object *sp_phys_sec;
+	struct json_object *sp_roles_services;
+	struct json_object *sp_self_tests;
+	struct json_object *sp_ssp_mgmt;
+	struct json_object *sp_sw_fw_sec;
+};
+
+enum amvp_request_state {
+	AMVP_REQUEST_STATE_UNKNOWN,
+	AMVP_REQUEST_STATE_ONGOING,
+	AMVP_REQUEST_STATE_COMPLETED,
+	AMVP_REQUEST_STATE_APPROVED,
+};
+
+enum amvp_sp_state {
+	AMVP_SP_STATE_UNKNOWN,
+	AMVP_SP_STATE_PROCESSED,
+	AMVP_SP_OPEN_CHAPTER_1 = 1 << 10,
+	AMVP_SP_OPEN_CHAPTER_2 = 1 << 11,
+	AMVP_SP_OPEN_CHAPTER_3 = 1 << 12,
+	AMVP_SP_OPEN_CHAPTER_4 = 1 << 13,
+	AMVP_SP_OPEN_CHAPTER_5 = 1 << 14,
+	AMVP_SP_OPEN_CHAPTER_6 = 1 << 15,
+	AMVP_SP_OPEN_CHAPTER_7 = 1 << 16,
+	AMVP_SP_OPEN_CHAPTER_8 = 1 << 17,
+	AMVP_SP_OPEN_CHAPTER_9 = 1 << 18,
+	AMVP_SP_OPEN_CHAPTER_10 = 1 << 19,
+	AMVP_SP_OPEN_CHAPTER_11 = 1 << 20,
+	AMVP_SP_OPEN_CHAPTER_12 = 1 << 21,
+};
+
+struct amvp_state {
+	enum amvp_request_state request_state;
+	bool test_report_template_fetched;
+
+#define AMVP_SP_LAST_CHAPTER 12
+#define AMVP_SP_HASH_SIZE SHA256_SIZE_DIGEST
+	/*
+	 * hash in binary form - to ensure we do not need to reallocate the
+	 * buffer when changing the hash
+	 */
+	uint8_t *sp_chapter_hash[AMVP_SP_LAST_CHAPTER];
 };
 
 struct definition;

@@ -1,0 +1,8 @@
+{
+	"softwareFirmwareSecurity":{
+		"integrityTechniques": "SHA3-256",
+		"initiateOnDemand": "After reset",
+		"openSourceParameters": "Any compiler can be used. The code must be compiled without optimizations.",
+		"additionalInformation": "N/A"
+	}
+}

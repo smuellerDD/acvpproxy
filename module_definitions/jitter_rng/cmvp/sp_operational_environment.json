@@ -1,0 +1,12 @@
+{
+	"operationalEnvironment":{
+		"operationalEnvironmentTypeAndRequirements": {
+			"referenceToOEType": {
+				"text": "Modifiable"
+			},
+			"requirementsSatisfied": "General purpose Linux operating system."
+		},
+		"configurationSettingsAndRestrictions": "No specific configurations of OE required. No specific restrictions of OE defined.",
+		"additionalInformation": "N/A"
+	}
+}

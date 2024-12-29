@@ -36,13 +36,14 @@ struct def_algo_ml_kem {
 	/*
 	 * ML-KEM mode type
 	 *
+	 * ENCAPSULATION and DECAPSULATION can be combined in one vector set
+	 *
 	 * required: always
 	 */
-	enum ml_kem_mode {
-		DEF_ALG_ML_KEM_MODE_KEYGEN,
-		DEF_ALG_ML_KEM_MODE_ENCAPSULATION,
-		DEF_ALG_ML_KEM_MODE_DECAPSULATION,
-	} ml_kem_mode;
+#define DEF_ALG_ML_KEM_MODE_KEYGEN (1 << 0)
+#define DEF_ALG_ML_KEM_MODE_ENCAPSULATION (1 << 1)
+#define DEF_ALG_ML_KEM_MODE_DECAPSULATION (1 << 2)
+	unsigned int ml_kem_mode;
 	/*
 	 * Specify the ML-KEM parameter set as defined in FIPS 203
 	 *

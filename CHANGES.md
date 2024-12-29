@@ -1,4 +1,4 @@
-v1.8.1:
+v1.9.0:
 - fix: rename now works for multiple test sessions 
 - enhancement: leancrypto - add EDDSA
 - Update DRBG numbers to be consistent with spec
@@ -17,6 +17,8 @@ v1.8.1:
 - enhancement: Support multiple emails and phone numbers in the vendor definition
 - enhancement: add ML-KEM and ML-DSA
 - enhancement: integrate AMVP with ACVP/ESVP
+- enhancement: ESVP - PUD update and OE add processes
+- enhancement: AMVP current for ICMC2024
 
 v1.8.0
 - fix: ESV register multiple OEs in one certify operation

@@ -352,6 +352,10 @@ static int acvp_publish_prereqs(const struct acvp_testid_ctx *testid_ctx,
 			CKINT(acvp_req_set_prereq_ml_dsa(
 				&def_algo->algo.ml_dsa, deps, entry, true));
 			break;
+		case DEF_ALG_TYPE_SLH_DSA:
+			CKINT(acvp_req_set_prereq_slh_dsa(
+				&def_algo->algo.slh_dsa, deps, entry, true));
+			break;
 
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,

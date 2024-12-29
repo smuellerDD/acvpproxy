@@ -1,0 +1,12 @@
+{
+  "moduleName":"Jitter RNG",
+  "moduleVersion":"3.0.2",
+  "moduleDescription":"The Jitter Random Number Generator is an SP800-90B compliant noise source for all types of computing environments",
+  "moduleType":"software",
+  "acvpModuleIds":[
+    {
+      "acvpModuleName":"Jitter RNG (Generic C)",
+      "acvpModuleId":12827
+    }
+  ]
+}

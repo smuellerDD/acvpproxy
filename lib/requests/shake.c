@@ -55,12 +55,19 @@ int acvp_req_set_algo_shake(const struct def_algo_shake *shake,
 {
 	int ret;
 
-	if (!(shake->outlength[0] & DEF_ALG_RANGE_TYPE) ||
-	    shake->outlength[1] > 65536 ||
-	    acvp_range_min_val(shake->outlength) < 16) {
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "SHAKE: output min/max definition does not match requirements (16 <= n <= 65536)\n");
-		return -EINVAL;
+	if (shake->outlength[0] & DEF_ALG_RANGE_TYPE) {
+		if (shake->outlength[1] > 65536 ||
+		    acvp_range_min_val(shake->outlength) < 16) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "SHAKE: output min/max definition does not match requirements (16 <= n <= 65536)\n");
+			return -EINVAL;
+		}
+	} else {
+		if (shake->outlength[1]) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "SHAKE: only one literal value is allowed in output length\n");
+			return -EINVAL;
+		}
 	}
 
 	CKINT(acvp_req_add_revision(entry, "1.0"));

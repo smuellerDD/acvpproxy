@@ -1,0 +1,88 @@
+{
+	"rolesServicesAuthentication":{
+		"authenticationMethods": {
+			 "authenticationMethodsList": [
+				{
+					"name": "N/A",
+					"description": "N/A",
+					"mechanism": "N/A",
+					"strengthPerAttempt": "N/A",
+					"strengthPerMinute": "N/A"
+				}
+			],
+			"text": "The module does not support authentication. The module does not support concurrent operators."
+		},
+		"roles": [
+		{
+			"name": "Crypto Officer",
+			"type": "Role",
+			"operatorType": "Crypto Officer",
+			"authenticationMethods": "N/A"
+		}
+		],
+		"approvedServices": {
+			 "approvedServicesList": [
+				{
+					"name": "Secure Hash Generation",
+					"description": "Generate digest for conditioning component",
+					"indicator": "Global",
+					"inputs": "Bit stream from noise source",
+					"outputs": "Conditioned random bits",
+					"sfi": "Message digest generation",
+					"roles": "Crypto Officer",
+					"sspAccess": "G"
+				},
+				{
+					"name": "Show Version Information",
+					"description": "Return module name and module version number",
+					"indicator": "N/A",
+					"inputs": "N/A",
+					"outputs": "Version information",
+					"sfi": "N/A",
+					"roles": "Crypto Officer",
+					"sspAccess": "N/A"
+				},
+				{
+					"name": "Show Status Information",
+					"description": "Return module status information",
+					"indicator": "N/A",
+					"inputs": "N/A",
+					"outputs": "Status information",
+					"sfi": "N/A",
+					"roles": "Crypto Officer",
+					"sspAccess": "N/A"
+				},
+				{
+					"name": "Self Test",
+					"description": "Execute pre-operational and conditional self tests",
+					"indicator": "N/A",
+					"inputs": "N/A",
+					"outputs": "Pass/fail",
+					"sfi": "All",
+					"roles": "Crypto Officer",
+					"sspAccess": "N/A"
+				},
+				{
+					"name": "Zeroization",
+					"description": "Zeroize all SSPs",
+					"indicator": "N/A",
+					"inputs": "Jitter RNG context",
+					"outputs": "N/A",
+					"sfi": "N/A",
+					"roles": "Crypto Officer",
+					"sspAccess": "Z"
+				}
+			],
+			"text": "For the above table, the convention below applies when specifying the access permissions (types) that the service has for each SSP.\n\bG = Generate: The module generates or derives the SSP.\n\bR = Read: The SSP is read from the module (e.g., the SSP is output).\n\bW = Write: The SSP is updated, imported, or written to the module.\n\bE = Execute: The module uses the SSP in performing a cryptographic operation.\n\bZ = Zeroize: The module zeroizes the SSP.\nFor the role, CO indicates “Crypto Officer”.\nThe module implements a service indicator that indicates whether the invoked service is approved. The service indicator is a return value 1 from the FIPS_service_indicator_check_approved function. This function is used together with two other functions. The usage is as follows:\n\bSTEP 1: Should be called before invoking the service.\nint before = FIPS_service_indicator_before_call();\n\bSTEP 2: Make a service call i.e., API function for performing a service.\nfunc;\n\bSTEP 3: Should be called after invoking the service.\nint after = FIPS_service_indicator_after_call();\n\bSTEP 4: Return value 1 indicates approved service was invoked.\nint Return= FIPS_service_indicator_check_approved(before, after);\nAlternatively, all the above steps can be done by using a single call using the function CALL_SERVICE_AND_CHECK_APPROVED(approved, func)."
+		},
+		"nonApprovedServices": [
+			{
+				"name": "Triple-DES",
+				"description": "Encryption / Decryption",
+				"algorithmsAccessed": "Triple-DES",
+				"role": "Crypto Officer"
+			}
+		],
+		"externalSoftwareFirmwareLoaded": "N/A"
+	}
+}

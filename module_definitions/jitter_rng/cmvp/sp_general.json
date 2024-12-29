@@ -1,0 +1,20 @@
+{
+	"general": {
+		"overallDescription": "The Jitter RNG is an entropy source which combines a noise source and a conditioning component to form an SP800-90C compliant entropy source.",
+		"securityLevels": {
+			"overall": 1,
+			"section1": 1,
+			"section2": 1,
+			"section3": 1,
+			"section4": 1,
+			"section5": 1,
+			"section6": 1,
+			"section7": 1,
+			"section8": 1,
+			"section9": 1,
+			"section10": 1,
+			"section11": 1,
+			"section12": 1
+		}
+	}
+}

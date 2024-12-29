@@ -251,7 +251,7 @@ static int acvp_module_match(struct def_info *def_info,
 
 	CKINT(acvp_module_oe_type(def_info->module_type, &type_string));
 	CKINT(json_get_string(json_module, "type", &str));
-	ret = acvp_str_match(type_string, str, def_info->acvp_module_id);
+	ret = acvp_str_case_match(type_string, str, def_info->acvp_module_id);
 	def_info->module_type_i = !ret;
 	ret2 |= ret;
 

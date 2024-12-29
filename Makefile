@@ -67,7 +67,7 @@ APPVERSION	:= $(APPMAJOR).$(APPMINOR).$(APPPATCH)
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp $(SRCDIR)lib/amvp
+INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp $(SRCDIR)lib/amvp $(SRCDIR)lib/hash
 LIBRARY_DIRS	+=
 LIBRARIES	+= pthread dl
 

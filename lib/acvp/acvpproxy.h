@@ -62,6 +62,8 @@ extern "C" {
 #define NIST_VAL_OP_LABS "labs"
 #define NIST_VAL_OP_CERTREQUESTS "certRequests"
 #define NIST_VAL_OP_EVIDENCESETS "evidenceSets"
+#define NIST_VAL_OP_EVIDENCE "evidence"
+#define NIST_VAL_OP_SECURITY_POLICY "securityPolicy"
 #define NIST_VAL_OP_ACVP "acvp"
 #define NIST_VAL_OP_ESVP "esv"
 
@@ -183,6 +185,8 @@ struct acvp_datastore_ctx {
 	char *expectedfile;
 	char *esvp_statusfile;
 	char *amvp_evidencesetfile;
+	char *amvp_testreportfile;
+	char *amvp_statusfile;
 };
 
 struct acvp_req_ctx {
@@ -332,6 +336,16 @@ struct acvp_opts_ctx {
 	 */
 	bool caller_json_request_set;
 	char caller_json_request[FILENAME_MAX];
+
+	/*
+	 * Fetch the status of the AMVP session
+	 */
+	bool fetch_status;
+
+	/*
+	 * Fetch the Security Policy PDF from the AMVP session
+	 */
+	bool fetch_sp;
 };
 
 /**

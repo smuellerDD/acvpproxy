@@ -30,7 +30,8 @@
  ******************************************************************************/
 static int esvp_certify_build_one(const struct acvp_testid_ctx *testid_ctx,
 				  struct json_object *ea_array,
-				  struct json_object *sd_array)
+				  struct json_object *sd_array,
+				  struct json_object *sd_entry)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
@@ -85,7 +86,7 @@ static int esvp_certify_build_one(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	}
 
-	/* If ea_array is NULL, we have a PUDAdd */
+	/* If ea_array is NULL, we have a PUD Update */
 	if (ea_array) {
 		struct acvp_auth_ctx *auth = es->es_auth;
 
@@ -100,30 +101,38 @@ static int esvp_certify_build_one(const struct acvp_testid_ctx *testid_ctx,
 			json_object_new_int((int)def_oe->acvp_oe_id)));
 		CKINT(json_object_object_add(ea_entry, "accessToken",
 			json_object_new_string(auth->jwt_token)));
+
+		if (sd_array) {
+			CKINT_ULCK(esvp_build_sd(testid_ctx, sd_array, false));
+		}
+
 	} else {
 		/*
 		 * Iterate through the SD and mark all non-PUD documents as
-		 * not to be submitted.
+		 * not to be submitted. In addition, the NIST server only allows
+		 * one PUD document to be updated.
 		 */
 		struct esvp_sd_def *sd;
 
 		for (sd = es->sd; sd; sd = sd->next) {
-			if (sd->document_type != esvp_document_pud) {
-				logger(LOGGER_DEBUG, LOGGER_C_ANY,
-				       "Marking %s as not to be submitted\n",
-				       sd->file->filename);
-				sd->submit = false;
-			} else {
-				logger(LOGGER_ERR, LOGGER_C_ANY,
-				       "Marking %s as to be submitted\n",
-				       sd->file->filename);
-				sd->submit = true;
-			}
-		}
-	}
+			struct acvp_auth_ctx *auth;
 
-	if (sd_array) {
-		CKINT_ULCK(esvp_build_sd(testid_ctx, sd_array, false));
+			if (sd->document_type != esvp_document_pud)
+				continue;
+
+			/* If requested, do not submit the file */
+			if (!sd->submit)
+				continue;
+
+			auth = sd->sd_auth;
+
+			CKINT(json_object_object_add(
+				sd_entry, "sdId",
+				json_object_new_int((int)sd->sd_id)));
+			CKINT(json_object_object_add(
+				sd_entry, "accessToken",
+				json_object_new_string(auth->jwt_token)));
+		}
 	}
 
 unlock:
@@ -206,7 +215,8 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 	const struct definition *def;
 	struct def_info *def_info;
 	struct def_vendor *def_vendor;
-	struct json_object *certdata, *ea_array = NULL, *sd_array = NULL;
+	struct json_object *certdata, *ea_array = NULL, *sd_array = NULL,
+			   *sd_entry = NULL;
 	int ret;
 
 	CKNULL_LOG(testid_ctx, -EINVAL, "ES building: testid_ctx missing\n");
@@ -235,7 +245,7 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 		       "Identified OE add operation\n");
 	} else {
 		*oeadd = false;
-		logger(LOGGER_ERR, LOGGER_C_ANY,
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
 		       "Identified regular publishing operation\n");
 	}
 
@@ -253,23 +263,28 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 		CKNULL(ea_array, -ENOMEM);
 		CKINT(json_object_object_add(certdata, "entropyAssessments",
 					     ea_array));
-	}
+		CKINT(json_object_object_add(certdata,
+			"limitEntropyAssessmentToSingleModule",
+			json_object_new_boolean(es->limit_es_vendor)));
 
-	/* When having an OE add, we do not want ANY SD related info. */
-	sd_array = json_object_new_array();
-	CKNULL(sd_array, -ENOMEM);
-	CKINT(json_object_object_add(certdata, "supportingDocumentation",
-				     sd_array));
+		/* When having an OE add, we do not want ANY SD related info. */
+		sd_array = json_object_new_array();
+		CKNULL(sd_array, -ENOMEM);
+		CKINT(json_object_object_add(certdata, "supportingDocumentation",
+					     sd_array));
+	} else {
+		/* When having an OE add, we do not want ANY SD related info. */
+		sd_entry = json_object_new_object();
+		CKNULL(sd_entry, -ENOMEM);
+		CKINT(json_object_object_add(certdata, "supportingDocument",
+					     sd_entry));
+	}
 
 	CKINT(acvp_def_get_vendor_id(def_vendor));
 	/* Lock def_info */
 	ret = acvp_def_get_module_id(def_info);
 	if (ret < 0)
 		goto unlock_vendor;
-
-	CKINT_ULCK(json_object_object_add(certdata,
-		   "limitEntropyAssessmentToSingleModule",
-		   json_object_new_boolean(es->limit_es_vendor)));
 
 	CKINT_ULCK(json_object_object_add(certdata, "entropyId",
 		   json_object_new_string(es->lab_test_id)));
@@ -292,7 +307,8 @@ static int esvp_certify_build(const struct acvp_testid_ctx *testid_ctx,
 		CKINT_ULCK(esvp_analyze_sd(testid_ctx, t_ctx));
 
 	for (t_ctx = testid_ctx; t_ctx; t_ctx = t_ctx->next)
-		CKINT_ULCK(esvp_certify_build_one(t_ctx, ea_array, sd_array));
+		CKINT_ULCK(esvp_certify_build_one(t_ctx, ea_array, sd_array,
+						  sd_entry));
 
 unlock:
 	ret |= acvp_def_put_module_id(def_info);
@@ -419,18 +435,15 @@ static int esvp_certify_internal(struct acvp_testid_ctx *testid_ctx)
 	submit.buf = (uint8_t *)json_request;
 	submit.len = (uint32_t)strlen(json_request);
 
+	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_CERTIFY, url, sizeof(url)),
+		  "Creation of request URL failed\n");
+
 	if (opts->esv_pudupdate) {
-		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_PUDUPDATE, url,
-					  sizeof(url)),
-			  "Creation of request URL failed\n");
+		CKINT(acvp_extend_string(url, sizeof(url), "/%s",
+					 NIST_ESVP_VAL_OP_PUDUPDATE));
 	} else if (oeadd) {
-		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_OEADD, url,
-					  sizeof(url)),
-			  "Creation of request URL failed\n");
-	} else {
-		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_CERTIFY, url,
-					  sizeof(url)),
-			  "Creation of request URL failed\n");
+		CKINT(acvp_extend_string(url, sizeof(url), "/%s",
+					 NIST_ESVP_VAL_OP_OEADD));
 	}
 
 	/* Send the data to the ESVP server. */
@@ -447,6 +460,15 @@ out:
 	return ret;
 }
 
+/*
+ * 0. Login to the system
+ * 1. Register a module via `POST /amv/v1/modules`
+ * 2. Receive the `moduleId` via `GET /amv/v1/requests/<id>`
+ * 3. Create a certificate request session via `POST /amv/v1/certRequests`
+ * 4. Submit test evidence via `POST /amv/v1/certRequests/<id>`
+ * 4. Submit security policy evidence via `POST /amv/v1/certRequests/<id>/securityPolicy`
+ * 5. Receive the validation certificate via `GET /amv/v1/certRequests/<id>`
+ */
 int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 {
 

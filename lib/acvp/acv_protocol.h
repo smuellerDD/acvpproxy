@@ -41,6 +41,8 @@ static const struct acvp_net_proto acv_proto_def = {
 	.vector_url = NIST_VAL_OP_VECTORSET,
 	.session_url_keyword = "url",
 	.vector_url_keyword = "vectorSetUrls",
+
+	.resultsfile = ACVP_DS_TESTRESPONSE,
 };
 
 #ifdef __cplusplus

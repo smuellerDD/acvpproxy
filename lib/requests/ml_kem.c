@@ -30,7 +30,7 @@
 #include "request_helper.h"
 
 int acvp_list_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
-			struct acvp_list_ciphers **new)
+			  struct acvp_list_ciphers **new)
 {
 	struct acvp_list_ciphers *tmp;
 	unsigned int idx = 0;
@@ -39,6 +39,30 @@ int acvp_list_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
 	tmp = calloc(1, sizeof(struct acvp_list_ciphers));
 	CKNULL(tmp, -ENOMEM);
 	*new = tmp;
+
+	CKINT(acvp_duplicate(&tmp->cipher_name, "ML-KEM"));
+	if ((ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_ENCAPSULATION) &&
+	    (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_DECAPSULATION)) {
+		CKINT(acvp_duplicate(&tmp->cipher_mode, "encapDecap"));
+	} else {
+		switch (ml_kem->ml_kem_mode) {
+		case DEF_ALG_ML_KEM_MODE_KEYGEN:
+			CKINT(acvp_duplicate(&tmp->cipher_mode, "keyGen"));
+			break;
+		case DEF_ALG_ML_KEM_MODE_ENCAPSULATION:
+			CKINT(acvp_duplicate(&tmp->cipher_mode, "encapsulation"));
+			break;
+		case DEF_ALG_ML_KEM_MODE_DECAPSULATION:
+			CKINT(acvp_duplicate(&tmp->cipher_mode, "decapsulation"));
+			break;
+		default:
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			    "ML-KEM: Unknown cipher type\n");
+			ret = -EINVAL;
+			goto out;
+			break;
+		}
+	}
 
 	if (ml_kem->parameter_set & DEF_ALG_ML_KEM_512) {
 		tmp->keylen[idx++] = 512;
@@ -49,16 +73,15 @@ int acvp_list_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
 	if (ml_kem->parameter_set & DEF_ALG_ML_KEM_1024) {
 		tmp->keylen[idx++] = 1024;
 	}
-
-	CKINT(acvp_duplicate(&tmp->cipher_name, "ML-KEM"));
+	tmp->keylen[idx] = DEF_ALG_ZERO_VALUE;
 
 out:
 	return ret;
 }
 
 int acvp_req_set_prereq_ml_kem(const struct def_algo_ml_kem *ml_kem,
-			     const struct acvp_test_deps *deps,
-			     struct json_object *entry, bool publish)
+			       const struct acvp_test_deps *deps,
+			       struct json_object *entry, bool publish)
 {
 
 #if 0
@@ -82,7 +105,7 @@ out:
  * Generate algorithm entry for HMACs
  */
 int acvp_req_set_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
-			   struct json_object *entry)
+			     struct json_object *entry)
 {
 	struct json_object *array;
 	int ret;
@@ -91,32 +114,26 @@ int acvp_req_set_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
 
 	CKINT(acvp_req_set_prereq_ml_kem(ml_kem, NULL, entry, false));
 
-	switch (ml_kem->ml_kem_mode) {
-	case DEF_ALG_ML_KEM_MODE_KEYGEN:
+	if (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_KEYGEN) {
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("keyGen")));
-		break;
-	case DEF_ALG_ML_KEM_MODE_ENCAPSULATION:
+	} else if ((ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_ENCAPSULATION) ||
+		   (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_DECAPSULATION)) {
 		CKINT(json_object_object_add(
 			entry, "mode", json_object_new_string("encapDecap")));
 
 		array = json_object_new_array();
 		CKNULL(array, -ENOMEM);
 		CKINT(json_object_object_add(entry, "functions", array));
-		CKINT(json_object_array_add(
-			array, json_object_new_string("encapsulation")));
-		break;
-	case DEF_ALG_ML_KEM_MODE_DECAPSULATION:
-		CKINT(json_object_object_add(
-			entry, "mode", json_object_new_string("encapDecap")));
-
-		array = json_object_new_array();
-		CKNULL(array, -ENOMEM);
-		CKINT(json_object_object_add(entry, "functions", array));
-		CKINT(json_object_array_add(
-			array, json_object_new_string("decapsulation")));
-		break;
-	default:
+		if (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_ENCAPSULATION) {
+			CKINT(json_object_array_add(
+				array, json_object_new_string("encapsulation")));
+		}
+		if (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_DECAPSULATION) {
+			CKINT(json_object_array_add(
+				array, json_object_new_string("decapsulation")));
+		}
+	} else {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
 		       "ML-KEM: Unknown cipher type\n");
 		ret = -EINVAL;

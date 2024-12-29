@@ -1,0 +1,83 @@
+{
+	"sensitiveSecurityParameterManagement":{
+		"storageAreas": {
+			"storageAreaList": [
+			{
+				"name": "RAM",
+				"description": "The module stores ephemeral SSPs in RAM provided by the operational environment. The operating system protects all SSPs through memory separation and protection mechanisms. No process other than the module itself can access the SSPs in its process memory.",
+				"persistenceType": "Dynamic"
+			}
+			],
+			"text": "N/A"
+		},
+		"inputOutputMethods": {
+			"sspInputOutputList": [
+			{
+				"name": "API input parameters",
+				"from": "TOEPP",
+				"to": "Module",
+				"formatType": "Plaintext",
+				"distributionType": "manual",
+				"entryType": "Electronic",
+				"SFIOrAlgorithm": "N/A"
+			},
+			{
+				"name": "API output parameters",
+				"from": "Module",
+				"to": "TOEPP",
+				"formatType": "Plaintext",
+				"distributionType": "manual",
+				"entryType": "Electronic",
+				"SFIOrAlgorithm": "N/A"
+			}
+			],
+			"text": "N/A"
+		},
+		"sspZeroizationMethods": {
+			"sspZeroizationList": [
+			{
+				"method": "Context object destruction",
+				"description": "SSPs are zeroized when the appropriate context object is destroyed.",
+				"rationale": "Zeroization when structure is deallocated",
+				"operatorInitiationCapability": "Invocation of zeroization function"
+			},
+			{
+				"method": "Power down",
+				"description": "SSPs are zeroized when system is powered down.",
+				"rationale": "SSPs are zeroized when system is powered down.",
+				"operatorInitiationCapability": "Operator can initiate power down"
+			},
+			{
+				"method": "Intermediate value zeroization",
+				"description": "Intermediate keygen values are zeroized before the module returns from the key generation function.",
+				"rationale": "Intermediate keygen values are zeroized before the module returns from the key generation function.",
+				"operatorInitiationCapability": "N/A"
+			}
+			],
+			"text": "N/A"
+		},
+		"ssps": {
+			"sspList": [
+				{
+					"name": "AES Key",
+					"description": "AES Key",
+					"size": "128, 192, 256",
+					"strength": "128, 192, 256",
+					"type": "Symmetric",
+					"generatedBy": "N/A",
+					"establishedBy": "N/A",
+					"usedBy": "Symmetric encryption / decryption",
+					"inputOutput": "API input parameters",
+					"storage": "RAM",
+					"temporaryStorageDuration": "From service invocation to completion",
+					"zeroization": "Context object destruction",
+					"category": "CSP",
+					"relatedSSPs": "N/A"
+				}
+			],
+			"text": "N/A"
+		},
+		"transitions": "N/A",
+		"additionalInformation": "N/A"
+	}
+}

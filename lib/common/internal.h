@@ -23,6 +23,7 @@
 #include <json-c/json.h>
 
 #include "acvp_error_handler.h"
+#include "amvp_definition.h"
 #include "aux_helper.h"
 #include "atomic_bool.h"
 #include "atomic.h"
@@ -49,12 +50,12 @@ extern "C" {
  * API compatible, ABI may change, functional enhancements only, consumer
  * can be left unchanged if enhancements are not considered.
  */
-#define MINVERSION 8
+#define MINVERSION 9
 
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
  */
-#define PATCHLEVEL 1
+#define PATCHLEVEL 0
 
 struct acvp_test_deps {
 	char *dep_cipher;
@@ -360,7 +361,15 @@ int acvp_req_set_prereq_ml_dsa(const struct def_algo_ml_dsa *ml_dsa,
 			       const struct acvp_test_deps *deps,
 			       struct json_object *entry, bool publish);
 int acvp_list_algo_ml_dsa(const struct def_algo_ml_dsa *ml_dsa,
-		          struct acvp_list_ciphers **new);
+			  struct acvp_list_ciphers **new);
+
+int acvp_req_set_algo_slh_dsa(const struct def_algo_slh_dsa *slh_dsa,
+			      struct json_object *entry);
+int acvp_req_set_prereq_slh_dsa(const struct def_algo_slh_dsa *slh_dsa,
+				const struct acvp_test_deps *deps,
+				struct json_object *entry, bool publish);
+int acvp_list_algo_slh_dsa(const struct def_algo_slh_dsa *slh_dsa,
+			   struct acvp_list_ciphers **new);
 
 struct acvp_net_proto {
 	char *url_base; /* Base path of URL */
@@ -376,6 +385,8 @@ struct acvp_net_proto {
 	const char *vector_url;
 	const char *session_url_keyword;
 	const char *vector_url_keyword;
+
+	const char *resultsfile;
 
 	enum acvp_protocol_type proto;
 };
@@ -479,6 +490,7 @@ struct acvp_testid_ctx {
 	struct acvp_auth_ctx *server_auth;
 	const struct definition *def;
 	struct esvp_es_def *es_def;
+	struct amvp_state *amvp_state;
 	const struct acvp_ctx *ctx;
 
 	struct acvp_test_verdict_status verdict;
@@ -492,7 +504,7 @@ struct acvp_testid_ctx {
 
 	struct timespec start;
 
-	int (*status_parse)(const struct acvp_testid_ctx *testid_ctx,
+	int (*status_parse)(struct acvp_testid_ctx *testid_ctx,
 			    struct json_object *status);
 	int (*status_write)(const struct acvp_testid_ctx *testid_ctx);
 
@@ -609,7 +621,7 @@ struct acvp_datastore_be {
 	int (*acvp_datastore_write_authtoken)(
 		const struct acvp_testid_ctx *testid_ctx);
 	int (*acvp_datastore_read_authtoken)(
-		const struct acvp_testid_ctx *testid_ctx);
+		struct acvp_testid_ctx *testid_ctx);
 	int (*acvp_datastore_get_testid_verdict)(
 		struct acvp_testid_ctx *testid_ctx);
 	int (*acvp_datastore_get_vsid_verdict)(struct acvp_vsid_ctx *vsid_ctx);
@@ -900,7 +912,7 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx,
 				     const struct acvp_ctx *ctx,
 				     const struct definition *def,
 				     const uint32_t testid),
-			 int (*status_parse)(const struct acvp_testid_ctx *testid_ctx,
+			 int (*status_parse)(struct acvp_testid_ctx *testid_ctx,
 					     struct json_object *status),
 			 int (*status_write)(const struct acvp_testid_ctx *testid_ctx));
 
@@ -908,6 +920,11 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx,
  * @brief Match two strings
  */
 int acvp_str_match(const char *exp, const char *found, const uint32_t id);
+
+/**
+ * @brief Match two strings, while ignoring differences in case
+ */
+int acvp_str_case_match(const char *exp, const char *found, const uint32_t id);
 
 /**
  * @brief Obtain the verdict from the JSON data.
@@ -1255,6 +1272,10 @@ int acvp_req_kas_r3_kc_method(const struct def_algo_kas_r3_kc *kcm,
 #define ACVP_DS_ESVPSTATUS "esvp_status.json"
 /* File holding the status of the test session */
 #define ACVP_DS_AMVPEVIDENCE "amvp_evidenceset.json"
+/* File holding the status of the test session */
+#define ACVP_DS_AMVPTESTREPORT "amvp_test_report.json"
+/* File holding the status of the test session */
+#define ACVP_DS_AMVPSTATUS "amvp_status.json"
 /* File holding the metadata about the test session provided by ACVP server */
 #define ACVP_DS_TESTIDMETA "testid_metadata.json"
 /* File holding the time in seconds the testID/vsID communication took */

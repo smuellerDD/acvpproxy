@@ -105,6 +105,8 @@ static void acvp_release_datastore(struct acvp_datastore_ctx *datastore)
 	ACVP_PTR_FREE_NULL(datastore->expectedfile);
 	ACVP_PTR_FREE_NULL(datastore->esvp_statusfile);
 	ACVP_PTR_FREE_NULL(datastore->amvp_evidencesetfile);
+	ACVP_PTR_FREE_NULL(datastore->amvp_testreportfile);
+	ACVP_PTR_FREE_NULL(datastore->amvp_statusfile);
 }
 
 static void acvp_release_search(struct acvp_search_ctx *search)
@@ -731,7 +733,7 @@ int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 				     proto->secure_basedir));
 	}
 
-	CKINT(acvp_duplicate(&datastore->resultsfile, ACVP_DS_TESTRESPONSE));
+	CKINT(acvp_duplicate(&datastore->resultsfile, proto->resultsfile));
 	CKINT(acvp_duplicate(&datastore->vectorfile, ACVP_DS_TESTREQUEST));
 	CKINT(acvp_duplicate(&datastore->jwttokenfile, ACVP_DS_JWTAUTHTOKEN));
 	CKINT(acvp_duplicate(&datastore->jwtcertref,
@@ -749,6 +751,9 @@ int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 	CKINT(acvp_duplicate(&datastore->esvp_statusfile, ACVP_DS_ESVPSTATUS));
 	CKINT(acvp_duplicate(&datastore->amvp_evidencesetfile,
 			     ACVP_DS_AMVPEVIDENCE));
+	CKINT(acvp_duplicate(&datastore->amvp_testreportfile,
+			     ACVP_DS_AMVPTESTREPORT));
+	CKINT(acvp_duplicate(&datastore->amvp_statusfile, ACVP_DS_AMVPSTATUS));
 
 	CKINT(acvp_init_auth_ctx(*ctx));
 
