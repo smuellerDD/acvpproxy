@@ -49,11 +49,11 @@ enum def_mod_type {
 static const struct def_mod_type_conversion {
 	enum def_mod_type type;
 	char *type_name;
-} def_mod_type_conversion[] = { { MOD_TYPE_SOFTWARE, "software" },
-				{ MOD_TYPE_HARDWARE, "hardware" },
-				{ MOD_TYPE_FIRMWARE, "firmware" },
-				{ MOD_TYPE_SOFTWARE_HYBRID, "software-hybrid" },
-				{ MOD_TYPE_FIRMWARE_HYBRID, "firmware-hybrid" },
+} def_mod_type_conversion[] = { { MOD_TYPE_SOFTWARE, "Software" },
+				{ MOD_TYPE_HARDWARE, "Hardware" },
+				{ MOD_TYPE_FIRMWARE, "Firmware" },
+				{ MOD_TYPE_SOFTWARE_HYBRID, "Software-hybrid" },
+				{ MOD_TYPE_FIRMWARE_HYBRID, "Firmware-hybrid" },
 };
 
 /* Warning, we operate with a signed int, so leave the highest bit untouched */
