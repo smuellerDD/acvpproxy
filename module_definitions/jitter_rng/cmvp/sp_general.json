@@ -1,6 +1,6 @@
 {
 	"general": {
-		"overallDescription": "The Jitter RNG is an entropy source which combines a noise source and a conditioning component to form an SP800-90C compliant entropy source.",
+		"overallDescription": "This document is the non-proprietary FIPS 140-3 Security Policy for version 2.0 of theAWS-LC Cryptographic Module. It contains the security rules under which the module must operate and describes how this module meets the requirements as specified in FIPS PUB140-3 (Federal Information Processing Standards Publication 140-3) for an overall SecurityLevel 1 module.",
 		"securityLevels": {
 			"overall": 1,
 			"section1": 1,
@@ -9,12 +9,12 @@
 			"section4": 1,
 			"section5": 1,
 			"section6": 1,
-			"section7": 1,
-			"section8": 1,
+			"section7": 0,
+			"section8": 0,
 			"section9": 1,
 			"section10": 1,
 			"section11": 1,
 			"section12": 1
 		}
-	}
+	},
 }

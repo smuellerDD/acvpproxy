@@ -81,7 +81,7 @@ struct def_algo_kas_ifc_keygen {
 
 struct def_algo_kts_method {
 	/*
-	 * The hasl algorithms available to the IUT.
+	 * The hash algorithms available to the IUT.
 	 *
 	 * One or more of the following are allowed
 	 * SHA2-224

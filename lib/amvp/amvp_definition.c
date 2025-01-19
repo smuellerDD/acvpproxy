@@ -28,6 +28,7 @@ void amvp_def_free(struct amvp_def *amvp)
 	if (!amvp)
 		return;
 
+	ACVP_PTR_FREE_NULL(amvp->logo_file);
 	ACVP_JSON_PUT_NULL(amvp->validation_definition);
 	ACVP_JSON_PUT_NULL(amvp->registration_definition);
 	ACVP_JSON_PUT_NULL(amvp->sp_general);
@@ -241,6 +242,10 @@ static int amvp_read_sp_def(const char *directory, struct amvp_def *amvp)
 {
 	char pathname[FILENAME_MAX];
 	int ret = 0;
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_LOGO);
+	CKINT(acvp_duplicate(&amvp->logo_file, pathname));
 
 	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
 		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_GENERAL);

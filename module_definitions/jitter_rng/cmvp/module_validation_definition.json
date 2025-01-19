@@ -1,10 +1,10 @@
 {
 	"implementsOtar":false,
 	"hasNonApprovedMode":false,
-	"requiresInitialization":false,
+	"requiresInitialization":true,
 	"hasExcludedComponents":false,
 	"hasDegradedMode":false,
-	"hasPPAorPAI":false,
+	"hasPPAorPAI":true,
 	"hasEmbeddedOrBoundModule":false,
 	"hasCriticalFunctions":false,
 	"hasNonApprovedAlgorithmsInApprovedMode":false,
@@ -66,11 +66,11 @@
 		},
 		{
 			"section":7,
-			"level":1
+			"level":0
 		},
 		{
 			"section":8,
-			"level":1
+			"level":0
 		},
 		{
 			"section":9,

@@ -1,14 +1,14 @@
 {
-	"rolesServicesAuthentication":{
+	"rolesServicesAuthentication": {
 		"authenticationMethods": {
-			 "authenticationMethodsList": [
-				{
-					"name": "N/A",
-					"description": "N/A",
-					"mechanism": "N/A",
-					"strengthPerAttempt": "N/A",
-					"strengthPerMinute": "N/A"
-				}
+			"authenticationMethodsList": [
+			{
+				"name": "N/A",
+				"description": "N/A",
+				"mechanism": "N/A",
+				"strengthPerAttempt": "N/A",
+				"strengthPerMinute": "N/A"
+			}
 			],
 			"text": "The module does not support authentication. The module does not support concurrent operators."
 		},
@@ -16,73 +16,303 @@
 		{
 			"name": "Crypto Officer",
 			"type": "Role",
-			"operatorType": "Crypto Officer",
+			"operatorType": "CO",
 			"authenticationMethods": "N/A"
 		}
 		],
 		"approvedServices": {
-			 "approvedServicesList": [
-				{
-					"name": "Secure Hash Generation",
-					"description": "Generate digest for conditioning component",
-					"indicator": "Global",
-					"inputs": "Bit stream from noise source",
-					"outputs": "Conditioned random bits",
-					"sfi": "Message digest generation",
-					"roles": "Crypto Officer",
-					"sspAccess": "G"
-				},
-				{
-					"name": "Show Version Information",
-					"description": "Return module name and module version number",
-					"indicator": "N/A",
-					"inputs": "N/A",
-					"outputs": "Version information",
-					"sfi": "N/A",
-					"roles": "Crypto Officer",
-					"sspAccess": "N/A"
-				},
-				{
-					"name": "Show Status Information",
-					"description": "Return module status information",
-					"indicator": "N/A",
-					"inputs": "N/A",
-					"outputs": "Status information",
-					"sfi": "N/A",
-					"roles": "Crypto Officer",
-					"sspAccess": "N/A"
-				},
-				{
-					"name": "Self Test",
-					"description": "Execute pre-operational and conditional self tests",
-					"indicator": "N/A",
-					"inputs": "N/A",
-					"outputs": "Pass/fail",
-					"sfi": "All",
-					"roles": "Crypto Officer",
-					"sspAccess": "N/A"
-				},
-				{
-					"name": "Zeroization",
-					"description": "Zeroize all SSPs",
-					"indicator": "N/A",
-					"inputs": "Jitter RNG context",
-					"outputs": "N/A",
-					"sfi": "N/A",
-					"roles": "Crypto Officer",
-					"sspAccess": "Z"
-				}
+			"approvedServicesList": [
+			{
+				"name": "Encryption",
+				"description": "Encryption",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "AES key, plaintext",
+				"outputs": "Ciphertext",
+				"sfi": "Encryption/Decryption with AES",
+				"roles": "Crypto Officer",
+				"sspAccess": "AES Key: W, E"
+			},
+			{
+				"name": "Decryption",
+				"description": "Decryption",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "AES key, ciphertext",
+				"outputs": "Plaintext",
+				"sfi": "Encryption/Decryption with AES",
+				"roles": "Crypto Officer",
+				"sspAccess": "AES Key: W, E"
+			},
+			{
+				"name": "Authenticated Encryption",
+				"description": "Authenticated Encryption",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "AES key, plaintext",
+				"outputs": "Ciphertext",
+				"sfi": "Authenticated Encryption/Decryption with AES CCM; Authenticated Encryption/Decryption with AES GCM",
+				"roles": "Crypto Officer",
+				"sspAccess": "AES Key: W, E"
+			},
+			{
+				"name": "Authenticated Decryption",
+				"description": "Authenticated Decryption",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "AES key, ciphertext",
+				"outputs": "Plaintext",
+				"sfi": "Authenticated Encryption/Decryption with AES CCM; Authenticated Encryption/Decryption with AES GCM",
+				"roles": "Crypto Officer",
+				"sspAccess": "AES Key: W, E"
+			},
+			{
+				"name": "Key Wrapping",
+				"description": "Encrypting a key",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "AES key wrapping key, Key to be wrapped",
+				"outputs": "Wrapped key",
+				"sfi": "Key Wrapping/Unwrapping with AES KW, AES-KWP; Key Wrapping/Unwrapping with AES GCM; Key Wrapping/Unwrapping with AES CCM",
+				"roles": "Crypto Officer",
+				"sspAccess": "AES Key: W, E"
+			},
+			{
+				"name": "Key unwrapping",
+				"description": "Decrypting a key",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "AES key unwrapping key, Key to be unwrapped",
+				"outputs": "Unwrapped key",
+				"sfi": "Key Wrapping/Unwrapping with AES KW, AES-KWP; Key Wrapping/Unwrapping with AES GCM; Key Wrapping/Unwrapping with AES CCM",
+				"roles": "Crypto Officer",
+				"sspAccess": "AES Key: W, E"
+			},
+			{
+				"name": "Message Authentication Generation",
+				"description": "MAC computation",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "AES key, message",
+				"outputs": "MAC tag",
+				"sfi": "Message Authentication Generation with AES",
+				"roles": "Crypto Officer",
+				"sspAccess": "AES Key: W, E"
+			},
+			{
+				"name": "Message Authentication Generation",
+				"description": "MAC computation",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "HMAC key, message",
+				"outputs": "MAC tag",
+				"sfi": "Message Authentication Generation with HMAC",
+				"roles": "Crypto Officer",
+				"sspAccess": "HMAC Key: W, E"
+			},
+			{
+				"name": "Message Digest",
+				"description": "Generating message digest",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "Message",
+				"outputs": "Message digest",
+				"sfi": "Message Digest with SHA",
+				"roles": "Crypto Officer",
+				"sspAccess": "N/A"
+			},
+			{
+				"name": "Random Number Generation",
+				"description": "Generating random numbers",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "Output length",
+				"outputs": "Random bytes",
+				"sfi": "Random Number Generation with DRBG",
+				"roles": "Crypto Officer",
+				"sspAccess": "Entropy Input: W, E; DRBG Seed: G, E; DRBG Internal State (V, Key): G, W, E"
+			},
+			{
+				"name": "Key Generation",
+				"description": "Generating a key pair",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "Modulus size",
+				"outputs": "RSA public key, RSA private key",
+				"sfi": "Key Generation with RSA",
+				"roles": "Crypto Officer",
+				"sspAccess": "RSA Public Key : G, R; RSA Private Key: G, R"
+			},
+			{
+				"name": "Key Generation",
+				"description": "Generating a key pair",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "Curve",
+				"outputs": "EC public key, EC private key",
+				"sfi": "Key Generation with ECDSA",
+				"roles": "Crypto Officer",
+				"sspAccess": "EC Public Key: G, R; EC Private Key: G, R"
+			},
+			{
+				"name": "Key Verification",
+				"description": "Verifying the public key",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "Public key",
+				"outputs": "Success/ error",
+				"sfi": "Key Verification with ECDSA",
+				"roles": "Crypto Officer",
+				"sspAccess": "EC Public Key: W, E"
+			},
+			{
+				"name": "Signature Generation",
+				"description": "Generating signature",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "Message, EC private key or RSA private key",
+				"outputs": "Digital signature",
+				"sfi": "Signature Generation with RSA; Signature Generation with ECDSA",
+				"roles": "Crypto Officer",
+				"sspAccess": "RSA Private Key: W, E; EC Private Key: W, E"
+			},
+			{
+				"name": "Signature Verification",
+				"description": "Verifying signature",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved(",
+				"inputs": "Signature, EC public key or RSA public key",
+				"outputs": "Digital signature verification result",
+				"sfi": "Signature Verification with ECDSA; Signature Verification with RSA",
+				"roles": "Crypto Officer",
+				"sspAccess": "RSA Public Key : W, E; EC Public Key: W, E"
+			},
+			{
+				"name": "Shared Secret Computation",
+				"description": "Calculating the Shared Secret",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "EC public key, EC private key",
+				"outputs": "Shared Secret",
+				"sfi": "Shared Secret Computation with EC Diffie-Hellman",
+				"roles": "Crypto Officer",
+				"sspAccess": "EC Public Key: W, E; EC Private Key: W, E; Shared Secret: G, R"
+			},
+			{
+				"name": "Key Derivation",
+				"description": "Deriving Keys",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "TLS Pre-Master Secret",
+				"outputs": "TLS Master secret",
+				"sfi": "Key Derivation with TLS KDF; Key Derivation with KDA HKDF",
+				"roles": "Crypto Officer",
+				"sspAccess": "TLS Pre-Master Secret: W, E"
+			},
+			{
+				"name": "Key Derivation",
+				"description": "Deriving Keys",
+				"indicator": "Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "TLS Master Secret",
+				"outputs": "TLS Derived Key",
+				"sfi": "Key Derivation with TLS KDF; Key Derivation with KDA HKDF",
+				"roles": "Crypto Officer",
+				"sspAccess": "TLS Master Secret : G, W, E; TLS Derived Key (AES/HMAC): G; KDA Derived Key: G, R"
+			},
+			{
+				"name": "Key Derivation",
+				"description": "Deriving Keys",
+				"indicator": "Deriving Keys\tReturn value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "Password, salt, iteration count",
+				"outputs": "PBKDF Derived Key",
+				"sfi": "Key Derivation with PBKDF",
+				"roles": "Crypto Officer",
+				"sspAccess": "PBKDF Derived Key: G, R; Password: W, E"
+			},
+			{
+				"name": "Key Derivation",
+				"description": "Deriving Keys",
+				"indicator": "Deriving Keys Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "Shared Secret, Key Length, Digest",
+				"outputs": "KDA Serived Key",
+				"sfi": "Key Derivation with KDA HKDF",
+				"roles": "Crypto Officer",
+				"sspAccess": "KDA Derived Key: G, R; Shared Secret: W, E"
+			},
+			{
+				"name": "Key Derivation",
+				"description": "Deriving Keys",
+				"indicator": "Deriving Keys Return value 1 from the function: FIPS_ service_ indicator_ check_approved()",
+				"inputs": "Shared Secret, Key Length",
+				"outputs": "SSH Derived Key",
+				"sfi": "Key Derivation with SSH KDF",
+				"roles": "Crypto Officer",
+				"sspAccess": "SSH Derived Key: G, R; DRBG Internal State (V, Key)"
+			},
+			{
+				"name": "Zeroization",
+				"description": "Zeroize SSP in volatile memory",
+				"indicator": "N/A",
+				"inputs": "SSP",
+				"outputs": "N/A",
+				"sfi": "None",
+				"roles": "Crypto Officer",
+				"sspAccess": "AES Key: Z; HMAC Key: Z; Entropy Input: Z; DRBG Seed: Z; DRBG Internal State (V, Key): Z; RSA Public Key : Z; RSA Private Key: Z; RSA Private Key: Z; EC Public Key: Z; EC Private Key: Z; Shared Secret: Z; TLS Pre-Master Secret: Z; TLS Master Secret : Z; TLS Derived Key (AES/HMAC): Z; TLS Derived Key (AES/HMAC): Z; Password: Z; Intermediate Key Generation Value: Z"
+			}
 			],
-			"text": "For the above table, the convention below applies when specifying the access permissions (types) that the service has for each SSP.\n\bG = Generate: The module generates or derives the SSP.\n\bR = Read: The SSP is read from the module (e.g., the SSP is output).\n\bW = Write: The SSP is updated, imported, or written to the module.\n\bE = Execute: The module uses the SSP in performing a cryptographic operation.\n\bZ = Zeroize: The module zeroizes the SSP.\nFor the role, CO indicates “Crypto Officer”.\nThe module implements a service indicator that indicates whether the invoked service is approved. The service indicator is a return value 1 from the FIPS_service_indicator_check_approved function. This function is used together with two other functions. The usage is as follows:\n\bSTEP 1: Should be called before invoking the service.\nint before = FIPS_service_indicator_before_call();\n\bSTEP 2: Make a service call i.e., API function for performing a service.\nfunc;\n\bSTEP 3: Should be called after invoking the service.\nint after = FIPS_service_indicator_after_call();\n\bSTEP 4: Return value 1 indicates approved service was invoked.\nint Return= FIPS_service_indicator_check_approved(before, after);\nAlternatively, all the above steps can be done by using a single call using the function CALL_SERVICE_AND_CHECK_APPROVED(approved, func)."
+			"text": "For the above table, the convention below applies when specifying the access permissions (types) that the service has for each SSP.\n\bG = Generate: The module generates or derives the SSP.\n\bR = Read: The SSP is read from the module (e.g., the SSP is output).\n\bW = Write: The SSP is updated, imported, or written to the module.\n\bE = Execute: The module uses the SSP in performing a cryptographic operation.\n\bZ = Zeroize: The module zeroizes the SSP.\nFor the role, CO indicates \"Crypto Officer\".\nThe module implements a service indicator that indicates whether the invoked service is approved. The service indicator is a return value 1 from the FIPS_service_indicator_check_approved function. This function is used together with two other functions. The usage is as follows:\n\bSTEP 1: Should be called before invoking the service.\nint before = FIPS_service_indicator_before_call();\n\bSTEP 2: Make a service call i.e., API function for performing a service.\nfunc;\n\bSTEP 3: Should be called after invoking the service.\nint after = FIPS_service_indicator_after_call();\n\bSTEP 4: Return value 1 indicates approved service was invoked.\nint Return= FIPS_service_indicator_check_approved(before, after);\nAlternatively, all the above steps can be done by using a single call using the function CALL_SERVICE_AND_CHECK_APPROVED(approved, func)."
 		},
 		"nonApprovedServices": [
-			{
-				"name": "Triple-DES",
-				"description": "Encryption / Decryption",
-				"algorithmsAccessed": "Triple-DES",
-				"role": "Crypto Officer"
-			}
+		{
+			"name": "Encryption",
+			"description": "Encryption",
+			"algorithmsAccessed": "AES with OFB or CFB1, CFB8 modes; AES GCM, GCM, GMAC, XTS with keys not listed in Table 5; AES using aes_*_generic function; AES GMAC using aes_*_generic ; RSA encryption primitive with PKCS#1 v1.5 and OAEP padding",
+			"role": "CO"
+		},
+		{
+			"name": "Decryption",
+			"description": "Decryption",
+			"algorithmsAccessed": "AES with OFB or CFB1, CFB8 modes; AES GCM, GCM, GMAC, XTS with keys not listed in Table 5; AES using aes_*_generic function; AES GMAC using aes_*_generic ",
+			"role": "CO"
+		},
+		{
+			"name": "Message Authentication Generation",
+			"description": "MAC computation",
+			"algorithmsAccessed": "AES GMAC using aes_*_generic ; HMAC-MD4, HMAC-MD5, HMAC-SHA1, HMAC-SHA-3, HMAC-RIPEMD-160",
+			"role": "CO"
+		},
+		{
+			"name": "Message Digest",
+			"description": "Generating message digest",
+			"algorithmsAccessed": "MD4 ; MD5 (outside of TLS); SHAKE, RIPEMD-160, SHA-3",
+			"role": "CO"
+		},
+		{
+			"name": "Signature Generation",
+			"description": "Generating signatures",
+			"algorithmsAccessed": "RSA using keys less than 2048 bits; RSA without hashing; SHA-1, SHA-3",
+			"role": "CO"
+		},
+		{
+			"name": "Signature Verification",
+			"description": "Verifying signatures",
+			"algorithmsAccessed": "RSA using keys less than 1024 bits; RSA without hashing",
+			"role": "CO"
+		},
+		{
+			"name": "Key Generation",
+			"description": "Generating key pair",
+			"algorithmsAccessed": "RSA using RSA_generate_key_ex ; ECDSA using EC_KEY_generate_key ",
+			"role": "CO"
+		},
+		{
+			"name": "Shared Secret Computation",
+			"description": "Calculating shared secret",
+			"algorithmsAccessed": "Curve secp256k1; Diffie Hellman",
+			"role": "CO"
+		},
+		{
+			"name": "Key Derivation",
+			"description": "Deriving TLS keys",
+			"algorithmsAccessed": "TLS KDF using any SHA algorithms other than SHA2-256, SHA2-384, SHA2-512; or TLS KDF using non-extended master secret",
+			"role": "CO"
+		},
+		{
+			"name": "Key Encapsulation",
+			"description": "Encrypting a key",
+			"algorithmsAccessed": "RSA ",
+			"role": "CO"
+		},
+		{
+			"name": "Key Un-encapsulation",
+			"description": "Decrypting a key",
+			"algorithmsAccessed": "RSA ",
+			"role": "CO"
+		}
 		],
-		"externalSoftwareFirmwareLoaded": "N/A"
-	}
+		"externalSoftwareFirmwareLoaded": "The module does not support loading of external software or firmware"
+	},
 }

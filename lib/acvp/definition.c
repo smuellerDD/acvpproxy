@@ -2818,8 +2818,10 @@ static int acvp_def_load_config_vendor(const struct json_object *vendor_config,
 	CKINT(acvp_def_alloc_lock(&vendor->def_lock));
 	CKINT(json_get_string_zero_to_null(vendor_config, "vendorName",
 					(const char **)&vendor->vendor_name));
-	CKINT(json_get_string_zero_to_null(vendor_config, "vendorUrl",
-					(const char **)&vendor->vendor_url));
+	ret = json_get_string_zero_to_null(vendor_config, "vendorUrl",
+					(const char **)&vendor->vendor_url);
+	if (ret)
+		vendor->vendor_url = NULL;
 
 	/*
 	 * Load the person definition. Note, we can have 2 formats:

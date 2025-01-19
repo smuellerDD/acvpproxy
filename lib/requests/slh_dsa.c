@@ -192,6 +192,56 @@ static int acvp_req_slh_dsa_sig_caps(const struct def_algo_slh_dsa_caps *caps,
 	CKINT(acvp_req_slh_dsa_parameter_set(caps->parameter_set, caps_entry));
 	CKINT(acvp_req_algo_int_array(caps_entry, caps->messagelength,
 				      "messageLength"));
+	if (caps->hashalg) {
+		CKINT(acvp_req_cipher_to_array(caps_entry,
+			caps->hashalg, ACVP_CIPHERTYPE_HASH, "hashAlgs"));
+	}
+	CKINT(acvp_req_algo_int_array(caps_entry, caps->contextlength,
+				      "contextLength"));
+
+out:
+	return ret;
+}
+
+static int acvp_req_slh_dsa_sig_interface(
+	const struct def_algo_slh_dsa *slh_dsa, struct json_object *entry)
+{
+	struct json_object *array;
+	unsigned int i;
+	int ret;
+	bool pure_found = false, prehash_found = false;
+
+	array = json_object_new_array();
+	CKNULL(array, -ENOMEM);
+	CKINT(json_object_object_add(entry, "signatureInterfaces", array));
+	if (slh_dsa->interface & DEF_ALG_SLH_DSA_INTERFACE_EXTERNAL) {
+		CKINT(json_object_array_add(
+			array,
+			json_object_new_string("external")));
+	}
+	if (slh_dsa->interface & DEF_ALG_SLH_DSA_INTERFACE_INTERNAL) {
+		CKINT(json_object_array_add(
+			array,
+			json_object_new_string("internal")));
+	}
+
+	array = json_object_new_array();
+	CKNULL(array, -ENOMEM);
+	CKINT(json_object_object_add(entry, "preHash", array));
+	for (i = 0; i < slh_dsa->capabilities_num; i++) {
+		const struct def_algo_slh_dsa_caps *caps =
+						slh_dsa->capabilities.siggen + i;
+
+		if (caps->hashalg && !prehash_found) {
+			CKINT(json_object_array_add(
+				array, json_object_new_string("preHash")));
+			prehash_found = true;
+		} else if (!caps->hashalg && !pure_found) {
+			CKINT(json_object_array_add(
+				array, json_object_new_string("pure")));
+			pure_found = true;
+		}
+	}
 
 out:
 	return ret;
@@ -231,6 +281,8 @@ static int acvp_req_slh_dsa_siggen(const struct def_algo_slh_dsa *slh_dsa,
 					    json_object_new_boolean(true)));
 	}
 
+	CKINT(acvp_req_slh_dsa_sig_interface(slh_dsa, entry));
+
 out:
 	return ret;
 }
@@ -255,6 +307,8 @@ static int acvp_req_slh_dsa_sigver(const struct def_algo_slh_dsa *slh_dsa,
 		CKINT(json_object_array_add(caps_array, caps_entry));
 		CKINT(acvp_req_slh_dsa_sig_caps(caps, caps_entry));
 	}
+
+	CKINT(acvp_req_slh_dsa_sig_interface(slh_dsa, entry));
 
 out:
 	return ret;

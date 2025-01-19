@@ -1,47 +1,15 @@
 {
   "moduleName":"leancrypto",
-  "moduleVersion":"0.6.0",
+  "moduleVersion":"0.10.0",
   "moduleDescription":"The leancrypto library is a small highly versatile PQC crypto library.",
   "moduleType":0,
   "acvpModuleIds":[
     {
       "acvpModuleName":"leancrypto (C)",
-      "acvpModuleId":13903
-    },
-    {
-      "acvpModuleName":"leancrypto (AVX2)",
-      "acvpModuleId":13904
-    },
-    {
-      "acvpModuleName":"leancrypto (AVX512)",
-      "acvpModuleId":13906
-    },
-    {
-      "acvpModuleName":"leancrypto (AVX2-4X)",
       "acvpModuleId":0
     },
     {
-      "acvpModuleName":"leancrypto (AVX2_4X)",
-      "acvpModuleId":13905
-    },
-    {
-      "acvpModuleName":"leancrypto (ARM_ASM)",
-      "acvpModuleId":0
-    },
-    {
-      "acvpModuleName":"leancrypto (ARM_CE)",
-      "acvpModuleId":0
-    },
-    {
-      "acvpModuleName":"leancrypto (AESNI)",
-      "acvpModuleId":13907
-    },
-    {
-      "acvpModuleName":"leancrypto (RISCV64)",
-      "acvpModuleId":0
-    },
-    {
-      "acvpModuleName":"leancrypto (ARM_NEON)",
+      "acvpModuleName":"leancrypto (RISCV64_RVV)",
       "acvpModuleId":0
     }
   ]

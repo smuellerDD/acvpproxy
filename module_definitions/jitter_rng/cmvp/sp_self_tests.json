@@ -1,35 +1,225 @@
 {
-	"selfTests":{
+	"selfTests": {
 		"preOperationalSelfTests": {
 			"preOperationalSelfTestList": [
 			{
-				"algorithm": "SHA3-256",
-				"implementation": "Lorem Ut deserunt Duis ad",
-				"testProperties": "N/A",
-				"testMethod": "Secure Hash",
-				"type": "KAT",
-				"indicator": "Successful execution",
-				"details": "Runs KAT at power-up time."
+				"algorithm": "HMAC-SHA2-256 (A4509)",
+				"implementation": "Default",
+				"testProperties": "SHA2-256",
+				"testMethod": "Message Authentication",
+				"type": "SW/FW Integrity",
+				"indicator": "Module becomes operational",
+				"details": "Integrity test for bcm.o"
 			}
 			],
-			"additionalInformation": "N/A"
+			"text": "The module performs the pre-operational self-test and CASTs automatically when theThe module performs the pre-operational self-test and CASTs automatically when the module is loaded into memory; the pre-operational self-test ensures that the module is not corrupted, and the CASTs ensure that the cryptographic algorithms work as expected.While the module is executing the pre-operational tests, services are not available, and input and output are inhibited.The software integrity test is performed after all conditional algorithm self-tests (CASTs)are performed.module is loaded into memory; the pre-operational self-test ensures that the module is not corrupted, and the CASTs ensure that the cryptographic algorithms work as expected.While the module is executing the pre-operational tests, services are not available, and input and output are inhibited.The software integrity test is performed after all conditional algorithm self-tests (CASTs)"
 		},
 		"conditionalSelfTests": {
 			"conditionalSelfTestList": [
 			{
-				"algorithm": "AES",
-				"implementation": "adipisicing",
-				"testProperties": "128 bit key",
-				"testMethod": "KAT",
+				"testProperties": "128-bit AES key",
+				"testMethod": "Encrypt KAT",
 				"type": "CAST",
-				"indicator": "Successful operation",
-				"details": "Symmetric operation",
-				"condition": "Use of AES algorithm"
+				"indicator": "Module is operational",
+				"details": "Encrypt",
+				"condition": "Power up",
+				"algorithm": "AES-CBC (A4513)",
+				"implementation": "AES-CBC A4510"
+			},
+			{
+				"testProperties": "128-bit AES key",
+				"testMethod": "Decrypt KAT",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Decrypt",
+				"condition": "Power up",
+				"algorithm": "AES-CBC (A4510)",
+				"implementation": "AES-CBC A4510 , AES-ECB A4510"
+			},
+			{
+				"testProperties": "128-bit AES key",
+				"testMethod": "Encrypt KAT ",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Encrypt",
+				"condition": "Power up",
+				"algorithm": "AES-GCM (A4511)",
+				"implementation": "AES-CCM A4510 , AES-CMAC A4510"
+			},
+			{
+				"testProperties": "128-bit AES key",
+				"testMethod": "Decrypt KAT ",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Decrypt",
+				"condition": "Power up",
+				"algorithm": "AES-GCM (A4511)",
+				"implementation": "AES-GCM A4511 , AES-GCM A4512"
+			},
+			{
+				"testProperties": "N/A",
+				"testMethod": "SHA-1 KAT",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Message digest",
+				"condition": "Power up",
+				"algorithm": "SHA-1 (A4509)",
+				"implementation": "SHA-1 A4509 , SHA-1 A4517"
+			},
+			{
+				"testProperties": "N/A",
+				"testMethod": "SHA2-256 KAT",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Message digest",
+				"condition": "Power up",
+				"algorithm": "SHA2-256 (A4509)",
+				"implementation": "KDF SSH A4509 , SHA2-224 A4509"
+			},
+			{
+				"testProperties": "N/A",
+				"testMethod": "SHA2-512 KAT",
+				"type": "CAST",
+				"indicator": "Module is operational\t",
+				"details": "\tMessage digest",
+				"condition": "Power up",
+				"algorithm": "SHA2-512 (A4509)",
+				"implementation": "SHA2-384 A4509 , SHA2-512 A4509"
+			},
+			{
+				"testProperties": "SHA2-256",
+				"testMethod": "HMAC KAT",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Message authentication",
+				"condition": "Power up",
+				"algorithm": "HMAC-SHA2-256 (A4509)",
+				"implementation": "HMAC-SHA-1 A4509 , HMAC-SHA2-224 A4509"
+			},
+			{
+				"testProperties": "AES 256",
+				"testMethod": "CTR_DRBG KAT",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Seed Generation",
+				"condition": "Power up",
+				"algorithm": "Counter DRBG (A4513)",
+				"implementation": "Counter DRBG A4510 , Counter DRBG A4513"
+			},
+			{
+				"testProperties": "N/A",
+				"testMethod": "SP800-90Ar1 Section 11.3 Health Test",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Seed Generation",
+				"condition": "Power up",
+				"algorithm": "Counter DRBG (A4513)",
+				"implementation": "Counter DRBG A4510 , Counter DRBG A4513"
+			},
+			{
+				"testProperties": "P-256 Curve and SHA2-256",
+				"testMethod": "Sign KAT",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Sign",
+				"condition": "Signature Generation or Key Generation service request",
+				"algorithm": "ECDSA SigGen (FIPS186-5) (A4509)",
+				"implementation": "ECDSA SigGen (FIPS186-5) A4509"
+			},
+			{
+				"testProperties": "P-256 Curve and SHA2-256",
+				"testMethod": "Verify KAT",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Verify",
+				"condition": "Signature verification or Key Generation service request",
+				"algorithm": "ECDSA SigVer (FIPS186-4) (A4509)",
+				"implementation": "ECDSA SigVer (FIPS186-4) A4509"
+			},
+			{
+				"testProperties": "P-256 Curve",
+				"testMethod": "Z computation",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Shared secret computation",
+				"condition": "Shared secret computation request",
+				"algorithm": "KAS-ECC-SSC Sp800-56Ar3 (A4509)",
+				"implementation": "KAS-ECC-SSC Sp800-56Ar3 A4509"
+			},
+			{
+				"testProperties": "Respective Curve and SHA2-256",
+				"testMethod": "Signature generation and verification",
+				"type": "PCT",
+				"indicator": "Module is operational",
+				"details": "Sign and Verify",
+				"condition": "Key generation",
+				"algorithm": "ECDSA KeyGen (FIPS186-5) (A4509)",
+				"implementation": "ECDSA KeyGen (FIPS186-5) A4509"
+			},
+			{
+				"testProperties": "SHA2-256",
+				"testMethod": "TLS 1.2 KAT ",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Key derivation",
+				"condition": "Power up",
+				"algorithm": "KDF TLS (A4509)",
+				"implementation": "KDF TLS A4509 , KDF TLS A4517"
+			},
+			{
+				"testProperties": "HMAC-SHA2-256",
+				"testMethod": "KDA HKDF KAT",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Key derivation",
+				"condition": "Power up",
+				"algorithm": "KDA HKDF Sp800-56Cr1 (A4509)",
+				"implementation": "KDA HKDF Sp800-56Cr1 A4509"
+			},
+			{
+				"testProperties": "HMAC-SHA2-256",
+				"testMethod": "PBKDF2 KAT",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Key derivation",
+				"condition": "Power up",
+				"algorithm": "PBKDF (A4509)",
+				"implementation": "PBKDF A4509 , PBKDF A4517"
+			},
+			{
+				"testProperties": "PKCS#1 v1.5 with 2048 bit key and SHA2-256",
+				"testMethod": "Sign KAT",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Sign",
+				"condition": "Signature Generation or Key Generation service request",
+				"algorithm": "RSA SigGen (FIPS186-5) (A4509)",
+				"implementation": "RSA SigGen (FIPS186-5) A4509"
+			},
+			{
+				"testProperties": "PKCS#1 v1.5 with 2048 bit key and SHA2-256",
+				"testMethod": "Verify KAT",
+				"type": "CAST",
+				"indicator": "Module is operational",
+				"details": "Verify",
+				"condition": "Signature Verification or Key Generation service request",
+				"algorithm": "RSA SigVer (FIPS186-4) (A4509)",
+				"implementation": "RSA SigVer (FIPS186-4) A4509"
+			},
+			{
+				"testProperties": "SHA2-256 and respective keys",
+				"testMethod": "Signature generation and verification",
+				"type": "PCT",
+				"indicator": "Module is operational",
+				"details": "Sign and Verify",
+				"condition": "Key generation",
+				"algorithm": "RSA KeyGen (FIPS186-5) (A4509)",
+				"implementation": "RSA KeyGen (FIPS186-5) A4509"
 			}
 			],
-			"additionalInformation": "N/A"
+			"text": "The module performs self-tests on approved cryptographic algorithms supported in the approved mode of operation, using the tests shown in Table 21. (and indicated as CASTs)and using the provision of IG 10.3.A and IG 10.3.B for optimization of the number of self-tests. Data output through the data output interface is inhibited during the self-tests.The cryptographic algorithm self-tests are performed in the form of Known Answer Tests(KATs), in which the calculated output is compared with the expected known answer (that are hard-coded in the module). A failed match causes a failure of the self-test.\n\nIf any of these self-tests fails, the module transitions to error state and is aborted.The module implements RSA and ECDSA key generation service and performs the respective pairwise consistency test using sign and verify functions when the keys are generated (Table 9)."
 		},
-		"periodicSelfTestsInformation": {
+		"preOperationalPeriodicSelfTests": {
 			"preOperationalPeriodicSelfTestList": [
 			{
 				"algorithm": "N/A",
@@ -43,6 +233,9 @@
 				"periodicMethod": "N/A"
 			}
 			],
+			"text": "consectetur adipisicing"
+		},
+		"conditionalPeriodicSelfTests": {
 			"conditionalPeriodicSelfTestList": [
 			{
 				"algorithm": "N/A",
@@ -56,21 +249,7 @@
 				"periodicMethod": "N/A"
 			}
 			],
-			"additionalInformation": "N/A"
-		},
-		"errorStates": {
-			"errorStateList": [
-			{
-				"stateName": "Error State",
-				"description": "1) The SHA3-256 value computed over the module did not match the pre-computed value.",
-				"conditions": "1) Pre-operational Software Integrity Test failure",
-				"recoveryMethod": "Power cycle the module which results in the module being reloaded into memory and reperforming the pre-operational software integrity test.",
-				"indicator": "1) Module does not load and enter operational state."
-			}
-			],
-			"additionalInformation": "N/A"
-		},
-		"operatorInitiationOfSelfTests": "Power cycle the module.",
-		"additionalInformation": "N/A"
-	}
+			"text": "The module does not support periodic self-tests."
+		}
+	},
 }

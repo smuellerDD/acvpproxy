@@ -3,7 +3,6 @@
 		"AES_ISA",
 		"AES_ISA_ASM",
 		"SHA_ISA",
-		"SSH_ISA",
 		"AES_Altivec",
 		"AES_Altivec_ASM"
 	]

@@ -1,8 +1,8 @@
 {
-	"softwareFirmwareSecurity":{
-		"integrityTechniques": "SHA3-256",
-		"initiateOnDemand": "After reset",
-		"openSourceParameters": "Any compiler can be used. The code must be compiled without optimizations.",
-		"additionalInformation": "N/A"
-	}
+	"softwareFirmwareSecurity": {
+		"integrityTechniques": "The integrity of the module is verified by comparing a HMAC value calculated at run time on the bcm.o file, with the HMAC-SHA2-256 value stored in the module file fips_shared_support.c that was computed at build time.",
+		"initiateOnDemand": "The module provides on-demand integrity test. The integrity test is performed by theOn-Demand Integrity Test service, which calls the BORINGSSL_integrity_test function.The integrity test is also performed as part of the Pre-Operational Self-Tests",
+		"openSourceParameters": "There are no open source parameters applicable to the module",
+		"additionalInformation": "The module consists of executable code in the form of bcm.o file. The compilers and control parameters required to compile the code into an executable format are specified inSection 11.1"
+	},
 }

@@ -1,38 +1,32 @@
 {
 	"cryptographicModuleInterfaces": {
 		"portsAndInterfaces": {
-			"text": "The Jitter RNG is a software-only entropy source offering a software API for all interactions.",
-			"portInterfaces":
-			[
+			"text": "As a Software module, the module interfaces are defined as Software or Firmware ModuleInterfaces (SMFI), and there are no physical ports.\nAll data output via data output interface is inhibited when the module is performing pre-operational test or zeroization or when the module enters error state",
+			"portInterfaces": [
 			{
-				"port": "Data-In",
-				"logicalInterface": "N/A - the module does not accept input data",
-				"data": "N/A"
+				"port": "N/A",
+				"logicalInterface": "Data Input",
+				"data": "API input parameters for data."
 			},
 			{
-				"port": "Data-Out",
-				"logicalInterface": "Software API",
-				"data": "Random bit stream backed by entropy"
+				"port": "N/A",
+				"logicalInterface": "Data Output",
+				"data": "API output parameters for data."
 			},
 			{
-				"port": "Control-In",
-				"logicalInterface": "Software API",
-				"data": "Request for initialization with required options and parameters, request for zeroization"
+				"port": "N/A",
+				"logicalInterface": "Control Input",
+				"data": "API function calls."
 			},
 			{
-				"port": "Control-Out",
-				"logicalInterface": "N/A",
-				"data": "N/A"
-			},
-			{
-				"port": "Status-Out",
-				"logicalInterface": "Software API",
-				"data": "Status information about the Jitter RNG"
+				"port": "N/A",
+				"logicalInterface": "Status Output",
+				"data": "API return codes, error message."
 			}
-			]
-		},
-		"trustChannelSpec": "N/A",
-		"controlInterfaceNotInhibited": "N/A",
-		"additionalInformation": "N/A"
-	}
+			],
+			"trustChannelSpec": "N/A",
+			"controlInterfaceNotInhibited": "N/A",
+			"additionalInformation": "N/A"
+		}
+	},
 }

@@ -283,6 +283,13 @@ static int esvp_name_to_doctype(const char *pathname,
 		   strstr(pathname, "Public") ||
 		   strstr(pathname, "PUBLIC")) {
 		*type = esvp_document_pud;
+	} else if (strstr(pathname, "assertion") ||
+		   strstr(pathname, "Assertion") ||
+		   strstr(pathname, "ASSERTION") ||
+		   strstr(pathname, "attestation") ||
+		   strstr(pathname, "Attestation") ||
+		   strstr(pathname, "ATTESTATION")) {
+		*type = esvp_document_attestation;
 	} else {
 		*type = esvp_document_other;
 	}
@@ -917,6 +924,10 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 		case esvp_document_pud:
 			sdtype.buf = (uint8_t *)"PublicUseDocument";
 			sdtype.len = 17;
+			break;
+		case esvp_document_attestation:
+			sdtype.buf = (uint8_t *)"DataCollectionAttestation";
+			sdtype.len = 25;
 			break;
 		case esvp_document_other:
 			sdtype.buf = (uint8_t *)"Other";

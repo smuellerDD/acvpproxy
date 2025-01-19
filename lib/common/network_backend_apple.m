@@ -178,8 +178,7 @@ static int acvp_nsurl_http_common(const struct acvp_na_ex *netinfo,
 				      submit_buf->len]
 		  forHTTPHeaderField:@"Content-Length"];
 		
-		submit = [NSString stringWithFormat:@"%s",
-			  submit_buf->buf];
+		submit = [[NSString alloc] initWithUTF8String:(const char *)submit_buf->buf];
 	}
         
 	if (auth && auth->jwt_token && auth->jwt_token_len) {

@@ -10,5 +10,6 @@
 	"physical": false,
 	"itar": false,
 	"additionalNoiseSources": false,
-	"limitEntropyAssessmentToSingleModule": false
+	"limitEntropyAssessmentToVendor": false,
+	"esvCertificate":"E1"
 }

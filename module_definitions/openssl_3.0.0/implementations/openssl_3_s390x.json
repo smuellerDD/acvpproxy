@@ -5,10 +5,10 @@
 		"AESGCM_ASM_CPACF",
 		"AESGCM_ASM_ASM",
 		"SHA_CPACF",
-		"SSH_CPACF",
 		"SHA3_CPACF",
 	],
-	"dependencies-internal": {
+	"_COMMENT": "CURRENTLY NOT IN USE",
+	"_dependencies-internal": {
 		"AESGCM_CPACF": {
 			"AES": "AES_CPACF",
 			"DRBG": "DRBG_3"
@@ -22,9 +22,6 @@
 			"DRBG": "DRBG_3"
 		},
 		"SHA_CPACF": {
-			"DRBG": "DRBG_3"
-		},
-		"SSH_CPACF": {
 			"DRBG": "DRBG_3"
 		},
 		"SHA3_CPACF": {

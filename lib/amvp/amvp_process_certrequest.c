@@ -159,6 +159,10 @@ static int amvp_certrequest_build(struct acvp_testid_ctx *module_ctx)
 	CKINT(json_object_object_add(data, "moduleId",
 		json_object_new_int((int)module_ctx->testid)));
 
+	// TODO: add array with algo certs: "algorithmCertificates”: [“A1”],
+
+	// TODO: add array with ESV certs “entropyCertificates”: [“E1”]
+
 out:
 	return ret;
 }

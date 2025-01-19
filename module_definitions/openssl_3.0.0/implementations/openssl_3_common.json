@@ -12,11 +12,11 @@
 		"AESASM",
 		"AESASM_ASM",
 		"SHA_ASM",
-		"SSH_ASM",
 		"SHA3_ASM",
 		"EDDSA",
 	],
-	"dependencies-internal": {
+	"_COMMENT": "CURRENTLY NOT IN USE",
+	"_dependencies-internal": {
 		"KBKDF": {
 			"AES": "AES",
 			"TDES" : "TDES",
@@ -41,11 +41,6 @@
 		},
 		"SHA_ASM": {
 			"DRBG": "DRBG_3"
-		},
-		"SSH_ASM": {
-			"AES": "AES",
-			"TDES" : "TDES",
-			"SHA": "SHA_ASM"
 		},
 		"SHA3_ASM": {
 			"DRBG": "DRBG_3"

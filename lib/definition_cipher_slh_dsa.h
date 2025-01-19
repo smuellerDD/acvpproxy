@@ -61,6 +61,36 @@ struct def_algo_slh_dsa_caps {
 	 * required: always
 	 */
 	int messagelength[DEF_ALG_MAX_INT];
+
+	/*
+	 * The hash algorithms available to the IUT.
+	 *
+	 * One or more of the following are allowed
+	 * SHA2-224
+	 * SHA2-256
+	 * SHA2-384
+	 * SHA2-512
+	 * SHA2-512/224
+	 * SHA2-512/256
+	 * SHA3-224
+	 * SHA3-256
+	 * SHA3-384
+	 * SHA3-512
+	 *
+	 * required: optional for signature generation / verification (if
+	 *	     present, it marks pre-hashed variant of ML-DSA)
+	 */
+	cipher_t hashalg;
+
+	/*
+	 * The context lengths in bits supported by the IUT.
+	 * Minimum allowed is 0, maximum allowed is 65535.
+	 *
+	 * You may define a range with DEF_ALG_DOMAIN.
+	 *
+	 * required: optional
+	 */
+	int contextlength[DEF_ALG_MAX_INT];
 };
 
 struct def_algo_slh_dsa {
@@ -104,6 +134,15 @@ struct def_algo_slh_dsa {
 #define DEF_ALG_SLH_DSA_SIGGEN_NON_DETERMINISTIC (1 << 0)
 #define DEF_ALG_SLH_DSA_SIGGEN_DETERMINISTIC (1 << 1)
 	unsigned int deterministic;
+
+	/*
+	 * Specify the SLH-DSA signature interface to be used for testing.
+	 *
+	 * required: for signature generation and verification
+	 */
+#define DEF_ALG_SLH_DSA_INTERFACE_EXTERNAL (1 << 0)
+#define DEF_ALG_SLH_DSA_INTERFACE_INTERNAL (1 << 1)
+	unsigned int interface;
 };
 
 #ifdef __cplusplus

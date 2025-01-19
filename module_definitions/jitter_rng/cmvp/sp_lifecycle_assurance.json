@@ -1,11 +1,11 @@
 {
-	"lifeCycleAssurance":{
-		"installationInitializationAndStartupProcedures": "elit dolor eu officia",
-		"administratorGuidance": "mollit voluptate magna",
-		"nonAdministratorGuidance": "magna qui veniam ad",
-		"designAndRules": "nisi in",
-		"maintenanceRequirements": "Lorem",
-		"endOfLife": "esse enim",
-		"additionalInformation": "id ut"
-	}
+	"lifeCycleAssurance": {
+		"installationInitializationAndStartupProcedures": "The module bcm.o is embedded into the usersapce application which can be obtained by building the source code at the following location [1]. The set of files specified in the archive constitutes the complete set of source files of the validated module. There shall be no additions, deletions, or alterations of this set as used during module build.\n    [1] https://github.com/aws/aws-lc/archive/refs/tags/AWS-LC-FIPS-2.0.0.zip \n\nThe downloaded zip file can be verified by issuing the \"sha256sum AWS-LC-FIPS-2.0.0.zip\" command. The expected SHA2-256 digest value is:\n\n 6241EC2F13A5F80224EE9CD8592ED66A97D426481066FEAA4EFC6F24E60BBC96\n\n After the zip file is extracted, the instructions listed below will compile the module. The compilation instructions must be executed separately on platforms that have different processors and/or operating systems. Due to six possible combinations of OS/processor, the module count is six (i.e., there are six separate binaries generated, one for each entry listed in the Tested Operational Environments table).\n\nAmazon Linux 2 and Amazon Linux 2023:\n            1. sudo yum groupinstall \"Development Tools\"\n            2. sudo yum install cmake3 golang\n            3. cd aws-lc-fips-2022-11-02/\n            4. mkdir build\n            5. cd build\n            6. cmake3 -DFIPS=1 ..\n            7. make\nUbuntu 22.04:\n            1. sudo apt-get install build-essential\n            2. sudo apt-get install cmake\n            3. Get latest Golang archive for your architecture \n            4. sudo tar -C /usr/local -xzf go*.tar.gz\n            5. cd aws-lc-fips-2022-11-02/\n            6. mkdir build\n            7. cd build\n            8. cmake -DFIPS=1 -DGO_EXECUTABLE=/usr/local/go/bin/go ..\n            9. make\n\nUpon completion of the build process, the module's status can be verified by the command below. If the value obtained is \"1\" then the module has been installed and configured to operate in FIPS compliant manner.\n\n./tool/bssl isfips\n\nLastly, the user can call the \"show version\" service using awslc_version_string function and the expected output is \"AWS-LC FIPS 2.0.0\" which is the module version. This will confirm that the module is in the operational mode. Additionally, the \"AWS-LC FIPS\" also acts as the module identifier and the verification of the \"static\" part can be done using following command with an application that was used for static linking. The \"T\" in the output confirms that the module is statically linked. \n\nCommand: nm <application_name> | grep awslc_version_string\n\nExample Output: 0000000000a5bdff  T awslc_version_string",
+		"administratorGuidance": "When the module is at end of life, for the GitHub repo, the README will be modified to mark the library as deprecated. After a 6-month window, more restrictive branch permissions will be added such that only administrators can read from the FIPS branch.\n\nThe module does not possess persistent storage of SSPs. The SSP value only exists in volatile memory and that value vanishes when the module is powered off. So as a first step for the secure sanitization, the module needs to be powered off. Then for actual deprecation, the module will be upgraded to newer version that is approved. This upgrade process will uninstall/remove the old/terminated module and provide a new replacement.",
+		"nonAdministratorGuidance": "N/A",
+		"designAndRules": "N/A",
+		"maintenanceRequirements": "N/A",
+		"endOfLife": "N/A",
+		"additionalInformation": "N/A"
+	},
 }

@@ -1,7 +1,7 @@
 {
 	"_description": "Function 2.2 from section 2.2",
 	"description": "SHA2-512",
-	"minHin": 1,
+	"minHin": 512,
 	"minNin": 512,
 	"nw": 512,
 	"nOut": 512,

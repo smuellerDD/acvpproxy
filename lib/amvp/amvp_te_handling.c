@@ -24,89 +24,10 @@
 #include "request_helper.h"
 #include "term_colors.h"
 
-#if 0
-// This should come from the database - mockup code
-static int amvp_result_build_mockup(const struct acvp_vsid_ctx *certreq_ctx,
-				    struct json_object **json_result)
-{
-	struct json_object *array, *entry, *array2;
-	int ret;
-
-	array = json_object_new_array();
-	CKNULL(array, -ENOMEM);
-
-	CKINT(acvp_req_add_version(array));
-
-	entry = json_object_new_object();
-	CKNULL(entry, -ENOMEM);
-	CKINT(json_object_array_add(array, entry));
-
-	CKINT(json_object_object_add(entry, "moduleId",
-		json_object_new_int((int)certreq_ctx->vsid)));
-
-	array2 = json_object_new_array();
-	CKNULL(array2, -ENOMEM);
-	CKINT(json_object_object_add(entry, "evidenceSet", array2));
-
-	entry = json_object_new_object();
-	CKNULL(entry, -ENOMEM);
-	CKINT(json_object_array_add(array2, entry));
-
-	CKINT(json_object_object_add(entry, "testRequirement",
-				     json_object_new_string("TE02.20.01")));
-	CKINT(json_object_object_add(entry, "evidence",
-				     json_object_new_string("foobar")));
-
-	*json_result = array;
-
-out:
-	return ret;
-}
-
-static int amvp_upload_te_evidence_mockup(
-	const struct acvp_vsid_ctx *certreq_ctx)
-{
-	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
-	char url[ACVP_NET_URL_MAXLEN];
-	ACVP_EXT_BUFFER_INIT(register_buf);
-	ACVP_BUFFER_INIT(response_buf);
-	struct json_object *result = NULL;
-	const char *json_request;
-	int ret, ret2;
-
-	CKINT(amvp_result_build_mockup(certreq_ctx, &result));
-	CKINT_LOG(acvp_create_url(NIST_VAL_OP_CERTREQUESTS, url, sizeof(url)),
-		  "Creation of request URL failed\n");
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u", certreq_ctx->vsid));
-
-	json_request = json_object_to_json_string_ext(
-		result,
-		JSON_C_TO_STRING_PLAIN | JSON_C_TO_STRING_NOSLASHESCAPE);
-	CKNULL_LOG(json_request, -ENOMEM,
-		   "JSON object conversion into string failed\n");
-	register_buf.buf = (uint8_t *)json_request;
-	register_buf.len = (uint32_t)strlen(json_request);
-	ret2 = acvp_net_op(module_ctx, url, &register_buf, &response_buf,
-			   acvp_http_post);
-
-	/* Store the debug version of the result unconditionally. */
-	CKINT(acvp_store_register_debug(module_ctx, &response_buf, ret2));
-
-	CKINT(acvp_request_error_handler(ret2));
-
-out:
-	ACVP_JSON_PUT_NULL(result);
-	acvp_free_buf(&response_buf);
-	return ret;
-}
-#endif
-
 int amvp_te_status(const struct acvp_vsid_ctx *certreq_ctx,
 		   struct json_object *data)
 {
 	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
-	const struct acvp_ctx *ctx = module_ctx->ctx;
-	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	struct amvp_state *state = module_ctx->amvp_state;
 	const char *str;
 	int ret;
@@ -114,7 +35,7 @@ int amvp_te_status(const struct acvp_vsid_ctx *certreq_ctx,
 	/* Get the status */
 	CKINT(json_get_string(data, "status", &str));
 	if (!strncasecmp(str, "ready", 5)) {
-		logger_status(LOGGER_C_ANY, "%sTE Processing ongoing%s\n",
+		logger_status(LOGGER_C_ANY, "%sTE Processing ongoing - not all TE evidence submitted%s\n",
 			      TERM_COLOR_YELLOW, TERM_COLOR_NORMAL);
 		state->request_state = AMVP_REQUEST_STATE_ONGOING;
 	} else if (!strncasecmp(str, "requirementsSubmitted", 21)) {
@@ -122,21 +43,14 @@ int amvp_te_status(const struct acvp_vsid_ctx *certreq_ctx,
 			      TERM_COLOR_GREEN, TERM_COLOR_NORMAL);
 		state->request_state = AMVP_REQUEST_STATE_COMPLETED;
 	} else if (!strncasecmp(str, "approved", 8)) {
-		ACVP_BUFFER_INIT(stat);
 		const char *str2;
 
-		CKINT(json_get_string(data, "certificate", &str2));
+		CKINT(json_get_string(data, "validationCertificate", &str2));
 		logger_status(LOGGER_C_ANY,
 			      "%sTE Processing completed - certificate %s awarded%s\n",
 			      TERM_COLOR_GREEN, str2, TERM_COLOR_NORMAL);
 
 		state->request_state = AMVP_REQUEST_STATE_APPROVED;
-
-		stat.buf = (uint8_t *)str;
-		stat.len = (uint32_t)strlen(str);
-
-		CKINT(acvp_store_file(module_ctx, &stat, 1,
-				      datastore->testsession_certificate_info));
 	}
 
 	CKINT(amvp_write_status(module_ctx));
@@ -148,11 +62,20 @@ out:
 static int amvp_te_handle_response(const struct acvp_vsid_ctx *certreq_ctx,
 				   const struct acvp_buf *response)
 {
+	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
+	const struct acvp_ctx *ctx = module_ctx->ctx;
+	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	struct json_object *resp = NULL, *data = NULL;
 	int ret;
 
+	CKINT(acvp_store_file(module_ctx, response, 1,
+				datastore->testsession_certificate_info));
+
 	/* Strip the version array entry and get the oe URI data. */
 	CKINT(acvp_req_strip_version(response, &resp, &data));
+
+	logger_status(LOGGER_C_ANY,
+		      "Available TE data uploaded to NIST server\n");
 
 	CKINT(amvp_te_status(certreq_ctx, data));
 

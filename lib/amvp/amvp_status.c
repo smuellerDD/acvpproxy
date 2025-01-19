@@ -34,6 +34,9 @@ void amvp_release_state(struct acvp_testid_ctx *testid_ctx)
 
 	state = testid_ctx->amvp_state;
 
+	if (!state)
+		return;
+
 	for (i = 0; i < AMVP_SP_LAST_CHAPTER; i++) {
 		if (state->sp_chapter_hash[i]) {
 			free(state->sp_chapter_hash[i]);

@@ -1,7 +1,7 @@
 {
 	"_description": "Function 2.4 from section 2.2",
 	"description": "SHA2-512",
-	"minHin": 1,
+	"minHin": 512,
 	"_minNin": "8 CPUs",
 	"minNin": 512,
 	"nw": 512,

@@ -1,12 +1,12 @@
 {
-  "oeEnvName":"Fedora 38",
+  "oeEnvName":"Fedora 40",
   "manufacturer":"Intel",
   "procFamily":"X86",
   "procName":"i7",
   "procSeries":"Tiger Lake",
   "features":7,
   "envType":0,
-  "acvpOeId":32530,
-  "acvpOeDepProcId":23942,
-  "acvpOeDepSwId":25638
+  "acvpOeId":0,
+  "acvpOeDepProcId":0,
+  "acvpOeDepSwId":0
 }

@@ -1,9 +1,9 @@
 {
-  "oeEnvName":"Ubuntu 23.04",
-  "manufacturer":"SiFive",
+  "oeEnvName":"Ubuntu 24.04",
+  "manufacturer":"SpacemiT",
   "procFamily":"RISC-V 64",
-  "procName":"SiFive Freedom U740 SoC",
-  "procSeries":"U74",
+  "procName":"SpacemiT K1",
+  "procSeries":"X60",
   "features":0,
   "envType":0,
   "acvpOeId":0,

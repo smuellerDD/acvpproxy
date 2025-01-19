@@ -50,12 +50,12 @@ extern "C" {
  * API compatible, ABI may change, functional enhancements only, consumer
  * can be left unchanged if enhancements are not considered.
  */
-#define MINVERSION 9
+#define MINVERSION 8
 
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
  */
-#define PATCHLEVEL 0
+#define PATCHLEVEL 1
 
 struct acvp_test_deps {
 	char *dep_cipher;

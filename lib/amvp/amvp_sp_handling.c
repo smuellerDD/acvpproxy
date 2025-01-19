@@ -17,7 +17,11 @@
  * DAMAGE.
  */
 
+#include <fcntl.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "amvp_internal.h"
 #include "base64.h"
@@ -175,6 +179,10 @@ int amvp_sp_status(const struct acvp_vsid_ctx *certreq_ctx,
 			free(state->sp_chapter_hash[section]);
 			state->sp_chapter_hash[section] = NULL;
 		}
+
+		logger_status(LOGGER_C_ANY,
+			      "SP section %u not yet uploaded or received by NIST server\n",
+			      section);
 	}
 
 	str = json_object_to_json_string_ext(
@@ -266,6 +274,108 @@ out:
 	return ret;
 }
 
+static int amvp_sp_add_logo(const struct acvp_vsid_ctx *certreq_ctx,
+				 struct json_object *sp_head)
+{
+	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
+	const struct definition *def = module_ctx->def;
+	const struct amvp_def *amvp = def->amvp;
+	struct stat statbuf;
+	ACVP_BUFFER_INIT(logo);
+	char *logo_base64 = NULL;
+	size_t logo_base64_len;
+	int ret, fd = -1;
+
+	CKNULL(amvp->logo_file, 0);
+
+	if (stat(amvp->logo_file, &statbuf)) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+			"CMVP SP logo not found at %s\n",
+			amvp->logo_file);
+		return 0;
+	}
+
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Reading SP logo file %s\n",
+	       amvp->logo_file);
+
+	fd = open(amvp->logo_file, O_RDONLY);
+	if (fd == -1) {
+		ret = -errno;
+
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Failed to open file %s: %d\n",
+		       amvp->logo_file, ret);
+		goto out;
+	}
+
+	logo.buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ, MAP_SHARED,
+			fd, 0);
+	if (logo.buf == MAP_FAILED) {
+		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+		       "Cannot mmap file %s\n", amvp->logo_file);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	logo.len = (uint32_t)statbuf.st_size;
+	CKINT(base64_encode(logo.buf, logo.len, &logo_base64,
+			    &logo_base64_len));
+	CKINT(json_object_object_add(sp_head, "logo",
+				     json_object_new_string(logo_base64)));
+
+out:
+	if (logo_base64)
+		free(logo_base64);
+	if (logo.buf)
+		munmap(logo.buf, (size_t)statbuf.st_size);
+	if (fd >= 0)
+		close(fd);
+	return ret;
+}
+
+static int amvp_sp_add_meta_data(const struct acvp_vsid_ctx *certreq_ctx,
+				 struct json_object *sp_head)
+{
+	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
+	const struct definition *def = module_ctx->def;
+	const struct def_vendor *vendor = def->vendor;
+	const struct def_info *info = def->info;
+	struct tm now_detail;
+	time_t now;
+	char day[11];
+	int ret;
+
+	CKINT(json_object_object_add(sp_head, "catalogVersion",
+				     json_object_new_string("1.0")));
+	CKINT(json_object_object_add(sp_head, "version",
+				     json_object_new_string("1.0")));
+	CKINT(json_object_object_add(sp_head, "docVersion",
+				     json_object_new_string("1.0")));
+
+	if (vendor) {
+		CKINT(json_object_object_add(sp_head, "vendorName",
+			json_object_new_string(vendor->vendor_name)));
+	}
+	if (info) {
+		CKINT(json_object_object_add(sp_head, "moduleName",
+			json_object_new_string(info->module_name)));
+	}
+
+	now = time(NULL);
+	if (now == (time_t)-1) {
+		ret = -errno;
+		logger(LOGGER_WARN, LOGGER_C_ANY, "Cannot obtain local time\n");
+		goto out;
+	}
+	localtime_r(&now, &now_detail);
+	snprintf(day, sizeof(day), "%.4d-%.2d-%.2d", now_detail.tm_year + 1900,
+		 now_detail.tm_mon + 1, now_detail.tm_mday);
+	CKINT(json_object_object_add(sp_head, "lastUpdated",
+				     json_object_new_string(day)));
+
+out:
+	return ret;
+}
+
 /*
  * POST /amv/v1/certRequests/<id>/securityPolicy
  */
@@ -293,21 +403,25 @@ struct json_object *mockup;
 	CKNULL(sp_head, ENOMEM);
 	CKINT(json_object_array_add(sp, sp_head));
 
+	CKINT(amvp_sp_add_meta_data(certreq_ctx, sp_head));
+
 	sp_data = json_object_new_object();
 	CKNULL(sp_data, ENOMEM);
 	CKINT(json_object_object_add(sp_head, "securityPolicy", sp_data));
+
+	CKINT(amvp_sp_add_logo(certreq_ctx, sp_data));
 
 	/* The general section must be present */
 	CKNULL(amvp->sp_general, -EINVAL);
 	CKINT(amvp_sp_add_one(certreq_ctx, 0, amvp->sp_general, sp_data));
 
-mockup = json_object_new_object();
-CKNULL(mockup, ENOMEM);
-CKINT(json_object_object_add(mockup, "cryptographicModuleSpecification", json_object_new_object()));
-CKINT(amvp_sp_add_one(certreq_ctx, 1, mockup, sp_data));
-ACVP_JSON_PUT_NULL(mockup);
-//	CKINT(amvp_sp_add_one(certreq_ctx, 1, amvp->sp_crypt_mod_spec,
-//			      sp_data));
+// mockup = json_object_new_object();
+// CKNULL(mockup, ENOMEM);
+// CKINT(json_object_object_add(mockup, "cryptographicModuleSpecification", json_object_new_object()));
+// CKINT(amvp_sp_add_one(certreq_ctx, 1, mockup, sp_data));
+//ACVP_JSON_PUT_NULL(mockup);
+	CKINT(amvp_sp_add_one(certreq_ctx, 1, amvp->sp_crypt_mod_spec,
+			      sp_data));
 	CKINT(amvp_sp_add_one(certreq_ctx, 2, amvp->sp_crypt_mod_interfaces,
 			      sp_data));
 	CKINT(amvp_sp_add_one(certreq_ctx, 3, amvp->sp_roles_services,
@@ -338,13 +452,13 @@ ACVP_JSON_PUT_NULL(mockup);
 	CKINT(amvp_sp_add_one(certreq_ctx, 8, amvp->sp_ssp_mgmt, sp_data));
 
 
-mockup = json_object_new_object();
-CKNULL(mockup, ENOMEM);
-CKINT(json_object_object_add(mockup, "selfTests", json_object_new_object()));
-CKINT(amvp_sp_add_one(certreq_ctx, 9, mockup, sp_data));
-ACVP_JSON_PUT_NULL(mockup);
-//	CKINT(amvp_sp_add_one(certreq_ctx, 9,
-//			      amvp->sp_self_tests, sp_data));
+// mockup = json_object_new_object();
+// CKNULL(mockup, ENOMEM);
+// CKINT(json_object_object_add(mockup, "selfTests", json_object_new_object()));
+// CKINT(amvp_sp_add_one(certreq_ctx, 9, mockup, sp_data));
+// ACVP_JSON_PUT_NULL(mockup);
+	CKINT(amvp_sp_add_one(certreq_ctx, 9,
+			      amvp->sp_self_tests, sp_data));
 	CKINT(amvp_sp_add_one(certreq_ctx, 10, amvp->sp_lifecycle, sp_data));
 	CKINT(amvp_sp_add_one(certreq_ctx, 11,
 			      amvp->sp_mitigation_other_attacks, sp_data));
@@ -384,9 +498,26 @@ ACVP_JSON_PUT_NULL(mockup);
 
 	CKINT(acvp_request_error_handler(ret2));
 
+	logger_status(LOGGER_C_ANY,
+		      "Available SP data uploaded to NIST server\n");
+
 	CKINT(amvp_sp_handle_response(certreq_ctx, &response));
 
 out:
+	if (ret) {
+		/*
+		 * Delete all sections that were allegedly submitted in case of
+		 * an error.
+		 */
+		struct amvp_state *state = module_ctx->amvp_state;
+		unsigned int i;
+
+		for (i = 0; i < AMVP_SP_LAST_CHAPTER; i++) {
+			free(state->sp_chapter_hash[i]);
+			state->sp_chapter_hash[i] = NULL;
+		}
+	}
+
 	amvp_write_status(module_ctx);
 	ACVP_JSON_PUT_NULL(sp);
 	acvp_free_buf(&response);

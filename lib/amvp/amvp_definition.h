@@ -33,6 +33,7 @@ struct amvp_def {
 	struct json_object *registration_definition;
 
 	/* SP parts */
+	char *logo_file;
 	struct json_object *sp_general;
 	struct json_object *sp_crypt_mod_interfaces;
 	struct json_object *sp_crypt_mod_spec;

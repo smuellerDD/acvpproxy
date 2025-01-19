@@ -1,229 +1,32 @@
 {
-	"cryptographicModuleSpecification":{
+	"cryptographicModuleSpecification": {
 		"description": {
-			"referenceToType": "The Jitter RNG is an entropy source which combines a noise source and a conditioning component to form an SP800-90C compliant entropy source.",
-			"referenceToEmbodiment": "Multi-chip standalone",
+			"purposeAndUse": "The Jitter RNG is an entropy source which combines a noise source and a conditioning component to form an SP800-90C compliant entropy source.",
 			"referenceToSubchip": "N/A",
 			"cryptographicBoundary": "Shared library libjitterentropy.so.3.6.0",
-			"TOEPP": "OpenSUSE Tumbleweed"
+			"TOEPP": "openSUSE Tumbleweed 20240811"
 		},
-		"blockDiagram": "fugiat ut reprehenderit",
-		"testedAndVendorAffirmedModuleVersionAndInformation": {
-			"testedHardware": [
-			{
-				"modelPartNumber": "Dell XPS 9340",
-				"hardwareVersion": "N/A",
-				"firmwareVersion": "N/A",
-				"processor": "Intel(R) Core(TM) Ultra 7 155H",
-				"nonSecurityRelevantDistinguishingFeatures": "aliqua laborum aute est"
-			}
-			],
-			"testedSwFwHy": [
-			{
-				"packagesFilenames": "libjitterentropy3-3.6.0-1.1.x86_64.rpm",
-				"softwareFirmwareVersion": "3.6.0",
-				"nonSecurityRelevantDistinguishingFeatures": "N/A",
-				"integrityTestImplemented": false
-			}
-			],
-			"testedHyHwList": [
-			{
-				"modelPartNumber": "sunt",
-				"hardwareVersion": "aliqua",
-				"firmwareVersion": "anim do culpa quis tempor",
-				"processor": "consequat",
-				"nonSecurityRelevantDistinguishingFeatures": "in nostrud velit"
-			}
-			],
-			"opEnvSwFwHyTested": [
-			{
-				"operatingSystem": "dolore aliquip cillum ad",
-				"hardwarePlatform": "sit",
-				"processor": "id in laboris ea sed",
-				"PAAPAI": "ut dolore amet laborum",
-				"hypervisorAndHostOS": "irure pariatur ad dolor",
-				"versions": "deserunt fugiat qui"
-			},
-			{
-				"operatingSystem": "sunt in proident veniam nisi",
-				"hardwarePlatform": "non",
-				"processor": "tempor",
-				"PAAPAI": "non occaecat aliquip",
-				"hypervisorAndHostOS": "Lorem non laboris",
-				"versions": "cupidatat tempor"
-			}
-			]
-		},
+		"blockDiagram": "elit eu Excepteur",
+		"testedSoftwareFirmwareHybrid": [
+		{
+			"packagesFilenames": "libjitterentropy.so.3.6.0",
+			"softwareFirmwareVersion": "3.6.0",
+			"nonSecurityRelevantDistinguishingFeatures": "N/A",
+			"integrityTestImplemented": "SHA3-256"
+		}
+		],
 		"excludedComponents": "N/A",
-		"modesOfOperation": {
-			"degradedMode": "N/A",
-			"modeChangeInstructionsAndStatus": "sunt et ad magna commodo",
-			"modeOfOperation": [
-			{
-				"name": "Approved mode of operation",
-				"description": "The IUT is always in approved mode of operation.",
-				"type": "Approved mode of operation",
-				"statusIndicator": "Global status indicator"
-			}
-			]
-		},
-		"algorithms": {
-			"cavpCertSet": [
-			{
-				"algorithmName": "SHA3-256",
-				"cavpCertNumbers": "A1234",
-				"algorithmCapabilities": "1088 bits of data",
-				"oe": "OpenSUSE Tumbleweed",
-				"reference": "enim non proident cupidatat veniam"
-			}
-			],
-			"vendorAffirmedAlgorithms": [
-			{
-				"algorithmName": "dolore ullamco elit",
-				"algorithmCapabilities": "anim sunt deserunt fugiat Excepteur",
-				"oe": "voluptate ut ad",
-				"reference": "dolore"
-			},
-			{
-				"algorithmName": "culpa",
-				"algorithmCapabilities": "deserunt",
-				"oe": "sunt ullamco deserunt",
-				"reference": "velit enim proident"
-			},
-			{
-				"algorithmName": "sed irure ad non voluptate",
-				"algorithmCapabilities": "et",
-				"oe": "Ut",
-				"reference": "sunt et reprehenderit labore adipisicing"
-			}
-			],
-			"nonApprovedAllowedNSAlgorithms": [
-			{
-				"algorithmName": "in aute laborum consectetur sit",
-				"caveat": "dolore elit laborum incididunt",
-				"useOrFunction": "ut labore enim cillum"
-			},
-			{
-				"algorithmName": "aliqua dolore quis",
-				"caveat": "Excepteur",
-				"useOrFunction": "enim Excepteur aliquip"
-			},
-			{
-				"algorithmName": "dolor nisi non",
-				"caveat": "laborum minim cillum eu",
-				"useOrFunction": "nulla officia tempor"
-			}
-			],
-			"nonApprovedNotAllowedAlgorithms": [
-			{
-				"algorithmName": "ipsum cillum",
-				"useOrFunction": "ea in occaecat voluptate"
-			},
-			{
-				"algorithmName": "veniam consectetur id aute dolor",
-				"useOrFunction": "aute cupidatat aliqua sit"
-			},
-			{
-				"algorithmName": "do veniam",
-				"useOrFunction": "velit cillum sint"
-			},
-			{
-				"algorithmName": "id esse in",
-				"useOrFunction": "id consectetur Ut"
-			}
-			],
-			"algorithms": "quis irure qui ea"
-		},
-		"securityFunctionImplementations": {
-			"sfiDescription": "SecFun Table Name",
-			"secFunImpl": [
-			{
-				"name": "Message digest generation",
-				"type": "SHA",
-				"description": "Message digest generation",
-				"sfCapabilities": "N/A",
-				"algorithmCapabilities": "NA",
-				"algorithms": [
-				{
-					"CAVPAlgorthms": "A1234",
-					"name": "SHA3-256"
-				},
-				{
-					"CAVPAlgorthms": "A1234",
-					"name": "SHA3-512"
-				}
-				]
-			},
-			{
-				"name": "Symmetric Encryption/Decryption",
-				"type": "BC-Auth",
-				"description": "Symmetric Encryption/Decryption",
-				"sfCapabilities": "na",
-				"algorithmCapabilities": "na",
-				"algorithms": [
-				{
-					"CAVPAlgorthms": "A1234",
-					"name": "AES-CBC"
-				},
-				{
-					"CAVPAlgorthms": "A1234",
-					"name": "AES-ECB"
-				}
-				]
-			}
-			]
-		},
-		"algorithmSpecificInformation": "N/A",
-		"rbgAndEntropy": {
-			"entropyInfo": "IUT produces entropy from internal noise source.",
-			"rngInfo": "N/A",
-			"entropyCertNumbers": [
-			{
-				"vendorName": "atsec",
-				"entropyCert": "E1234",
-				"entropyCertificate": "deserunt ad labore Ut nostrud"
-			}
-			],
-			"entropySources": [
-			{
-				"esvCertNumber": "eiusmod ut anim qui aliqua",
-				"operationalEnvironment": "cillum ex do voluptate"
-			}
-			]
-		},
-		"keyGeneration": {
-			"keyGen": "CKG",
-			"keyGenSub": [
-			{
-				"name": "ML-KEM Key Generation",
-				"type": "FIPS 203",
-				"properties": "512, 768, 1024"
-			},
-			{
-				"name": "ECC Key Generation",
-				"type": "FIPS 186-5 A.1.2",
-				"properties": "P-521"
-			}
-			]
-		},
-		"keyEstablishment": {
-			"text": "SSC",
-			"keyAgreementSub": [
-			{
-				"name": "EC Diffie-Hellman",
-				"type": "SP800-56A rev3",
-				"properties": "P-521"
-			}
-			],
-			"keyTransportSub": [
-			{
-				"name": "ML-KEM",
-				"type": "FIPS 203",
-				"properties": "dolor sint est ut"
-			}
-			]
-		},
-		"industryProtocols": "TLSv 1.2",
-		"additionalInformation": "N/A"
-	}
+		"degradedMode": "N/A",
+		"modeChangeInstructionsAndStatus": "N/A",
+		"algorithms": [
+		{
+			"algorithmName": "SHA3-256",
+			"cavpCertNumbers": "A1234",
+			"algorithmCapabilities": "1088 bits of data",
+			"oe": "openSUSE Tumbleweed",
+			"reference": "aliquip enim Ut qui sunt"
+		}
+		],
+		"algorithmSpecificInformation": "incididunt"
+	},
 }

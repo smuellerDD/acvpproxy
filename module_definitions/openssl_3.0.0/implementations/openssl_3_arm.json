@@ -11,7 +11,8 @@
 		"NEON",
 		"SHA3_CE",
 	],
-	"dependencies-internal": {
+	"_COMMENT": "CURRENTLY NOT IN USE",
+	"_dependencies-internal": {
 		"CE_GCM_UNROLL8_EOR3": {
 			"AES": "CE",
 			"DRBG": "DRBG_3"

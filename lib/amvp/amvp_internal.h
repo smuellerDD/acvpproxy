@@ -44,6 +44,7 @@ extern "C" {
 #define AMVP_DEF_FILE_TE "te.json"
 
 /* Security Policy section files found in AMVP configuration directory */
+#define AMVP_DEF_SP_LOGO "sp_logo.png"
 #define AMVP_DEF_SP_GENERAL "sp_general.json"
 #define AMVP_DEF_SP_CRYPT_MOD_INTERFACES "sp_cryptographic_module_interfaces.json"
 #define AMVP_DEF_SP_CRYPT_MOD_SPEC "sp_cryptographic_module_specification.json"

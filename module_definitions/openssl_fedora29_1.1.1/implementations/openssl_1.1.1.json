@@ -13,6 +13,7 @@
 		"ECDSA K/B",
 		"ECDSA SHA3 K/B",
 		"ECDH K/B",
+		"EDDSA"
 	],
 	"dependencies-internal": {
 		"FFC_DH": {

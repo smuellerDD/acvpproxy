@@ -4,9 +4,9 @@
 			"referenceToOEType": {
 				"text": "Modifiable"
 			},
-			"requirementsSatisfied": "General purpose Linux operating system."
+			"requirementsSatisfied": "The module should be compiled and installed as stated in section 11. The user should confirm that the module is installed correctly by following steps 4 and 5 listed in section 11."
 		},
-		"configurationSettingsAndRestrictions": "No specific configurations of OE required. No specific restrictions of OE defined.",
+		"configurationSettingsAndRestrictions": "Instrumentation tools like the ptrace system call, gdb and strace, userspace live patching, as well as other tracing mechanisms offered by the Linux environment such as ftrace or systemtap, shall not be used in the operational environment. The use of any of these tools implies that the cryptographic module is running in a non-validated operational environment.",
 		"additionalInformation": "N/A"
 	}
 }

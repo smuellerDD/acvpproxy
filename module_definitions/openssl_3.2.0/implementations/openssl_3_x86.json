@@ -11,15 +11,12 @@
 		"AESASM_AVX",
 		"AESASM_CLMULNI",
 		"SHA_SHANI",
-		"SSH_SHANI",
 		"SHA_AVX2",
-		"SSH_AVX2",
 		"SHA_AVX",
-		"SSH_AVX",
 		"SHA_SSSE3",
-		"SSH_SSSE3",
 	],
-	"dependencies-internal": {
+	"_COMMENT": "CURRENTLY NOT IN USE",
+	"_dependencies-internal": {
 		"AESNI_AVX": {
 			"AES": "AESNI",
 			"DRBG": "DRBG_3"
@@ -55,34 +52,14 @@
 		"SHA_SHANI": {
 			"DRBG": "DRBG_3"
 		},
-		"SSH_SHANI": {
-			"AES": "AES",
-			"TDES" : "TDES",
-			"SHA": "SHA_SHANI"
-		},
 		"SHA_AVX2": {
 			"DRBG": "DRBG_3"
-		},
-		"SSH_AVX2": {
-			"AES": "AES",
-			"TDES" : "TDES",
-			"SHA": "SHA_AVX2"
 		},
 		"SHA_AVX": {
 			"DRBG": "DRBG_3"
 		},
-		"SSH_AVX": {
-			"AES": "AES",
-			"TDES" : "TDES",
-			"SHA": "SHA_AVX"
-		},
 		"SHA_SSSE3": {
 			"DRBG": "DRBG_3"
-		},
-		"SSH_SSSE3": {
-			"AES": "AES",
-			"TDES" : "TDES",
-			"SHA": "SHA_SSSE3"
 		}
 	}
 }

@@ -8,6 +8,8 @@
 		"ARM_CE",
 		"ARM_NEON",
 		"ARM_ASM",
-		"RISCV64"
+		"RISCV64",
+		"RISCV64_ZBB",
+		"RISCV64_RVV"
 	]
 }

@@ -1,6 +1,6 @@
 {
-  "oeEnvName":"macOS Ventura 13",
-  "cpe":"cpe:2.3:o:apple:macOS:13:*:*:*:*:*:Apple_M_Series:*",
+  "oeEnvName":"macOS Sonoma 14",
+  "cpe":"cpe:2.3:o:apple:macOS:14:*:*:*:*:*:Apple_M_Series:*",
   "manufacturer":"Apple",
   "procFamily":"ARM64",
   "procName":"M2",

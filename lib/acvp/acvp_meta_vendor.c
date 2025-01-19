@@ -77,6 +77,7 @@ static int acvp_vendor_build(const struct def_vendor *def_vendor,
 	    acvp_check_ignore(check_ignore_flag, def_vendor->vendor_url_i)) {
 		CKINT(json_object_object_add(
 			vendor, "website",
+			!def_vendor->vendor_url ? NULL :
 			json_object_new_string(def_vendor->vendor_url)));
 	}
 
@@ -173,7 +174,11 @@ static int acvp_vendor_match(struct def_vendor *def_vendor,
 	def_vendor->vendor_name_i = !ret;
 	ret2 = ret;
 
-	CKINT(json_get_string(json_vendor, "website", &str));
+	ret = json_get_string(json_vendor, "website", &str);
+	if (ret == -ENOENT)
+		str = NULL;
+	else if (ret)
+		goto out;
 	ret = acvp_str_match(def_vendor->vendor_url, str, vendor_id);
 	def_vendor->vendor_url_i = !ret;
 	ret2 |= ret;
@@ -189,8 +194,10 @@ static int acvp_vendor_match(struct def_vendor *def_vendor,
 		CKINT(json_get_string(contact, "street1", &addr_street));
 		CKINT(json_get_string(contact, "locality", &addr_locality));
 		ret = json_get_string(contact, "region", &addr_region);
-		if (ret)
+		if (ret == -ENOENT)
 			addr_region = NULL;
+		else if (ret)
+			goto out;
 		CKINT(json_get_string(contact, "country", &addr_country));
 		CKINT(json_get_string(contact, "url", &str));
 		/* Get the oe ID which is the last pathname component */

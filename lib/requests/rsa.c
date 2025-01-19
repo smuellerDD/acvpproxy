@@ -598,7 +598,6 @@ static int acvp_req_rsa_siggen_caps(enum rsa_revision revision,
 
 	CKINT(acvp_req_rsa_modulo(revision, rsa_mode, caps->rsa_modulo,
 				  caps_entry));
-	CKINT(acvp_req_rsa_mask_function(caps->mask_function, caps_entry));
 	CKINT(acvp_req_rsa_hashalg(caps->hashalg, caps->rsa_modulo, caps_entry,
 				   saltlen, saltlen_bytes));
 
@@ -646,6 +645,10 @@ static int _acvp_req_rsa_siggen(enum rsa_revision revision,
 				caps, caps_entry, DEF_ALG_RSA_PSS_SALT_IGNORE,
 				0));
 		}
+
+		if (siggen->sigtype == DEF_ALG_RSA_SIGTYPE_PSS)
+			CKINT(acvp_req_rsa_mask_function(caps->mask_function,
+							 caps_entry));
 	}
 
 out:
@@ -689,7 +692,6 @@ static int acvp_req_rsa_sigver_caps(enum rsa_revision revision,
 
 	CKINT(acvp_req_rsa_modulo(revision, rsa_mode, caps->rsa_modulo,
 				  caps_entry));
-	CKINT(acvp_req_rsa_mask_function(caps->mask_function, caps_entry));
 	CKINT(acvp_req_rsa_hashalg(caps->hashalg, caps->rsa_modulo, caps_entry,
 				   saltlen, saltlen_bytes));
 
@@ -723,6 +725,10 @@ static int _acvp_req_rsa_sigver(enum rsa_revision revision,
 		CKINT(acvp_req_rsa_sigver_caps(revision, rsa_mode,
 					       caps, caps_entry, caps->saltlen,
 					       caps->saltlen_bytes));
+
+		if (sigver->sigtype == DEF_ALG_RSA_SIGTYPE_PSS)
+			CKINT(acvp_req_rsa_mask_function(caps->mask_function,
+							 caps_entry));
 	}
 
 out:

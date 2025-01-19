@@ -15,10 +15,12 @@ v1.9.0:
 - update RSA decprim with fixed pub exp mode
 - OpenSSL 3 supports KAS2
 - enhancement: Support multiple emails and phone numbers in the vendor definition
-- enhancement: add ML-KEM and ML-DSA
+- enhancement: add ML-KEM and ML-DSA and SLH-DSA
 - enhancement: integrate AMVP with ACVP/ESVP
 - enhancement: ESVP - PUD update and OE add processes
 - enhancement: AMVP current for ICMC2024
+- OpenSSL3 fixes
+- leancrypto enhancements
 
 v1.8.0
 - fix: ESV register multiple OEs in one certify operation

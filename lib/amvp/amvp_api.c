@@ -71,6 +71,7 @@ static int amvp_submit_evidence(const struct acvp_vsid_ctx *certreq_ctx,
 	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = module_ctx->ctx;
 	const struct acvp_opts_ctx *opts = &ctx->options;
+	const struct acvp_req_ctx *req_details = &ctx->req_details;
 //	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 //	const struct acvp_net_ctx *net;
 //	ACVP_BUFFER_INIT(tmp);
@@ -102,6 +103,9 @@ static int amvp_submit_evidence(const struct acvp_vsid_ctx *certreq_ctx,
 		*/
 		CKINT(amvp_sp_upload_evidence(certreq_ctx));
 	}
+
+	if (req_details->dump_register)
+		goto out;
 
 	if (opts->fetch_sp)
 		CKINT(amvp_sp_get_pdf(certreq_ctx));

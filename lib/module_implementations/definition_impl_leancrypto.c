@@ -273,32 +273,128 @@ static const struct def_algo_prereqs lc_eddsa_prereqs[] = {
 /**************************************************************************
  * ML-DSA Definitions
  **************************************************************************/
+static const struct def_algo_ml_dsa_caps ml_dsa_keygen_full_capabilities[] = { {
+	.parameter_set = DEF_ALG_ML_DSA_44 |
+			 DEF_ALG_ML_DSA_65 |
+			 DEF_ALG_ML_DSA_87,
+} };
 
-#define LC_ML_DSA_ALGO_SET_FULL						\
-	(DEF_ALG_ML_DSA_44 | DEF_ALG_ML_DSA_65 | DEF_ALG_ML_DSA_87)
+static const struct def_algo_ml_dsa_caps ml_dsa_sig_full_capabilities[] = { {
+// 	.parameter_set = DEF_ALG_ML_DSA_44 |
+// 			 DEF_ALG_ML_DSA_65 |
+// 			 DEF_ALG_ML_DSA_87,
+// 	DEF_ALG_DOMAIN(.messagelength, 8, 65536, 8),
+// 	DEF_ALG_DOMAIN(.contextlength, 0, 1024, 8),
+// }, {
+	.parameter_set = DEF_ALG_ML_DSA_44 |
+			 DEF_ALG_ML_DSA_65 |
+			 DEF_ALG_ML_DSA_87,
+	DEF_ALG_DOMAIN(.messagelength, 8, 65536, 8),
+	DEF_ALG_DOMAIN(.contextlength, 0, 1024, 8),
+	.hashalg = ACVP_SHA3_512 | ACVP_SHA512 | ACVP_SHAKE256,
+} };
 
-#define LC_ML_DSA_KEYGEN_FULL GENERIC_ML_DSA_KEYGEN(LC_ML_DSA_ALGO_SET_FULL)
+
+#define LC_ML_DSA_KEYGEN_FULL						\
+	{								\
+	.type = DEF_ALG_TYPE_ML_DSA,					\
+	.algo = {							\
+		.ml_dsa = {						\
+			.ml_dsa_mode = DEF_ALG_ML_DSA_MODE_KEYGEN,	\
+			.capabilities.keygen = ml_dsa_keygen_full_capabilities,\
+			.capabilities_num = ARRAY_SIZE(ml_dsa_keygen_full_capabilities),\
+			}						\
+		}							\
+	}
 
 #define LC_ML_DSA_SIGGEN_FULL						\
-	GENERIC_ML_DSA_SIGGEN						\
-		(LC_ML_DSA_ALGO_SET_FULL,				\
-		 DEF_ALG_ML_DSA_SIGGEN_NON_DETERMINISTIC |		\
-		 DEF_ALG_ML_DSA_SIGGEN_DETERMINISTIC)
+	{								\
+	.type = DEF_ALG_TYPE_ML_DSA,					\
+	.algo = {							\
+		.ml_dsa = {						\
+			.ml_dsa_mode = DEF_ALG_ML_DSA_MODE_SIGGEN,	\
+			.capabilities.siggen = ml_dsa_sig_full_capabilities,\
+			.capabilities_num = ARRAY_SIZE(ml_dsa_sig_full_capabilities),\
+			.deterministic = DEF_ALG_ML_DSA_SIGGEN_NON_DETERMINISTIC |\
+					 DEF_ALG_ML_DSA_SIGGEN_DETERMINISTIC,\
+			.interface = DEF_ALG_ML_DSA_INTERFACE_EXTERNAL |\
+				     DEF_ALG_ML_DSA_INTERFACE_INTERNAL,\
+			}						\
+		}							\
+	}
 
-#define LC_ML_DSA_SIGVER_FULL GENERIC_ML_DSA_SIGVER(LC_ML_DSA_ALGO_SET_FULL)
+#define LC_ML_DSA_SIGVER_FULL						\
+	{								\
+	.type = DEF_ALG_TYPE_ML_DSA,					\
+	.algo = {							\
+		.ml_dsa = {						\
+			.ml_dsa_mode = DEF_ALG_ML_DSA_MODE_SIGVER,	\
+			.capabilities.sigver = ml_dsa_sig_full_capabilities,\
+			.capabilities_num = ARRAY_SIZE(ml_dsa_sig_full_capabilities),\
+			.interface = DEF_ALG_ML_DSA_INTERFACE_EXTERNAL |\
+				     DEF_ALG_ML_DSA_INTERFACE_INTERNAL,\
+			}						\
+		}							\
+	}
 
-#define LC_ML_DSA_ALGO_SET_STRONG					\
-	(DEF_ALG_ML_DSA_65 | DEF_ALG_ML_DSA_87)
+static const struct def_algo_ml_dsa_caps ml_dsa_keygen_strong_capabilities[] = { {
+	.parameter_set = DEF_ALG_ML_DSA_65 |
+			 DEF_ALG_ML_DSA_87,
+} };
 
-#define LC_ML_DSA_KEYGEN_STRONG GENERIC_ML_DSA_KEYGEN(LC_ML_DSA_ALGO_SET_STRONG)
+static const struct def_algo_ml_dsa_caps ml_dsa_sig_strong_capabilities[] = { {
+	.parameter_set = DEF_ALG_ML_DSA_65 |
+			 DEF_ALG_ML_DSA_87,
+	DEF_ALG_DOMAIN(.messagelength, 8, 65536, 8),
+}, {
+	.parameter_set = DEF_ALG_ML_DSA_65 |
+			 DEF_ALG_ML_DSA_87,
+	DEF_ALG_DOMAIN(.messagelength, 8, 65536, 8),
+	.hashalg = ACVP_SHA3_512 | ACVP_SHA512 | ACVP_SHAKE256,
+} };
+
+
+#define LC_ML_DSA_KEYGEN_STRONG						\
+	{								\
+	.type = DEF_ALG_TYPE_ML_DSA,					\
+	.algo = {							\
+		.ml_dsa = {						\
+			.ml_dsa_mode = DEF_ALG_ML_DSA_MODE_KEYGEN,	\
+			.capabilities.keygen = ml_dsa_keygen_strong_capabilities,\
+			.capabilities_num = ARRAY_SIZE(ml_dsa_keygen_strong_capabilities),\
+			}						\
+		}							\
+	}
 
 #define LC_ML_DSA_SIGGEN_STRONG						\
-	GENERIC_ML_DSA_SIGGEN						\
-		(LC_ML_DSA_ALGO_SET_STRONG,				\
-		 DEF_ALG_ML_DSA_SIGGEN_NON_DETERMINISTIC |		\
-		 DEF_ALG_ML_DSA_SIGGEN_DETERMINISTIC)
+	{								\
+	.type = DEF_ALG_TYPE_ML_DSA,					\
+	.algo = {							\
+		.ml_dsa = {						\
+			.ml_dsa_mode = DEF_ALG_ML_DSA_MODE_SIGGEN,	\
+			.capabilities.siggen = ml_dsa_sig_strong_capabilities,\
+			.capabilities_num = ARRAY_SIZE(ml_dsa_sig_strong_capabilities),\
+			.deterministic = DEF_ALG_ML_DSA_SIGGEN_NON_DETERMINISTIC |\
+					 DEF_ALG_ML_DSA_SIGGEN_DETERMINISTIC,\
+			.interface = DEF_ALG_ML_DSA_INTERFACE_EXTERNAL |\
+				     DEF_ALG_ML_DSA_INTERFACE_INTERNAL,\
+			}						\
+		}							\
+	}
 
-#define LC_ML_DSA_SIGVER_STRONG GENERIC_ML_DSA_SIGVER(LC_ML_DSA_ALGO_SET_STRONG)
+#define LC_ML_DSA_SIGVER_STRONG						\
+	{								\
+	.type = DEF_ALG_TYPE_ML_DSA,					\
+	.algo = {							\
+		.ml_dsa = {						\
+			.ml_dsa_mode = DEF_ALG_ML_DSA_MODE_SIGVER,	\
+			.capabilities.sigver = ml_dsa_sig_strong_capabilities,\
+			.capabilities_num = ARRAY_SIZE(ml_dsa_sig_strong_capabilities),\
+			.interface = DEF_ALG_ML_DSA_INTERFACE_EXTERNAL |\
+				     DEF_ALG_ML_DSA_INTERFACE_INTERNAL,\
+			}						\
+		}							\
+	}
 
 /**************************************************************************
  * ML-KEM Definitions
@@ -321,6 +417,87 @@ static const struct def_algo_prereqs lc_eddsa_prereqs[] = {
 
 #define LC_ML_KEM_ENCAPDECAP_STRONG					\
 	GENERIC_ML_KEM_ENCAPDECAP(LC_ML_KEM_ALGO_SET_STRONG)
+
+
+/**************************************************************************
+ * SLH-DSA Definitions
+ **************************************************************************/
+
+static const struct def_algo_slh_dsa_caps slh_dsa_keygen_capabilities[] = { {
+	.parameter_set = DEF_ALG_SLH_DSA_SHAKE_128S |
+			 DEF_ALG_SLH_DSA_SHAKE_128F |
+			 DEF_ALG_SLH_DSA_SHAKE_192S |
+			 DEF_ALG_SLH_DSA_SHAKE_192F |
+			 DEF_ALG_SLH_DSA_SHAKE_256S |
+			 DEF_ALG_SLH_DSA_SHAKE_256F,
+} };
+static const struct def_algo_slh_dsa_caps slh_dsa_sig_capabilities[] = { {
+// 	.parameter_set = DEF_ALG_SLH_DSA_SHAKE_128S |
+// 			 DEF_ALG_SLH_DSA_SHAKE_128F |
+// 			 DEF_ALG_SLH_DSA_SHAKE_192S |
+// 			 DEF_ALG_SLH_DSA_SHAKE_192F |
+// 			 DEF_ALG_SLH_DSA_SHAKE_256S |
+// 			 DEF_ALG_SLH_DSA_SHAKE_256F,
+// 	DEF_ALG_DOMAIN(.messagelength, 8, 65536, 8),
+// 	DEF_ALG_DOMAIN(.contextlength, 0, 1024, 8),
+// }, {
+	.parameter_set = DEF_ALG_SLH_DSA_SHAKE_128S |
+			 DEF_ALG_SLH_DSA_SHAKE_128F |
+			 DEF_ALG_SLH_DSA_SHAKE_192S |
+			 DEF_ALG_SLH_DSA_SHAKE_192F |
+			 DEF_ALG_SLH_DSA_SHAKE_256S |
+			 DEF_ALG_SLH_DSA_SHAKE_256F,
+	DEF_ALG_DOMAIN(.messagelength, 8, 65536, 8),
+	DEF_ALG_DOMAIN(.contextlength, 0, 1024, 8),
+	.hashalg = ACVP_SHA3_512 | ACVP_SHA512 | ACVP_SHAKE256,
+} };
+
+#define LC_SLH_DSA_KEYGEN						\
+	{								\
+	.type = DEF_ALG_TYPE_SLH_DSA,					\
+	.algo = {							\
+		.slh_dsa = {						\
+			.slh_dsa_mode = DEF_ALG_SLH_DSA_MODE_KEYGEN,	\
+			.capabilities.keygen = slh_dsa_keygen_capabilities,\
+			.capabilities_num = ARRAY_SIZE(slh_dsa_keygen_capabilities),\
+			}						\
+		}							\
+	}
+
+#define LC_SLH_DSA_SIGGEN						\
+	{								\
+	.type = DEF_ALG_TYPE_SLH_DSA,					\
+	.algo = {							\
+		.slh_dsa = {						\
+			.slh_dsa_mode = DEF_ALG_SLH_DSA_MODE_SIGGEN,	\
+			.capabilities.siggen = slh_dsa_sig_capabilities,\
+			.capabilities_num = ARRAY_SIZE(slh_dsa_sig_capabilities),\
+			.deterministic = DEF_ALG_SLH_DSA_SIGGEN_NON_DETERMINISTIC |\
+					 DEF_ALG_SLH_DSA_SIGGEN_DETERMINISTIC,\
+			.interface = DEF_ALG_SLH_DSA_INTERFACE_EXTERNAL |\
+				     DEF_ALG_SLH_DSA_INTERFACE_INTERNAL,\
+			}						\
+		}							\
+	}
+
+#define LC_SLH_DSA_SIGVER						\
+	{								\
+	.type = DEF_ALG_TYPE_SLH_DSA,					\
+	.algo = {							\
+		.slh_dsa = {						\
+			.slh_dsa_mode = DEF_ALG_SLH_DSA_MODE_SIGVER,	\
+			.capabilities.sigver = slh_dsa_sig_capabilities,\
+			.capabilities_num = ARRAY_SIZE(slh_dsa_sig_capabilities),\
+			.interface = DEF_ALG_SLH_DSA_INTERFACE_EXTERNAL |\
+				     DEF_ALG_SLH_DSA_INTERFACE_INTERNAL,\
+			}						\
+		}							\
+	}
+
+#define LC_SLH_DSA							\
+	LC_SLH_DSA_KEYGEN,						\
+	LC_SLH_DSA_SIGGEN,						\
+	LC_SLH_DSA_SIGVER
 
 /**************************************************************************
  * Implementation Definitions
@@ -348,14 +525,16 @@ static const struct def_algo lc_c[] = {
 	LC_AES_KW,
 
 	LC_SHA_NO_LDT(ACVP_SHA256),
+	LC_SHA_NO_LDT(ACVP_SHA384),
 	LC_SHA_NO_LDT(ACVP_SHA512),
 
 	LC_HMAC(ACVP_HMACSHA2_256),
+	LC_HMAC(ACVP_HMACSHA2_384),
 	LC_HMAC(ACVP_HMACSHA2_512),
 
 	LC_KDF_HMAC,
 
-	LC_PBKDF(ACVP_SHA256 | ACVP_SHA512),
+	LC_PBKDF(ACVP_SHA256 | ACVP_SHA384 | ACVP_SHA512),
 
 	LC_DRBG_HMAC,
 	LC_DRBG_HASH,
@@ -371,18 +550,26 @@ static const struct def_algo lc_c[] = {
 	LC_ML_DSA_SIGVER_FULL,
 
 	LC_ML_KEM_KEYGEN_FULL,
-	LC_ML_KEM_ENCAPDECAP_FULL
+	LC_ML_KEM_ENCAPDECAP_FULL,
+
+	LC_SLH_DSA
 };
 
 static const struct def_algo lc_avx2[] = {
 	LC_SHA3_ALGOS,
+
+	LC_SHA_NO_LDT(ACVP_SHA256),
+	LC_SHA_NO_LDT(ACVP_SHA384),
+	LC_SHA_NO_LDT(ACVP_SHA512),
 
 	LC_ML_DSA_KEYGEN_STRONG,
 	LC_ML_DSA_SIGGEN_STRONG,
 	LC_ML_DSA_SIGVER_STRONG,
 
 	LC_ML_KEM_KEYGEN_STRONG,
-	LC_ML_KEM_ENCAPDECAP_STRONG
+	LC_ML_KEM_ENCAPDECAP_STRONG,
+
+	LC_SLH_DSA
 };
 
 static const struct def_algo lc_shake_avx2_4x[] = {
@@ -402,6 +589,10 @@ static const struct def_algo lc_avx512[] = {
 static const struct def_algo lc_arm_neon[] = {
 	LC_SHA3_ALGOS,
 
+	LC_SHA_NO_LDT(ACVP_SHA256),
+	LC_SHA_NO_LDT(ACVP_SHA384),
+	LC_SHA_NO_LDT(ACVP_SHA512),
+
 	LC_ML_DSA_KEYGEN_STRONG,
 	LC_ML_DSA_SIGGEN_STRONG,
 	LC_ML_DSA_SIGVER_STRONG,
@@ -417,7 +608,9 @@ static const struct def_algo lc_arm_asm[] = {
 	LC_ML_DSA_SIGVER_STRONG,
 
 	LC_ML_KEM_KEYGEN_STRONG,
-	LC_ML_KEM_ENCAPDECAP_STRONG
+	LC_ML_KEM_ENCAPDECAP_STRONG,
+
+	LC_SLH_DSA
 };
 
 static const struct def_algo lc_arm_ce[] = {
@@ -425,19 +618,53 @@ static const struct def_algo lc_arm_ce[] = {
 	LC_AES_CTR,
 	LC_AES_KW,
 
-	LC_SHA3_ALGOS
+	LC_SHA3_ALGOS,
+	LC_SHA_NO_LDT(ACVP_SHA256),
+	LC_SHA_NO_LDT(ACVP_SHA384),
+	LC_SHA_NO_LDT(ACVP_SHA512),
 };
 
 static const struct def_algo lc_aesni[] = {
 	LC_AES_CBC,
 	LC_AES_CTR,
-	LC_AES_KW
+	LC_AES_KW,
+
+	/* Covering SHA-NI */
+	LC_SHA_NO_LDT(ACVP_SHA256),
+	LC_SHA_NO_LDT(ACVP_SHA384),
+	//LC_SHA_NO_LDT(ACVP_SHA512),
 };
 
-static const struct def_algo lc_risc64[] = {
+static const struct def_algo lc_riscv64[] = {
 	LC_AES_CBC,
 	LC_AES_CTR,
-	LC_AES_KW
+	LC_AES_KW,
+
+	LC_SHA3_ALGOS,
+
+	LC_SHA_NO_LDT(ACVP_SHA256),
+	LC_SHA_NO_LDT(ACVP_SHA384),
+	LC_SHA_NO_LDT(ACVP_SHA512),
+
+	LC_ML_DSA_KEYGEN_FULL,
+	LC_ML_DSA_SIGGEN_FULL,
+	LC_ML_DSA_SIGVER_FULL,
+
+	LC_ML_KEM_KEYGEN_FULL,
+	LC_ML_KEM_ENCAPDECAP_FULL,
+};
+
+static const struct def_algo lc_riscv64_zbb[] = {
+	LC_SHA3_ALGOS,
+	LC_SHA_NO_LDT(ACVP_SHA256),
+	LC_SHA_NO_LDT(ACVP_SHA384),
+	LC_SHA_NO_LDT(ACVP_SHA512),
+};
+
+static const struct def_algo lc_riscv64_rvv[] = {
+	LC_ML_DSA_KEYGEN_FULL,
+	LC_ML_DSA_SIGGEN_FULL,
+	LC_ML_DSA_SIGVER_FULL,
 };
 
 /**************************************************************************
@@ -559,10 +786,25 @@ static struct def_algo_map lc_algo_map [] = {
 
 /* RISC-V 64 cipher assembler implementation, *********************************/
 	{
-		SET_IMPLEMENTATION(lc_risc64),
+		SET_IMPLEMENTATION(lc_riscv64),
 		.algo_name = "leancrypto",
 		.processor = "RISC-V 64",
 		.impl_name = "RISCV64"
+	},
+
+/* RISC-V 64 Zbb cipher assembler implementation, *****************************/
+	{
+		SET_IMPLEMENTATION(lc_riscv64_zbb),
+		.algo_name = "leancrypto",
+		.processor = "RISC-V 64",
+		.impl_name = "RISCV64_ZBB"
+	},
+/* RISC-V 64 RVV cipher assembler implementation, *****************************/
+	{
+		SET_IMPLEMENTATION(lc_riscv64_rvv),
+		.algo_name = "leancrypto",
+		.processor = "RISC-V 64",
+		.impl_name = "RISCV64_RVV"
 	},
 
 };

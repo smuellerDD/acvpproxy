@@ -248,7 +248,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
  *
  * Cipher definition properties
  *	* encryption / decryption
- *	* key sizes: 128, 192, 256
+ *	* key sizes: 128, 256
  * 	* arbitrary plaintext length
  *	* tweak key is handled as hexadecimal string
  */
@@ -261,6 +261,29 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 	.algo.sym.keylen = DEF_ALG_SYM_KEYLEN_128 |			\
 			   DEF_ALG_SYM_KEYLEN_256,			\
 	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 8),			\
+	.algo.sym.tweakformat = DEF_ALG_SYM_XTS_TWEAK_128HEX,		\
+	.algo.sym.tweakmode = DEF_ALG_SYM_XTS_TWEAK_HEX,		\
+	.algo.sym.xts_data_unit_len_matches_payload = true		\
+	}
+
+/**
+ * @brief AES XTS definition.
+ *
+ * Cipher definition properties
+ *	* encryption / decryption
+ *	* key sizes: 128, 256
+ * 	* plaintext length of 128 bit multiples
+ *	* tweak key is handled as hexadecimal string
+ */
+#define GENERIC_AES_XTS_NOCTS						\
+	{								\
+	.type = DEF_ALG_TYPE_SYM,					\
+	.algo.sym.algorithm = ACVP_XTS,					\
+	.algo.sym.direction = DEF_ALG_SYM_DIRECTION_ENCRYPTION |	\
+			      DEF_ALG_SYM_DIRECTION_DECRYPTION,		\
+	.algo.sym.keylen = DEF_ALG_SYM_KEYLEN_128 |			\
+			   DEF_ALG_SYM_KEYLEN_256,			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
 	.algo.sym.tweakformat = DEF_ALG_SYM_XTS_TWEAK_128HEX,		\
 	.algo.sym.tweakmode = DEF_ALG_SYM_XTS_TWEAK_HEX,		\
 	.algo.sym.xts_data_unit_len_matches_payload = true		\
@@ -672,7 +695,9 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 	ACVP_HMACSHA3_384 | ACVP_HMACSHA3_512
 
 /**
- * @brief CMAC AES definition.
+ * @brief CMAC AES definition. Both generation and verification are tested,
+ * which is probably not what you want unless the IUT actually implements a
+ * separate service or API function for CMAC verification.
  *
  * Cipher definition properties
  *	* dependency on AES is satisfied within the same ACVP register op
@@ -699,10 +724,39 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 	}
 
 /**
- * @brief CMAC TDES definition.
+ * @brief CMAC AES definition. Only generation is tested, which is the most
+ * common case for cryptographic libraries.
  *
  * Cipher definition properties
  *	* dependency on AES is satisfied within the same ACVP register op
+ *
+ * @param key_length supported AES key lengths provided with
+ *		     cipher_definitions.h
+ */
+#define GENERIC_CMAC_GEN_AES(key_length)				\
+	{								\
+	.type = DEF_ALG_TYPE_CMAC,					\
+	.algo = {							\
+		.cmac = {						\
+			.algorithm = ACVP_CMAC_AES,			\
+			.prereqvals = {					\
+				.algorithm = "AES",			\
+				.valvalue = "same"			\
+				},					\
+			.direction = DEF_ALG_CMAC_GENERATION,		\
+			.keylen = key_length,				\
+			DEF_ALG_DOMAIN(.msglen, 8, 524288, 8),		\
+			}						\
+		},							\
+	}
+
+/**
+ * @brief CMAC TDES definition. Both generation and verification are tested,
+ * which is probably not what you want unless the IUT actually implements a
+ * separate service or API function for CMAC verification.
+ *
+ * Cipher definition properties
+ *	* dependency on TDES is satisfied within the same ACVP register op
  */
 #define GENERIC_CMAC_TDES						\
 	{								\
@@ -716,6 +770,30 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 				},					\
 			.direction = DEF_ALG_CMAC_GENERATION |		\
 				     DEF_ALG_CMAC_VERIFICATION,		\
+			.keylen = DEF_ALG_SYM_KEYLEN_168, 		\
+			DEF_ALG_DOMAIN(.msglen, 8, 524288, 8),		\
+			}						\
+		},							\
+	}
+
+/**
+ * @brief CMAC TDES definition. Only generation is tested, which is the most
+ * common case for cryptographic libraries.
+ *
+ * Cipher definition properties
+ *	* dependency on TDES is satisfied within the same ACVP register op
+ */
+#define GENERIC_CMAC_GEN_TDES						\
+	{								\
+	.type = DEF_ALG_TYPE_CMAC,					\
+	.algo = {							\
+		.cmac = {						\
+			.algorithm = ACVP_CMAC_TDES,			\
+			.prereqvals = {					\
+				.algorithm = "TDES",			\
+				.valvalue = "same"			\
+				},					\
+			.direction = DEF_ALG_CMAC_GENERATION,		\
 			.keylen = DEF_ALG_SYM_KEYLEN_168, 		\
 			DEF_ALG_DOMAIN(.msglen, 8, 524288, 8),		\
 			}						\
@@ -1104,7 +1182,7 @@ static const struct def_algo_prereqs generic_tls_kdf_prereqs[] = {
  *	* DER type
  *	* derived key length: 112-4096 increment 8
  *	* supplemental info length: 0-256 increment 8
- *	* ZZ length: 8-4096 increment 8
+ *	* ZZ length: 112-4096 increment 8
  *
  * @param oids OIDs to test
  * @param sha_def SHA definition provided with cipher_definitions.h
@@ -1120,7 +1198,7 @@ static const struct def_algo_prereqs generic_tls_kdf_prereqs[] = {
 		.kdf_type = DEF_ALG_ANSI_X942_KDF_DER,			\
 		DEF_ALG_DOMAIN(.key_len, 112, 4096, 8),			\
 		DEF_ALG_DOMAIN(.supp_info_len, DEF_ALG_ZERO_VALUE, 256, 8),\
-		DEF_ALG_DOMAIN(.zz_len, 8, 4096, 8),			\
+		DEF_ALG_DOMAIN(.zz_len, 112, 4096, 8),			\
 		.oid = oids,						\
 		.hashalg = sha_def					\
 		}							\
@@ -1141,7 +1219,7 @@ static const struct def_algo_prereqs generic_tls_kdf_prereqs[] = {
  *	* concatenation type
  *	* derived key length: 112-4096 increment 8
  *	* other info length: 0-256 increment 8
- *	* ZZ length: 8-4096 increment 8
+ *	* ZZ length: 112-4096 increment 8
  */
 #define GENERIC_X942_CONCATENATION_KDF(sha_def)				\
 	{								\
@@ -1154,7 +1232,7 @@ static const struct def_algo_prereqs generic_tls_kdf_prereqs[] = {
 		.kdf_type = DEF_ALG_ANSI_X942_KDF_CONCATENATION,	\
 		DEF_ALG_DOMAIN(.key_len, 112, 4096, 8),			\
 		DEF_ALG_DOMAIN(.other_info_len, DEF_ALG_ZERO_VALUE, 256, 8),\
-		DEF_ALG_DOMAIN(.zz_len, 8, 4096, 8),			\
+		DEF_ALG_DOMAIN(.zz_len, 112, 4096, 8),			\
 		.hashalg = sha_def					\
 		}							\
 	}
@@ -1762,61 +1840,6 @@ static const struct def_algo_prereqs generic_eddsa_prereqs[] = {
 			.curve = curves,				\
 			.eddsa_pure = pure,				\
 			.eddsa_prehash = prehash,			\
-			}						\
-		}							\
-	}
-
-/**
- * @brief ML-DSA Key Generation
- *
- * @param param_set One or more ML-DSA parameter sets combined with an OR
- */
-#define GENERIC_ML_DSA_KEYGEN(parm_set)					\
-	{								\
-	.type = DEF_ALG_TYPE_ML_DSA,					\
-	.algo = {							\
-		.ml_dsa = {						\
-			.ml_dsa_mode = DEF_ALG_ML_DSA_MODE_KEYGEN,	\
-			.parameter_set = parm_set,			\
-			}						\
-		}							\
-	}
-
-/**
- * @brief ML-DSA Signature Generation
- *
- *  * Cipher definition properties
- *	* message length 8 - 65536 bits
- *
- * @param param_set One or more ML-DSA parameter sets combined with an OR
- * @param determ Specification of deterministic and/or nondeterministic
- *		 operation combined with an OR
- */
-#define GENERIC_ML_DSA_SIGGEN(parm_set, determ)				\
-	{								\
-	.type = DEF_ALG_TYPE_ML_DSA,					\
-	.algo = {							\
-		.ml_dsa = {						\
-			.ml_dsa_mode = DEF_ALG_ML_DSA_MODE_SIGGEN,	\
-			.parameter_set = parm_set,			\
-			.deterministic = determ,			\
-			DEF_ALG_DOMAIN(.messagelength, 8, 65536, 8),	\
-			}						\
-		}							\
-	}
-
-/**
- * @brief ML-DSA Signature Verification
- *
- * @param param_set One or more ML-DSA parameter sets combined with an OR
- */
-#define GENERIC_ML_DSA_SIGVER(parm_set)					\
-	{								\
-	.type = DEF_ALG_TYPE_ML_DSA,					\
-	.algo = {							\
-		.ml_dsa = {						\
-			.ml_dsa_mode = DEF_ALG_ML_DSA_MODE_SIGVER,	\
-			.parameter_set = parm_set,			\
 			}						\
 		}							\
 	}

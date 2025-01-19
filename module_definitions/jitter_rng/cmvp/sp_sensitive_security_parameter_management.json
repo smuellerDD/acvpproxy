@@ -1,10 +1,10 @@
 {
-	"sensitiveSecurityParameterManagement":{
+	"sensitiveSecurityParameterManagement": {
 		"storageAreas": {
 			"storageAreaList": [
 			{
 				"name": "RAM",
-				"description": "The module stores ephemeral SSPs in RAM provided by the operational environment. The operating system protects all SSPs through memory separation and protection mechanisms. No process other than the module itself can access the SSPs in its process memory.",
+				"description": "Temporary storage for SSPs used by the module as part of service execution. The module does not perform persistent storage of SSPs",
 				"persistenceType": "Dynamic"
 			}
 			],
@@ -14,43 +14,43 @@
 			"sspInputOutputList": [
 			{
 				"name": "API input parameters",
-				"from": "TOEPP",
-				"to": "Module",
-				"formatType": "Plaintext",
-				"distributionType": "manual",
-				"entryType": "Electronic",
-				"SFIOrAlgorithm": "N/A"
+				"from": "Operator calling application (TOEPP)",
+				"to": "Cryptographic module",
+				"formatType": "",
+				"distributionType": "",
+				"entryType": "",
+				"SFIOrAlgorithm": ""
 			},
 			{
 				"name": "API output parameters",
-				"from": "Module",
-				"to": "TOEPP",
-				"formatType": "Plaintext",
-				"distributionType": "manual",
-				"entryType": "Electronic",
-				"SFIOrAlgorithm": "N/A"
+				"from": "Cryptographic module",
+				"to": "Operator calling application (TOEPP)",
+				"formatType": "",
+				"distributionType": "",
+				"entryType": "",
+				"SFIOrAlgorithm": ""
 			}
 			],
-			"text": "N/A"
+			"text": "The module does not support manual SSP entry or intermediate key generation output.The module does not support entry and output of SSPs beyond the physical perimeter of the operational environment. The SSPs are provided to the module via API input parameters in the plaintext form and output via API output parameters in the plaintext form to and from the calling application running on the same operational environment."
 		},
 		"sspZeroizationMethods": {
 			"sspZeroizationList": [
 			{
-				"method": "Context object destruction",
-				"description": "SSPs are zeroized when the appropriate context object is destroyed.",
-				"rationale": "Zeroization when structure is deallocated",
-				"operatorInitiationCapability": "Invocation of zeroization function"
+				"method": "Free Cipher Handle",
+				"description": "Zeroizes the SSPs contained within the cipher handle.",
+				"rationale": "Memory occupied by SSPs is overwritten with zeroes, which renders the SSP values irretrievable.",
+				"operatorInitiationCapability": "By calling the appropriate zeroization functions: OpenSSL_cleanse, EVP_CIPHER_CTX_cleanup, EVP_AEAD_CTX_zero, HMAC_CTX_cleanup, CTR_DRBG_clear, RSA_free, EC_KEY_free"
 			},
 			{
-				"method": "Power down",
-				"description": "SSPs are zeroized when system is powered down.",
-				"rationale": "SSPs are zeroized when system is powered down.",
-				"operatorInitiationCapability": "Operator can initiate power down"
+				"method": "Module Reset",
+				"description": "De-allocates the volatile memory used to store SSPs",
+				"rationale": "Volatile memory used by the module is overwritten within nanoseconds when power is removed.",
+				"operatorInitiationCapability": "By unloading and reloading the module."
 			},
 			{
-				"method": "Intermediate value zeroization",
-				"description": "Intermediate keygen values are zeroized before the module returns from the key generation function.",
-				"rationale": "Intermediate keygen values are zeroized before the module returns from the key generation function.",
+				"method": "Automatically",
+				"description": "Automatically zeroized when no longer needed",
+				"rationale": "Memory occupied by SSPs is overwritten with zeros, which renders the SSP values irretrievable.",
 				"operatorInitiationCapability": "N/A"
 			}
 			],
@@ -58,26 +58,42 @@
 		},
 		"ssps": {
 			"sspList": [
-				{
-					"name": "AES Key",
-					"description": "AES Key",
-					"size": "128, 192, 256",
-					"strength": "128, 192, 256",
-					"type": "Symmetric",
-					"generatedBy": "N/A",
-					"establishedBy": "N/A",
-					"usedBy": "Symmetric encryption / decryption",
-					"inputOutput": "API input parameters",
-					"storage": "RAM",
-					"temporaryStorageDuration": "From service invocation to completion",
-					"zeroization": "Context object destruction",
-					"category": "CSP",
-					"relatedSSPs": "N/A"
-				}
+			{
+				"name": "AES Key",
+				"description": "AES key used for encryption, decryption, and computing MAC tags",
+				"size": "128-256 bits ",
+				"strength": "128-256 bits",
+				"type": "Symmetric key",
+				"generatedBy": "N/A",
+				"establishedBy": "N/A",
+				"usedBy": "Key Wrapping/Unwrapping with AES KW, AES-KWP",
+				"inputOutput": "API input parameters; API output parameters",
+				"storage": "RAM",
+				"temporaryStorageDuration": "From service invocation to service completion",
+				"zeroization": "Free Cipher Handle; Module Reset",
+				"category": "CSP",
+				"relatedSSPs": "N/A"
+			},
+			{
+				"name": "HMAC Key",
+				"description": "HMAC key for Message Authentication Generation",
+				"size": "112-524288 bits ",
+				"strength": "112-256 bits",
+				"type": "Authentication key",
+				"generatedBy": "N/A",
+				"establishedBy": "N/A",
+				"usedBy": "Message Authentication Generation with HMAC",
+				"inputOutput": "API input parameters; API output parameters",
+				"storage": "RAM",
+				"temporaryStorageDuration": "From service invocation to service completion",
+				"zeroization": "Free Cipher Handle; Module Reset",
+				"category": "CSP",
+				"relatedSSPs": "N/A"
+			}
 			],
 			"text": "N/A"
 		},
 		"transitions": "N/A",
 		"additionalInformation": "N/A"
-	}
+	},
 }
