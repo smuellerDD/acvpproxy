@@ -660,6 +660,9 @@ static const struct def_algo lc_riscv64_rvv[] = {
 	LC_ML_DSA_KEYGEN_FULL,
 	LC_ML_DSA_SIGGEN_FULL,
 	LC_ML_DSA_SIGVER_FULL,
+
+	LC_ML_KEM_KEYGEN_FULL,
+	LC_ML_KEM_ENCAPDECAP_FULL,
 };
 
 /**************************************************************************
