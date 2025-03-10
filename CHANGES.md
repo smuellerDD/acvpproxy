@@ -1,4 +1,4 @@
-v1.9.0:
+v2.0.0:
 - fix: rename now works for multiple test sessions 
 - enhancement: leancrypto - add EDDSA
 - Update DRBG numbers to be consistent with spec
@@ -21,6 +21,7 @@ v1.9.0:
 - enhancement: AMVP current for ICMC2024
 - OpenSSL3 fixes
 - leancrypto enhancements
+- treat ACVP IDs as 64 bit integer ->database version changes to 4
 
 v1.8.0
 - fix: ESV register multiple OEs in one certify operation

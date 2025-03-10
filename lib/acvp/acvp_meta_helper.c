@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -25,7 +25,7 @@
 #include "internal.h"
 #include "json_wrapper.h"
 
-int acvp_str_match(const char *exp, const char *found, const uint32_t id)
+int acvp_str_match(const char *exp, const char *found, const uint64_t id)
 {
 	size_t len;
 
@@ -43,15 +43,15 @@ int acvp_str_match(const char *exp, const char *found, const uint32_t id)
 
 	if (len != strlen(found) || strncmp(exp, found, len)) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Mismatch for ID %u (expected: %s, found: %s)\n", id,
-		       exp, found);
+		       "Mismatch for ID %"PRIu64" (expected: %s, found: %s)\n",
+		       id, exp, found);
 		return -ENOENT;
 	}
 
 	return 0;
 }
 
-int acvp_str_case_match(const char *exp, const char *found, const uint32_t id)
+int acvp_str_case_match(const char *exp, const char *found, const uint64_t id)
 {
 	size_t len;
 
@@ -69,8 +69,8 @@ int acvp_str_case_match(const char *exp, const char *found, const uint32_t id)
 
 	if (len != strlen(found) || strncasecmp(exp, found, len)) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Mismatch for ID %u (expected: %s, found: %s)\n", id,
-		       exp, found);
+		       "Mismatch for ID %"PRIu64" (expected: %s, found: %s)\n",
+		       id, exp, found);
 		return -ENOENT;
 	}
 

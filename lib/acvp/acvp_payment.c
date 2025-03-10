@@ -1,6 +1,6 @@
 /* Handle the ACVP purchase requests
  *
- * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -61,7 +61,7 @@ int acvp_purchase_get_options(const struct acvp_ctx *ctx)
 	for (i = 0; i < json_object_array_length(array); i++) {
 		struct json_object *purchase_option;
 		const char *name, *description, *price, *opt_url;
-		uint32_t opt;
+		uint64_t opt;
 
 		purchase_option = json_object_array_get_idx(array, i);
 
@@ -74,7 +74,7 @@ int acvp_purchase_get_options(const struct acvp_ctx *ctx)
 		CKINT(json_get_string(purchase_option, "description",
 				      &description));
 		CKINT(json_get_string(purchase_option, "price", &price));
-		fprintf(stdout, "%-8u | %-15s | %-32s | %-14s\n", opt, name,
+		fprintf(stdout, "%-8"PRIu64" | %-15s | %-32s | %-14s\n", opt, name,
 			description, price);
 	}
 

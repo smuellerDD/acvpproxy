@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2023 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -37,7 +37,7 @@
  * Get the template data for certificate request.
  */
 static int amvp_certrequest_req(struct acvp_testid_ctx *module_ctx,
-				uint32_t certreq_id)
+				uint64_t certreq_id)
 {
 	struct acvp_vsid_ctx certreq_ctx;
 	int ret;
@@ -57,7 +57,7 @@ static int amvp_certrequest_req(struct acvp_testid_ctx *module_ctx,
 	CKINT(amvp_te_get(&certreq_ctx));
 
 	logger_status(LOGGER_C_ANY,
-		      "Now, edit the TE evidence data as well as the SP in the data directory for certificate request %u.\nOnce completed, invoke amvp-proxy --vsid %u to submit the data\n",
+		      "Now, edit the TE evidence data as well as the SP in the data directory for certificate request %"PRIu64".\nOnce completed, invoke amvp-proxy --vsid %"PRIu64" to submit the data\n",
 		      certreq_id, certreq_id);
 
 out:
@@ -75,7 +75,7 @@ static int amvp_certrequest_process_req(struct acvp_testid_ctx *module_ctx,
 					struct acvp_buf *response)
 {
 	struct json_object *resp = NULL, *data = NULL;
-	uint32_t certreq_id;
+	uint64_t certreq_id;
 	int ret;
 
 	/* Analyze the result */
@@ -117,7 +117,7 @@ static int amvp_certrequest_process_req(struct acvp_testid_ctx *module_ctx,
 	}
 
 	certreq_id = acvp_id(certreq_id);
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Obtained certRequest ID %u\n",
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Obtained certRequest ID %"PRIu64"\n",
 	       certreq_id);
 
 	CKINT(amvp_certrequest_req(module_ctx, certreq_id));
@@ -259,7 +259,7 @@ int amvp_certrequest_register(struct acvp_testid_ctx *module_ctx)
 
 	if (acvp_request_id(module_ctx->testid)) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "To register a certificate request, you must have a valid module ID. Currently only a module request ID is available. Process it with --modulereqid %u\n",
+		       "To register a certificate request, you must have a valid module ID. Currently only a module request ID is available. Process it with --modulereqid %"PRIu64"\n",
 		       acvp_id(module_ctx->testid));
 		ret = -EOPNOTSUPP;
 		goto out;

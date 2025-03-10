@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the module information
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -203,9 +203,9 @@ out:
 }
 
 static int acvp_module_check_id(struct json_object *data, const char *keyword,
-				const uint32_t existing_id)
+				const uint64_t existing_id)
 {
-	uint32_t id;
+	uint64_t id;
 	int ret;
 	const char *str;
 
@@ -215,7 +215,7 @@ static int acvp_module_check_id(struct json_object *data, const char *keyword,
 
 	if (existing_id != id) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "%s ID on ACVP server (%u) does not match our stored vendor ID (%u)\n",
+		       "%s ID on ACVP server (%"PRIu64") does not match our stored vendor ID (%"PRIu64")\n",
 		       keyword, id, existing_id);
 		ret = -ENOENT;
 		goto out;
@@ -229,7 +229,7 @@ static int acvp_module_match(struct def_info *def_info,
 			     struct json_object *json_module)
 {
 	struct json_object *tmp;
-	uint32_t id = 0, module_id;
+	uint64_t id = 0, module_id;
 	unsigned int i;
 	int ret, ret2;
 	const char *str, *type_string, *moduleurl;
@@ -295,7 +295,7 @@ static int acvp_module_match(struct def_info *def_info,
 	ret2 |= ret;
 
 	if (not_found) {
-		logger(LOGGER_WARN, LOGGER_C_ANY, "Module ID %u not found\n",
+		logger(LOGGER_WARN, LOGGER_C_ANY, "Module ID %"PRIu64" not found\n",
 		       module_id);
 		ret2 |= -ENOENT;
 	}
@@ -401,7 +401,7 @@ static int acvp_module_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	char url[ACVP_NET_URL_MAXLEN];
 	bool asked = false;
 
-	logger_status(LOGGER_C_ANY, "Validating module reference %u\n",
+	logger_status(LOGGER_C_ANY, "Validating module reference %"PRIu64"\n",
 		      def_info->acvp_module_id);
 
 	ret = acvp_module_get_match(testid_ctx, def_info, &resp, &found_data);
@@ -624,7 +624,7 @@ int acvp_module_handle(const struct acvp_testid_ctx *testid_ctx)
 	list_for_each(def_person, &def_vendor->person.list, list)
 		person_cnt++;
 
-	def_info->acvp_person_id = calloc(person_cnt, sizeof(uint32_t));
+	def_info->acvp_person_id = calloc(person_cnt, sizeof(uint64_t));
 	CKNULL(def_info->acvp_person_id, -ENOMEM);
 	def_info->acvp_person_id_i = calloc(person_cnt, sizeof(uint8_t));
 	CKNULL(def_info->acvp_person_id, -ENOMEM);

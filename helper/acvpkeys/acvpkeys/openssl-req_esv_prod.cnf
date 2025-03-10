@@ -1,0 +1,19 @@
+[ req ]
+default_bits           = 4096
+default_keyfile        = privkey.pem
+distinguished_name     = req_distinguished_name
+prompt                 = no
+extendedKeyUsage       = serverAuth
+
+dirstring_type = nobmp
+
+[ req_distinguished_name ]
+C                      = US
+ST                     = Texas
+L                      = Austin
+O                      = atsec information security corp
+OU                     = CST Laboratory
+CN                     = ESV Team
+emailAddress           = cst-esv@atsec.com
+
+

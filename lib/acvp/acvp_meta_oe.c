@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the operational env information
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -249,13 +249,13 @@ out:
 	return ret;
 }
 
-static int acvp_oe_add_dep_url(uint32_t id, struct json_object *dep)
+static int acvp_oe_add_dep_url(uint64_t id, struct json_object *dep)
 {
 	int ret = -EINVAL;
 	char url[ACVP_NET_URL_MAXLEN];
 
 	CKINT(acvp_create_urlpath(NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u", id));
+	CKINT(acvp_extend_string(url, sizeof(url), "/%"PRIu64, id));
 	CKINT(json_object_array_add(dep, json_object_new_string(url)));
 
 out:
@@ -266,7 +266,7 @@ out:
  * Matcher
  *****************************************************************************/
 static int acvp_str_match_zero(const char *exp, const char *found,
-			       const uint32_t id)
+			       const uint64_t id)
 {
 	size_t exp_len = 0, found_len = 0;
 
@@ -490,7 +490,7 @@ out:
 
 static int acvp_oe_register_dep_build(struct def_dependency *def_dep,
 				      struct json_object **json_dep,
-				      uint32_t **id, bool check_ignore_flag)
+				      uint64_t **id, bool check_ignore_flag)
 {
 	struct json_object *dep = NULL;
 	int ret = 0;
@@ -531,7 +531,7 @@ static int acvp_oe_register_dep(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	struct json_object *json_dep = NULL;
-	uint32_t *id;
+	uint64_t *id;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
@@ -581,11 +581,11 @@ static int _acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 
 	logger_status(
 		LOGGER_C_ANY,
-		"Validating operational environment dependency reference %u\n",
+		"Validating operational environment dependency reference %"PRIu64"\n",
 		def_dep->acvp_dep_id);
 
 	CKINT(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
+	CKINT(acvp_extend_string(url, sizeof(url), "/%"PRIu64"",
 				 def_dep->acvp_dep_id));
 
 	CKINT(_acvp_oe_validate_one(testid_ctx, def_oe, def_dep, url, resp,
@@ -618,7 +618,7 @@ static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_OE, ctx_opts,
 				       def_dep->acvp_dep_id, &http_type);
 	if (ret == -ENOENT) {
-		uint32_t *id;
+		uint64_t *id;
 
 		CKINT(acvp_oe_register_dep_build(def_dep, &json_dep, &id,
 						 !!found_data));
@@ -660,7 +660,7 @@ static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 		       "Conversion from search type to HTTP request type failed for OE dependencies\n");
 		goto out;
 	} else if (http_type == acvp_http_put) {
-		uint32_t *id;
+		uint64_t *id;
 
 		/* Update requested */
 		CKINT(acvp_oe_register_dep_build(def_dep, &json_dep, &id, true));
@@ -857,7 +857,7 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 		return 0;
 
 	for (i = 0; i < json_object_array_length(tmp); i++) {
-		uint32_t id = 0;
+		uint64_t id = 0;
 		struct json_object *dep =
 				json_object_array_get_idx(tmp, i);
 
@@ -868,7 +868,7 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 
 		/* Download the dependency */
 		CKINT(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url, sizeof(url)));
-		CKINT(acvp_extend_string(url, sizeof(url), "/%u", id));
+		CKINT(acvp_extend_string(url, sizeof(url), "/%"PRIu64, id));
 
 		ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);
 		CKINT(acvp_store_oe_debug(testid_ctx, &buf, ret2));
@@ -948,7 +948,7 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Ensure that all IDs given by the server are found locally */
 	for (i = 0; i < json_object_array_length(tmp); i++) {
-		uint32_t id = 0;
+		uint64_t id = 0;
 		bool found = false;
 		struct json_object *dep = json_object_array_get_idx(tmp, i);
 
@@ -999,7 +999,7 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 			acvp_free_buf(&buf);
 		} else {
 			logger(LOGGER_DEBUG, LOGGER_C_ANY,
-			       "Dependency ID %u provided by ACVP server for OE %u found also in local database\n",
+			       "Dependency ID %"PRIu64" provided by ACVP server for OE %"PRIu64" found also in local database\n",
 			       def_dep->acvp_dep_id, def_oe->acvp_oe_id);
 		}
 	}
@@ -1017,7 +1017,7 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 			continue;
 
 		for (i = 0; i < json_object_array_length(tmp); i++) {
-			uint32_t id = 0;
+			uint64_t id = 0;
 			struct json_object *dep =
 				json_object_array_get_idx(tmp, i);
 
@@ -1034,7 +1034,7 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 
 		if (!found) {
 			logger(LOGGER_WARN, LOGGER_C_ANY,
-			       "Dependency ID %u found on local database without a match on server\n",
+			       "Dependency ID %"PRIu64" found on local database without a match on server\n",
 			       def_dep->acvp_dep_id);
 			def_dep->acvp_dep_id = 0;
 			ret = -ENOENT;
@@ -1042,7 +1042,7 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 		}
 
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Dependency ID %u found on local database for OE %u found also in ACVP server database\n",
+		       "Dependency ID %"PRIu64" found on local database for OE %"PRIu64" found also in ACVP server database\n",
 		       def_dep->acvp_dep_id, def_oe->acvp_oe_id);
 	}
 
@@ -1431,7 +1431,7 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 		return 0;
 
 	logger_status(LOGGER_C_ANY,
-		      "Validating operational environment reference %u\n",
+		      "Validating operational environment reference %"PRIu64"\n",
 		      def_oe->acvp_oe_id);
 
 	CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));

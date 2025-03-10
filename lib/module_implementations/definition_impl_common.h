@@ -1,6 +1,6 @@
 /* ACVP Proxy common cipher definitions
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -1847,15 +1847,15 @@ static const struct def_algo_prereqs generic_eddsa_prereqs[] = {
 /**
  * @brief ML-KEM Key Generation
  *
- * @param param_set One or more ML-KEM parameter sets combined with an OR
+ * @param param_sets One or more ML-KEM parameter sets combined with an OR
  */
-#define GENERIC_ML_KEM_KEYGEN(parm_set)					\
+#define GENERIC_ML_KEM_KEYGEN(param_sets)				\
 	{								\
 	.type = DEF_ALG_TYPE_ML_KEM,					\
 	.algo = {							\
 		.ml_kem = {						\
 			.ml_kem_mode = DEF_ALG_ML_KEM_MODE_KEYGEN,	\
-			.parameter_set = parm_set,			\
+			.parameter_set = param_sets,			\
 			}						\
 		}							\
 	}
@@ -1863,15 +1863,15 @@ static const struct def_algo_prereqs generic_eddsa_prereqs[] = {
 /**
  * @brief ML-KEM Encapsulation
  *
- * @param param_set One or more ML-KEM parameter sets combined with an OR
+ * @param param_sets One or more ML-KEM parameter sets combined with an OR
  */
-#define GENERIC_ML_KEM_ENCAPSULATION(parm_set)				\
+#define GENERIC_ML_KEM_ENCAPSULATION(param_sets)			\
 	{								\
 	.type = DEF_ALG_TYPE_ML_KEM,					\
 	.algo = {							\
 		.ml_kem = {						\
 			.ml_kem_mode = DEF_ALG_ML_KEM_MODE_ENCAPSULATION,\
-			.parameter_set = parm_set,			\
+			.parameter_set = param_sets,			\
 			}						\
 		}							\
 	}
@@ -1879,15 +1879,15 @@ static const struct def_algo_prereqs generic_eddsa_prereqs[] = {
 /**
  * @brief ML-KEM Decapsulation
  *
- * @param param_set One or more ML-KEM parameter sets combined with an OR
+ * @param param_sets One or more ML-KEM parameter sets combined with an OR
  */
-#define GENERIC_ML_KEM_DECAPSULATION(parm_set)				\
+#define GENERIC_ML_KEM_DECAPSULATION(param_sets)			\
 	{								\
 	.type = DEF_ALG_TYPE_ML_KEM,					\
 	.algo = {							\
 		.ml_kem = {						\
 			.ml_kem_mode = DEF_ALG_ML_KEM_MODE_DECAPSULATION,\
-			.parameter_set = parm_set,			\
+			.parameter_set = param_sets,			\
 			}						\
 		}							\
 	}
@@ -1895,16 +1895,16 @@ static const struct def_algo_prereqs generic_eddsa_prereqs[] = {
 /**
  * @brief ML-KEM Encapsulation and Decapsulation
  *
- * @param param_set One or more ML-KEM parameter sets combined with an OR
+ * @param param_sets One or more ML-KEM parameter sets combined with an OR
  */
-#define GENERIC_ML_KEM_ENCAPDECAP(parm_set)				\
+#define GENERIC_ML_KEM_ENCAPDECAP(param_sets)				\
 	{								\
 	.type = DEF_ALG_TYPE_ML_KEM,					\
 	.algo = {							\
 		.ml_kem = {						\
 			.ml_kem_mode = DEF_ALG_ML_KEM_MODE_ENCAPSULATION |\
 				       DEF_ALG_ML_KEM_MODE_DECAPSULATION,\
-			.parameter_set = parm_set,			\
+			.parameter_set = param_sets,			\
 			}						\
 		}							\
 	}

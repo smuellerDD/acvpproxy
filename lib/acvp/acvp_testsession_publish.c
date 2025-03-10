@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for publishing test results
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -40,7 +40,7 @@ int acvp_get_testid_metadata(const struct acvp_testid_ctx *testid_ctx,
 
 	if (!response_buf->buf || !response_buf->len) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "ACVP server did not provide meta data for testSession ID %u\n",
+		       "ACVP server did not provide meta data for testSession ID %"PRIu64"\n",
 		       testid_ctx->testid);
 		ret = -EINVAL;
 		goto out;
@@ -59,7 +59,7 @@ out:
 }
 
 static int acvp_publish_write_id(const struct acvp_testid_ctx *testid_ctx,
-				 const uint32_t validation_id, bool write_zero)
+				 const uint64_t validation_id, bool write_zero)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
@@ -74,7 +74,7 @@ static int acvp_publish_write_id(const struct acvp_testid_ctx *testid_ctx,
 	if (req_details->dump_register)
 		return 0;
 
-	snprintf(msgid, sizeof(msgid), "%u", validation_id);
+	snprintf(msgid, sizeof(msgid), "%"PRIu64, validation_id);
 	tmp.buf = (uint8_t *)msgid;
 	tmp.len = (uint32_t)strlen(msgid);
 	CKINT(ds->acvp_datastore_write_testid(
@@ -86,7 +86,7 @@ out:
 
 /* GET /validations/<certificateId> */
 static int acvp_get_certificate_info(const struct acvp_testid_ctx *testid_ctx,
-				     const uint32_t certificate_id)
+				     const uint64_t certificate_id)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
@@ -102,7 +102,7 @@ static int acvp_get_certificate_info(const struct acvp_testid_ctx *testid_ctx,
 		return -EINVAL;
 
 	CKINT(acvp_create_url(NIST_VAL_OP_VALIDATIONS, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u", certificate_id));
+	CKINT(acvp_extend_string(url, sizeof(url), "/%"PRIu64, certificate_id));
 	CKINT(acvp_net_op(testid_ctx, url, NULL, &response, acvp_http_get));
 	CKINT(acvp_store_file(testid_ctx, &response, 1,
 			      datastore->testsession_certificate_info));
@@ -120,7 +120,7 @@ out:
 static int acvp_publish_request(const struct acvp_testid_ctx *testid_ctx,
 				struct json_object *publish)
 {
-	uint32_t certificate_id = 0;
+	uint64_t certificate_id = 0;
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
 
@@ -164,7 +164,7 @@ static int acvp_publish_ready(const struct acvp_testid_ctx *testid_ctx)
 	CKINT(json_get_bool(entry, "passed", &val));
 	if (!val) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "ACVP server reports that not all vectors for testID %u passed - rejecting to publish\n",
+		       "ACVP server reports that not all vectors for testID %"PRIu64" passed - rejecting to publish\n",
 		       testid_ctx->testid);
 		ret = -EBADMSG;
 		goto out;
@@ -174,7 +174,7 @@ static int acvp_publish_ready(const struct acvp_testid_ctx *testid_ctx)
 	CKINT(json_get_bool(entry, "publishable", &val));
 	if (!val) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "ACVP server reports that testID %u is not publishable - rejecting to publish\n",
+		       "ACVP server reports that testID %"PRIu64" is not publishable - rejecting to publish\n",
 		       testid_ctx->testid);
 		ret = -EBADMSG;
 		goto out;
@@ -398,7 +398,7 @@ static int acvp_publish_build(const struct acvp_testid_ctx *testid_ctx,
 
 	if (!def_info->acvp_module_id) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "No module or OE ID for test ID %u (%s) found\n",
+		       "No module or OE ID for test ID %"PRIu64" (%s) found\n",
 		       testid_ctx->testid, def_info->module_name);
 		return -EINVAL;
 	}
@@ -513,7 +513,7 @@ static int acvp_test_add_deps(struct acvp_testid_ctx *testid_ctx)
 	const struct def_deps *def_deps;
 	struct acvp_test_deps *test_deps;
 	struct acvp_testid_ctx tmp_testid_ctx;
-	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
+	uint64_t testids[ACVP_REQ_MAX_FAILED_TESTID];
 	unsigned int i, testid_count = ACVP_REQ_MAX_FAILED_TESTID;
 	int ret = 0;
 
@@ -646,7 +646,7 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 	CKNULL_LOG(testid_ctx, -EINVAL,
 		   "ACVP volatile request context missing\n");
 
-	logger_status(LOGGER_C_ANY, "Publishing testID %u\n",
+	logger_status(LOGGER_C_ANY, "Publishing testID %"PRIu64"\n",
 		      testid_ctx->testid);
 
 	CKINT(acvp_init_auth(testid_ctx));
@@ -674,13 +674,13 @@ static int acvp_publish_testid(struct acvp_testid_ctx *testid_ctx)
 	if (!req_details->dump_register && !ctx_opts->delete_db_entry &&
 	    !ctx_opts->update_db_entry && auth->testsession_certificate_id) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Test session certificate ID %u %s obtained\n",
+		       "Test session certificate ID %"PRIu64" %s obtained\n",
 		       auth->testsession_certificate_id,
 		       acvp_valid_id(auth->testsession_certificate_id) ?
 				     "successfully" :
 				     "not yet");
 		logger_status(LOGGER_C_ANY,
-			      "Test session certificate ID %u %s obtained\n",
+			      "Test session certificate ID %"PRIu64" %s obtained\n",
 			      auth->testsession_certificate_id,
 			      acvp_valid_id(auth->testsession_certificate_id) ?
 					    "successfully" :
@@ -731,7 +731,7 @@ out:
 }
 
 static int _acvp_publish(const struct acvp_ctx *ctx,
-			 const struct definition *def, const uint32_t testid)
+			 const struct definition *def, const uint64_t testid)
 {
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	int ret;

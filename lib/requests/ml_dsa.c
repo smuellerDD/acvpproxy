@@ -1,6 +1,6 @@
 /* JSON request generator for ML-DSA
  *
- * Copyright (C) 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2024 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -184,33 +184,47 @@ static int acvp_req_ml_dsa_sig_interface(
 			json_object_new_string("internal")));
 	}
 
-	array = json_object_new_array();
-	CKNULL(array, -ENOMEM);
-	CKINT(json_object_object_add(entry, "externalMu",
-					array));
-	if (ml_dsa->interface & DEF_ALG_ML_DSA_INTERFACE_EXTERNALMU) {
-		CKINT(json_object_array_add(array,
-					    json_object_new_boolean(true)));
-	} else {
-		CKINT(json_object_array_add(array,
-					    json_object_new_boolean(false)));
+	if (ml_dsa->interface & DEF_ALG_ML_DSA_INTERFACE_INTERNAL) {
+		array = json_object_new_array();
+		CKNULL(array, -ENOMEM);
+		CKINT(json_object_object_add(entry, "externalMu", array));
+		if (ml_dsa->external_mu == 0) {
+			/* If nothing was specified, we assume not supported */
+			CKINT(json_object_array_add(
+				    array,
+				    json_object_new_boolean(false)));
+		}
+		if (ml_dsa->external_mu & DEF_ALG_ML_DSA_INTERNAL_MU) {
+			CKINT(json_object_array_add(
+				    array,
+				    json_object_new_boolean(false)));
+		}
+		if (ml_dsa->external_mu & DEF_ALG_ML_DSA_EXTERNAL_MU) {
+			CKINT(json_object_array_add(
+				    array,
+				    json_object_new_boolean(true)));
+		}
 	}
 
-	array = json_object_new_array();
-	CKNULL(array, -ENOMEM);
-	CKINT(json_object_object_add(entry, "preHash", array));
-	for (i = 0; i < ml_dsa->capabilities_num; i++) {
-		const struct def_algo_ml_dsa_caps *caps =
+	if (ml_dsa->interface & DEF_ALG_ML_DSA_INTERFACE_EXTERNAL) {
+		array = json_object_new_array();
+		CKNULL(array, -ENOMEM);
+		CKINT(json_object_object_add(entry, "preHash", array));
+		for (i = 0; i < ml_dsa->capabilities_num; i++) {
+			const struct def_algo_ml_dsa_caps *caps =
 						ml_dsa->capabilities.siggen + i;
 
-		if (caps->hashalg && !prehash_found) {
-			CKINT(json_object_array_add(
-				array, json_object_new_string("preHash")));
-			prehash_found = true;
-		} else if (!caps->hashalg && !pure_found) {
-			CKINT(json_object_array_add(
-				array, json_object_new_string("pure")));
-			pure_found = true;
+			if (caps->hashalg && !prehash_found) {
+				CKINT(json_object_array_add(
+					    array,
+					    json_object_new_string("preHash")));
+				prehash_found = true;
+			} else if (!caps->hashalg && !pure_found) {
+				CKINT(json_object_array_add(
+					    array,
+					    json_object_new_string("pure")));
+				pure_found = true;
+			}
 		}
 	}
 

@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the person information
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -173,7 +173,7 @@ out:
 }
 
 static bool acvp_list_match(const struct def_list *list, const char *str,
-			    uint32_t id)
+			    uint64_t id)
 {
 	bool ret = false;
 
@@ -192,7 +192,7 @@ static int acvp_person_match(struct def_person *def_person,
 			     struct json_object *json_vendor)
 {
 	struct json_object *tmp;
-	uint32_t organizationurl_id, person_id;
+	uint64_t organizationurl_id, person_id;
 	unsigned int i;
 	int ret, ret2;
 	const char *personurl = NULL, *name = NULL, *organizationurl = NULL;
@@ -213,7 +213,7 @@ static int acvp_person_match(struct def_person *def_person,
 	if (!def_person->contact_name_i ||
 	    organizationurl_id != def_person->acvp_vendor_id) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Contact name mismatch for contact ID %u (expected: %s, found: %s, vendor ID %u)\n",
+		       "Contact name mismatch for contact ID %"PRIu64" (expected: %s, found: %s, vendor ID %"PRIu64")\n",
 		       person_id, def_person->contact_name, name,
 		       def_person->acvp_vendor_id);
 		ret2 = -ENOENT;
@@ -235,7 +235,7 @@ static int acvp_person_match(struct def_person *def_person,
 
 	if (!found) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Person email address not found for person ID %u\n",
+		       "Person email address not found for person ID %"PRIu64"\n",
 		       def_person->acvp_person_id);
 		ret2 |= -ENOENT;
 	}
@@ -249,7 +249,7 @@ static int acvp_person_match(struct def_person *def_person,
 			goto found;
 		} else {
 			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-			       "Person phone number not found for person ID %u\n",
+			       "Person phone number not found for person ID %"PRIu64"\n",
 			       def_person->acvp_person_id);
 			ret2 |= -ENOENT;
 		}
@@ -276,7 +276,7 @@ static int acvp_person_match(struct def_person *def_person,
 
 	if (!found) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Person phone number not found for person ID %u\n",
+		       "Person phone number not found for person ID %"PRIu64"\n",
 		       def_person->acvp_person_id);
 		ret2 = -ENOENT;
 	}
@@ -386,7 +386,7 @@ static int acvp_person_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	char url[ACVP_NET_URL_MAXLEN];
 	bool asked = false;
 
-	logger_status(LOGGER_C_ANY, "Validating person reference %u\n",
+	logger_status(LOGGER_C_ANY, "Validating person reference %"PRIu64"\n",
 		      def_person->acvp_person_id);
 
 	ret = acvp_person_get_match(testid_ctx, def_person, &resp,

@@ -1,6 +1,6 @@
 /* List all pending request IDs
  *
- * Copyright (C) 2019 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -38,11 +38,11 @@ enum acvp_list_types {
 };
 
 struct acvp_list_types_entry {
-	uint32_t id;
+	uint64_t id;
 	const char *module_name;
 	const char *proc;
 	enum acvp_list_types type;
-	uint32_t testid;
+	uint64_t testid;
 	struct acvp_list_types_entry *next;
 };
 
@@ -78,18 +78,18 @@ static const char *acvp_type_to_name(const enum acvp_list_types type)
 	}
 }
 
-static void acvp_list_id(const uint32_t id, const char *module_name,
+static void acvp_list_id(const uint64_t id, const char *module_name,
 			 const char *proc, const enum acvp_list_types type,
-			 const uint32_t testid)
+			 const uint64_t testid)
 {
 	if (id == 0) {
 		if (logger_get_verbosity(LOGGER_C_ANY) >= LOGGER_DEBUG)
 			fprintf(stdout,
-				"%-57s - %-10s | %-8u | %-15s | no ID\n",
+				"%-57s - %-10s | %-8"PRIu64" | %-15s | no ID\n",
 				module_name, proc, testid,
 				acvp_type_to_name(type));
 	} else {
-		fprintf(stdout, "%-57s - %-10s | %-8u | %-15s | %-8u\n",
+		fprintf(stdout, "%-57s - %-10s | %-8"PRIu64" | %-15s | %-8"PRIu64"\n",
 			module_name, proc, testid, acvp_type_to_name(type),
 			acvp_id(id));
 	}
@@ -98,10 +98,10 @@ static void acvp_list_id(const uint32_t id, const char *module_name,
 /*
  * Sort the data before releasing it
  */
-static void acvp_list_add_sort(const uint32_t id, const char *module_name,
+static void acvp_list_add_sort(const uint64_t id, const char *module_name,
 			       const char *proc,
 			       const enum acvp_list_types type,
-			       const uint32_t testid)
+			       const uint64_t testid)
 {
 	struct acvp_list_types_entry *entry, *curr, *prev;
 
@@ -167,10 +167,10 @@ static void acvp_list_print_sort(void)
 	mutex_unlock(&acvp_list_types_mutex);
 }
 
-static void acvp_list_request_id(const uint32_t id, const char *module_name,
+static void acvp_list_request_id(const uint64_t id, const char *module_name,
 				 const char *proc,
 				 const enum acvp_list_types type,
-				 const uint32_t testid)
+				 const uint64_t testid)
 {
 	if (acvp_valid_id(id))
 		return;
@@ -178,14 +178,14 @@ static void acvp_list_request_id(const uint32_t id, const char *module_name,
 	acvp_list_add_sort(id, module_name, proc, type, testid);
 }
 
-static void acvp_list_request_id_sparse(const uint32_t id,
+static void acvp_list_request_id_sparse(const uint64_t id,
 					const char *module_name,
 					const char *proc,
 					const enum acvp_list_types type,
-					const uint32_t testid)
+					const uint64_t testid)
 {
 #define ACVP_LIST_REQUEST_IDS_MAX 2048
-	static uint32_t seen_ids[ACVP_LIST_REQUEST_IDS_MAX] = { 0 };
+	static uint64_t seen_ids[ACVP_LIST_REQUEST_IDS_MAX] = { 0 };
 	static DEFINE_MUTEX_UNLOCKED(seen_ids_mutex);
 	unsigned int i;
 	bool seen = false;
@@ -222,10 +222,10 @@ static void acvp_list_request_id_sparse(const uint32_t id,
 		acvp_list_add_sort(id, "N/A", "N/A", type, 0);
 }
 
-static void acvp_list_avail_id(const uint32_t id, const char *module_name,
+static void acvp_list_avail_id(const uint64_t id, const char *module_name,
 			       const char *proc,
 			       const enum acvp_list_types type,
-			       const uint32_t testid)
+			       const uint64_t testid)
 {
 	if (!acvp_valid_id(id))
 		return;
@@ -235,10 +235,10 @@ static void acvp_list_avail_id(const uint32_t id, const char *module_name,
 
 static int acvp_list_certificate_id(
 	const struct acvp_ctx *ctx, const struct definition *def,
-	const uint32_t testid,
-	void (*list_func)(const uint32_t id, const char *module_name,
+	const uint64_t testid,
+	void (*list_func)(const uint64_t id, const char *module_name,
 			  const char *proc, const enum acvp_list_types type,
-			  const uint32_t testid))
+			  const uint64_t testid))
 {
 	const struct def_info *def_info;
 	const struct def_oe *def_oe;
@@ -279,12 +279,12 @@ out:
 }
 
 static int acvp_list_ids_cb(const struct acvp_ctx *ctx,
-			    const struct definition *def, const uint32_t testid,
-			    void (*list_func)(const uint32_t id,
+			    const struct definition *def, const uint64_t testid,
+			    void (*list_func)(const uint64_t id,
 					      const char *module_name,
 					      const char *proc,
 					      const enum acvp_list_types type,
-					      const uint32_t testid))
+					      const uint64_t testid))
 {
 	struct def_info *def_info;
 	struct def_vendor *def_vendor;
@@ -360,7 +360,7 @@ out:
 
 static int acvp_list_avaiable_id_cb(const struct acvp_ctx *ctx,
 				    const struct definition *def,
-				    const uint32_t testid)
+				    const uint64_t testid)
 {
 	return acvp_list_ids_cb(ctx, def, testid, &acvp_list_avail_id);
 }
@@ -376,7 +376,7 @@ int acvp_list_available_ids(const struct acvp_ctx *ctx)
 
 static int acvp_list_requests_cb(const struct acvp_ctx *ctx,
 				 const struct definition *def,
-				 const uint32_t testid)
+				 const uint64_t testid)
 {
 	return acvp_list_ids_cb(ctx, def, testid, &acvp_list_request_id);
 }
@@ -398,7 +398,7 @@ out:
 
 static int acvp_list_requests_sparse_cb(const struct acvp_ctx *ctx,
 					const struct definition *def,
-					const uint32_t testid)
+					const uint64_t testid)
 {
 	return acvp_list_ids_cb(ctx, def, testid, &acvp_list_request_id_sparse);
 }

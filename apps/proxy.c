@@ -1,6 +1,6 @@
 /* ACVP Proxy application
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -66,8 +66,8 @@ struct opt_data {
 	size_t cipher_options_algo_idx;
 	bool cipher_list;
 
-	uint32_t amvp_modulereqid;
-	uint32_t amvp_moduleid;
+	uint64_t amvp_modulereqid;
+	uint64_t amvp_moduleid;
 
 	bool rename;
 	bool request;
@@ -545,8 +545,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 	struct opt_cred *cred = &opts->cred;
 	int c = 0, ret;
 	char version[200] = { 0 };
-	unsigned long val = 0;
-	long lval;
+	unsigned long long val = 0;
+	long long lval;
 	unsigned int dolist = 0, listunregistered = 0, modconf_loaded = 0;
 	bool logger_force_threading = false;
 
@@ -680,7 +680,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				ret = logger_set_class((uint32_t)lval);
 				if (ret) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
-					       "Failed to set logger class %lu\n",
+					       "Failed to set logger class %llu\n",
 					       val);
 					goto out;
 				}
@@ -789,8 +789,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					ret = -EINVAL;
 					goto out;
 				}
-				lval = strtol(optarg, NULL, 10);
-				if (lval == UINT_MAX || lval < -2) {
+				lval = strtoll(optarg, NULL, 10);
+				if (lval == LLONG_MAX || lval < -2) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "vsID too big\n");
 					usage();
@@ -801,7 +801,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				if (lval == -1)
 					search->submit_vsid
 						[search->nr_submit_vsid++] =
-						UINT_MAX;
+						UINT64_MAX;
 				else
 					search->submit_vsid
 						[search->nr_submit_vsid++] =
@@ -816,8 +816,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					ret = -EINVAL;
 					goto out;
 				}
-				val = strtoul(optarg, NULL, 10);
-				if (val == UINT_MAX) {
+				val = strtoull(optarg, NULL, 10);
+				if (val == UINT64_MAX) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "testID too big\n");
 					usage();
@@ -1153,8 +1153,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 
 			case 71:
 				/* modulereqid */
-				lval = strtol(optarg, NULL, 10);
-				if (lval == UINT32_MAX || lval <= 0) {
+				lval = strtoll(optarg, NULL, 10);
+				if (lval == LLONG_MAX || lval <= 0) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "undefined purchase option\n");
 					usage();
@@ -1162,13 +1162,13 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					goto out;
 				}
 
-				opts->amvp_modulereqid = (uint32_t)lval;
+				opts->amvp_modulereqid = (uint64_t)lval;
 				break;
 
 			case 72:
 				/* moduleid */
-				lval = strtol(optarg, NULL, 10);
-				if (lval == UINT32_MAX || lval <= 0) {
+				lval = strtoll(optarg, NULL, 10);
+				if (lval == LLONG_MAX || lval <= 0) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "undefined purchase option\n");
 					usage();
@@ -1176,7 +1176,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					goto out;
 				}
 
-				opts->amvp_moduleid = (uint32_t)lval;
+				opts->amvp_moduleid = (uint64_t)lval;
 				break;
 			case 73:
 				/* fetch-status */
@@ -1416,7 +1416,7 @@ out:
 static int do_register(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
-	uint32_t testid;
+	uint64_t testid;
 	int ret, idx = 0;
 	bool printed = false;
 
@@ -1459,7 +1459,7 @@ static int do_register(struct opt_data *opts)
 			printf("--request ");
 			printed = true;
 		}
-		printf("--testid %u ", testid);
+		printf("--testid %"PRIu64" ", testid);
 	}
 
 	if (printed)
@@ -1476,7 +1476,7 @@ out:
 static int do_submit(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
-	uint32_t vsid;
+	uint64_t vsid;
 	int ret, ret2, idx = 0;
 	bool printed = false;
 
@@ -1962,7 +1962,7 @@ out:
 static int amvp_do_submit(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
-	uint32_t vsid;
+	uint64_t vsid;
 	int ret, ret2, idx = 0;
 	bool printed = false;
 

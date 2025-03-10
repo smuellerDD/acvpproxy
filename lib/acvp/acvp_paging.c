@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for paged requests
  *
- * Copyright (C) 2019 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

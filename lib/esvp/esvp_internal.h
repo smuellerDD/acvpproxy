@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -50,7 +50,7 @@ int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
 int esvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
 			 const struct acvp_ctx *ctx,
 			 const struct definition *def,
-			 const uint32_t testid);
+			 const uint64_t testid);
 
 /**
  * Start certification operation

@@ -1,6 +1,6 @@
 /* Loading of the ESVP dependency configurations
  *
- * Copyright (C) 2021 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -307,7 +307,7 @@ static int esvp_read_es_def(const char *directory, struct esvp_es_def **es_out)
 	 * Entropy Source ID is set by us, may not exist before -
 	 * we do not check return code.
 	 */
-	json_get_uint(es_conf, ACVP_DEF_PRODUCTION_ID("esId"), &es->es_id);
+	json_get_uint64(es_conf, ACVP_DEF_PRODUCTION_ID("esId"), &es->es_id);
 
 	CKINT(acvp_duplicate(&es->config_dir, directory));
 

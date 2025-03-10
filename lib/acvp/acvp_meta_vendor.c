@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for managing the vendor information
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -124,7 +124,7 @@ static int acvp_vendor_build(const struct def_vendor *def_vendor,
 			CKINT(acvp_get_net(&net));
 			proto = net->proto;
 
-			snprintf(url, sizeof(url), "/%s/%s/%u/%s/%u",
+			snprintf(url, sizeof(url), "/%s/%s/%"PRIu64"/%s/%"PRIu64,
 				 proto->url_base,
 				 NIST_VAL_OP_VENDOR, def_vendor->acvp_vendor_id,
 				 NIST_VAL_OP_ADDRESSES,
@@ -160,7 +160,7 @@ static int acvp_vendor_match(struct def_vendor *def_vendor,
 			     struct json_object *json_vendor)
 {
 	struct json_object *tmp;
-	uint32_t vendor_id;
+	uint64_t vendor_id;
 	unsigned int i;
 	int ret, ret2;
 	const char *str, *vendorurl;
@@ -186,7 +186,7 @@ static int acvp_vendor_match(struct def_vendor *def_vendor,
 	CKINT(json_find_key(json_vendor, "addresses", &tmp, json_type_array));
 	for (i = 0; i < json_object_array_length(tmp); i++) {
 		struct json_object *contact = json_object_array_get_idx(tmp, i);
-		uint32_t id;
+		uint64_t id;
 		const char *postalcode, *addr_street, *addr_locality,
 			   *addr_region, *addr_country;
 
@@ -232,7 +232,7 @@ static int acvp_vendor_match(struct def_vendor *def_vendor,
 
 	if (!found) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Vendor address not found for vendor ID %u\n",
+		       "Vendor address not found for vendor ID %"PRIu64"\n",
 		       vendor_id);
 		ret2 |= -ENOENT;
 	}
@@ -347,7 +347,7 @@ static int acvp_vendor_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	char url[ACVP_NET_URL_MAXLEN];
 	bool asked = false;
 
-	logger_status(LOGGER_C_ANY, "Validating vendor reference %u\n",
+	logger_status(LOGGER_C_ANY, "Validating vendor reference %"PRIu64"\n",
 		      def_vendor->acvp_vendor_id);
 
 	ret = acvp_vendor_get_match(testid_ctx, def_vendor, &resp, &found_data);

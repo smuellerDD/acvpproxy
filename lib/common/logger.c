@@ -1,6 +1,6 @@
 /* Logging support
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -325,6 +325,7 @@ int logger_set_file(const char *pathname)
 	if (!logger_stream || logger_stream == stderr)
 		logger_stream = out;
 	else {
+		fclose(out);
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "Reject to set new log file\n");
 		return -EFAULT;

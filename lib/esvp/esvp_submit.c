@@ -1,6 +1,6 @@
 /* Registering of entropy source and submit of data
  *
- * Copyright (C) 2021 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -1172,7 +1172,7 @@ static int esvp_register_op(struct acvp_testid_ctx *testid_ctx)
 	CKINT(esvp_process_req(testid_ctx, request, &response_buf));
 
 	logger_status(LOGGER_C_ANY,
-		      "Check at a later time with esvp-proxy --testid %u for status updates\n",
+		      "Check at a later time with esvp-proxy --testid %"PRIu64" for status updates\n",
 		      testid_ctx->testid);
 
 out:
@@ -1218,7 +1218,7 @@ out:
 int esvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
 			 const struct acvp_ctx *ctx,
 			 const struct definition *def,
-			 const uint32_t testid)
+			 const uint64_t testid)
 {
 	int ret;
 
@@ -1236,7 +1236,7 @@ out:
 }
 
 static int esvp_process_one_es(const struct acvp_ctx *ctx,
-			       const struct definition *def, uint32_t testid)
+			       const struct definition *def, uint64_t testid)
 {
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	int ret;
@@ -1342,7 +1342,7 @@ acvp_process_testids_esvp(const struct acvp_ctx *ctx,
 	const struct definition *def;
 	struct definition *tmp_def;
 	struct acvp_testid_ctx *testid_ctx = NULL;
-	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
+	uint64_t testids[ACVP_REQ_MAX_FAILED_TESTID];
 	int ret = 0;
 
 	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");

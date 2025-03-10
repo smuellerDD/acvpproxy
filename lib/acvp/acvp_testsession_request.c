@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for requesting test vectors
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -177,16 +177,16 @@ void acvp_release_vsid_ctx(struct acvp_vsid_ctx *vsid_ctx)
 /*****************************************************************************
  * Track testIDs which failed to download completely
  *****************************************************************************/
-static uint32_t acvp_req_failed_testid[ACVP_REQ_MAX_FAILED_TESTID];
+static uint64_t acvp_req_failed_testid[ACVP_REQ_MAX_FAILED_TESTID];
 static atomic_t acvp_req_failed_testid_ptr = ATOMIC_INIT(-1);
 
-static void acvp_record_failed_testid(const uint32_t testid)
+static void acvp_record_failed_testid(const uint64_t testid)
 {
 	int idx = atomic_inc(&acvp_req_failed_testid_ptr);
 
 	if (idx < 0 || idx >= ACVP_REQ_MAX_FAILED_TESTID) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Cannot track failed testID %u\n", testid);
+		       "Cannot track failed testID %"PRIu64"\n", testid);
 		return;
 	}
 
@@ -194,7 +194,7 @@ static void acvp_record_failed_testid(const uint32_t testid)
 }
 
 DSO_PUBLIC
-int acvp_list_failed_testid(int *idx_ptr, uint32_t *testid)
+int acvp_list_failed_testid(int *idx_ptr, uint64_t *testid)
 {
 	int idx = atomic_read(&acvp_req_failed_testid_ptr);
 
@@ -473,13 +473,13 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 		if (vsid_ctx->vsid) {
 			logger_status(
 				LOGGER_C_ANY,
-				"(Re)Try testID %u / vsID %u (%u / %u done)\n",
+				"(Re)Try testID %" PRIu64 " / vsID %" PRIu64 " (%u / %u done)\n",
 				testid_ctx->testid, vsid_ctx->vsid,
 				atomic_read(&glob_vsids_processed),
 				atomic_read(&glob_vsids_to_process));
 		} else {
 			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-			       "(Re)Try testID %u\n", testid_ctx->testid);
+			       "(Re)Try testID %"PRIu64"\n", testid_ctx->testid);
 		}
 
 		ret2 = acvp_net_op(testid_ctx, url, NULL, result_data,
@@ -513,11 +513,11 @@ int acvp_process_retry(const struct acvp_vsid_ctx *vsid_ctx,
 
 		if (vsid_ctx->vsid) {
 			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-			       "ACVP server requested retry - sleeping for %u seconds for vsID %u again\n",
+			       "ACVP server requested retry - sleeping for %u seconds for vsID %"PRIu64" again\n",
 			       sleep_time, vsid_ctx->vsid);
 		} else {
 			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-			       "ACVP server requested retry - sleeping for %u seconds for testID %u again\n",
+			       "ACVP server requested retry - sleeping for %u seconds for testID %"PRIu64" again\n",
 			       sleep_time, testid_ctx->testid);
 		}
 
@@ -530,11 +530,11 @@ out:
 		if (ret == -EINTR || ret == -ESHUTDOWN) {
 			logger_status(
 				LOGGER_C_ANY,
-				"Interrupted processing testID %u with vsID %u (%d)\n",
+				"Interrupted processing testID %"PRIu64" with vsID %"PRIu64" (%d)\n",
 				testid_ctx->testid, vsid_ctx->vsid, ret);
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "Failure in processing testID %u with vsID %u (%d) for module %s (%s)\n",
+			       "Failure in processing testID %"PRIu64" with vsID %"PRIu64" (%d) for module %s (%s)\n",
 			       testid_ctx->testid, vsid_ctx->vsid, ret,
 			       (info && info->module_name) ? info->module_name :
 								   "<undefined>",
@@ -656,7 +656,7 @@ int acvp_get_testvectors(const struct acvp_vsid_ctx *vsid_ctx)
 	atomic_inc(&glob_vsids_processed);
 
 	logger_status(LOGGER_C_ANY,
-		      "Tests obtained for testID %u / vsID %u (%u / %u done)\n",
+		      "Tests obtained for testID %"PRIu64" / vsID %"PRIu64" (%u / %u done)\n",
 		      testid_ctx->testid, vsid_ctx->vsid,
 		      atomic_read(&glob_vsids_processed),
 		      atomic_read(&glob_vsids_to_process));
@@ -693,7 +693,7 @@ static int acvp_process_req_thread(void *arg)
 
 struct acvp_vsid_array {
 	uint32_t entries;
-	uint32_t *vsids;
+	uint64_t *vsids;
 	const char **urls;
 };
 
@@ -711,7 +711,7 @@ static int acvp_get_vsid_array(const struct json_object *response,
 			    json_type_array));
 
 	array->entries = (uint32_t)json_object_array_length(vectorsets);
-	array->vsids = calloc(1, sizeof(uint32_t) * array->entries);
+	array->vsids = calloc(1, sizeof(uint64_t) * array->entries);
 	CKNULL(array->vsids, -ENOMEM);
 
 	array->urls = calloc(1, sizeof(char *) * array->entries);
@@ -733,7 +733,7 @@ static int acvp_get_vsid_array(const struct json_object *response,
 					       &(array->vsids[i])));
 
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Received vsID URL %s (parsed vsID: %u)\n",
+		       "Received vsID URL %s (parsed vsID: %"PRIu64")\n",
 		       array->urls[i], array->vsids[i]);
 	}
 
@@ -797,7 +797,7 @@ static int acvp_process_vectors(const struct acvp_testid_ctx *testid_ctx,
 	 * only without obtaining the test vectors themselves.
 	 */
 	if (opts->register_only) {
-		logger_status(LOGGER_C_ANY, "Test session %u registered\n",
+		logger_status(LOGGER_C_ANY, "Test session %"PRIu64" registered\n",
 			      testid_ctx->testid);
 		goto out;
 	}
@@ -817,7 +817,7 @@ static int acvp_process_vectors(const struct acvp_testid_ctx *testid_ctx,
 		}
 
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Fetching data for vsID %u\n", vsid_ctx->vsid);
+		       "Fetching data for vsID %"PRIu64"\n", vsid_ctx->vsid);
 
 #ifdef ACVP_USE_PTHREAD
 		/* Disable threading in DEBUG mode */
@@ -922,7 +922,7 @@ int acvp_get_testid(struct acvp_testid_ctx *testid_ctx,
 	CKINT_LOG(acvp_get_trailing_number(str, &testid_ctx->testid),
 		  "Failure to obtain test ID from %s\n", str);
 
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Received testID: %u\n",
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Received testID: %"PRIu64"\n",
 	       testid_ctx->testid);
 
 	thread_set_name(acvp_testid, testid_ctx->testid);
@@ -1096,7 +1096,7 @@ out:
 
 	if (ret && testid_ctx)
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Failure to request testID %u - module %s (%s)\n",
+		       "Failure to request testID %"PRIu64" - module %s (%s)\n",
 		       testid_ctx->testid, info->module_name, info->impl_name);
 
 	acvp_release_auth(testid_ctx);
@@ -1132,7 +1132,7 @@ void acvp_record_testid_duration(const struct acvp_testid_ctx *testid_ctx,
 }
 
 static int _acvp_register(const struct acvp_ctx *ctx,
-			  const struct definition *def, uint32_t testid)
+			  const struct definition *def, uint64_t testid)
 {
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
@@ -1156,7 +1156,7 @@ out:
 	if (atomic_read(&testid_ctx->vsids_processed) <
 	    atomic_read(&testid_ctx->vsids_to_process)) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Not all test vectors obtained for testID %u (%u missing) - use options --testid %u --request to retry fetching them\n",
+		       "Not all test vectors obtained for testID %"PRIu64" (%u missing) - use options --testid %"PRIu64" --request to retry fetching them\n",
 		       testid_ctx->testid,
 		       atomic_read(&testid_ctx->vsids_to_process) -
 			       atomic_read(&testid_ctx->vsids_processed),
@@ -1165,7 +1165,7 @@ out:
 		acvp_record_failed_testid(testid_ctx->testid);
 	} else {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "All vsIDs processed for testID %u\n",
+		       "All vsIDs processed for testID %"PRIu64"\n",
 		       testid_ctx->testid);
 	}
 
@@ -1187,7 +1187,7 @@ static int acvp_register_thread(void *arg)
 	const struct acvp_ctx *ctx = tdata->ctx;
 	const struct definition *def = tdata->def;
 	int (*cb)(const struct acvp_ctx *ctx, const struct definition *def,
-		  const uint32_t testid) = tdata->cb;
+		  const uint64_t testid) = tdata->cb;
 
 	free(tdata);
 
@@ -1199,7 +1199,7 @@ static int acvp_register_thread(void *arg)
 
 int acvp_register_cb(const struct acvp_ctx *ctx,
 		     int (*cb)(const struct acvp_ctx *ctx,
-			       const struct definition *def, uint32_t testid))
+			       const struct definition *def, uint64_t testid))
 {
 	const struct acvp_datastore_ctx *datastore;
 	const struct acvp_search_ctx *search;

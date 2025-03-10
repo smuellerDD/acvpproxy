@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -78,12 +78,19 @@ struct def_algo_cond_comp {
 
 	/*
 	 * Length of the input data to be processed by the conditioning
-	 * component. It allows a range between
-	 * 1 and 65536.
+	 * component. It allows a range between 1 and 65536.
 	 *
 	 * required: required
 	 */
 	int payload_len[DEF_ALG_MAX_INT];
+
+	/*
+	 * Length of the output data to be output from the conditioning
+	 * component. It allows a range between 1 and 65536.
+	 *
+	 * required: for ACVP_COND_COMP_BLOCK_DF
+	 */
+	int output_len[DEF_ALG_MAX_INT];
 };
 
 #ifdef __cplusplus

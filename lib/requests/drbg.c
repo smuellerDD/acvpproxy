@@ -1,6 +1,6 @@
 /* JSON request generator for SP800-90A DRBG
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -47,28 +47,28 @@ struct acvp_req_drbg_limits {
 const struct acvp_req_drbg_limits drbg_limits[] = {
 	// See https://github.com/usnistgov/ACVP/blob/master/src/drbg/sections/05-capabilities.adoc
 	{ ACVP_AES128, false,		{ 256, 256, 8 },	{ 0, 256, 8 },		{ 0, 256, 8 },		{ 0, 0, 8 }, },
-	{ ACVP_AES128, true,		{ 128, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 64, INT_MAX, 8 }, },
+	{ ACVP_AES128, true,		{ 128, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
 
 	{ ACVP_AES192, false,		{ 320, 320, 8 },	{ 0, 320, 8 },		{ 0, 320, 8 },		{ 0, 0, 8 }, },
-	{ ACVP_AES192, true,		{ 192, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 96, INT_MAX, 8 }, },
+	{ ACVP_AES192, true,		{ 192, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
 
 	{ ACVP_AES256, false,		{ 384, 384, 8 },	{ 0, 384, 8 },		{ 0, 384, 8 },		{ 0, 0, 8 }, },
-	{ ACVP_AES256, true,		{ 256, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 128, INT_MAX, 8 }, },
+	{ ACVP_AES256, true,		{ 256, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
 
 	{ ACVP_TDES, false,		{ 112, 232, 8 },	{ 0, 232, 8 },		{ 0, 232, 8 },		{ 0, 0, 8 }, },
-	{ ACVP_TDES, true,		{ 112, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 56, INT_MAX, 8 }, },
+	{ ACVP_TDES, true,		{ 112, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
 
-	{ ACVP_SHA1, false,		{ 128, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 64, INT_MAX, 8 }, },
-	{ ACVP_SHA224, false,		{ 192, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 96, INT_MAX, 8 }, },
-	{ ACVP_SHA256, false,		{ 256, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 128, INT_MAX, 8 }, },
-	{ ACVP_SHA384, false,		{ 256, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 128, INT_MAX, 8 }, },
-	{ ACVP_SHA512, false,		{ 256, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 128, INT_MAX, 8 }, },
-	{ ACVP_SHA512224, false,	{ 192, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 96, INT_MAX, 8 }, },
-	{ ACVP_SHA512256, false,	{ 256, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 128, INT_MAX, 8 }, },
-	{ ACVP_SHA3_224, false,		{ 192, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 96, INT_MAX, 8 }, },
-	{ ACVP_SHA3_256, false,		{ 256, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 128, INT_MAX, 8 }, },
-	{ ACVP_SHA3_384, false,		{ 256, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 128, INT_MAX, 8 }, },
-	{ ACVP_SHA3_512, false,		{ 256, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 0, INT_MAX, 8 },	{ 128, INT_MAX, 8 }, },
+	{ ACVP_SHA1, false,		{ 128, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
+	{ ACVP_SHA224, false,		{ 192, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
+	{ ACVP_SHA256, false,		{ 256, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
+	{ ACVP_SHA384, false,		{ 256, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
+	{ ACVP_SHA512, false,		{ 256, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
+	{ ACVP_SHA512224, false,	{ 192, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
+	{ ACVP_SHA512256, false,	{ 256, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
+	{ ACVP_SHA3_224, false,		{ 192, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
+	{ ACVP_SHA3_256, false,		{ 256, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
+	{ ACVP_SHA3_384, false,		{ 256, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
+	{ ACVP_SHA3_512, false,		{ 256, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 },	{ 0, 65536, 8 }, },
 };
 
 static int acvp_req_drbg_check(const struct def_algo_drbg_caps *caps)

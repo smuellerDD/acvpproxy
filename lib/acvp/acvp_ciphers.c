@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for retrieving the cipher specification
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -29,7 +29,7 @@
 
 /* GET /algorithms */
 static int acvp_fetch_cipher_info(const struct acvp_testid_ctx *testid_ctx,
-				  const uint32_t algoid, struct acvp_buf *buf)
+				  const uint64_t algoid, struct acvp_buf *buf)
 {
 	int ret;
 	char url[ACVP_NET_URL_MAXLEN];
@@ -40,7 +40,7 @@ static int acvp_fetch_cipher_info(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_create_url(NIST_VAL_OP_ALGORITHMS, url, sizeof(url)));
 
 	if (algoid < UINT_MAX)
-		CKINT(acvp_extend_string(url, sizeof(url), "/%u", algoid));
+		CKINT(acvp_extend_string(url, sizeof(url), "/%"PRIu64, algoid));
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "ACVP URL: %s\n", url);
 
@@ -85,7 +85,7 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 			json_object_array_get_idx(algorithms, i);
 		struct stat statbuf;
 		const char *url, *algoname;
-		uint32_t urlnum;
+		uint64_t urlnum;
 		char jsonfile[FILENAME_MAX], tmpalgoname[256];
 
 		if (!json_object_is_type(algo, json_type_object)) {
@@ -130,7 +130,7 @@ static int acvp_iterate_algoarray(const struct acvp_testid_ctx *testid_ctx,
 					      strlen(tmpalgoname)));
 
 		/* Write the data */
-		snprintf(jsonfile, sizeof(jsonfile), "%s/%s-%u.json", pathname,
+		snprintf(jsonfile, sizeof(jsonfile), "%s/%s-%"PRIu64".json", pathname,
 			 tmpalgoname, urlnum);
 
 		/* Do not re-download information */

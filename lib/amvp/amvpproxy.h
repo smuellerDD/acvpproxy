@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -59,7 +59,7 @@ int amvp_register(struct acvp_ctx *ctx);
  * @return 0 on success, < 0 on error
  */
 int amvp_certrequest_from_module_request_id(struct acvp_ctx *ctx,
-					    uint32_t module_request_id);
+					    uint64_t module_request_id);
 
 /**
  * @brief Register a certificate request from a valid module ID
@@ -70,7 +70,7 @@ int amvp_certrequest_from_module_request_id(struct acvp_ctx *ctx,
  * @param [in] module_id Module ID
  * @return 0 on success, < 0 on error
  */
-int amvp_certrequest_from_module_id(struct acvp_ctx *ctx, uint32_t module_id);
+int amvp_certrequest_from_module_id(struct acvp_ctx *ctx, uint64_t module_id);
 
 /**
  * @brief Perform network operation to submit AMVP results to CMVP and retrieve

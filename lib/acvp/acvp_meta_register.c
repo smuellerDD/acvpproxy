@@ -1,6 +1,6 @@
 /* ACVP operation for registering vendor, modules, persons, OE
  *
- * Copyright (C) 2019 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -29,10 +29,10 @@
  * Process the response of GET /requests/<requestID> without the HTTP
  * operation
  */
-int acvp_meta_register_get_id(const struct acvp_buf *response, uint32_t *id)
+int acvp_meta_register_get_id(const struct acvp_buf *response, uint64_t *id)
 {
 	struct json_object *resp = NULL, *data = NULL;
-	uint32_t status_flag = 0, tmp_id;
+	uint64_t status_flag = 0, tmp_id;
 	int ret;
 	const char *uri, *status;
 
@@ -90,7 +90,7 @@ int acvp_meta_register_get_id(const struct acvp_buf *response, uint32_t *id)
 
 	/* AMVP speciality for GET /certRequests/<ID> */
 	if (ret == -ENOENT) {
-		CKINT(json_get_uint(data, "certRequestId", &tmp_id));
+		CKINT(json_get_uint64(data, "certRequestId", &tmp_id));
 	} else if (ret) {
 		goto out;
 	} else {
@@ -118,7 +118,7 @@ int acvp_meta_register_get_id(const struct acvp_buf *response, uint32_t *id)
 	if (status_flag) {
 		logger_status(
 			LOGGER_C_ANY,
-			"Request ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %u\n",
+			"Request ID not obtained, request pending - please query the request again once NIST approved the request. The request ID that NIST needs to approve is %"PRIu64"\n",
 			acvp_id(tmp_id));
 		ret = -EAGAIN;
 	}
@@ -130,12 +130,12 @@ out:
 
 /* GET /requests/<id> */
 int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
-				    uint32_t *id)
+				    uint64_t *id)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	ACVP_BUFFER_INIT(response);
-	uint32_t tmp_id = *id;
+	uint64_t tmp_id = *id;
 	int ret;
 	char url[FILENAME_MAX];
 
@@ -149,7 +149,7 @@ int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
 	/* Remove the mask indicator */
 	tmp_id = acvp_id(tmp_id);
 
-	logger_status(LOGGER_C_ANY, "Fetch request for ID %u\n", tmp_id);
+	logger_status(LOGGER_C_ANY, "Fetch request for ID %"PRIu64"\n", tmp_id);
 
 	CKINT(acvp_create_url(NIST_VAL_OP_REQUESTS, url, sizeof(url)));
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u", tmp_id));
@@ -165,7 +165,7 @@ out:
 
 int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 		       struct json_object *json, char *url, unsigned int urllen,
-		       uint32_t *id, enum acvp_http_type submit_type)
+		       uint64_t *id, enum acvp_http_type submit_type)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
@@ -262,9 +262,9 @@ out:
 	return ret;
 }
 
-int acvp_get_id_from_url(const char *url, uint32_t *id)
+int acvp_get_id_from_url(const char *url, uint64_t *id)
 {
-	uint32_t tmpid;
+	uint64_t tmpid;
 	int ret;
 
 	/* We do not overwrite request IDs */
@@ -272,7 +272,7 @@ int acvp_get_id_from_url(const char *url, uint32_t *id)
 		CKINT(acvp_get_trailing_number(url, &tmpid));
 
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Received ID %u from ACVP server, but have a request ID %u on file - not changing the request ID\n",
+		       "Received ID %"PRIu64" from ACVP server, but have a request ID %"PRIu64" on file - not changing the request ID\n",
 		       tmpid, acvp_id(*id));
 	} else {
 		CKINT(acvp_get_trailing_number(url, id));
@@ -283,7 +283,7 @@ out:
 }
 
 int acvp_search_to_http_type(int search_errno, unsigned int type,
-			     const struct acvp_opts_ctx *ctx_opts, uint32_t id,
+			     const struct acvp_opts_ctx *ctx_opts, uint64_t id,
 			     enum acvp_http_type *http_type)
 {
 	if (ctx_opts->show_db_entries) {
@@ -304,7 +304,7 @@ int acvp_search_to_http_type(int search_errno, unsigned int type,
 			*http_type = acvp_http_delete;
 		} else {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "Definition for ID %u different than found on ACVP server - you need to perform a (re)register operation\n",
+			       "Definition for ID %"PRIu64" different than found on ACVP server - you need to perform a (re)register operation\n",
 			       id);
 			return -ENOENT;
 		}

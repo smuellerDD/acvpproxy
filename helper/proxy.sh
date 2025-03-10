@@ -87,7 +87,8 @@ PROXYVERSION=${PROXYVERSION:-"1070800"}
 #	./proxy.sh list
 #
 # Example:
-#	PROXYSEARCH="-m 'My IUT(R) Name (64bit)' -e 'Specific CPU'"
+#	PROXYSEARCH="-m 'My IUT(R) Name (64bit)' -p 'Specific CPU'"
+#	PROXYSEARCH="-m 'My IUT(R) Name (64bit)' -e 'Specific execenv'"
 #
 PROXYSEARCH=${PROXYSEARCH:-""}
 

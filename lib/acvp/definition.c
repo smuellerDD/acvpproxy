@@ -1,6 +1,6 @@
 /* ACVP definition handling
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -525,11 +525,11 @@ static int acvp_match_def_v1(const struct acvp_testid_ctx *testid_ctx,
 	ret = acvp_match_def_search(&search, def);
 	if (ret) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Crypto definition for testID %u for current search does not match with old search\n",
+		       "Crypto definition for testID %"PRIu64" for current search does not match with old search\n",
 		       testid_ctx->testid);
 	} else {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Crypto definition for testID %u for current search matches with old search\n",
+		       "Crypto definition for testID %"PRIu64" for current search matches with old search\n",
 		       testid_ctx->testid);
 	}
 
@@ -579,11 +579,11 @@ static int acvp_match_def_v2(const struct acvp_testid_ctx *testid_ctx,
 out:
 	if (ret) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Crypto definition for testID %u for current search does not match with old search\n",
+		       "Crypto definition for testID %"PRIu64" for current search does not match with old search\n",
 		       testid_ctx->testid);
 	} else {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Crypto definition for testID %u for current search matches with old search\n",
+		       "Crypto definition for testID %"PRIu64" for current search matches with old search\n",
 		       testid_ctx->testid);
 	}
 	return ret;
@@ -1515,10 +1515,10 @@ out:
 }
 
 static int acvp_def_set_value(struct json_object *json, const char *name,
-			      const uint32_t id, bool *set)
+			      const uint64_t id, bool *set)
 {
 	struct json_object *val;
-	uint32_t tmp;
+	uint64_t tmp;
 	int ret;
 
 	ret = json_find_key(json, name, &val, json_type_int);
@@ -1541,12 +1541,12 @@ static int acvp_def_set_value(struct json_object *json, const char *name,
 		return 0;
 	}
 
-	tmp = (uint32_t)json_object_get_int(val);
+	tmp = (uint64_t)json_object_get_int64(val);
 	if (tmp >= INT_MAX)
 		return -EINVAL;
 
 	if (tmp != id) {
-		json_object_set_int(val, (int)id);
+		json_object_set_int64(val, (int64_t)id);
 		*set = true;
 	}
 
@@ -1555,7 +1555,7 @@ static int acvp_def_set_value(struct json_object *json, const char *name,
 
 struct acvp_def_update_id_entry {
 	const char *name;
-	uint32_t id;
+	uint64_t id;
 };
 
 static int acvp_def_update_id(const char *pathname,
@@ -1577,7 +1577,8 @@ static int acvp_def_update_id(const char *pathname,
 			continue;
 
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Updating entry %s with %u\n", list[i].name, list[i].id);
+		       "Updating entry %s with %"PRIu64"\n", list[i].name,
+		       list[i].id);
 		CKINT(acvp_def_set_value(config, list[i].name, list[i].id,
 					 &updated));
 	}
@@ -1680,10 +1681,10 @@ static void acvp_def_read_vendor_id(const struct json_object *vendor_config,
 	 * No error handling - in case we cannot find entry, it will be
 	 * created.
 	 */
-	json_get_uint(vendor_config, ACVP_DEF_PRODUCTION_ID("acvpVendorId"),
-		      &def_vendor->acvp_vendor_id);
-	json_get_uint(vendor_config, ACVP_DEF_PRODUCTION_ID("acvpAddressId"),
-		      &def_vendor->acvp_addr_id);
+	json_get_uint64(vendor_config, ACVP_DEF_PRODUCTION_ID("acvpVendorId"),
+		        &def_vendor->acvp_vendor_id);
+	json_get_uint64(vendor_config, ACVP_DEF_PRODUCTION_ID("acvpAddressId"),
+		        &def_vendor->acvp_addr_id);
 }
 
 int acvp_def_get_vendor_id(struct def_vendor *def_vendor)
@@ -1786,8 +1787,8 @@ static void acvp_def_read_person_id_v2(const struct json_object *vendor_config,
 	/* Get the static definition */
 	entry = json_object_array_get_idx(person_array, i);
 	i++;
-	json_get_uint(entry, ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
-		      &def_vendor->person.acvp_person_id);
+	json_get_uint64(entry, ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
+			&def_vendor->person.acvp_person_id);
 
 	/*
 	 * Iterate over configuration file dependency array and in-memory
@@ -1796,8 +1797,8 @@ static void acvp_def_read_person_id_v2(const struct json_object *vendor_config,
 	list_for_each(person, &def_vendor->person.list, list) {
 		entry = json_object_array_get_idx(person_array, i);
 		i++;
-		json_get_uint(entry, ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
-			      &person->acvp_person_id);
+		json_get_uint64(entry, ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
+				&person->acvp_person_id);
 	}
 }
 
@@ -1809,8 +1810,8 @@ static void acvp_def_read_person_id_v1(const struct json_object *vendor_config,
 	 * created.
 	 */
 
-	json_get_uint(vendor_config, ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
-		      &def_vendor->person.acvp_person_id);
+	json_get_uint64(vendor_config, ACVP_DEF_PRODUCTION_ID("acvpPersonId"),
+			&def_vendor->person.acvp_person_id);
 }
 
 int acvp_def_get_person_id(struct def_vendor *def_vendor)
@@ -1940,22 +1941,22 @@ static void acvp_def_read_oe_id_v1(const struct json_object *oe_config,
 {
 	struct def_dependency *def_dep;
 
-	json_get_uint(oe_config, ACVP_DEF_PRODUCTION_ID("acvpOeId"),
-		      &def_oe->acvp_oe_id);
+	json_get_uint64(oe_config, ACVP_DEF_PRODUCTION_ID("acvpOeId"),
+			&def_oe->acvp_oe_id);
 
 	for (def_dep = def_oe->def_dep; def_dep; def_dep = def_dep->next) {
 		switch (def_dep->def_dependency_type) {
 		case def_dependency_firmware:
 		case def_dependency_os:
 		case def_dependency_software:
-			json_get_uint(oe_config,
-				      ACVP_DEF_PRODUCTION_ID("acvpOeDepSwId"),
-				      &def_dep->acvp_dep_id);
+			json_get_uint64(oe_config,
+					ACVP_DEF_PRODUCTION_ID("acvpOeDepSwId"),
+					&def_dep->acvp_dep_id);
 			break;
 		case def_dependency_hardware:
-			json_get_uint(oe_config,
-				      ACVP_DEF_PRODUCTION_ID("acvpOeDepProcId"),
-				      &def_dep->acvp_dep_id);
+			json_get_uint64(oe_config,
+					ACVP_DEF_PRODUCTION_ID("acvpOeDepProcId"),
+					&def_dep->acvp_dep_id);
 			break;
 
 		default:
@@ -2010,8 +2011,8 @@ static void acvp_def_read_oe_id_v2(struct json_object *oe_config,
 	if (acvp_def_oe_config_get_deps(def_oe, oe_config, &dep_array))
 		return;
 
-	json_get_uint(oe_config, ACVP_DEF_PRODUCTION_ID("acvpId"),
-		      &def_oe->acvp_oe_id);
+	json_get_uint64(oe_config, ACVP_DEF_PRODUCTION_ID("acvpId"),
+			&def_oe->acvp_oe_id);
 
 	/*
 	 * Iterate over configuration file dependency array and in-memory
@@ -2026,8 +2027,8 @@ static void acvp_def_read_oe_id_v2(struct json_object *oe_config,
 		if (!dep_entry)
 			continue;
 
-		json_get_uint(dep_entry, ACVP_DEF_PRODUCTION_ID("acvpId"),
-			      &def_dep->acvp_dep_id);
+		json_get_uint64(dep_entry, ACVP_DEF_PRODUCTION_ID("acvpId"),
+				&def_dep->acvp_dep_id);
 	}
 }
 
@@ -2361,7 +2362,7 @@ out:
 }
 
 static int acvp_def_read_module_id(const struct def_info *def_info,
-				   uint32_t *id)
+				   uint64_t *id)
 {
 	struct json_object *config = NULL;
 	struct json_object *entry;
@@ -2372,7 +2373,8 @@ static int acvp_def_read_module_id(const struct def_info *def_info,
 		  def_info->def_module_file);
 
 	CKINT(acvp_def_find_module_id(def_info, config, &entry));
-	CKINT(json_get_uint(entry, ACVP_DEF_PRODUCTION_ID("acvpModuleId"), id));
+	CKINT(json_get_uint64(entry, ACVP_DEF_PRODUCTION_ID("acvpModuleId"),
+			      id));
 
 out:
 	ACVP_JSON_PUT_NULL(config);
@@ -2415,8 +2417,8 @@ static int acvp_def_update_module_id(const struct def_info *def_info)
 	ret = acvp_def_find_module_id(def_info, config, &id_entry);
 	if (ret) {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Adding entry %s with %u\n", def_info->module_name,
-		       def_info->acvp_module_id);
+		       "Adding entry %s with %"PRIu64"\n",
+		       def_info->module_name, def_info->acvp_module_id);
 
 		ret = json_find_key(config,
 				    ACVP_DEF_PRODUCTION_ID("acvpModuleIds"),
@@ -2446,8 +2448,8 @@ static int acvp_def_update_module_id(const struct def_info *def_info)
 		updated = true;
 	} else {
 		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-		       "Updating entry %s with %u\n", def_info->module_name,
-		       def_info->acvp_module_id);
+		       "Updating entry %s with %"PRIu64"\n",
+		       def_info->module_name, def_info->acvp_module_id);
 		CKINT(acvp_def_set_value(id_entry,
 					 ACVP_DEF_PRODUCTION_ID("acvpModuleId"),
 					 def_info->acvp_module_id, &updated));

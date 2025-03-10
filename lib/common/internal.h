@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -44,18 +44,18 @@ extern "C" {
  * to be updated (as long as this number is zero, the API is not considered
  * stable and can change without a bump of the major version).
  */
-#define MAJVERSION 1
+#define MAJVERSION 2
 
 /*
  * API compatible, ABI may change, functional enhancements only, consumer
  * can be left unchanged if enhancements are not considered.
  */
-#define MINVERSION 8
+#define MINVERSION 0
 
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
  */
-#define PATCHLEVEL 1
+#define PATCHLEVEL 0
 
 struct acvp_test_deps {
 	char *dep_cipher;
@@ -486,7 +486,7 @@ struct acvp_test_verdict_status {
  */
 struct acvp_testid_ctx {
 	struct acvp_testid_ctx *next;
-	uint32_t testid;
+	uint64_t testid;
 	struct acvp_auth_ctx *server_auth;
 	const struct definition *def;
 	struct esvp_es_def *es_def;
@@ -523,7 +523,7 @@ struct acvp_testid_ctx {
  * explicitly un-constify the server_auth.
  */
 struct acvp_vsid_ctx {
-	uint32_t vsid;
+	uint64_t vsid;
 	const struct acvp_testid_ctx *testid_ctx;
 
 	struct acvp_test_verdict_status verdict;
@@ -599,7 +599,7 @@ struct acvp_vsid_ctx {
 struct acvp_datastore_be {
 	int (*acvp_datastore_find_testsession)(const struct definition *def,
 					       const struct acvp_ctx *ctx,
-					       uint32_t *testids,
+					       uint64_t *testids,
 					       unsigned int *testid_count);
 	int (*acvp_datastore_find_responses)(
 		const struct acvp_testid_ctx *testid_ctx,
@@ -695,9 +695,9 @@ bool acvp_library_initialized(void);
 struct acvp_thread_reqresp_ctx {
 	const struct acvp_ctx *ctx;
 	const struct definition *def;
-	uint32_t testid;
+	uint64_t testid;
 	int (*cb)(const struct acvp_ctx *ctx, const struct definition *def,
-		  uint32_t testid);
+		  uint64_t testid);
 };
 
 /**
@@ -834,7 +834,7 @@ int acvp_process_req(struct acvp_testid_ctx *testid_ctx,
  */
 int acvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
 			 const struct acvp_ctx *ctx,
-			 const struct definition *def, const uint32_t testid);
+			 const struct definition *def, const uint64_t testid);
 
 /**
  * @brief Properly dispose of the testid_ctx
@@ -892,14 +892,14 @@ enum acvp_http_type {
 int acvp_process_testids(const struct acvp_ctx *ctx,
 			 int (*cb)(const struct acvp_ctx *ctx,
 				   const struct definition *def,
-				   const uint32_t testid));
+				   const uint64_t testid));
 
 /**
  * @brief Function to perform a register operation
  */
 int acvp_register_cb(const struct acvp_ctx *ctx,
 		     int (*cb)(const struct acvp_ctx *ctx,
-			       const struct definition *def, uint32_t testid));
+			       const struct definition *def, uint64_t testid));
 
 /**
  * @brief Check the JWT for all test sessions in scope. For all JWTs that need
@@ -911,7 +911,7 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx,
 			 int (*init)(struct acvp_testid_ctx *testid_ctx,
 				     const struct acvp_ctx *ctx,
 				     const struct definition *def,
-				     const uint32_t testid),
+				     const uint64_t testid),
 			 int (*status_parse)(struct acvp_testid_ctx *testid_ctx,
 					     struct json_object *status),
 			 int (*status_write)(const struct acvp_testid_ctx *testid_ctx));
@@ -919,12 +919,12 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx,
 /**
  * @brief Match two strings
  */
-int acvp_str_match(const char *exp, const char *found, const uint32_t id);
+int acvp_str_match(const char *exp, const char *found, const uint64_t id);
 
 /**
  * @brief Match two strings, while ignoring differences in case
  */
-int acvp_str_case_match(const char *exp, const char *found, const uint32_t id);
+int acvp_str_case_match(const char *exp, const char *found, const uint64_t id);
 
 /**
  * @brief Obtain the verdict from the JSON data.
@@ -986,12 +986,12 @@ int acvp_get_testid_metadata(const struct acvp_testid_ctx *testid_ctx,
  * in this case. Otherwise it is a noop.
  */
 int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
-				    uint32_t *id);
+				    uint64_t *id);
 
 /**
  * @brief Parse the status of the request
  */
-int acvp_meta_register_get_id(const struct acvp_buf *response, uint32_t *id);
+int acvp_meta_register_get_id(const struct acvp_buf *response, uint64_t *id);
 
 /**
  * @brief Fetch all outstanding meta data requests with the ACVP server
@@ -1001,7 +1001,7 @@ int acvp_handle_open_requests(const struct acvp_testid_ctx *testid_ctx);
 /*
  * Convert a URL into an ID
  */
-int acvp_get_id_from_url(const char *url, uint32_t *id);
+int acvp_get_id_from_url(const char *url, uint64_t *id);
 
 /**
  * @brief Convert search return code to HTTP request type
@@ -1013,7 +1013,7 @@ int acvp_get_id_from_url(const char *url, uint32_t *id);
  * @param http_type [out] Returned HTTP type.
  */
 int acvp_search_to_http_type(int search_errno, unsigned int type,
-			     const struct acvp_opts_ctx *ctx_opts, uint32_t id,
+			     const struct acvp_opts_ctx *ctx_opts, uint64_t id,
 			     enum acvp_http_type *http_type);
 
 /**
@@ -1026,7 +1026,7 @@ int acvp_sync_metadata(const struct acvp_testid_ctx *testid_ctx);
  */
 int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 		       struct json_object *json, char *url, unsigned int urllen,
-		       uint32_t *id, enum acvp_http_type submit_type);
+		       uint64_t *id, enum acvp_http_type submit_type);
 
 /************************************************************************
  * Authentication token management
@@ -1283,7 +1283,7 @@ int acvp_req_kas_r3_kc_method(const struct def_algo_kas_r3_kc *kcm,
 #define ACVP_DS_UPLOADDURATION "upload_duration.txt"
 /* File containing the version information of the data store */
 #define ACVP_DS_VERSIONFILE "datastore_version.txt"
-#define ACVP_DS_VERSION 3
+#define ACVP_DS_VERSION 4
 /* File holding the unambiguous search criteria to look up cipher definition */
 #define ACVP_DS_DEF_REFERENCE "definition_reference.json"
 /* File holding the ACVP request */

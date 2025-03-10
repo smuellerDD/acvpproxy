@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+* Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
 *
 * License: see LICENSE file in root directory
 *
@@ -218,7 +218,7 @@ int acvp_extend_string(char *string, size_t stringmaxlen, const char *fmt, ...);
  * @brief Get the trailing number from a string. A lot of ACVP URLs have an
  *	  ID as the last pathname component which is obtained by this helper.
  */
-int acvp_get_trailing_number(const char *string, uint32_t *number);
+int acvp_get_trailing_number(const char *string, uint64_t *number);
 
 /**
  * Perform an exact or fuzzy match between two search strings.

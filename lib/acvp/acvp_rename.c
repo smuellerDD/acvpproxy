@@ -1,6 +1,6 @@
 /* Rename of module references that occur on different places
  *
- * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -85,7 +85,7 @@ static int acvp_rename_generic(const struct acvp_testid_ctx *testid_ctx,
 
 	logger_status(
 		LOGGER_C_ANY,
-		"Rename of OE name for testID %u from %s to %s completed\n",
+		"Rename of OE name for testID %"PRIu64" from %s to %s completed\n",
 		testid_ctx->testid, curr_name, newname_modify);
 
 	/*
@@ -382,7 +382,7 @@ static int acvp_rename_name(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_export_def_search_new(testid_ctx));
 
 	logger_status(LOGGER_C_ANY,
-		      "Rename of name for testID %u from %s to %s completed\n",
+		      "Rename of name for testID %"PRIu64" from %s to %s completed\n",
 		      testid_ctx->testid, curr_name,
 		      info->module_name_filesafe_newname);
 
@@ -449,7 +449,7 @@ static int acvp_rename_version(const struct acvp_testid_ctx *testid_ctx,
 
 	logger_status(
 		LOGGER_C_ANY,
-		"Rename of version for testID %u from %s to %s completed\n",
+		"Rename of version for testID %"PRIu64" from %s to %s completed\n",
 		testid_ctx->testid, curr_version,
 		info->module_version_filesafe_newname);
 
@@ -464,7 +464,7 @@ out:
 
 static int acvp_rename_module_cb(const struct acvp_ctx *ctx,
 				 const struct definition *def,
-				 const uint32_t testid)
+				 const uint64_t testid)
 {
 	const struct acvp_rename_ctx *rename_ctx = ctx->rename;
 	struct acvp_testid_ctx testid_ctx;
@@ -489,7 +489,7 @@ out:
 
 static int acvp_rename_module_final_cb(const struct acvp_ctx *ctx,
 				       const struct definition *def,
-				       const uint32_t testid)
+				       const uint64_t testid)
 {
 	int ret = 0;
 

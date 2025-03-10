@@ -1,6 +1,6 @@
 /* leancrypto module definition
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -319,7 +319,9 @@ static const struct def_algo_ml_dsa_caps ml_dsa_sig_full_capabilities_prehash[] 
 			.deterministic = DEF_ALG_ML_DSA_SIGGEN_NON_DETERMINISTIC |\
 					 DEF_ALG_ML_DSA_SIGGEN_DETERMINISTIC,\
 			.interface = DEF_ALG_ML_DSA_INTERFACE_EXTERNAL |\
-				     DEF_ALG_ML_DSA_INTERFACE_INTERNAL,\
+				     DEF_ALG_ML_DSA_INTERFACE_INTERNAL, \
+			.external_mu = DEF_ALG_ML_DSA_EXTERNAL_MU |	\
+				       DEF_ALG_ML_DSA_INTERNAL_MU,	\
 			}						\
 		}							\
 	}
@@ -333,7 +335,9 @@ static const struct def_algo_ml_dsa_caps ml_dsa_sig_full_capabilities_prehash[] 
 			.capabilities.sigver = m,			\
 			.capabilities_num = ARRAY_SIZE(m),		\
 			.interface = DEF_ALG_ML_DSA_INTERFACE_EXTERNAL |\
-				     DEF_ALG_ML_DSA_INTERFACE_INTERNAL,\
+				     DEF_ALG_ML_DSA_INTERFACE_INTERNAL, \
+			.external_mu = DEF_ALG_ML_DSA_EXTERNAL_MU |	\
+				       DEF_ALG_ML_DSA_INTERNAL_MU,	\
 			}						\
 		}							\
 	}
@@ -626,7 +630,7 @@ static const struct def_algo lc_aesni[] = {
 
 	/* Covering SHA-NI */
 	LC_SHA_NO_LDT(ACVP_SHA256),
-	LC_SHA_NO_LDT(ACVP_SHA384),
+	//LC_SHA_NO_LDT(ACVP_SHA384),
 	//LC_SHA_NO_LDT(ACVP_SHA512),
 };
 

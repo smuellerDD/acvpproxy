@@ -1,6 +1,6 @@
 /* Threading support - definition
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -121,7 +121,7 @@ int thread_start(int (*start_routine)(void *), void *tdata,
 /**
  * @brief - Give a name to a thread that is used for logging
  */
-int thread_set_name(enum acvp_request_type type, uint32_t id);
+int thread_set_name(enum acvp_request_type type, uint64_t id);
 int thread_get_name(char *name, size_t len);
 
 /**

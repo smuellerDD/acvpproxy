@@ -1,6 +1,6 @@
 /* Reading and writing of AMVP status information for re-entrant support
  *
- * Copyright (C) 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2024 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *

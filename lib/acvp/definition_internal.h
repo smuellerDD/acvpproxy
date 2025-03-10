@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -57,25 +57,25 @@ static const struct def_mod_type_conversion {
 };
 
 /* Warning, we operate with a signed int, so leave the highest bit untouched */
-#define ACVP_REQUEST_INITIAL (1 << 30)
-#define ACVP_REQUEST_PROCESSING (1 << 29)
-#define ACVP_REQUEST_REJECTED (1 << 28)
+#define ACVP_REQUEST_INITIAL ((1ULL) << 63)
+#define ACVP_REQUEST_PROCESSING ((1ULL) << 62)
+#define ACVP_REQUEST_REJECTED ((1ULL) << 61)
 #define ACVP_REQUEST_MASK                                                      \
 	(ACVP_REQUEST_INITIAL | ACVP_REQUEST_PROCESSING | ACVP_REQUEST_REJECTED)
 
-static inline uint32_t acvp_id(uint32_t id)
+static inline uint64_t acvp_id(uint64_t id)
 {
-	return (id & ~(uint32_t)ACVP_REQUEST_MASK);
+	return (id & ~(uint64_t)ACVP_REQUEST_MASK);
 }
 
-static inline bool acvp_valid_id(uint32_t id)
+static inline bool acvp_valid_id(uint64_t id)
 {
 	if (id == 0 || id & ACVP_REQUEST_MASK)
 		return false;
 	return true;
 }
 
-static inline bool acvp_request_id(uint32_t id)
+static inline bool acvp_request_id(uint64_t id)
 {
 	if (id & ACVP_REQUEST_MASK)
 		return true;
@@ -153,11 +153,11 @@ struct def_info {
 	bool module_type_i;
 
 	char *def_module_file;
-	uint32_t acvp_vendor_id;
+	uint64_t acvp_vendor_id;
 	size_t acvp_person_cnt;
-	uint32_t *acvp_person_id;
-	uint32_t acvp_addr_id;
-	uint32_t acvp_module_id;
+	uint64_t *acvp_person_id;
+	uint64_t acvp_addr_id;
+	uint64_t acvp_module_id;
 
 	struct def_lock *def_lock;
 };
@@ -181,9 +181,9 @@ struct def_person {
 	char *contact_name;
 	struct def_list contact_email_list;
 	struct def_list contact_phone_list;
-	uint32_t acvp_person_id;
+	uint64_t acvp_person_id;
 
-	uint32_t acvp_vendor_id;
+	uint64_t acvp_vendor_id;
 
 	bool contact_name_i;
 	bool contact_email_i;
@@ -227,7 +227,7 @@ struct def_vendor {
 	char *vendor_name;
 	char *vendor_name_filesafe;
 	char *vendor_url;
-	uint32_t acvp_vendor_id;
+	uint64_t acvp_vendor_id;
 
 	struct def_person person;
 
@@ -236,7 +236,7 @@ struct def_vendor {
 	char *addr_region;
 	char *addr_country;
 	char *addr_zipcode;
-	uint32_t acvp_addr_id;
+	uint64_t acvp_addr_id;
 
 	/* Flags to ignore the respective entries during building */
 	bool vendor_name_i;
@@ -292,7 +292,7 @@ enum def_dependency_type {
  * @var features Specify features of the CPU that are used by the module
  */
 struct def_dependency {
-	uint32_t acvp_dep_id;
+	uint64_t acvp_dep_id;
 	enum def_dependency_type def_dependency_type;
 	char *def_dependency_type_name;
 
@@ -343,7 +343,7 @@ struct def_dependency {
  */
 struct def_oe {
 	char *def_oe_file;
-	uint32_t acvp_oe_id;
+	uint64_t acvp_oe_id;
 
 	uint32_t config_file_version;
 	struct def_dependency *def_dep;

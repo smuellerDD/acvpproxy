@@ -1,6 +1,6 @@
 /* JSON request generator for SP800-90B conditioning components
  *
- * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -130,6 +130,9 @@ int acvp_req_set_algo_cond_comp(const struct def_algo_cond_comp *cond_comp,
 
 		CKINT(acvp_req_algo_int_array(entry, cond_comp->payload_len,
 					      "payloadLen"));
+
+		CKINT(acvp_req_algo_int_array(entry, cond_comp->output_len,
+					      "outputLen"));
 	}
 
 out:

@@ -1,6 +1,6 @@
 /* ACVP proxy protocol handler for submitting test responses
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -68,7 +68,7 @@ out:
 
 int acvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
 			 const struct acvp_ctx *ctx,
-			 const struct definition *def, const uint32_t testid)
+			 const struct definition *def, const uint64_t testid)
 {
 	int ret = 0;
 
@@ -115,17 +115,17 @@ out:
  * Remember the test verdicts of the vsIDs
  *****************************************************************************/
 #define ACVP_VERDICT_MAX 512
-static uint32_t acvp_verdict[2][ACVP_VERDICT_MAX];
+static uint64_t acvp_verdict[2][ACVP_VERDICT_MAX];
 static atomic_t acvp_verdict_ptr[2] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
 
-static void acvp_record_verdict_vsid(const uint32_t vsid, const bool passed)
+static void acvp_record_verdict_vsid(const uint64_t vsid, const bool passed)
 {
 	int idx = atomic_inc(&acvp_verdict_ptr[passed]);
 
 	if (idx < 0 || idx >= ACVP_VERDICT_MAX) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Cannot track verdict vsID %u for %s verdicts\n", vsid,
-		       passed ? "passed" : "failed");
+		       "Cannot track verdict vsID %"PRIu64" for %s verdicts\n",
+		       vsid, passed ? "passed" : "failed");
 		return;
 	}
 
@@ -133,7 +133,7 @@ static void acvp_record_verdict_vsid(const uint32_t vsid, const bool passed)
 }
 
 DSO_PUBLIC
-int acvp_list_verdict_vsid(int *idx_ptr, uint32_t *vsid, const bool passed)
+int acvp_list_verdict_vsid(int *idx_ptr, uint64_t *vsid, const bool passed)
 {
 	int idx = atomic_read(&acvp_verdict_ptr[passed]);
 
@@ -208,13 +208,13 @@ static int acvp_get_vsid_verdict(const struct acvp_vsid_ctx *vsid_ctx)
 	ret = acvp_check_verdict(vsid_ctx, &result, &verdict_stat);
 	if (ret) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Verdict verification failed for vsID %u\n",
+		       "Verdict verification failed for vsID %"PRIu64"\n",
 		       vsid_ctx->vsid);
 	}
 
 	logger_status(
 		LOGGER_C_ANY,
-		"Verdict obtained for testID %u / vsID %u (completed vsIDs %u / %u) - %s%s%s\n",
+		"Verdict obtained for testID %"PRIu64" / vsID %"PRIu64" (completed vsIDs %u / %u) - %s%s%s\n",
 		testid_ctx->testid, vsid_ctx->vsid,
 		atomic_read(&glob_vsids_processed),
 		atomic_read(&glob_vsids_to_process),
@@ -283,7 +283,7 @@ static int acvp_response_upload(const struct acvp_vsid_ctx *vsid_ctx,
 out:
 	if (ret)
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Failure to submit testID %u with vsID %u\n",
+		       "Failure to submit testID %"PRIu64" with vsID %"PRIu64"\n",
 		       testid_ctx->testid, vsid_ctx->vsid);
 	acvp_free_buf(&result);
 	return ret;
@@ -301,7 +301,7 @@ static int acvp_response_delete(const struct acvp_vsid_ctx *vsid_ctx)
 	CKINT(acvp_net_op(testid_ctx, url, NULL, NULL, acvp_http_delete));
 	logger_status(
 		LOGGER_C_ANY,
-		"VsID %u (test session %u) invalidated - sleeping for %u seconds to allow ACVP server propagation\n",
+		"VsID %"PRIu64" (test session %"PRIu64") invalidated - sleeping for %u seconds to allow ACVP server propagation\n",
 		vsid_ctx->vsid, testid_ctx->testid,
 		ACVP_RESPONSE_DELETE_SLEEP_TIME);
 
@@ -520,7 +520,7 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 					 true, &tmp);
 	if (ret < 0) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Could not match the upload server for vsID %u with the download server\n",
+		       "Could not match the upload server for vsID %"PRIu64" with the download server\n",
 		       vsid_ctx->vsid);
 		goto out;
 	}
@@ -535,7 +535,7 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 	 */
 	if (!ret) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "vsID %u was downloaded from a different server than it shall be uploaded to (%s)\n",
+		       "vsID %"PRIu64" was downloaded from a different server than it shall be uploaded to (%s)\n",
 		       vsid_ctx->vsid, net->server_name);
 		ret = -EOPNOTSUPP;
 		goto out;
@@ -550,7 +550,7 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 	acvp_free_buf(&tmp);
 	if (ret == 0) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "Certificate used for downloading the data for vsID %u does not match current certificate!\n",
+		       "Certificate used for downloading the data for vsID %"PRIu64" does not match current certificate!\n",
 		       vsid_ctx->vsid);
 		ret = -ENODATA;
 		goto out;
@@ -577,7 +577,7 @@ static int acvp_response_submit_one(const struct acvp_vsid_ctx *vsid_ctx,
 
 		logger_status(
 			LOGGER_C_ANY,
-			"Test response uploaded for testID %u / vsID %u (completed vsIDs %u / %u)\n",
+			"Test response uploaded for testID %"PRIu64" / vsID %"PRIu64" (completed vsIDs %u / %u)\n",
 			testid_ctx->testid, vsid_ctx->vsid,
 			atomic_read(&glob_vsids_processed),
 			atomic_read(&glob_vsids_to_process));
@@ -748,7 +748,7 @@ static int acvp_get_testid_verdict_request(struct acvp_testid_ctx *testid_ctx)
 	}
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-	       "All test verdicts successfully obtained for testID %u\n",
+	       "All test verdicts successfully obtained for testID %"PRIu64"\n",
 	       testid_ctx->testid);
 
 	/*
@@ -758,7 +758,7 @@ static int acvp_get_testid_verdict_request(struct acvp_testid_ctx *testid_ctx)
 	ret = acvp_get_verdict_json(&result, &verdict_stat);
 	if (ret) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Verdict verification failed for test session ID %u\n",
+		       "Verdict verification failed for test session ID %"PRIu64"\n",
 		       testid_ctx->testid);
 	}
 
@@ -812,7 +812,7 @@ out:
 }
 
 static int _acvp_respond(const struct acvp_ctx *ctx,
-			 const struct definition *def, const uint32_t testid)
+			 const struct definition *def, const uint64_t testid)
 {
 	const struct acvp_opts_ctx *opts = &ctx->options;
 	struct acvp_test_verdict_status *verdict;
@@ -843,7 +843,7 @@ out:
 	if (atomic_read(&testid_ctx->vsids_processed) <
 	    atomic_read(&testid_ctx->vsids_to_process)) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Not all test verdicts obtained for testID %u (%u missing) - use options --testid %u to retry fetching them\n",
+		       "Not all test verdicts obtained for testID %"PRIu64" (%u missing) - use options --testid %"PRIu64" to retry fetching them\n",
 		       testid_ctx->testid,
 		       atomic_read(&testid_ctx->vsids_to_process) -
 			       atomic_read(&testid_ctx->vsids_processed),
@@ -873,9 +873,9 @@ static int acvp_process_testids_thread(void *arg)
 	struct acvp_thread_reqresp_ctx *tdata = arg;
 	const struct acvp_ctx *ctx = tdata->ctx;
 	const struct definition *def = tdata->def;
-	uint32_t testid = tdata->testid;
+	uint64_t testid = tdata->testid;
 	int (*cb)(const struct acvp_ctx *ctx, const struct definition *def,
-		  const uint32_t testid) = tdata->cb;
+		  const uint64_t testid) = tdata->cb;
 
 	free(tdata);
 
@@ -888,13 +888,13 @@ static int acvp_process_testids_thread(void *arg)
 int acvp_process_testids(const struct acvp_ctx *ctx,
 			 int (*cb)(const struct acvp_ctx *ctx,
 				   const struct definition *def,
-				   const uint32_t testid))
+				   const uint64_t testid))
 {
 	const struct acvp_datastore_ctx *datastore;
 	const struct acvp_search_ctx *search;
 	const struct acvp_opts_ctx *opts;
 	const struct definition *def;
-	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
+	uint64_t testids[ACVP_REQ_MAX_FAILED_TESTID];
 	int ret = 0;
 
 	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
@@ -986,7 +986,7 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx,
 			 int (*init)(struct acvp_testid_ctx *testid_ctx,
 				     const struct acvp_ctx *ctx,
 				     const struct definition *def,
-				     const uint32_t testid),
+				     const uint64_t testid),
 			 int (*status_parse)(struct acvp_testid_ctx *testid_ctx,
 					     struct json_object *status),
 			 int (*status_write)(const struct acvp_testid_ctx *testid_ctx))
@@ -995,7 +995,7 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx,
 	const struct acvp_search_ctx *search;
 	const struct definition *def;
 	struct acvp_testid_ctx *testid_ctx_head = NULL;
-	uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
+	uint64_t testids[ACVP_REQ_MAX_FAILED_TESTID];
 	int ret = 0;
 
 	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
@@ -1158,7 +1158,7 @@ static int acvp_fetch_verdict_vsid(struct acvp_testid_ctx *testid_ctx)
 
 	if (!acvp_get_testsession_expiry_epoch(&response, &expiry)) {
 		logger_status(LOGGER_C_ANY,
-			      "Expiry date of testID %u: ", testid_ctx->testid);
+			      "Expiry date of testID %"PRIu64": ", testid_ctx->testid);
 		acvp_print_expiry(stderr, expiry);
 		fprintf(stderr, "\n");
 	}
@@ -1173,7 +1173,7 @@ out:
 
 static int _acvp_fetch_verdicts(const struct acvp_ctx *ctx,
 				const struct definition *def,
-				const uint32_t testid)
+				const uint64_t testid)
 {
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	int ret;

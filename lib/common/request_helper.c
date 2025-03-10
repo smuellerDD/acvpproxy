@@ -1,6 +1,6 @@
 /* Helper code with common functions
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -693,7 +693,7 @@ out:
 	return ret;
 }
 
-int acvp_get_trailing_number(const char *string, uint32_t *number)
+int acvp_get_trailing_number(const char *string, uint64_t *number)
 {
 	size_t len;
 	unsigned int numsep = 0;
@@ -703,7 +703,7 @@ int acvp_get_trailing_number(const char *string, uint32_t *number)
 	/*
 	 * Safety measure to ensure variable has a valid but undefined content.
 	 */
-	*number = (uint32_t)-1;
+	*number = (uint64_t)-1;
 
 	if (!string)
 		return 0;
@@ -738,17 +738,17 @@ int acvp_get_trailing_number(const char *string, uint32_t *number)
 
 	/* Converting the string behind the last slash */
 	if (saveptr) {
-		unsigned long val;
+		unsigned long long val;
 
 		/* Jump behind the slash */
 		saveptr++;
 
 		logger(LOGGER_DEBUG, LOGGER_C_ANY, "Converting %s\n", saveptr);
-		val = strtoul(saveptr, NULL, 10);
-		if (val >= UINT_MAX)
+		val = strtoull(saveptr, NULL, 10);
+		if (val >= UINT64_MAX)
 			return -ERANGE;
 
-		*number = (uint32_t)val;
+		*number = (uint64_t)val;
 
 		return 0;
 	}

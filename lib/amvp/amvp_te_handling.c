@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2023 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -159,7 +159,7 @@ static int amvp_te_store(const struct acvp_vsid_ctx *certreq_ctx,
 		false, &te_buf));
 
 	logger_status(LOGGER_C_ANY,
-		      "TE Template for certificate request %u obtained\n",
+		      "TE Template for certificate request %"PRIu64" obtained\n",
 		      certreq_ctx->vsid);
 
 out:

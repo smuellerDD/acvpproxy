@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2020 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -197,7 +197,7 @@ out:
 static int
 _acvp_server_db_fetch_id(struct acvp_ctx *ctx,
 			 const enum acvp_server_db_search_type search_type,
-			 const uint32_t id, struct acvp_buf *response)
+			 const uint64_t id, struct acvp_buf *response)
 {
 	struct acvp_testid_ctx *testid_ctx = NULL;
 	unsigned int show_type;
@@ -237,7 +237,7 @@ out:
 DSO_PUBLIC
 int acvp_server_db_fetch_id(struct acvp_ctx *ctx,
 			    const enum acvp_server_db_search_type search_type,
-			    const uint32_t id)
+			    const uint64_t id)
 {
 	struct json_object *req = NULL, *entry = NULL;
 	ACVP_BUFFER_INIT(response);
@@ -487,7 +487,7 @@ static int acvp_server_db_process_module(struct acvp_ctx *ctx, char *configdir,
 	memset(&info, 0, sizeof(info));
 
 	//TODO we fetch only one
-	info.acvp_person_id = calloc(1, sizeof(uint32_t));
+	info.acvp_person_id = calloc(1, sizeof(uint64_t));
 	CKNULL(info.acvp_person_id, -ENOMEM);
 	info.acvp_person_cnt = 1;
 
@@ -562,7 +562,7 @@ acvp_server_db_process_validation(struct acvp_ctx *ctx, char *configdir,
 {
 	struct json_object *req = NULL, *entry = NULL;
 	ACVP_BUFFER_INIT(response);
-	uint32_t id;
+	uint64_t id;
 	const char *str;
 	int ret;
 
@@ -690,7 +690,7 @@ out:
 }
 
 static int acvp_server_db_process_one_oe(struct acvp_ctx *ctx,
-					 const char *configdir, uint32_t id)
+					 const char *configdir, uint64_t id)
 {
 	struct def_oe def_oe;
 	struct def_dependency *def_dep;
@@ -833,7 +833,7 @@ static int acvp_server_db_process_oe(struct acvp_ctx *ctx,
 	CKINT(json_find_key(validation_entry, "oeUrls", &oe, json_type_array));
 
 	for (i = 0; i < json_object_array_length(oe); i++) {
-		uint32_t id;
+		uint64_t id;
 		const char *str = json_object_get_string(
 			json_object_array_get_idx(oe, i));
 
@@ -850,7 +850,7 @@ out:
 }
 
 DSO_PUBLIC
-int acvp_server_db_fetch_validation(struct acvp_ctx *ctx, const uint32_t id)
+int acvp_server_db_fetch_validation(struct acvp_ctx *ctx, const uint64_t id)
 {
 	struct json_object *req = NULL, *entry = NULL;
 	ACVP_BUFFER_INIT(response);

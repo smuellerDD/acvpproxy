@@ -1,6 +1,6 @@
 /* ACVP signal handler
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -81,7 +81,7 @@ static DEFINE_MUTEX_W_UNLOCKED(ctxs_lock);
 static pthread_t sig_thread;
 static atomic_bool_t sig_thread_init = ATOMIC_BOOL_INIT(false);
 
-static uint32_t testids[ACVP_REQ_MAX_FAILED_TESTID];
+static uint64_t testids[ACVP_REQ_MAX_FAILED_TESTID];
 static unsigned int testid_idx = 0;
 
 /* DELETE /testSessions/<testSessionId> */
@@ -101,7 +101,7 @@ static int acvp_cancel(struct acvp_testid_ctx *testid_ctx)
 		goto out;
 
 	logger_status(LOGGER_C_SIGNALHANDLER,
-		      "Cancel outstanding test session %u with ACVP server\n",
+		      "Cancel outstanding test session %"PRIu64" with ACVP server\n",
 		      testid_ctx->testid);
 
 	CKINT(acvp_testid_url(testid_ctx, url, sizeof(url), false));
@@ -117,7 +117,7 @@ static int acvp_cancel(struct acvp_testid_ctx *testid_ctx)
 
 			CKINT(json_get_string(entry, "status", &status));
 			logger_status(LOGGER_C_SIGNALHANDLER,
-				      "Test session %u is marked as %s\n",
+				      "Test session %"PRIu64" is marked as %s\n",
 				      testid_ctx->testid, status);
 		}
 	}
@@ -237,7 +237,7 @@ static void sig_term_report(void)
 			"Not all testIDs were processed cleanly. Invoke ACVP Proxy with the following options to continue processing the remaining test vectors possibly with the --request option:\n");
 
 		for (i = 0; i < testid_idx; i++)
-			printf("--testid %u ", testids[i]);
+			printf("--testid %"PRIu64" ", testids[i]);
 
 		printf("\n");
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2023 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -169,7 +169,7 @@ out:
 static int amvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
 				const struct acvp_ctx *ctx,
 				const struct definition *def,
-				const uint32_t testid)
+				const uint64_t testid)
 {
 	int ret;
 
@@ -186,7 +186,7 @@ out:
  * register the cert request.
  */
 static int amvp_register_module(const struct acvp_ctx *ctx,
-				const struct definition *def, uint32_t testid)
+				const struct definition *def, uint64_t testid)
 {
 	struct acvp_testid_ctx module_ctx = { 0 };
 	int ret;
@@ -208,10 +208,10 @@ out:
  * registration is obtained, register the cert request.
  */
 static int amvp_certrequest(const struct acvp_ctx *ctx,
-			    const struct definition *def, uint32_t testid)
+			    const struct definition *def, uint64_t testid)
 {
 	struct acvp_testid_ctx module_ctx = { 0 };
-	uint32_t *module_id;
+	uint64_t *module_id;
 	int ret;
 	bool requestid = false;
 
@@ -219,7 +219,7 @@ static int amvp_certrequest(const struct acvp_ctx *ctx,
 	CKNULL(def, -EINVAL);
 	CKNULL(ctx->private, -EINVAL);
 
-	module_id = (uint32_t *)ctx->private;
+	module_id = (uint64_t *)ctx->private;
 
 	CKINT(amvp_init_testid_ctx(&module_ctx, ctx, def, testid));
 
@@ -238,7 +238,7 @@ static int amvp_certrequest(const struct acvp_ctx *ctx,
 	ret = acvp_meta_obtain_request_result(&module_ctx, module_id);
 	if (ret == -EAGAIN || acvp_request_id(*module_id)) {
 		logger_status(LOGGER_C_ANY,
-			      "Module ID %u is not yet approved by NIST\n",
+			      "Module ID %"PRIu64" is not yet approved by NIST\n",
 			      acvp_id(*module_id));
 		ret = -EAGAIN;
 		goto out;
@@ -249,7 +249,7 @@ static int amvp_certrequest(const struct acvp_ctx *ctx,
 	/* We got a fresh module ID, inform the user once */
 	if (requestid) {
 		logger_status(LOGGER_C_ANY,
-			      "Module registered with ID %u\nIf you want to manually create a (new) certificate request for this module ID use the command amvp-proxy --moduleid %u. It is permissible to have multiple certificate requests for one module. Typically, the certificate request is automatically requested after this.\n",
+			      "Module registered with ID %"PRIu64"\nIf you want to manually create a (new) certificate request for this module ID use the command amvp-proxy --moduleid %"PRIu64". It is permissible to have multiple certificate requests for one module. Typically, the certificate request is automatically requested after this.\n",
 			      *module_id, *module_id);
 	}
 
@@ -268,7 +268,7 @@ out:
 
 /* Register module definition for one given definition */
 static int _amvp_continue(const struct acvp_ctx *ctx,
-			  const struct definition *def, uint32_t testid)
+			  const struct definition *def, uint64_t testid)
 {
 	struct acvp_testid_ctx module_ctx = { 0 };
 	int ret;
@@ -292,9 +292,9 @@ int amvp_register(struct acvp_ctx *ctx)
 }
 
 DSO_PUBLIC
-int amvp_certrequest_from_module_id(struct acvp_ctx *ctx, uint32_t module_id)
+int amvp_certrequest_from_module_id(struct acvp_ctx *ctx, uint64_t module_id)
 {
-	uint32_t *val = calloc(1, sizeof(uint32_t));
+	uint64_t *val = calloc(1, sizeof(uint64_t));
 	int ret;
 
 	CKNULL(val, -ENOMEM);
@@ -313,7 +313,7 @@ out:
 
 DSO_PUBLIC
 int amvp_certrequest_from_module_request_id(struct acvp_ctx *ctx,
-					    uint32_t module_request_id)
+					    uint64_t module_request_id)
 {
 	return amvp_certrequest_from_module_id(
 		ctx, module_request_id | ACVP_REQUEST_INITIAL);

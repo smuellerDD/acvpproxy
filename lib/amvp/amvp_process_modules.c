@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2023 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -37,17 +37,17 @@
  * Process response from /modules/<id>
  */
 static int amvp_module_process(struct acvp_testid_ctx *module_ctx,
-			       const struct acvp_buf *response, uint32_t *id)
+			       const struct acvp_buf *response, uint64_t *id)
 {
 	struct json_object *resp = NULL, *data = NULL;
-	uint32_t tmp_id;
+	uint64_t tmp_id;
 	int ret;
 
 	/* Strip the version array entry and get the oe URI data. */
 	CKINT(acvp_req_strip_version(response, &resp, &data));
 
 	(void)module_ctx;
-	CKINT(json_get_uint(data, "id", &tmp_id));
+	CKINT(json_get_uint64(data, "id", &tmp_id));
 
 	/* Reject a request ID */
 	if (acvp_request_id(tmp_id)) {
@@ -67,7 +67,7 @@ out:
 
 /* GET /modules/<id> */
 static int amvp_module_get(struct acvp_testid_ctx *module_ctx,
-			   uint32_t *module_id)
+			   uint64_t *module_id)
 {
 	ACVP_BUFFER_INIT(response_buf);
 	char url[ACVP_NET_URL_MAXLEN];
@@ -109,7 +109,7 @@ out:
  * GET /requests/<id>
  */
 static int amvp_module_get_op(struct acvp_testid_ctx *module_ctx,
-			      uint32_t *module_id)
+			      uint64_t *module_id)
 {
 	int ret;
 
@@ -126,7 +126,7 @@ static int amvp_module_get_op(struct acvp_testid_ctx *module_ctx,
 		/* Wait the requested amount of seconds */
 		if (ret == -EAGAIN || acvp_request_id(*module_id)) {
 			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
-			       "AMVP server needs more time - sleeping for %u seconds for requestID %u again\n",
+			       "AMVP server needs more time - sleeping for %u seconds for requestID %"PRIu64" again\n",
 			       AMVP_GET_DATAFILE_INFO_SLEEPTIME,
 			       acvp_id(*module_id));
 			CKINT(sleep_interruptible(
@@ -152,7 +152,7 @@ static int amvp_module_process_req(struct acvp_testid_ctx *module_ctx,
 {
 	const struct acvp_ctx *ctx = module_ctx->ctx;
 	const struct acvp_opts_ctx *opts = &ctx->options;
-	uint32_t module_id;
+	uint64_t module_id;
 	int ret;
 
 	/* Analyze the result from the POST */
@@ -166,14 +166,14 @@ static int amvp_module_process_req(struct acvp_testid_ctx *module_ctx,
 		module_id = acvp_id(module_id);
 
 		logger_status(LOGGER_C_ANY,
-			      "Module request registered with request ID %u\nHave this ID approved by NIST and continue the operation with amvp-proxy --modulereqid %u\n",
+			      "Module request registered with request ID %"PRIu64"\nHave this ID approved by NIST and continue the operation with amvp-proxy --modulereqid %"PRIu64"\n",
 			      module_id, module_id);
 		ret = 0;
 		goto out;
 	}
 
 	CKINT(amvp_module_get_op(module_ctx, &module_id));
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Obtained module ID %u\n",
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Obtained module ID %"PRIu64"\n",
 	       module_id);
 
 
@@ -181,7 +181,7 @@ static int amvp_module_process_req(struct acvp_testid_ctx *module_ctx,
 	module_ctx->testid = module_id;
 
 	logger_status(LOGGER_C_ANY,
-		      "Module registered with ID %u\nIf you want to manually create a (new) certificate request for this module ID use the command amvp-proxy --moduleid %u. It is permissible to have multiple certificate requests for one module. Typically, the certificate request is automatically requested after this.\n",
+		      "Module registered with ID %"PRIu64"\nIf you want to manually create a (new) certificate request for this module ID use the command amvp-proxy --moduleid %"PRIu64". It is permissible to have multiple certificate requests for one module. Typically, the certificate request is automatically requested after this.\n",
 		      module_id, module_id);
 
 	/* Store the testID meta data */

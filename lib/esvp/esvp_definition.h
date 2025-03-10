@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -61,7 +61,7 @@ struct esvp_cc_def {
 	unsigned int n_out;
 	double h_out;
 
-	unsigned int cc_id;
+	uint64_t cc_id;
 
 	char *description;
 	char *acvts_certificate;
@@ -91,9 +91,9 @@ struct esvp_es_def {
 	unsigned int raw_noise_number_restarts;
 	unsigned int raw_noise_samples_restart;
 
-	unsigned int es_id;
-	unsigned int raw_noise_id;
-	unsigned int restart_id;
+	uint64_t es_id;
+	uint64_t raw_noise_id;
+	uint64_t restart_id;
 
 	char *primary_noise_source_desc;
 	char *lab_test_id;

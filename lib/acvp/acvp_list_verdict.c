@@ -1,6 +1,6 @@
 /* List all pending request IDs
  *
- * Copyright (C) 2019 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -99,7 +99,7 @@ static int acvp_list_verdicts_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 	memcpy(&tmp_ctx, vsid_ctx, sizeof(tmp_ctx));
 	CKINT(ds->acvp_datastore_get_vsid_verdict(&tmp_ctx));
 
-	fprintf(stdout, "\tVector set ID %-6u ", vsid_ctx->vsid);
+	fprintf(stdout, "\tVector set ID %-6"PRIu64" ", vsid_ctx->vsid);
 	acvp_list_verdict_print(&tmp_ctx.verdict, true);
 
 out:
@@ -108,7 +108,7 @@ out:
 
 static int acvp_list_verdicts_cb(const struct acvp_ctx *ctx,
 				 const struct definition *def,
-				 const uint32_t testid)
+				 const uint64_t testid)
 {
 	const struct def_info *def_info = def->info;
 	const struct def_oe *def_oe = def->oe;
@@ -139,7 +139,7 @@ static int acvp_list_verdicts_cb(const struct acvp_ctx *ctx,
 	if (!testid_ctx->verdict.verdict)
 		testid_ctx->verdict.verdict = acvp_verdict_downloadpending;
 
-	fprintf(stdout, "Test session ID %-6u ", testid_ctx->testid);
+	fprintf(stdout, "Test session ID %-6"PRIu64" ", testid_ctx->testid);
 	testid_ctx->verdict.cipher_name = def_info->module_name;
 	testid_ctx->verdict.cipher_mode = NULL;
 	acvp_list_verdict_print(&testid_ctx->verdict, false);

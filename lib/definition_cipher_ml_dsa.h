@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -132,9 +132,18 @@ struct def_algo_ml_dsa {
 	 * required: for signature generation and verification
 	 */
 #define DEF_ALG_ML_DSA_INTERFACE_EXTERNAL (1 << 0)
-#define DEF_ALG_ML_DSA_INTERFACE_EXTERNALMU (1 << 1)
-#define DEF_ALG_ML_DSA_INTERFACE_INTERNAL (1 << 2)
+#define DEF_ALG_ML_DSA_INTERFACE_INTERNAL (1 << 1)
 	unsigned int interface;
+
+	/*
+	 * Specify the ML-DSA mu generation approach.
+	 *
+	 * required: for signature generation and verification if the internal
+	 * interface is supported
+	 */
+#define DEF_ALG_ML_DSA_INTERNAL_MU (1 << 0)
+#define DEF_ALG_ML_DSA_EXTERNAL_MU (1 << 1)
+	unsigned int external_mu;
 };
 
 #ifdef __cplusplus

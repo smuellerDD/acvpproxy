@@ -225,21 +225,25 @@ static int acvp_req_slh_dsa_sig_interface(
 			json_object_new_string("internal")));
 	}
 
-	array = json_object_new_array();
-	CKNULL(array, -ENOMEM);
-	CKINT(json_object_object_add(entry, "preHash", array));
-	for (i = 0; i < slh_dsa->capabilities_num; i++) {
-		const struct def_algo_slh_dsa_caps *caps =
+	if (slh_dsa->interface & DEF_ALG_SLH_DSA_INTERFACE_EXTERNAL) {
+		array = json_object_new_array();
+		CKNULL(array, -ENOMEM);
+		CKINT(json_object_object_add(entry, "preHash", array));
+		for (i = 0; i < slh_dsa->capabilities_num; i++) {
+			const struct def_algo_slh_dsa_caps *caps =
 						slh_dsa->capabilities.siggen + i;
 
-		if (caps->hashalg && !prehash_found) {
-			CKINT(json_object_array_add(
-				array, json_object_new_string("preHash")));
-			prehash_found = true;
-		} else if (!caps->hashalg && !pure_found) {
-			CKINT(json_object_array_add(
-				array, json_object_new_string("pure")));
-			pure_found = true;
+			if (caps->hashalg && !prehash_found) {
+				CKINT(json_object_array_add(
+					array,
+					json_object_new_string("preHash")));
+				prehash_found = true;
+			} else if (!caps->hashalg && !pure_found) {
+				CKINT(json_object_array_add(
+					array,
+					json_object_new_string("pure")));
+				pure_found = true;
+			}
 		}
 	}
 

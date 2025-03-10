@@ -1,6 +1,6 @@
 /* Listing of locally stored certificates with various output formats
  *
- * Copyright (C) 2019 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2019 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -43,7 +43,7 @@ static struct acvp_list_cert_uniq *acvp_list_cert_uniq = NULL;
 
 static int acvp_list_certificates_cb(const struct acvp_ctx *ctx,
 				     const struct definition *def,
-				     const uint32_t testid)
+				     const uint64_t testid)
 {
 	const struct def_info *def_info;
 	const struct def_oe *def_oe;
@@ -79,7 +79,7 @@ static int acvp_list_certificates_cb(const struct acvp_ctx *ctx,
 			fprintf(stdout, "- %-10s", def_dep->proc_name);
 	}
 
-	fprintf(stdout, " | %-8u | %-10s\n", testid,
+	fprintf(stdout, " | %-8"PRIu64" | %-10s\n", testid,
 		auth->testsession_certificate_number);
 
 out:
@@ -89,7 +89,7 @@ out:
 
 static int acvp_list_missing_certificates_cb(const struct acvp_ctx *ctx,
 					     const struct definition *def,
-					     const uint32_t testid)
+					     const uint64_t testid)
 {
 	const struct def_info *def_info;
 	const struct def_oe *def_oe;
@@ -124,7 +124,7 @@ static int acvp_list_missing_certificates_cb(const struct acvp_ctx *ctx,
 		if (def_dep->proc_name)
 			fprintf(stdout, "- %-10s", def_dep->proc_name);
 	}
-	fprintf(stdout, " | %-8u\n", testid);
+	fprintf(stdout, " | %-8"PRIu64"\n", testid);
 
 out:
 	acvp_release_auth(&testid_ctx);
@@ -153,14 +153,14 @@ static int acvp_process_one_vsid_results(const struct acvp_vsid_ctx *vsid_ctx,
 		if (def_dep->proc_name)
 			fprintf(stdout, "- %-10s", def_dep->proc_name);
 	}
-	fprintf(stdout, " | %-8u\n", vsid_ctx->vsid);
+	fprintf(stdout, " | %-8"PRIu64"\n", vsid_ctx->vsid);
 
 	return 0;
 }
 
 static int acvp_list_missing_results_cb(const struct acvp_ctx *ctx,
 					const struct definition *def,
-					const uint32_t testid)
+					const uint64_t testid)
 {
 	struct acvp_testid_ctx testid_ctx;
 	struct acvp_auth_ctx *auth;
@@ -204,7 +204,7 @@ static int acvp_store_cert_sorted(const struct acvp_vsid_ctx *vsid_ctx)
 
 	if (!verdict->cipher_name) {
 		logger(LOGGER_WARN, LOGGER_C_ANY,
-		       "Something is wrong with vsID %u - no cipher name! Ignoring.\n",
+		       "Something is wrong with vsID %"PRIu64" - no cipher name! Ignoring.\n",
 		       vsid_ctx->vsid);
 		return 0;
 	}
@@ -345,7 +345,7 @@ out:
 
 static int acvp_get_cert_details_cb(const struct acvp_ctx *ctx,
 				    const struct definition *def,
-				    const uint32_t testid)
+				    const uint64_t testid)
 {
 	const struct def_info *def_info = def->info;
 	struct acvp_testid_ctx *testid_ctx = NULL;

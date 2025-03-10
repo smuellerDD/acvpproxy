@@ -1,6 +1,6 @@
 /* Perform ESVP certification operation
  *
- * Copyright (C) 2021 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -341,7 +341,7 @@ esvp_analyze_certify(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(json_get_string(entry, "status", &str));
 	if (!strncmp(str, "received", 8)) {
 		logger_status(LOGGER_C_ANY,
-			      "ESVP server accepted certificate request - notify NIST to approve ID %u\n",
+			      "ESVP server accepted certificate request - notify NIST to approve ID %"PRIu64"\n",
 			      testid_ctx->testid);
 		ret = 0;
 		goto out;
@@ -390,7 +390,7 @@ static int esvp_certify_internal(struct acvp_testid_ctx *testid_ctx)
 
 	if (!opts->esv_certify) {
 		logger_status(LOGGER_C_ANY,
-			      "Certify operation skipped - to certify this one test session, use --testid %u --publish to certify current request\n",
+			      "Certify operation skipped - to certify this one test session, use --testid %"PRIu64" --publish to certify current request\n",
 			      testid_ctx->testid);
 		return 0;
 	}

@@ -1,6 +1,6 @@
 /* Datastore backend storing files
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -184,7 +184,8 @@ static int acvp_datastore_check_version(char *basedir, const bool createdir)
 	if (readversion != ACVP_DS_VERSION) {
 		logger(LOGGER_ERR, LOGGER_C_DS_FILE,
 		       "Datastore at %s is old!\n", basedir);
-		return -ETIME;
+		ret = -ETIME;
+		goto out;
 	}
 
 	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
@@ -550,6 +551,7 @@ static int acvp_datastore_file_uint(const char *pathname, const char *filename,
 		CKINT(acvp_datastore_read_data((uint8_t **)&msgsize,
 					       &msgsize_len, file));
 
+		CKNULL(msgsize, -EINVAL);
 		msgsize_int = strtoul(msgsize, NULL, 10);
 		free(msgsize);
 
@@ -558,6 +560,42 @@ static int acvp_datastore_file_uint(const char *pathname, const char *filename,
 			*id = UINT_MAX;
 		else
 			*id = (uint32_t)msgsize_int;
+	}
+
+out:
+	return ret;
+}
+
+static int acvp_datastore_file_uint64(const char *pathname,
+				      const char *filename, uint64_t *id)
+{
+	struct stat statbuf;
+	int ret = 0;
+	char file[FILENAME_MAX];
+
+	/* Get message size */
+	snprintf(file, sizeof(file), "%s/%s", pathname, filename);
+
+	if (!stat(file, &statbuf) && statbuf.st_size) {
+		size_t msgsize_len;
+		unsigned long msgsize_int;
+		char *msgsize = NULL;
+
+		logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
+		       "Try to read integer value from file %s\n", file);
+		CKINT(acvp_datastore_read_data((uint8_t **)&msgsize,
+					       &msgsize_len, file));
+
+		CKNULL(msgsize, -EINVAL);
+
+		msgsize_int = strtoul(msgsize, NULL, 10);
+		free(msgsize);
+
+		/* do not throw an error */
+		if (msgsize_int >= UINT64_MAX)
+			*id = UINT64_MAX;
+		else
+			*id = (uint64_t)msgsize_int;
 	}
 
 out:
@@ -698,11 +736,11 @@ acvp_datastore_file_read_authtoken(struct acvp_testid_ctx *testid_ctx)
 
 	/* Get testsession certificate request ID */
 	auth->testsession_certificate_id = 0;
-	CKINT(acvp_datastore_file_uint(pathname,
-				       datastore->testsession_certificate_id,
-				       &auth->testsession_certificate_id));
+	CKINT(acvp_datastore_file_uint64(pathname,
+					 datastore->testsession_certificate_id,
+					 &auth->testsession_certificate_id));
 	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-	       "Test session certificate ID: %u\n",
+	       "Test session certificate ID: %"PRIu64"\n",
 	       auth->testsession_certificate_id);
 
 	/* Get testsession certificate number */
@@ -758,7 +796,7 @@ static int acvp_datastore_file_write_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 	CKINT(acvp_datastore_write_data(data, pathname));
 
 	logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-	       "data written for testID %u / vsID %u to file %s\n",
+	       "data written for testID %"PRIu64" / vsID %"PRIu64" to file %s\n",
 	       testid_ctx->testid, vsid_ctx->vsid, filename);
 
 	CKINT(acvp_datastore_write_status(testid_ctx));
@@ -802,7 +840,7 @@ static int acvp_datastore_file_write_testid(
 	CKINT(acvp_datastore_write_data(data, pathname));
 
 	logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-	       "data written for testID %u to file %s\n", testid_ctx->testid,
+	       "data written for testID %"PRIu64" to file %s\n", testid_ctx->testid,
 	       filename);
 
 out:
@@ -1287,10 +1325,10 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 	if (!stat(expected, &statbuf)) {
 		logger_status(
 			LOGGER_C_DS_FILE,
-			"Skipping submission for vsID %u since expected results are present (%s exists)\n",
+			"Skipping submission for vsID %"PRIu64" since expected results are present (%s exists)\n",
 			vsid_ctx->vsid, expected);
 		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-		       "Skipping submission for vsID %u since expected results are present (%s exists)\n",
+		       "Skipping submission for vsID %"PRIu64" since expected results are present (%s exists)\n",
 		       vsid_ctx->vsid, expected);
 		vsid_ctx->sample_file_present = true;
 
@@ -1313,7 +1351,7 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 						 datastore->verdictfile));
 			if (stat(verdict_file, &statbuf)) {
 				logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-				       "Skipping submission for vsID %u since it was submitted already, but fetching verdict\n",
+				       "Skipping submission for vsID %"PRIu64" since it was submitted already, but fetching verdict\n",
 				       vsid_ctx->vsid);
 
 				/*
@@ -1338,7 +1376,7 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 				if (vsid_ctx->verdict.verdict !=
 				    acvp_verdict_unreceived) {
 					logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-					       "Skipping submission for vsID %u since it was submitted already (%s exists)\n",
+					       "Skipping submission for vsID %"PRIu64" since it was submitted already (%s exists)\n",
 					       vsid_ctx->vsid, processedpath);
 
 					return 0;
@@ -1359,7 +1397,7 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 		}
 
 		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-		       "No response file for vsID %u found (%s not found)\n",
+		       "No response file for vsID %"PRIu64" found (%s not found)\n",
 		       vsid_ctx->vsid, resppath);
 
 		/*
@@ -1368,7 +1406,7 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 		 */
 		if (stat(vectorfile, &statbuf)) {
 			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-			       "No request file for vsID %u found\n",
+			       "No request file for vsID %"PRIu64" found\n",
 			       vsid_ctx->vsid);
 			vsid_ctx->vector_file_present = false;
 		} else {
@@ -1384,7 +1422,7 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 	} else {
 		if (!statbuf.st_size) {
 			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-			       "Skipping submission for vsID %u since response file not found (%s empty)\n",
+			       "Skipping submission for vsID %"PRIu64" since response file not found (%s empty)\n",
 			       vsid_ctx->vsid, resppath);
 			ret = 0;
 			goto out;
@@ -1597,7 +1635,7 @@ static int acvp_datastore_file_find_responses(
 	while ((dirent = readdir(dir)) != NULL) {
 		const struct acvp_search_ctx *search = &datastore->search;
 		struct acvp_vsid_ctx *vsid_ctx = NULL;
-		unsigned long vsid_val;
+		unsigned long long vsid_val;
 		unsigned int i, skip = 0;
 
 		if (!strncmp(dirent->d_name, ".", 1))
@@ -1615,8 +1653,8 @@ static int acvp_datastore_file_find_responses(
 		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
 		       "Process results directory %s\n", dirent->d_name);
 
-		vsid_val = strtoul(dirent->d_name, NULL, 10);
-		if (vsid_val == ULONG_MAX) {
+		vsid_val = strtoull(dirent->d_name, NULL, 10);
+		if (vsid_val == ULLONG_MAX) {
 			ret = -errno;
 			goto out;
 		}
@@ -1637,7 +1675,7 @@ static int acvp_datastore_file_find_responses(
 
 			if (!found) {
 				logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-				       "Skipping test results dir %lu\n",
+				       "Skipping test results dir %llu\n",
 				       vsid_val);
 				continue;
 			}
@@ -1646,7 +1684,7 @@ static int acvp_datastore_file_find_responses(
 		vsid_ctx = calloc(1, sizeof(*vsid_ctx));
 		CKNULL(vsid_ctx, -ENOMEM);
 
-		vsid_ctx->vsid = (uint32_t)vsid_val;
+		vsid_ctx->vsid = (uint64_t)vsid_val;
 		vsid_ctx->testid_ctx = testid_ctx;
 		if (clock_gettime(CLOCK_REALTIME, &vsid_ctx->start)) {
 			ret = -errno;
@@ -1734,7 +1772,7 @@ out:
 
 static int acvp_datastore_file_find_testsession(const struct definition *def,
 						const struct acvp_ctx *ctx,
-						uint32_t *testids,
+						uint64_t *testids,
 						unsigned int *testid_count)
 {
 	const struct acvp_datastore_ctx *datastore;
@@ -1784,9 +1822,9 @@ static int acvp_datastore_file_find_testsession(const struct definition *def,
 	/* Iterate through test session directory and process files */
 	while ((tcount < *testid_count) && (dirent = readdir(dir)) != NULL) {
 		const struct acvp_search_ctx *search = &datastore->search;
-		unsigned long testid = strtoul(dirent->d_name, NULL, 10);
+		unsigned long long testid = strtoull(dirent->d_name, NULL, 10);
 
-		if (testid >= UINT_MAX) {
+		if (testid >= ULLONG_MAX) {
 			ret = -errno;
 			goto out;
 		}
@@ -1796,7 +1834,7 @@ static int acvp_datastore_file_find_testsession(const struct definition *def,
 			continue;
 
 		/* Fudge the testid_ctx */
-		testid_ctx.testid = (uint32_t)testid;
+		testid_ctx.testid = (uint64_t)testid;
 
 		/*
 		 * If specific testID is requested, only return requested
@@ -1816,7 +1854,7 @@ static int acvp_datastore_file_find_testsession(const struct definition *def,
 
 			if (!found) {
 				logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-				       "Skipping test session dir %lu\n",
+				       "Skipping test session dir %llu\n",
 				       testid);
 				continue;
 			}
@@ -1846,7 +1884,7 @@ static int acvp_datastore_file_find_testsession(const struct definition *def,
 
 			if (!found) {
 				logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-				       "Skipping test session dir %lu\n",
+				       "Skipping test session dir %llu\n",
 				       testid);
 				continue;
 			}
@@ -1871,7 +1909,7 @@ static int acvp_datastore_file_find_testsession(const struct definition *def,
 		}
 		ret = 0;
 
-		testids[tcount] = (uint32_t)testid;
+		testids[tcount] = (uint64_t)testid;
 		tcount++;
 	}
 

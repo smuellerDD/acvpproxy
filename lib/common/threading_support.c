@@ -1,6 +1,6 @@
 /* Threading support - implementation
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -401,25 +401,27 @@ int thread_wait(void)
 	return ret;
 }
 
-int thread_set_name(enum acvp_request_type type, uint32_t id)
+int thread_set_name(enum acvp_request_type type, uint64_t id)
 {
 	char name[ACVP_THREAD_MAX_NAMELEN];
 
 	switch (type) {
 	case acvp_testid:
-		snprintf(name, sizeof(name), "tid%u", id);
+		snprintf(name, sizeof(name), "tid%llu", (unsigned long long)id);
 		break;
 	case acvp_vsid:
-		snprintf(name, sizeof(name), "vid%u", id);
+		snprintf(name, sizeof(name), "vid%llu", (unsigned long long)id);
 		break;
 	case acvp_signal:
-		snprintf(name, sizeof(name), "signal%u", id);
+		snprintf(name, sizeof(name), "signal%llu",
+			 (unsigned long long)id);
 		break;
 	case acvp_totp:
-		snprintf(name, sizeof(name), "totp%u", id);
+		snprintf(name, sizeof(name), "totp%llu",
+			 (unsigned long long)id);
 		break;
 	default:
-		snprintf(name, sizeof(name), "%u", id);
+		snprintf(name, sizeof(name), "%llu", (unsigned long long)id);
 		break;
 	}
 

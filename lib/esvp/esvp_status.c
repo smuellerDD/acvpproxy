@@ -1,6 +1,6 @@
 /* Reading and writing of ESVP status information for re-entrant support
  *
- * Copyright (C) 2021 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2021 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -141,11 +141,11 @@ int esvp_read_status(struct acvp_testid_ctx *testid_ctx,
 	ACVP_PTR_FREE_NULL(es->ea_restart_results_status);
 	CKINT(acvp_duplicate(&es->ea_restart_results_status, str));
 
-	CKINT(json_get_uint(status, "rawNoiseBitsId", &es->raw_noise_id));
+	CKINT(json_get_uint64(status, "rawNoiseBitsId", &es->raw_noise_id));
 	CKINT(json_get_bool(status, "rawNoiseBitsSubmitted",
 			    &es->raw_noise_submitted));
 
-	CKINT(json_get_uint(status, "restartTestBitsId", &es->restart_id));
+	CKINT(json_get_uint64(status, "restartTestBitsId", &es->restart_id));
 	CKINT(json_get_bool(status, "restartTestBitsSubmitted",
 			    &es->restart_submitted));
 
@@ -182,7 +182,8 @@ int esvp_read_status(struct acvp_testid_ctx *testid_ctx,
 
 		snprintf(ref, sizeof(ref), "conditioningComponent%u", seq_no);
 		CKINT(json_find_key(status, ref, &stat_cc, json_type_object));
-		CKINT(json_get_uint(stat_cc, "conditionedBitsId", &cc->cc_id));
+		CKINT(json_get_uint64(stat_cc, "conditionedBitsId",
+				      &cc->cc_id));
 		CKINT(json_get_bool(stat_cc, "conditionedBitsSubmitted",
 				    &cc->output_submitted));
 

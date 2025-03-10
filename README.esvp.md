@@ -134,7 +134,7 @@ compared to the certify operation. Its only difference is that the
         "bitsPerSample": 8,
         "alphabetSize": 256,
         ...
-        "esvCertificate": "ESV1234",
+        "esvCertificate": "E123",
         ...
 }
 ```
@@ -193,7 +193,7 @@ certificate reference as a string:
         "bitsPerSample": 8,
         "alphabetSize": 256,
         ...
-        "esvCertificate": "ESV1234",
+        "esvCertificate": "E1234",
         ...
 }
 ```
@@ -208,7 +208,7 @@ definition in case you want to retain the old state.
 
 3. Replace the existing PUD with the new PUD.
 
-3. Upload the new PUD to the NIST ESVP server: `esvp-proxy` and obtain the testID(s).
+3. Upload the new PUD to the NIST ESVP server: `esvp-proxy` and obtain the testID(s). Note, only one new PUD is allowed to be updated. The ESVP Proxy will only upload the first it finds.
 
 4. Request the PUD update process: `esvp-proxy --pudupdate --testid <ID_NEW_ES>`
 

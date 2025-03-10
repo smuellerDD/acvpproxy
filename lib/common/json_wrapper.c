@@ -1,6 +1,6 @@
 /* Wrapper for JSON-C functions
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -124,7 +124,7 @@ int json_get_uint(const struct json_object *obj, const char *name,
 	return 0;
 }
 
-int json_get_uint64(struct json_object *obj, const char *name,
+int json_get_uint64(const struct json_object *obj, const char *name,
 		    uint64_t *integer)
 {
 	struct json_object *o = NULL;

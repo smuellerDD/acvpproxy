@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2023 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -88,13 +88,13 @@ static int amvp_sp_handle_get_pdf_response(
 		pdfbuf.len = (uint32_t)pdflen;
 
 		/* Generate file name of Security Policy */
-		snprintf(spfile, sizeof(spfile), "%u%s", certreq_ctx->vsid,
-			 AMVP_DS_SP_FILENAME);
+		snprintf(spfile, sizeof(spfile), "%"PRIu64"%s",
+			 certreq_ctx->vsid, AMVP_DS_SP_FILENAME);
 
 		CKINT(ds->acvp_datastore_write_vsid(certreq_ctx, spfile,
 						    false, &pdfbuf));
 		logger_status(LOGGER_C_ANY,
-			      "Security Policy PDF file stored in certificate request %u database directory\n",
+			      "Security Policy PDF file stored in certificate request %"PRIu64" database directory\n",
 			      certreq_ctx->vsid);
 
 	} else if (!strncasecmp(str, "pending", 7)) {

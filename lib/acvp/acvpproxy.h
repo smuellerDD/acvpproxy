@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -87,7 +87,7 @@ struct acvp_auth_ctx {
 	 * Certificate request ID of test session. If 0, no test session
 	 * certificate request ID was applied for yet.
 	 */
-	uint32_t testsession_certificate_id;
+	uint64_t testsession_certificate_id;
 
 	/*
 	 * Certificate number of test session. If NULL, no test session
@@ -159,9 +159,9 @@ struct acvp_search_ctx {
 	bool with_es_def;
 	bool with_amvp_def;
 
-	unsigned int submit_vsid[MAX_SUBMIT_ID];
+	uint64_t submit_vsid[MAX_SUBMIT_ID];
 	unsigned int nr_submit_vsid;
-	unsigned int submit_testid[MAX_SUBMIT_ID];
+	uint64_t submit_testid[MAX_SUBMIT_ID];
 	unsigned int nr_submit_testid;
 };
 
@@ -796,7 +796,7 @@ int acvp_set_options(struct acvp_ctx *ctx, const struct acvp_opts_ctx *options);
  * @return 0 on success, -ENOENT identifies that there is no testid for given
  *	   idx_ptr, < 0 on other error
  */
-int acvp_list_failed_testid(int *idx_ptr, uint32_t *testid);
+int acvp_list_failed_testid(int *idx_ptr, uint64_t *testid);
 
 /**
  * @brief List all vsIDs with a verdict provided in passed
@@ -816,7 +816,7 @@ int acvp_list_failed_testid(int *idx_ptr, uint32_t *testid);
  * @return 0 on success, -ENOENT identifies that there is no testid for given
  *	   idx_ptr, < 0 on other error
  */
-int acvp_list_verdict_vsid(int *idx_ptr, uint32_t *vsid, const bool passed);
+int acvp_list_verdict_vsid(int *idx_ptr, uint64_t *vsid, const bool passed);
 
 /**
  * @brief Retrieve all details about cipher definitions from the ACVP server
@@ -898,7 +898,7 @@ int acvp_server_db_search(struct acvp_ctx *ctx,
  */
 int acvp_server_db_fetch_id(struct acvp_ctx *ctx,
 			    const enum acvp_server_db_search_type search_type,
-			    const uint32_t id);
+			    const uint64_t id);
 
 /**
  * @brief Fetch the ACVP DB entries to populate a new module_definitions
@@ -909,7 +909,7 @@ int acvp_server_db_fetch_id(struct acvp_ctx *ctx,
  *
  * @return 0 on success, < 0 on error
  */
-int acvp_server_db_fetch_validation(struct acvp_ctx *ctx, const uint32_t id);
+int acvp_server_db_fetch_validation(struct acvp_ctx *ctx, const uint64_t id);
 
 /**
  * @brief List all available purchase options offered by the server
