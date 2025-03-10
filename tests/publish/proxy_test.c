@@ -1,6 +1,6 @@
 /* ACVP Proxy application
  *
- * Copyright (C) 2018 - 2024, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2018 - 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -600,7 +600,7 @@ out:
 static int do_register(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
-	uint32_t testid;
+	uint64_t testid;
 	int ret, idx = 0;
 	bool printed = false;
 
@@ -631,7 +631,7 @@ static int do_register(struct opt_data *opts)
 			printf("--request ");
 			printed = true;
 		}
-		printf("--testid %u ", testid);
+		printf("--testid %"PRIu64" ", testid);
 	}
 
 	if (ret == -ENOENT)
@@ -645,7 +645,7 @@ out:
 static int do_submit(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
-	uint32_t vsid;
+	uint64_t vsid;
 	int ret, ret2, idx = 0;
 	bool printed = false;
 
