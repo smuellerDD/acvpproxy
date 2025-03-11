@@ -1846,7 +1846,7 @@ static int acvp_datastore_file_find_testsession(const struct definition *def,
 
 			for (i = 0; i < search->nr_submit_testid; i++) {
 				if (search->submit_testid[i] == testid ||
-				    search->submit_testid[i] == UINT_MAX) {
+				    search->submit_testid[i] == UINT64_MAX) {
 					found = 1;
 					break;
 				}

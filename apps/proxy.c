@@ -816,8 +816,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					ret = -EINVAL;
 					goto out;
 				}
-				val = strtoull(optarg, NULL, 10);
-				if (val == UINT64_MAX) {
+				lval = strtoll(optarg, NULL, 10);
+				if (val == LLONG_MAX) {
 					logger(LOGGER_ERR, LOGGER_C_ANY,
 					       "testID too big\n");
 					usage();
@@ -825,7 +825,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					goto out;
 				}
 				search->submit_testid[search->nr_submit_testid++] =
-					(unsigned int)val;
+					(uint64_t)lval;
 				break;
 			case 20:
 				/* request */
