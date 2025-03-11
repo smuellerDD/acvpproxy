@@ -805,7 +805,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				else
 					search->submit_vsid
 						[search->nr_submit_vsid++] =
-						(unsigned int)lval;
+						(uint64_t)lval;
 				break;
 			case 19:
 				/* testid */
@@ -824,7 +824,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 					ret = -EINVAL;
 					goto out;
 				}
-				search->submit_testid[search->nr_submit_testid++] =
+				search->submit_testid
+					[search->nr_submit_testid++] =
 					(uint64_t)lval;
 				break;
 			case 20:
