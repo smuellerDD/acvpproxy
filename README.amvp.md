@@ -144,6 +144,20 @@ Note, a module definition only is `eligible` for AMVP operations, if it is confi
 }
 ```
 
+## AMVP TE Data Processing
+
+At one point in the process of interacting with the AMVP server, TE data will need to be filled in by the user which then is uploaded to the server. The place in the order of events when TE data is needed is outlined in the steps discussed in section [AMVP Individual Steps].
+
+As outlined before, the AMVP proxy is intended to serve as a tool that shall not get in the way of the user. Thus, it tries to give the user as much leeway as it can. With that, the data processing is as follows: The user can create partial or full TE data sets and upload them to the server. The AMVP proxy allows the user to perform the uploading operation an arbitrary amount of times to add new TE information or update existing ones.
+
+The TE data can be stored in one of the following two ways:
+
+* *ALL* TE data in one file: The file `amvp-testvectors/.../<module ID>/<certification request ID>/te.json` can hold all TE data for the given submission. It can be updated as needed and resubmitted as needed.
+
+* TE data stored in multiple JSON files: The directory `amvp-testvectors/.../<module ID>/<certification request ID>/test_evicence` can hold an arbitrary amount of files. The AMVP proxy will attempt to upload all of them. This means that each file must conform to the JSON format specification defined by the AMVP server. This allows the user to segregate the TE data into individual work items like one JSON file per TE or AS.
+
+Immediately once the user thinks work is completed on one TE part and he wishes to upload the data, section [Submit Data] outlines how to submit data.
+
 ## AMVP Individual Steps
 
 The main goal of the AMVP-Proxy is to not get into the way of the user. Therefore, it is possible with AMVP to perform each step of the server communication individually. The following sections outline the possibilities.
@@ -190,13 +204,15 @@ Purpose: Register the certification request. The certification request is the se
 
 Next steps: Submit data as outlined in [Submit Data].
 
+Note: After completion of the certification request, the user now can manage the TE data as outlined in section [AMVP TE Data Processing].
+
 ### Submit Data
 
 Command: `amvp-proxy --vsid <certification request ID>` where `<certification request ID>` is the ID obtained as outlined in [Certification Request].
 
-Prerequisite: Data stored in `amvp-testvectors/.../<module ID>/<certification request ID>/te.json` and SP data as provided in `module_definition/cmvp` must be provided by the user.
+Prerequisite: Data stored in `amvp-testvectors/.../<module ID>/<certification request ID>/te.json` *or* all JSON files stored in the directory `amvp-testvectors/.../<module ID>/<certification request ID>/test_evicence`, and SP data as provided in `module_definition/cmvp` must be provided by the user.
 
-Purpose: Upload the data to AMVP server.
+Purpose: Upload the TE data to AMVP server. The TE data is obtained from the process outlined in [AMVP TE Data Processing].
 
 Next step: Repeat operation as often as needed to upload evidence to server.
 
