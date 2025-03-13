@@ -215,3 +215,13 @@ Command: `amvp-proxy --vsid <certification request ID> --fetch-sp` where `<certi
 Purpose: Fetch the security policy PDF of the certification request.
 
 Next step: N/A
+
+### Finalize the Certification and request Certificate
+
+Command: `amvp-proxy --vsid <certification request ID> --certify` where `<certification request ID>` is the ID obtained as outlined in [Certification Request].
+
+Purpose: After all data has been submitted, this call marks the end of the test lab operation. It will close the certificate request such that NIST reviewers can perform their actions. If all goes well, you will receive a certificate eventually.
+
+To query the status of the current certification request, use the command outlined in [Fetch Status].
+
+Next step: Repeat [Fetch Status] until you receive a certificate.

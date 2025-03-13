@@ -615,7 +615,8 @@ static int acvp_datastore_process_certinfo(const char *pathname,
 		struct json_object *certdata, *certversion;
 		const char *valId;
 
-		CKINT(json_read_data(file, &certinfo));
+		CKINT_LOG(json_read_data(file, &certinfo),
+			  "File %s could not be parsed\n", file);
 		CKINT(json_split_version(certinfo, &certdata, &certversion));
 
 		/* validationId is used in ACVP */
@@ -1244,96 +1245,20 @@ out:
 }
 
 static int
-acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
-			    const char *datastore_base, const char *secure_base,
-			    int (*cb)(const struct acvp_vsid_ctx *vsid_ctx,
-				      const struct acvp_buf *buf))
+acvp_datastore_process_vsid_file(
+	struct acvp_vsid_ctx *vsid_ctx, const char *processedpath,
+	const char *resppath,
+	int (*cb)(const struct acvp_vsid_ctx *vsid_ctx,
+		  const struct acvp_buf *buf))
 {
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
-	const struct acvp_auth_ctx *auth = testid_ctx->server_auth;
-	FILE *file;
 	struct stat statbuf;
 	struct acvp_buf buf;
-	time_t now;
-	struct tm now_detail;
 	uint8_t *resp_buf;
-	int fd = -1, ret = 0;
-	char resppath[FILENAME_MAX], processedpath[FILENAME_MAX],
-		vectorfile[FILENAME_MAX], expected[FILENAME_MAX], now_buf[30];
-
-	CKNULL_C_LOG(datastore_base, -EINVAL, LOGGER_C_DS_FILE,
-		     "Data store base missing\n");
-	CKNULL_C_LOG(secure_base, -EINVAL, LOGGER_C_DS_FILE,
-		     "Secure data store base missing\n");
-
-	/*
-	 * The vsID of 0 is special as it contains status information for the
-	 * test session authentication where no vsID exists yet.
-	 */
-	if (!vsid_ctx->vsid) {
-		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-		       "Skipping special vsID directory without any test data of %s/0\n",
-		       datastore_base);
-		return 0;
-	}
-
-	if (auth && auth->testsession_certificate_number) {
-		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-		       "Skipping processing of test data as certificate %s was received\n",
-		       auth->testsession_certificate_number);
-		return 0;
-	}
-
-	/* Create path names */
-	CKINT(acvp_datastore_file_vectordir_vsid(
-		vsid_ctx, resppath, sizeof(resppath), false, false));
-	CKINT(acvp_extend_string(resppath, sizeof(resppath), "/%s",
-				 datastore->resultsfile));
-
-	ret = acvp_datastore_file_vectordir_vsid(
-		vsid_ctx, processedpath, sizeof(processedpath), false, true);
-	/*
-	 * It is permissible to have a non-existing path here, we check it
-	 * further down with stat anyway.
-	 */
-	if (ret && ret != -ENOENT)
-		goto out;
-	CKINT(acvp_extend_string(processedpath, sizeof(processedpath), "/%s",
-				 datastore->processedfile));
-
-	CKINT(acvp_datastore_file_vectordir_vsid(
-		vsid_ctx, vectorfile, sizeof(vectorfile), false, false));
-	CKINT(acvp_extend_string(vectorfile, sizeof(vectorfile), "/%s",
-				 datastore->vectorfile));
-
-	CKINT(acvp_datastore_file_vectordir_vsid(
-		vsid_ctx, expected, sizeof(expected), false, false));
-	CKINT(acvp_extend_string(expected, sizeof(expected), "/%s",
-				 datastore->expectedfile));
-
-	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
-	       "Read response from %s and processed file from %s\n", resppath,
-	       processedpath);
-
-	/*
-	 * If we have an expected result on file, we cannot submit real results
-	 * any more - the ACVP server will reject it.
-	 */
-	if (!stat(expected, &statbuf)) {
-		logger_status(
-			LOGGER_C_DS_FILE,
-			"Skipping submission for vsID %"PRIu64" since expected results are present (%s exists)\n",
-			vsid_ctx->vsid, expected);
-		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
-		       "Skipping submission for vsID %"PRIu64" since expected results are present (%s exists)\n",
-		       vsid_ctx->vsid, expected);
-		vsid_ctx->sample_file_present = true;
-
-		return 0;
-	}
+	int fd = -1, ret;
 
 	/* If there is already a processed file, do a resubmit */
 	if (!stat(processedpath, &statbuf)) {
@@ -1389,6 +1314,7 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 
 	/* Get response file */
 	if (stat(resppath, &statbuf)) {
+		char vectorfile[FILENAME_MAX];
 		int errsv = errno;
 
 		if (errsv != ENOENT) {
@@ -1399,6 +1325,11 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
 		       "No response file for vsID %"PRIu64" found (%s not found)\n",
 		       vsid_ctx->vsid, resppath);
+
+		CKINT(acvp_datastore_file_vectordir_vsid(
+			vsid_ctx, vectorfile, sizeof(vectorfile), false, false));
+		CKINT(acvp_extend_string(vectorfile, sizeof(vectorfile), "/%s",
+					datastore->vectorfile));
 
 		/*
 		 * Download pending vsID requests (do not try to submit
@@ -1420,6 +1351,11 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 		ret = 0;
 		goto out;
 	} else {
+		FILE *file;
+		struct tm now_detail;
+		char now_buf[30];
+		time_t now;
+
 		if (!statbuf.st_size) {
 			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
 			       "Skipping submission for vsID %"PRIu64" since response file not found (%s empty)\n",
@@ -1493,6 +1429,184 @@ acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
 		CKNULL(file, -errno);
 		fwrite(now_buf, 1, strlen(now_buf), file);
 		fclose(file);
+	}
+
+out:
+	return ret;
+}
+
+static int
+acvp_datastore_process_vsid_directory(
+	struct acvp_vsid_ctx *vsid_ctx, char *processedpath,
+	size_t processedpathlen, const char *resppath,
+	int (*cb)(const struct acvp_vsid_ctx *vsid_ctx,
+		  const struct acvp_buf *buf))
+{
+	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
+	struct dirent *dirent;
+	DIR *dir = NULL;
+	int ret = 0;
+
+	dir = opendir(resppath);
+	CKNULL(dir, -errno);
+
+	while ((dirent = readdir(dir)) != NULL) {
+		if (!strncmp(dirent->d_name, ".", 1))
+			continue;
+
+		/*
+		 * Generate a new path for the processed.txt file
+		 */
+		CKINT(acvp_datastore_file_vectordir_vsid(
+			vsid_ctx, processedpath, processedpathlen, true,
+			true));
+
+		/* Append the name of the current directory */
+		CKINT(acvp_extend_string(processedpath, processedpathlen, "/%s",
+					 datastore->resultsdir));
+		CKINT(acvp_datastore_file_dir(processedpath, true));
+
+		/* Create file <current_file>_processed.txt */
+		CKINT(acvp_extend_string(processedpath, processedpathlen, "/%s",
+					 dirent->d_name));
+		CKINT(acvp_extend_string(processedpath, processedpathlen, "_%s",
+					 datastore->processedfile));
+
+		CKINT(acvp_datastore_process_vsid_file(vsid_ctx,
+						       processedpath,
+						       dirent->d_name, cb));
+	}
+
+out:
+	if (dir)
+		closedir(dir);
+	return ret;
+}
+
+static int
+acvp_datastore_process_vsid(struct acvp_vsid_ctx *vsid_ctx,
+			    const char *datastore_base, const char *secure_base,
+			    int (*cb)(const struct acvp_vsid_ctx *vsid_ctx,
+				      const struct acvp_buf *buf))
+{
+	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
+	const struct acvp_auth_ctx *auth = testid_ctx->server_auth;
+	struct stat statbuf;
+	int ret = 0;
+	char resppath[FILENAME_MAX], processedpath[FILENAME_MAX],
+		expected[FILENAME_MAX];
+
+	CKNULL_C_LOG(datastore_base, -EINVAL, LOGGER_C_DS_FILE,
+		     "Data store base missing\n");
+	CKNULL_C_LOG(secure_base, -EINVAL, LOGGER_C_DS_FILE,
+		     "Secure data store base missing\n");
+
+	/*
+	 * The vsID of 0 is special as it contains status information for the
+	 * test session authentication where no vsID exists yet.
+	 */
+	if (!vsid_ctx->vsid) {
+		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+		       "Skipping special vsID directory without any test data of %s/0\n",
+		       datastore_base);
+		return 0;
+	}
+
+	if (auth && auth->testsession_certificate_number) {
+		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+		       "Skipping processing of test data as certificate %s was received\n",
+		       auth->testsession_certificate_number);
+		return 0;
+	}
+
+	/* Create path names */
+	ret = acvp_datastore_file_vectordir_vsid(
+		vsid_ctx, processedpath, sizeof(processedpath), false, true);
+	/*
+	 * It is permissible to have a non-existing path here, we check it
+	 * further down with stat anyway.
+	 */
+	if (ret && ret != -ENOENT)
+		goto out;
+	CKINT(acvp_extend_string(processedpath, sizeof(processedpath), "/%s",
+				 datastore->processedfile));
+
+	logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
+	       "Read response from %s and processed file from %s\n", resppath,
+	       processedpath);
+
+	CKINT(acvp_datastore_file_vectordir_vsid(
+		vsid_ctx, expected, sizeof(expected), false, false));
+	CKINT(acvp_extend_string(expected, sizeof(expected), "/%s",
+				 datastore->expectedfile));
+
+	/*
+	 * If we have an expected result on file, we cannot submit real results
+	 * any more - the ACVP server will reject it.
+	 */
+	if (!stat(expected, &statbuf)) {
+		logger_status(
+			LOGGER_C_DS_FILE,
+			"Skipping submission for vsID %"PRIu64" since expected results are present (%s exists)\n",
+			vsid_ctx->vsid, expected);
+		logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+		       "Skipping submission for vsID %"PRIu64" since expected results are present (%s exists)\n",
+		       vsid_ctx->vsid, expected);
+		vsid_ctx->sample_file_present = true;
+
+		return 0;
+	}
+
+	/* Check the resultsdir */
+	if (datastore->resultsdir) {
+		CKINT(acvp_datastore_file_vectordir_vsid(
+			vsid_ctx, resppath, sizeof(resppath), false, false));
+		CKINT(acvp_extend_string(resppath, sizeof(resppath), "/%s",
+					 datastore->resultsdir));
+		if (!stat(resppath, &statbuf) &&
+		    (statbuf.st_mode & S_IFMT) == S_IFDIR) {
+			/*
+			 * response path is directory -> process each file.
+			 */
+			CKINT(acvp_datastore_process_vsid_directory(
+				vsid_ctx, processedpath, FILENAME_MAX, resppath,
+				cb));
+			goto out;
+		}
+	}
+
+	CKINT(acvp_datastore_file_vectordir_vsid(
+		vsid_ctx, resppath, sizeof(resppath), false, false));
+	CKINT(acvp_extend_string(resppath, sizeof(resppath), "/%s",
+				 datastore->resultsfile));
+
+	if (stat(resppath, &statbuf)) {
+		/* response path does not exist */
+		CKINT(acvp_datastore_process_vsid_file(vsid_ctx, processedpath,
+						       resppath, cb));
+	} else {
+		/* response path exists */
+		if ((statbuf.st_mode & S_IFMT) == S_IFREG) {
+			/* response path is regular file */
+			CKINT(acvp_datastore_process_vsid_file(vsid_ctx,
+							       processedpath,
+							       resppath, cb));
+		} else if ((statbuf.st_mode & S_IFMT) == S_IFDIR) {
+			/* response path is directory -> process each file */
+			CKINT(acvp_datastore_process_vsid_directory(
+				vsid_ctx, processedpath, FILENAME_MAX, resppath,
+				cb));
+		} else {
+			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+			       "Skipping directory entry %s which is no regular file or directory\n",
+			       resppath);
+			ret = 0;
+			goto out;
+		}
 	}
 
 out:

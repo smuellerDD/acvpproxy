@@ -93,6 +93,7 @@ static void acvp_release_datastore(struct acvp_datastore_ctx *datastore)
 	ACVP_PTR_FREE_NULL(datastore->basedir);
 	ACVP_PTR_FREE_NULL(datastore->secure_basedir);
 	ACVP_PTR_FREE_NULL(datastore->resultsfile);
+	ACVP_PTR_FREE_NULL(datastore->resultsdir);
 	ACVP_PTR_FREE_NULL(datastore->vectorfile);
 	ACVP_PTR_FREE_NULL(datastore->jwttokenfile);
 	ACVP_PTR_FREE_NULL(datastore->jwtcertref);
@@ -734,6 +735,7 @@ int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 	}
 
 	CKINT(acvp_duplicate(&datastore->resultsfile, proto->resultsfile));
+	CKINT(acvp_duplicate(&datastore->resultsdir, proto->resultsdir));
 	CKINT(acvp_duplicate(&datastore->vectorfile, ACVP_DS_TESTREQUEST));
 	CKINT(acvp_duplicate(&datastore->jwttokenfile, ACVP_DS_JWTAUTHTOKEN));
 	CKINT(acvp_duplicate(&datastore->jwtcertref,

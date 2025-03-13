@@ -336,6 +336,9 @@ static void usage(void)
 	fprintf(stderr,
 		"\t   --fetch-sp\t\t\tFetch the SP PDF of certification\n");
 	fprintf(stderr, "\t\t\t\t\trequest pointed to with --vsid\n\n");
+	fprintf(stderr,
+		"\t   --certify\t\t\tFinalize a project and request certification\n");
+	fprintf(stderr, "\t\t\t\t\tof request pointed to with --vsid\n\n");
 
 	fprintf(stderr, "\tAuxiliary options:\n");
 	fprintf(stderr,
@@ -643,6 +646,7 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{ "moduleid", required_argument, 0, 0 },
 			{ "fetch-status", no_argument, 0, 0},
 			{ "fetch-sp", no_argument, 0, 0},
+			{ "certify", no_argument, 0, 0},
 
 			{ 0, 0, 0, 0 }
 		};
@@ -1187,6 +1191,10 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				/* fetch-sp */
 				opts->acvp_ctx_options.fetch_status = true;
 				opts->acvp_ctx_options.fetch_sp = true;
+				break;
+			case 75:
+				/* certify */
+				opts->acvp_ctx_options.amvp_certify = true;
 				break;
 
 			default:

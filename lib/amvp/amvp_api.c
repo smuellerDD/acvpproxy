@@ -30,39 +30,6 @@
 #include "threading_support.h"
 
 /******************************************************************************
- * Retrieval of certificate
- ******************************************************************************/
-static int amvp_get_cert_status(const struct acvp_vsid_ctx *certreq_ctx)
-{
-	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
-	const struct acvp_ctx *ctx = module_ctx->ctx;
-	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
-	struct json_object *resp = NULL, *data = NULL;
-	ACVP_BUFFER_INIT(response);
-	char url[ACVP_NET_URL_MAXLEN];
-	int ret;
-
-	CKINT_LOG(acvp_create_url(NIST_VAL_OP_CERTREQUESTS, url, sizeof(url)),
-		  "Creation of request URL failed\n");
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u", certreq_ctx->vsid));
-
-	CKINT(acvp_process_retry(certreq_ctx, &response, url, NULL));
-
-	CKINT(acvp_store_file(module_ctx, &response, 1,
-			      datastore->testsession_certificate_info));
-
-	/* Strip the version array entry and get the oe URI data. */
-	CKINT(acvp_req_strip_version(&response, &resp, &data));
-
-	CKINT(amvp_te_status(certreq_ctx, data));
-
-out:
-	ACVP_JSON_PUT_NULL(resp);
-	acvp_free_buf(&response);
-	return ret;
-}
-
-/******************************************************************************
  * Submission of evidence
  ******************************************************************************/
 static int amvp_submit_evidence(const struct acvp_vsid_ctx *certreq_ctx,
@@ -75,7 +42,8 @@ static int amvp_submit_evidence(const struct acvp_vsid_ctx *certreq_ctx,
 //	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 //	const struct acvp_net_ctx *net;
 //	ACVP_BUFFER_INIT(tmp);
-	int ret;
+	int ret = 0;
+	bool check_status = true;
 
 #if 0
 	CKINT(acvp_get_net(&net));
@@ -92,16 +60,21 @@ static int amvp_submit_evidence(const struct acvp_vsid_ctx *certreq_ctx,
 	}
 #endif
 
-	if (!opts->fetch_status) {
+	if (!opts->fetch_status && !opts->amvp_certify) {
 		/*
-		* Upload the TE report evidence.
-		*/
+		 * Upload the TE report evidence.
+		 */
 		CKINT(amvp_te_upload_evidence(certreq_ctx, buf));
 
 		/*
-		* Upload the Security Policy data.
-		*/
+		 * Upload the Security Policy data.
+		 */
 		CKINT(amvp_sp_upload_evidence(certreq_ctx));
+
+		/*
+		 * Status information received by respoonse of preceeding calls.
+		 */
+		check_status = false;
 	}
 
 	if (req_details->dump_register)
@@ -110,10 +83,14 @@ static int amvp_submit_evidence(const struct acvp_vsid_ctx *certreq_ctx,
 	if (opts->fetch_sp)
 		CKINT(amvp_sp_get_pdf(certreq_ctx));
 
+	if (opts->amvp_certify)
+		CKINT(amvp_certify(certreq_ctx));
+
 	/*
 	 * Get the status information of the current session.
 	 */
-	CKINT(amvp_get_cert_status(certreq_ctx));
+	if (check_status)
+		CKINT(amvp_certrequest_status(certreq_ctx));
 
 out:
 	return ret;

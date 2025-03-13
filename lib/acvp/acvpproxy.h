@@ -63,6 +63,8 @@ extern "C" {
 #define NIST_VAL_OP_CERTREQUESTS "certRequests"
 #define NIST_VAL_OP_EVIDENCESETS "evidenceSets"
 #define NIST_VAL_OP_EVIDENCE "evidence"
+#define NIST_VAL_OP_SOURCECODE "sourcecode"
+#define NIST_VAL_OP_CERTIFY "certify"
 #define NIST_VAL_OP_SECURITY_POLICY "securityPolicy"
 #define NIST_VAL_OP_ACVP "acvp"
 #define NIST_VAL_OP_ESVP "esv"
@@ -174,6 +176,7 @@ struct acvp_datastore_ctx {
 	char *secure_basedir;
 	char *vectorfile;
 	char *resultsfile;
+	char *resultsdir;
 	char *jwttokenfile;
 	char *jwtcertref;
 	char *messagesizeconstraint;
@@ -346,6 +349,11 @@ struct acvp_opts_ctx {
 	 * Fetch the Security Policy PDF from the AMVP session
 	 */
 	bool fetch_sp;
+
+	/*
+	 * Issue certify command to the AMVP server to get the certificate
+	 */
+	bool amvp_certify;
 };
 
 /**

@@ -182,7 +182,7 @@ int json_get_bool(struct json_object *obj, const char *name, bool *val)
 	return 0;
 }
 
-int acvp_req_add_version(struct json_object *array)
+int acvp_req_add_version(struct json_object *object)
 {
 	const struct acvp_net_proto *proto;
 	struct json_object *entry = NULL;
@@ -190,12 +190,26 @@ int acvp_req_add_version(struct json_object *array)
 
 	CKINT(acvp_get_proto(&proto));
 
-	entry = json_object_new_object();
-	CKNULL(entry, ENOMEM);
-	CKINT(json_object_object_add(
-		entry, proto->proto_version_keyword,
-		json_object_new_string(proto->proto_version)));
-	CKINT(json_object_array_add(array, entry));
+	/*
+	 * The variable is allowed to be either an array or an object. Depending
+	 * on the type, the version information is added.
+	 */
+	if (json_object_is_type(object, json_type_array)) {
+		entry = json_object_new_object();
+		CKNULL(entry, ENOMEM);
+		CKINT(json_object_object_add(
+			entry, proto->proto_version_keyword,
+			json_object_new_string(proto->proto_version)));
+		CKINT(json_object_array_add(object, entry));
+	} else if (json_object_is_type(object, json_type_object)) {
+		CKINT(json_object_object_add(
+			object, proto->proto_version_keyword,
+			json_object_new_string(proto->proto_version)));
+	} else {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Unknown object type to add version information\n");
+		return ret;
+	}
 
 	return 0;
 
@@ -267,7 +281,7 @@ int json_split_version(struct json_object *full_json,
 	} else if (json_object_is_type(full_json, json_type_object)) {
 		/*
 		 * If we receive an object, we return it directly.
-		 * This may happen with error messages.
+		 * This may happen with error messages, or with AMVP responses.
 		 *
 		 * {
 		 *	"version": "1.0",
@@ -331,9 +345,10 @@ int json_read_data(const char *filename, struct json_object **inobj)
 		return -EFAULT;
 	}
 
-	if (!json_object_is_type(o, json_type_array)) {
+	if (!json_object_is_type(o, json_type_array) &&
+	    !json_object_is_type(o, json_type_object)) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "JSON input data is not expected ACVP array\n");
+		       "JSON input data is not expected ACVP array / object\n");
 		ret = -EINVAL;
 		goto out;
 	}

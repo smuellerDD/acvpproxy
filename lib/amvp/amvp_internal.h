@@ -42,6 +42,7 @@ extern "C" {
 #define AMVP_DEF_FILE_REGISTRATION "registration_data.json"
 
 #define AMVP_DEF_FILE_TE "te.json"
+#define AMVP_DEF_DIR_TE "test_evidence"
 
 /* Security Policy section files found in AMVP configuration directory */
 #define AMVP_DEF_SP_LOGO "sp_logo.png"
@@ -69,20 +70,29 @@ int amvp_read_status(struct acvp_testid_ctx *testid_ctx,
 		     struct json_object *status);
 int amvp_write_status(const struct acvp_testid_ctx *testid_ctx);
 
+int amvp_ft_te_status(const struct acvp_vsid_ctx *certreq_ctx,
+		      struct json_object *data);
+int amvp_sc_te_status(const struct acvp_vsid_ctx *certreq_ctx,
+		      struct json_object *data);
 int amvp_te_get(const struct acvp_vsid_ctx *certreq_ctx);
 int amvp_te_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx,
 			    const struct acvp_buf *buf);
-int amvp_te_status(const struct acvp_vsid_ctx *certreq_ctx,
-		   struct json_object *data);
 
-int amvp_sp_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx);
 int amvp_sp_status(const struct acvp_vsid_ctx *certreq_ctx,
 		   struct json_object *data);
+int amvp_sp_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx);
 int amvp_sp_get_pdf(const struct acvp_vsid_ctx *certreq_ctx);
 
 int amvp_module_register_op(struct acvp_testid_ctx *module_ctx);
 
 int amvp_certrequest_register(struct acvp_testid_ctx *module_ctx);
+
+/* Status of current submission */
+int amvp_certrequest_status(const struct acvp_vsid_ctx *certreq_ctx);
+int _amvp_certrequest_status(const struct acvp_vsid_ctx *certreq_ctx,
+			     const struct acvp_buf *response);
+
+int amvp_certify(const struct acvp_vsid_ctx *certreq_ctx);
 
 #ifdef __cplusplus
 }

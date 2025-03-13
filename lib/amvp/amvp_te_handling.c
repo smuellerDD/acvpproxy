@@ -24,40 +24,83 @@
 #include "request_helper.h"
 #include "term_colors.h"
 
-int amvp_te_status(const struct acvp_vsid_ctx *certreq_ctx,
-		   struct json_object *data)
+/******************************************************************************
+ * TE status processing
+ ******************************************************************************/
+
+static int amvp_te_status(const struct acvp_vsid_ctx *certreq_ctx,
+			  struct json_object *data, const char *key,
+			  const char *log, const char *status_file)
 {
 	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
-	struct amvp_state *state = module_ctx->amvp_state;
+	ACVP_BUFFER_INIT(stat);
+	struct json_object *sp;
 	const char *str;
+	size_t i;
 	int ret;
 
-	/* Get the status */
-	CKINT(json_get_string(data, "status", &str));
-	if (!strncasecmp(str, "ready", 5)) {
-		logger_status(LOGGER_C_ANY, "%sTE Processing ongoing - not all TE evidence submitted%s\n",
-			      TERM_COLOR_YELLOW, TERM_COLOR_NORMAL);
-		state->request_state = AMVP_REQUEST_STATE_ONGOING;
-	} else if (!strncasecmp(str, "requirementsSubmitted", 21)) {
-		logger_status(LOGGER_C_ANY, "%sTE Processing completed%s\n",
-			      TERM_COLOR_GREEN, TERM_COLOR_NORMAL);
-		state->request_state = AMVP_REQUEST_STATE_COMPLETED;
-	} else if (!strncasecmp(str, "approved", 8)) {
-		const char *str2;
+	/* Get the expected evidence information */
+	ret = json_find_key(data, key, &sp, json_type_array);
+	if (ret) {
+		if (ret == -ENOENT)
+			ret = 0;
+		goto out;
+	}
+	for (i = 0; i < json_object_array_length(sp); i++) {
+		struct json_object *entry = json_object_array_get_idx(sp, i);
 
-		CKINT(json_get_string(data, "validationCertificate", &str2));
+		CKINT(json_get_string(entry, "testRequirement", &str));
+
 		logger_status(LOGGER_C_ANY,
-			      "%sTE Processing completed - certificate %s awarded%s\n",
-			      TERM_COLOR_GREEN, str2, TERM_COLOR_NORMAL);
-
-		state->request_state = AMVP_REQUEST_STATE_APPROVED;
+			      "%s evidence for TE section %s not yet uploaded or received by NIST server\n",
+			      log, str);
 	}
 
-	CKINT(amvp_write_status(module_ctx));
+	str = json_object_to_json_string_ext(
+		sp, JSON_C_TO_STRING_PLAIN | JSON_C_TO_STRING_NOSLASHESCAPE);
+	CKNULL_LOG(str, -ENOMEM,
+		   "JSON object conversion into string failed\n");
+
+	stat.buf = (uint8_t *)str;
+	stat.len = (uint32_t)strlen(str);
+
+	CKINT(acvp_store_file(module_ctx, &stat, 1, status_file));
 
 out:
 	return ret;
 }
+
+int amvp_ft_te_status(const struct acvp_vsid_ctx *certreq_ctx,
+		      struct json_object *data)
+{
+	int ret;
+
+	CKINT(amvp_te_status(certreq_ctx, data,
+			     "expectedFunctionalTestEvidence",
+			     "Functional Test",
+			     "expected_functional_test_evidence.json"));
+
+out:
+	return ret;
+}
+
+int amvp_sc_te_status(const struct acvp_vsid_ctx *certreq_ctx,
+		      struct json_object *data)
+{
+	int ret;
+
+	CKINT(amvp_te_status(certreq_ctx, data,
+			     "expectedSourceCodeEvidence",
+			     "Source Code",
+			     "expected_source_code_evidence.json"));
+
+out:
+	return ret;
+}
+
+/******************************************************************************
+ * [FT|SC]-TE data uploading
+ ******************************************************************************/
 
 static int amvp_te_handle_response(const struct acvp_vsid_ctx *certreq_ctx,
 				   const struct acvp_buf *response)
@@ -65,30 +108,27 @@ static int amvp_te_handle_response(const struct acvp_vsid_ctx *certreq_ctx,
 	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = module_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
-	struct json_object *resp = NULL, *data = NULL;
 	int ret;
 
 	CKINT(acvp_store_file(module_ctx, response, 1,
 				datastore->testsession_certificate_info));
 
-	/* Strip the version array entry and get the oe URI data. */
-	CKINT(acvp_req_strip_version(response, &resp, &data));
-
 	logger_status(LOGGER_C_ANY,
 		      "Available TE data uploaded to NIST server\n");
 
-	CKINT(amvp_te_status(certreq_ctx, data));
+	CKINT(_amvp_certrequest_status(certreq_ctx, response));
 
 out:
-	ACVP_JSON_PUT_NULL(resp);
 	return ret;
 }
 
 /*
  * POST /amv/v1/certRequests/<id>/evidence
+ * POST /amv/v1/certRequests/<id>/sourcecode
  */
-int amvp_te_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx,
-			    const struct acvp_buf *buf)
+static int _amvp_te_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx,
+				    const struct acvp_buf *buf,
+				    const char *target)
 {
 	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
 	char url[ACVP_NET_URL_MAXLEN];
@@ -100,8 +140,7 @@ int amvp_te_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx,
 	CKINT_LOG(acvp_create_url(NIST_VAL_OP_CERTREQUESTS, url, sizeof(url)),
 		  "Creation of request URL failed\n");
 	CKINT(acvp_extend_string(url, sizeof(url), "/%u", certreq_ctx->vsid));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%s",
-				 NIST_VAL_OP_EVIDENCE));
+	CKINT(acvp_extend_string(url, sizeof(url), "/%s", target));
 
 	register_buf.buf = buf->buf;
 	register_buf.len = buf->len;
@@ -120,6 +159,34 @@ out:
 	acvp_free_buf(&response_buf);
 	return ret;
 }
+
+int amvp_te_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx,
+			    const struct acvp_buf *buf)
+{
+	struct json_object *resp = NULL, *data = NULL, *ptr;
+	int ret;
+
+	/* If we have no buffer, it means we should not do anything */
+	CKNULL(buf, 0);
+
+	CKINT(acvp_req_strip_version(buf, &resp, &data));
+
+	if (json_find_key(data, "sourceCode", &ptr, json_type_object) == 0) {
+		CKINT(_amvp_te_upload_evidence(certreq_ctx, buf,
+					       NIST_VAL_OP_SOURCECODE));
+	} else {
+		CKINT(_amvp_te_upload_evidence(certreq_ctx, buf,
+					       NIST_VAL_OP_EVIDENCE));
+	}
+
+out:
+	ACVP_JSON_PUT_NULL(resp);
+	return ret;
+}
+
+/******************************************************************************
+ * [FT|SC]-TE data gathering
+ ******************************************************************************/
 
 static int amvp_te_store(const struct acvp_vsid_ctx *certreq_ctx,
 			 struct json_object *data)
@@ -215,15 +282,11 @@ int amvp_te_get(const struct acvp_vsid_ctx *certreq_ctx)
 					    true, &tmp));
 
 	/* Get the status */
-	CKINT(amvp_te_status(certreq_ctx, data));
-
-	CKINT(amvp_sp_status(certreq_ctx, data));
+	CKINT(_amvp_certrequest_status(certreq_ctx, &response_buf));
 
 	/* If the work is completed, ignore the rest */
-	if (state->request_state >= AMVP_REQUEST_STATE_COMPLETED)
+	if (state->overall_state >= AMVP_REQUEST_STATE_COMPLETED)
 		goto out;
-
-	CKINT(amvp_write_status(module_ctx));
 
 out:
 	ACVP_JSON_PUT_NULL(resp);

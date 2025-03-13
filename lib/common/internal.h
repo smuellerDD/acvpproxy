@@ -387,8 +387,10 @@ struct acvp_net_proto {
 	const char *vector_url_keyword;
 
 	const char *resultsfile;
+	const char *resultsdir;
 
 	enum acvp_protocol_type proto;
+	unsigned int version_in_object : 1;
 };
 
 struct acvp_net_ctx {

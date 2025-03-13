@@ -43,6 +43,9 @@ static const struct acvp_net_proto acv_proto_def = {
 	.vector_url_keyword = "vectorSetUrls",
 
 	.resultsfile = ACVP_DS_TESTRESPONSE,
+	.resultsdir = NULL,
+
+	.version_in_object = 0,
 };
 
 #ifdef __cplusplus

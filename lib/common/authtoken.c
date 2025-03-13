@@ -467,6 +467,7 @@ out:
 /* POST /login */
 int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 {
+	const struct acvp_net_proto *proto;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	struct acvp_auth_ctx *auth = testid_ctx->server_auth;
 	struct acvp_auth_ctx *ctx_auth = ctx->ctx_auth;
@@ -478,20 +479,31 @@ int acvp_login(const struct acvp_testid_ctx *testid_ctx)
 
 	CKNULL_LOG(auth, -EINVAL, "Authentication context missing\n");
 
+	CKINT(acvp_get_proto(&proto));
+
 	mutex_lock(&auth->mutex);
 	mutex_lock(&ctx_auth->mutex);
 
 	if (!acvp_login_need_refresh_nonnull(testid_ctx))
 		goto out;
 
-	login = json_object_new_array();
-	CKNULL(login, -ENOMEM);
+	if (proto->version_in_object) {
+		login = json_object_new_object();
+		CKNULL(login, -ENOMEM);
+		entry = login;
 
-	CKINT(acvp_req_add_version(login));
+		CKINT(acvp_req_add_version(login));
 
-	entry = json_object_new_object();
-	CKNULL(entry, ENOMEM);
-	CKINT(json_object_array_add(login, entry));
+	} else {
+		login = json_object_new_array();
+		CKNULL(login, -ENOMEM);
+
+		CKINT(acvp_req_add_version(login));
+
+		entry = json_object_new_object();
+		CKNULL(entry, ENOMEM);
+		CKINT(json_object_array_add(login, entry));
+	}
 
 	CKINT(acvp_login_totp(entry, dump_register));
 
@@ -695,6 +707,7 @@ out:
 /* POST /login/refresh */
 int acvp_login_refresh(const struct acvp_testid_ctx *testid_ctx_head)
 {
+	const struct acvp_net_proto *proto;
 	const struct acvp_ctx *ctx;
 	const struct acvp_testid_ctx *testid_ctx;
 	const struct esvp_es_def *es = NULL;
@@ -713,14 +726,25 @@ int acvp_login_refresh(const struct acvp_testid_ctx *testid_ctx_head)
 	ctx = testid_ctx_head->ctx;
 	dump_register = (ctx) ? ctx->req_details.dump_register : false;
 
-	login = json_object_new_array();
-	CKNULL(login, -ENOMEM);
+	CKINT(acvp_get_proto(&proto));
 
-	CKINT(acvp_req_add_version(login));
+	if (proto->version_in_object) {
+		login = json_object_new_object();
+		CKNULL(login, -ENOMEM);
+		entry = login;
 
-	entry = json_object_new_object();
-	CKNULL(entry, ENOMEM);
-	CKINT(json_object_array_add(login, entry));
+		CKINT(acvp_req_add_version(login));
+
+	} else {
+		login = json_object_new_array();
+		CKNULL(login, -ENOMEM);
+
+		CKINT(acvp_req_add_version(login));
+
+		entry = json_object_new_object();
+		CKNULL(entry, ENOMEM);
+		CKINT(json_object_array_add(login, entry));
+	}
 
 	CKINT(acvp_login_totp(entry, dump_register));
 

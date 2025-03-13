@@ -28,7 +28,8 @@ extern "C" {
 
 #define NIST_AMVP_DEFAULT_SERVER "amvts.nist.gov"
 //#define NIST_AMVP_TEST_SERVER "demo.amvts.nist.gov"
-#define NIST_AMVP_TEST_SERVER "10.252.9.45"
+//#define NIST_AMVP_TEST_SERVER "10.252.9.45"
+#define NIST_AMVP_TEST_SERVER "10.252.9.29"
 #define NIST_AMVP_DEFAULT_SERVER_PORT 443
 
 /* Requests: HTTP GET */

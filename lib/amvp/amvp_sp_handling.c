@@ -27,6 +27,11 @@
 #include "base64.h"
 #include "internal.h"
 #include "request_helper.h"
+#include "sleep.h"
+
+/******************************************************************************
+ * SP PDF generation and gathering
+ ******************************************************************************/
 
 static int amvp_sp_handle_get_pdf_response(
 	const struct acvp_vsid_ctx *certreq_ctx, struct acvp_buf *response)
@@ -37,7 +42,7 @@ static int amvp_sp_handle_get_pdf_response(
 	struct json_object *resp = NULL, *data = NULL;
 	int ret;
 
-	/* Strip the version array entry and get the oe URI data. */
+	/* Strip the version array entry and get the SP data. */
 	CKINT(acvp_req_strip_version(response, &resp, &data));
 	CKINT(json_get_string(data, "status", &str));
 
@@ -120,14 +125,87 @@ out:
 }
 
 /*
+ * PUT /amv/v1/certRequests/<id>/securityPolicy
+ *
+ * Trigger the generation of the PDF - note, this now locks in the SP sections
+ */
+static int amvp_sp_generate_pdf(const struct acvp_vsid_ctx *certreq_ctx,
+				const char *url)
+{
+	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
+	struct amvp_state *state = module_ctx->amvp_state;
+	const char *json_request;
+	struct json_object *request = NULL;
+	ACVP_EXT_BUFFER_INIT(request_buf);
+	ACVP_BUFFER_INIT(response);
+	int ret, ret2;
+
+	request = json_object_new_object();
+	CKNULL(request, ENOMEM);
+	CKINT(acvp_req_add_version(request));
+	json_request = json_object_to_json_string_ext(
+		request,
+		JSON_C_TO_STRING_PLAIN |
+		JSON_C_TO_STRING_NOSLASHESCAPE);
+	CKNULL_LOG(json_request, -ENOMEM,
+		   "JSON object conversion into string failed\n");
+
+	request_buf.buf = (uint8_t *)json_request;
+	request_buf.len = (uint32_t)strlen(json_request);
+
+	ret2 = acvp_net_op(module_ctx, url, &request_buf, &response,
+			acvp_http_put);
+	if (ret2 < 0) {
+		ret = ret2;
+		goto out;
+	}
+
+	CKINT(_amvp_certrequest_status(certreq_ctx, &response));
+
+	/* Implement the waiting */
+#define AMVP_GET_DATAFILE_INFO_SLEEPTIME 30
+	while (state->sp_state == AMVP_REQUEST_STATE_PENDING_PROCESSING) {
+		/* Wait the requested amount of seconds */
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+			"AMVP server needs more time for PDF generation - sleeping for %u seconds for certificate request %"PRIu64" again\n",
+			AMVP_GET_DATAFILE_INFO_SLEEPTIME,
+			certreq_ctx->vsid);
+			CKINT(sleep_interruptible(
+				AMVP_GET_DATAFILE_INFO_SLEEPTIME,
+				&acvp_op_interrupted));
+
+		/* Get the submission status of the SP */
+		CKINT(amvp_certrequest_status(certreq_ctx));
+	}
+
+	if (state->sp_state != AMVP_REQUEST_STATE_COMPLETED) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+			"AMVP was not successful in generating PDF, status %u\n",
+			state->sp_state);
+		ret = -ENODATA;
+		goto out;
+	}
+
+out:
+	ACVP_JSON_PUT_NULL(request);
+	acvp_free_buf(&response);
+	return ret;
+}
+
+/*
  * GET /amv/v1/certRequests/<id>/securityPolicy
  */
 int amvp_sp_get_pdf(const struct acvp_vsid_ctx *certreq_ctx)
 {
 	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
+	const struct amvp_state *state = module_ctx->amvp_state;
+	struct json_object *request = NULL;
 	ACVP_BUFFER_INIT(response);
 	char url[ACVP_NET_URL_MAXLEN];
 	int ret, ret2;
+
+	/* Get the submission status of the SP */
+	CKINT(amvp_certrequest_status(certreq_ctx));
 
 	CKINT_LOG(acvp_create_url(NIST_VAL_OP_CERTREQUESTS, url, sizeof(url)),
 		  "Creation of request URL failed\n");
@@ -135,6 +213,12 @@ int amvp_sp_get_pdf(const struct acvp_vsid_ctx *certreq_ctx)
 	CKINT(acvp_extend_string(url, sizeof(url), "/%s",
 				 NIST_VAL_OP_SECURITY_POLICY));
 
+	/* PUT operation only needed if we are still pending */
+	if (state->sp_state == AMVP_REQUEST_STATE_PENDING_GENERATION) {
+		CKINT(amvp_sp_generate_pdf(certreq_ctx, url));
+	}
+
+	/* GET operation */
 	ret2 = acvp_net_op(module_ctx, url, NULL, &response, acvp_http_get);
 	if (ret2 < 0) {
 		ret = ret2;
@@ -146,9 +230,14 @@ int amvp_sp_get_pdf(const struct acvp_vsid_ctx *certreq_ctx)
 	CKINT(amvp_sp_handle_get_pdf_response(certreq_ctx, &response));
 
 out:
+	ACVP_JSON_PUT_NULL(request);
 	acvp_free_buf(&response);
 	return ret;
 }
+
+/******************************************************************************
+ * SP status processing
+ ******************************************************************************/
 
 int amvp_sp_status(const struct acvp_vsid_ctx *certreq_ctx,
 		   struct json_object *data)
@@ -162,8 +251,13 @@ int amvp_sp_status(const struct acvp_vsid_ctx *certreq_ctx,
 	int ret;
 
 	/* Get the expected evidence information */
-	CKINT(json_find_key(data, "missingSecurityPolicySection", &sp,
-			    json_type_array));
+	ret = json_find_key(data, "missingSecurityPolicySection", &sp,
+			    json_type_array);
+	if (ret) {
+		if (ret == -ENOENT)
+			ret = 0;
+		goto out;
+	}
 	for (i = 0; i < json_object_array_length(sp); i++) {
 		struct json_object *entry = json_object_array_get_idx(sp, i);
 		uint32_t section = (uint32_t)json_object_get_int(entry);
@@ -195,36 +289,33 @@ int amvp_sp_status(const struct acvp_vsid_ctx *certreq_ctx,
 
 	CKINT(acvp_store_file(module_ctx, &stat, 1, "sp_status.json"));
 
-	CKINT(amvp_write_status(module_ctx));
-
 out:
 	return ret;
 }
 
+/******************************************************************************
+ * SP data uploading
+ ******************************************************************************/
+
 static int amvp_sp_handle_response(const struct acvp_vsid_ctx *certreq_ctx,
 				   const struct acvp_buf *response)
 {
-	struct json_object *resp = NULL, *data = NULL;
 	int ret;
 
-	/* Strip the version array entry and get the oe URI data. */
-	CKINT(acvp_req_strip_version(response, &resp, &data));
-
-	CKINT(amvp_sp_status(certreq_ctx, data));
+	CKINT(_amvp_certrequest_status(certreq_ctx, response));
 
 out:
-	ACVP_JSON_PUT_NULL(resp);
 	return ret;
 }
 
 static int amvp_sp_add_one(const struct acvp_vsid_ctx *certreq_ctx,
 			   uint32_t chapter, struct json_object *src,
-			   struct json_object *dst)
+			   struct json_object *dst, bool *sp_part_added)
 {
 	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
 	struct amvp_state *state = module_ctx->amvp_state;
 	struct json_object_iter sp_data;
-	int ret;
+	int ret = 0;
 
 	CKNULL(dst, -EINVAL);
 	/* Allow empty definitions */
@@ -264,6 +355,8 @@ static int amvp_sp_add_one(const struct acvp_vsid_ctx *certreq_ctx,
 		memcpy(state->sp_chapter_hash[chapter], hash,
 		       AMVP_SP_HASH_SIZE);
 	}
+
+	*sp_part_added = true;
 
 	json_object_object_foreachC(src, sp_data) {
 		CKINT(json_object_object_add(dst, sp_data.key, sp_data.val));
@@ -384,24 +477,25 @@ int amvp_sp_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx)
 	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
 	const struct definition *def = module_ctx->def;
 	const struct amvp_def *amvp = def->amvp;
+	struct amvp_state *state = module_ctx->amvp_state;
 	const struct acvp_ctx *ctx = module_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	ACVP_EXT_BUFFER_INIT(request);
 	ACVP_BUFFER_INIT(response);
-	struct json_object *sp, *sp_head, *sp_data;
+	struct json_object *sp_head, *sp_data;
 	const char *json_request;
 	char url[ACVP_NET_URL_MAXLEN];
 	int ret, ret2;
+	bool sp_part_added = false;
 
-struct json_object *mockup;
-
-	sp = json_object_new_array();
-	CKNULL(sp, -ENOMEM);
-	CKINT(acvp_req_add_version(sp));
+	if (state->sp_state >= AMVP_REQUEST_STATE_PENDING_GENERATION) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Server claims to have received all SP data, but sending potentially updated SP data nonetheless.\n");
+	}
 
 	sp_head = json_object_new_object();
 	CKNULL(sp_head, ENOMEM);
-	CKINT(json_object_array_add(sp, sp_head));
+	CKINT(acvp_req_add_version(sp_head));
 
 	CKINT(amvp_sp_add_meta_data(certreq_ctx, sp_head));
 
@@ -413,60 +507,42 @@ struct json_object *mockup;
 
 	/* The general section must be present */
 	CKNULL(amvp->sp_general, -EINVAL);
-	CKINT(amvp_sp_add_one(certreq_ctx, 0, amvp->sp_general, sp_data));
-
-// mockup = json_object_new_object();
-// CKNULL(mockup, ENOMEM);
-// CKINT(json_object_object_add(mockup, "cryptographicModuleSpecification", json_object_new_object()));
-// CKINT(amvp_sp_add_one(certreq_ctx, 1, mockup, sp_data));
-//ACVP_JSON_PUT_NULL(mockup);
+	CKINT(amvp_sp_add_one(certreq_ctx, 0, amvp->sp_general, sp_data,
+			      &sp_part_added));
 	CKINT(amvp_sp_add_one(certreq_ctx, 1, amvp->sp_crypt_mod_spec,
-			      sp_data));
+			      sp_data, &sp_part_added));
 	CKINT(amvp_sp_add_one(certreq_ctx, 2, amvp->sp_crypt_mod_interfaces,
-			      sp_data));
+			      sp_data, &sp_part_added));
 	CKINT(amvp_sp_add_one(certreq_ctx, 3, amvp->sp_roles_services,
-			      sp_data));
-	CKINT(amvp_sp_add_one(certreq_ctx, 4, amvp->sp_sw_fw_sec, sp_data));
-
-mockup = json_object_new_object();
-CKNULL(mockup, ENOMEM);
-CKINT(json_object_object_add(mockup, "operationalEnvironment", json_object_new_object()));
-CKINT(amvp_sp_add_one(certreq_ctx, 5, mockup, sp_data));
-ACVP_JSON_PUT_NULL(mockup);
-//	CKINT(amvp_sp_add_one(certreq_ctx, 5, amvp->sp_oe, sp_data));
-
-mockup = json_object_new_object();
-CKNULL(mockup, ENOMEM);
-CKINT(json_object_object_add(mockup, "physicalSecurity", json_object_new_object()));
-CKINT(amvp_sp_add_one(certreq_ctx, 6, mockup, sp_data));
-ACVP_JSON_PUT_NULL(mockup);
-//	CKINT(amvp_sp_add_one(certreq_ctx, 6, amvp->sp_phys_sec, sp_data));
-
-mockup = json_object_new_object();
-CKNULL(mockup, ENOMEM);
-CKINT(json_object_object_add(mockup, "noninvasiveSecurity", json_object_new_object()));
-CKINT(amvp_sp_add_one(certreq_ctx, 7, mockup, sp_data));
-ACVP_JSON_PUT_NULL(mockup);
-//	CKINT(amvp_sp_add_one(certreq_ctx, 7, amvp->sp_non_invasive_sec,
-//			      sp_data));
-	CKINT(amvp_sp_add_one(certreq_ctx, 8, amvp->sp_ssp_mgmt, sp_data));
-
-
-// mockup = json_object_new_object();
-// CKNULL(mockup, ENOMEM);
-// CKINT(json_object_object_add(mockup, "selfTests", json_object_new_object()));
-// CKINT(amvp_sp_add_one(certreq_ctx, 9, mockup, sp_data));
-// ACVP_JSON_PUT_NULL(mockup);
-	CKINT(amvp_sp_add_one(certreq_ctx, 9,
-			      amvp->sp_self_tests, sp_data));
-	CKINT(amvp_sp_add_one(certreq_ctx, 10, amvp->sp_lifecycle, sp_data));
+			      sp_data, &sp_part_added));
+	CKINT(amvp_sp_add_one(certreq_ctx, 4, amvp->sp_sw_fw_sec, sp_data,
+			      &sp_part_added));
+	CKINT(amvp_sp_add_one(certreq_ctx, 5, amvp->sp_oe, sp_data,
+			      &sp_part_added));
+	CKINT(amvp_sp_add_one(certreq_ctx, 6, amvp->sp_phys_sec, sp_data,
+			      &sp_part_added));
+	CKINT(amvp_sp_add_one(certreq_ctx, 7, amvp->sp_non_invasive_sec,
+			      sp_data, &sp_part_added));
+	CKINT(amvp_sp_add_one(certreq_ctx, 8, amvp->sp_ssp_mgmt, sp_data,
+			      &sp_part_added));
+	CKINT(amvp_sp_add_one(certreq_ctx, 9, amvp->sp_self_tests, sp_data,
+			      &sp_part_added));
+	CKINT(amvp_sp_add_one(certreq_ctx, 10, amvp->sp_lifecycle, sp_data,
+			      &sp_part_added));
 	CKINT(amvp_sp_add_one(certreq_ctx, 11,
-			      amvp->sp_mitigation_other_attacks, sp_data));
+			      amvp->sp_mitigation_other_attacks, sp_data,
+			      &sp_part_added));
+
+	if (!sp_part_added) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "All existing SP parts have already been submitted, refraining from submitting again\n");
+		goto out;
+	}
 
 	if (req_details->dump_register) {
 		fprintf(stdout, "%s\n",
 			json_object_to_json_string_ext(
-				sp,
+				sp_head,
 				JSON_C_TO_STRING_PRETTY |
 					JSON_C_TO_STRING_NOSLASHESCAPE));
 		ret = 0;
@@ -475,7 +551,7 @@ ACVP_JSON_PUT_NULL(mockup);
 
 	/* Convert the JSON buffer into a string */
 	json_request = json_object_to_json_string_ext(
-		sp,
+		sp_head,
 		JSON_C_TO_STRING_PLAIN | JSON_C_TO_STRING_NOSLASHESCAPE);
 	CKNULL_LOG(json_request, -ENOMEM,
 		   "JSON object conversion into string failed\n");
@@ -509,7 +585,6 @@ out:
 		 * Delete all sections that were allegedly submitted in case of
 		 * an error.
 		 */
-		struct amvp_state *state = module_ctx->amvp_state;
 		unsigned int i;
 
 		for (i = 0; i < AMVP_SP_LAST_CHAPTER; i++) {
@@ -519,7 +594,7 @@ out:
 	}
 
 	amvp_write_status(module_ctx);
-	ACVP_JSON_PUT_NULL(sp);
+	ACVP_JSON_PUT_NULL(sp_head);
 	acvp_free_buf(&response);
 	return ret;
 }

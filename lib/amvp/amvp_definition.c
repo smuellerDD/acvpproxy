@@ -91,10 +91,8 @@ static int amvp_read_tester_def(const char *directory,
 	CKINT_ULCK(json_object_object_add(tester, "vendorId",
 		json_object_new_int((int)vendor->acvp_vendor_id)));
 
-	amvp->registration_definition = json_object_new_array();
-	CKNULL_ULOCK(amvp->registration_definition, -ENOMEM);
-	CKINT_ULCK(acvp_req_add_version(amvp->registration_definition));
-	CKINT_ULCK(json_object_array_add(amvp->registration_definition, tester));
+	CKINT_ULCK(acvp_req_add_version(tester));
+	amvp->registration_definition = tester;
 	tester = NULL;
 
 unlock:
@@ -192,11 +190,8 @@ static int amvp_read_validation_def(const char *directory,
 	CKINT(json_object_object_add(module_def, "overallSecurityLevel",
 				     json_object_new_int((int)overall_level)));
 
-
-	amvp->validation_definition = json_object_new_array();
-	CKNULL(amvp->validation_definition, -ENOMEM);
-	CKINT(acvp_req_add_version(amvp->validation_definition));
-	CKINT(json_object_array_add(amvp->validation_definition, validation));
+	CKINT(acvp_req_add_version(validation));
+	amvp->validation_definition = validation;
 	validation = NULL;
 
 out:

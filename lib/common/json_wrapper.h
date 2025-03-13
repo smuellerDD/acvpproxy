@@ -82,7 +82,7 @@ int json_get_uint64(const struct json_object *obj, const char *name,
 /*
  * Add version information to a request.
  */
-int acvp_req_add_version(struct json_object *array);
+int acvp_req_add_version(struct json_object *object);
 
 /**
  * Parse ACVP server response and retrieve array entry that contains the

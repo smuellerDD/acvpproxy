@@ -50,30 +50,30 @@ struct amvp_def {
 
 enum amvp_request_state {
 	AMVP_REQUEST_STATE_UNKNOWN,
+	AMVP_REQUEST_STATE_INITIAL,
 	AMVP_REQUEST_STATE_ONGOING,
+	AMVP_REQUEST_STATE_PENDING_GENERATION,
+	AMVP_REQUEST_STATE_PENDING_PROCESSING,
 	AMVP_REQUEST_STATE_COMPLETED,
 	AMVP_REQUEST_STATE_APPROVED,
 };
 
-enum amvp_sp_state {
-	AMVP_SP_STATE_UNKNOWN,
-	AMVP_SP_STATE_PROCESSED,
-	AMVP_SP_OPEN_CHAPTER_1 = 1 << 10,
-	AMVP_SP_OPEN_CHAPTER_2 = 1 << 11,
-	AMVP_SP_OPEN_CHAPTER_3 = 1 << 12,
-	AMVP_SP_OPEN_CHAPTER_4 = 1 << 13,
-	AMVP_SP_OPEN_CHAPTER_5 = 1 << 14,
-	AMVP_SP_OPEN_CHAPTER_6 = 1 << 15,
-	AMVP_SP_OPEN_CHAPTER_7 = 1 << 16,
-	AMVP_SP_OPEN_CHAPTER_8 = 1 << 17,
-	AMVP_SP_OPEN_CHAPTER_9 = 1 << 18,
-	AMVP_SP_OPEN_CHAPTER_10 = 1 << 19,
-	AMVP_SP_OPEN_CHAPTER_11 = 1 << 20,
-	AMVP_SP_OPEN_CHAPTER_12 = 1 << 21,
-};
-
 struct amvp_state {
-	enum amvp_request_state request_state;
+	/* Overall certificate request state */
+	enum amvp_request_state overall_state;
+
+	/*
+	 * The following states are only non-zero if all evidence for the
+	 * respective part is submitted as only then the AMVP server can
+	 * return a meaningful state.
+	 */
+	enum amvp_request_state sp_state; /* SP submission state */
+	enum amvp_request_state ft_te_state; /* Functional testing TE state */
+	enum amvp_request_state sc_te_state; /* Source code TE state */
+
+#define AMVP_CERTIFICATE_BUF_SIZE	8
+	char certificate[AMVP_CERTIFICATE_BUF_SIZE];
+
 	bool test_report_template_fetched;
 
 #define AMVP_SP_LAST_CHAPTER 12

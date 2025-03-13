@@ -44,6 +44,8 @@ static const struct acvp_net_proto amv_proto_def = {
 	.vector_url_keyword = "crUrls",
 
 	.resultsfile = AMVP_DEF_FILE_TE,
+	.resultsdir = AMVP_DEF_DIR_TE,
+	.version_in_object = 1,
 };
 
 #ifdef __cplusplus

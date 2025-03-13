@@ -117,8 +117,14 @@ int amvp_read_status(struct acvp_testid_ctx *testid_ctx,
 	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Parsing status of AMVP\n");
 	CKINT(json_get_bool(status, "testReportTemplateFetched",
 			    &state->test_report_template_fetched));
-	CKINT(json_get_uint(status, "amvpRequestState",
-			    &state->request_state));
+	CKINT(json_get_uint(status, "amvpOverallRequestState",
+			    &state->overall_state));
+	CKINT(json_get_uint(status, "amvpSpRequestState",
+			    &state->sp_state));
+	CKINT(json_get_uint(status, "amvpFtTeRequestState",
+			    &state->ft_te_state));
+	CKINT(json_get_uint(status, "amvpScTeRequestState",
+			    &state->sc_te_state));
 
 	for (i = 0; i < AMVP_SP_LAST_CHAPTER; i++)
 		CKINT(amvp_read_sp_hash(state, status, i));
@@ -178,8 +184,17 @@ int amvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 		stat, "testReportTemplateFetched",
 		json_object_new_boolean(state->test_report_template_fetched)));
 	CKINT(json_object_object_add(
-		stat, "amvpRequestState",
-		json_object_new_int((int)state->request_state)));
+		stat, "amvpOverallRequestState",
+		json_object_new_int((int)state->overall_state)));
+	CKINT(json_object_object_add(
+		stat, "amvpSpRequestState",
+		json_object_new_int((int)state->sp_state)));
+	CKINT(json_object_object_add(
+		stat, "amvpFtTeRequestState",
+		json_object_new_int((int)state->ft_te_state)));
+	CKINT(json_object_object_add(
+		stat, "amvpScTeRequestState",
+		json_object_new_int((int)state->sc_te_state)));
 
 	for (i = 0; i < AMVP_SP_LAST_CHAPTER; i++)
 		CKINT(amvp_write_sp_hash(state, stat, i));
