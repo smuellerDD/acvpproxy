@@ -43,6 +43,8 @@ struct def_algo_ml_kem {
 #define DEF_ALG_ML_KEM_MODE_KEYGEN (1 << 0)
 #define DEF_ALG_ML_KEM_MODE_ENCAPSULATION (1 << 1)
 #define DEF_ALG_ML_KEM_MODE_DECAPSULATION (1 << 2)
+#define DEF_ALG_ML_KEM_MODE_ENCAPSULATION_CHECK (1 << 3)
+#define DEF_ALG_ML_KEM_MODE_DECAPSULATION_CHECK (1 << 4)
 	unsigned int ml_kem_mode;
 	/*
 	 * Specify the ML-KEM parameter set as defined in FIPS 203

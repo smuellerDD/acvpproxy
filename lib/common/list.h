@@ -144,7 +144,7 @@ static inline void list_write(struct list_entry **dst, struct list_entry *val)
  */
 static inline bool list_is_empty(const struct list_entry *start)
 {
-	return list_read(start->next) == start;
+	return (!start->next) || list_read(start->next) == start;
 }
 
 /**

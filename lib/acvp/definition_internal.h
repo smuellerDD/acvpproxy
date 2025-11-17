@@ -31,6 +31,7 @@
 #include "constructor.h"
 #include "definition.h"
 #include "esvp_definition.h"
+#include "rbg_definition.h"
 #include "list.h"
 
 #ifdef __cplusplus
@@ -49,17 +50,17 @@ enum def_mod_type {
 static const struct def_mod_type_conversion {
 	enum def_mod_type type;
 	char *type_name;
-} def_mod_type_conversion[] = { { MOD_TYPE_SOFTWARE, "Software" },
-				{ MOD_TYPE_HARDWARE, "Hardware" },
-				{ MOD_TYPE_FIRMWARE, "Firmware" },
-				{ MOD_TYPE_SOFTWARE_HYBRID, "Software-hybrid" },
-				{ MOD_TYPE_FIRMWARE_HYBRID, "Firmware-hybrid" },
+} def_mod_type_conversion[] = { { MOD_TYPE_SOFTWARE, "software" },
+				{ MOD_TYPE_HARDWARE, "hardware" },
+				{ MOD_TYPE_FIRMWARE, "firmware" },
+				{ MOD_TYPE_SOFTWARE_HYBRID, "softwarehybrid" },
+				{ MOD_TYPE_FIRMWARE_HYBRID, "firmwarehybrid" },
 };
 
 /* Warning, we operate with a signed int, so leave the highest bit untouched */
-#define ACVP_REQUEST_INITIAL ((1ULL) << 63)
-#define ACVP_REQUEST_PROCESSING ((1ULL) << 62)
-#define ACVP_REQUEST_REJECTED ((1ULL) << 61)
+#define ACVP_REQUEST_INITIAL ((1ULL) << 62)
+#define ACVP_REQUEST_PROCESSING ((1ULL) << 61)
+#define ACVP_REQUEST_REJECTED ((1ULL) << 60)
 #define ACVP_REQUEST_MASK                                                      \
 	(ACVP_REQUEST_INITIAL | ACVP_REQUEST_PROCESSING | ACVP_REQUEST_REJECTED)
 
@@ -418,6 +419,7 @@ struct definition {
 	struct def_vendor *vendor;
 	struct def_oe *oe;
 	struct esvp_es_def *es;
+	struct rbg_def *rbg;
 	struct amvp_def *amvp;
 	struct def_algo_map *uninstantiated_def;
 	struct def_deps *deps;

@@ -44,6 +44,9 @@ void amvp_release_state(struct acvp_testid_ctx *testid_ctx)
 		}
 	}
 
+	if (state->sp_template_hash)
+		free(state->sp_template_hash);
+
 	free(testid_ctx->amvp_state);
 	testid_ctx->amvp_state = NULL;
 }
@@ -104,6 +107,8 @@ int amvp_read_status(struct acvp_testid_ctx *testid_ctx,
 		     struct json_object *status)
 {
 	struct amvp_state *state;
+	const char *base64_data;
+	size_t len;
 	unsigned int i;
 	int ret;
 
@@ -121,13 +126,28 @@ int amvp_read_status(struct acvp_testid_ctx *testid_ctx,
 			    &state->overall_state));
 	CKINT(json_get_uint(status, "amvpSpRequestState",
 			    &state->sp_state));
-	CKINT(json_get_uint(status, "amvpFtTeRequestState",
+	CKINT(json_get_uint(status, "amvpTeRequestState",
 			    &state->ft_te_state));
-	CKINT(json_get_uint(status, "amvpScTeRequestState",
-			    &state->sc_te_state));
+	CKINT(json_get_bool(status, "cavpCertificatesSubmitted",
+			    &state->cavp_certs_submitted));
+	CKINT(json_get_bool(status, "esvCertificatesSubmitted",
+			    &state->esv_certs_submitted));
 
 	for (i = 0; i < AMVP_SP_LAST_CHAPTER; i++)
 		CKINT(amvp_read_sp_hash(state, status, i));
+
+	if (state->sp_template_hash) {
+		free(state->sp_template_hash);
+		state->sp_template_hash = NULL;
+	}
+	ret = json_get_string(status, "spTemplateHash", &base64_data);
+	if (ret) {
+		/* Allow this string to not exist */
+		ret = 0;
+		goto out;
+	}
+	CKINT(base64_decode(base64_data, strlen(base64_data),
+			    &state->sp_template_hash, &len));
 
 out:
 	return ret;
@@ -136,7 +156,7 @@ out:
 static int amvp_write_sp_hash(const struct amvp_state *state,
 			      struct json_object *status, unsigned int chapter)
 {
-	char str [30], *base64_data;
+	char str [30], *base64_data = NULL;
 	size_t base64_data_len;
 	int ret;
 
@@ -155,6 +175,8 @@ static int amvp_write_sp_hash(const struct amvp_state *state,
 				     json_object_new_string(base64_data)));
 
 out:
+	if (base64_data)
+		free(base64_data);
 	return ret;
 }
 
@@ -166,8 +188,10 @@ int amvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 	struct json_object *stat = NULL;
 	struct acvp_buf stat_buf;
 	const char *stat_str;
+	size_t base64_data_len;
 	unsigned int i;
 	int ret;
+	char *base64_data = NULL;
 
 	CKNULL(testid_ctx, -EINVAL);
 	ctx = testid_ctx->ctx;
@@ -190,14 +214,25 @@ int amvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 		stat, "amvpSpRequestState",
 		json_object_new_int((int)state->sp_state)));
 	CKINT(json_object_object_add(
-		stat, "amvpFtTeRequestState",
+		stat, "amvpTeRequestState",
 		json_object_new_int((int)state->ft_te_state)));
 	CKINT(json_object_object_add(
-		stat, "amvpScTeRequestState",
-		json_object_new_int((int)state->sc_te_state)));
+		stat, "cavpCertificatesSubmitted",
+		json_object_new_boolean(state->cavp_certs_submitted)));
+	CKINT(json_object_object_add(
+		stat, "esvCertificatesSubmitted",
+		json_object_new_boolean(state->esv_certs_submitted)));
 
 	for (i = 0; i < AMVP_SP_LAST_CHAPTER; i++)
 		CKINT(amvp_write_sp_hash(state, stat, i));
+
+	if (state->sp_template_hash) {
+		CKINT(base64_encode(state->sp_template_hash, AMVP_SP_HASH_SIZE,
+				    &base64_data, &base64_data_len));
+
+		CKINT(json_object_object_add(stat, "spTemplateHash",
+			json_object_new_string(base64_data)));
+	}
 
 	stat_str = json_object_to_json_string_ext(
 		stat, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
@@ -213,6 +248,8 @@ int amvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 
 out:
 	ACVP_JSON_PUT_NULL(stat);
+	if (base64_data)
+		free(base64_data);
 
 	return ret;
 }

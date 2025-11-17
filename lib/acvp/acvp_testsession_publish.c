@@ -66,7 +66,7 @@ static int acvp_publish_write_id(const struct acvp_testid_ctx *testid_ctx,
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
 	ACVP_BUFFER_INIT(tmp);
 	int ret;
-	char msgid[12];
+	char msgid[30];
 
 	if (!write_zero && !validation_id)
 		return 0;
@@ -439,14 +439,14 @@ static int acvp_publish_build(const struct acvp_testid_ctx *testid_ctx,
 	CKNULL(pub, -ENOMEM);
 
 	CKINT(acvp_create_urlpath(NIST_VAL_OP_MODULE, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
+	CKINT(acvp_extend_string(url, sizeof(url), "/%" PRIu64,
 				 def_info->acvp_module_id));
 	CKINT(json_object_object_add(pub, "moduleUrl",
 				     json_object_new_string(url)));
 
 	if (def_oe->acvp_oe_id) {
 		CKINT(acvp_create_urlpath(NIST_VAL_OP_OE, url, sizeof(url)));
-		CKINT(acvp_extend_string(url, sizeof(url), "/%u",
+		CKINT(acvp_extend_string(url, sizeof(url), "/%" PRIu64,
 					 def_oe->acvp_oe_id));
 		CKINT(json_object_object_add(pub, "oeUrl",
 					     json_object_new_string(url)));

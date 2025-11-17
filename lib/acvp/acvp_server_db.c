@@ -215,7 +215,7 @@ _acvp_server_db_fetch_id(struct acvp_ctx *ctx,
 
 	CKINT(acvp_sever_db_prepare_search(ctx, search_type, &show_type, url,
 					   sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u", id));
+	CKINT(acvp_extend_string(url, sizeof(url), "/%" PRIu64, id));
 
 	testid_ctx = calloc(1, sizeof(*testid_ctx));
 	if (!testid_ctx)

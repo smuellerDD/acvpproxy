@@ -256,7 +256,7 @@ acvp_req_kas_ifc_schema(const struct def_algo_kas_ifc_schema *schema,
 	case DEF_ALG_KAS_IFC_KAS2_PARTY_V:
 		if (schema->length < 136) {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "KAS IFC: KAS KDF length minimum without KC is 128 bits\n");
+			       "KAS IFC: KAS KDF length minimum with KC is 136 bits\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -294,9 +294,16 @@ acvp_req_kas_ifc_schema(const struct def_algo_kas_ifc_schema *schema,
 		CKINT(json_object_object_add(schema_entry, "macMethods", tmp));
 		CKINT(acvp_req_kas_mac_method(schema->mac, schema->mac_entries,
 					      tmp));
+
+		if (schema->length < 136) {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "KAS IFC: KAS KDF length minimum with KC is 136 bits\n");
+			ret = -EINVAL;
+			goto out;
+		}
 		/* FALLTHROUGH */
 	case DEF_ALG_KAS_IFC_KTS_OAEP_BASIC:
-		if (schema->length < 136) {
+		if (schema->length < 128) {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "KAS IFC: KAS KDF length minimum without KC is 128 bits\n");
 			ret = -EINVAL;

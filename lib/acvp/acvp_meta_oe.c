@@ -423,10 +423,11 @@ out:
 }
 
 static int acvp_oe_match_dep(const struct acvp_testid_ctx *testid_ctx,
-			     struct def_oe *def_oe,
+			     const struct definition *def,
 			     struct def_dependency *def_dep,
 			     struct json_object *json_oe)
 {
+	struct def_oe *def_oe = def->oe;
 	enum def_dependency_type type;
 	int ret;
 	const char *str;
@@ -460,11 +461,12 @@ out:
  * Dependency handler
  *****************************************************************************/
 static int _acvp_oe_validate_one(
-	const struct acvp_testid_ctx *testid_ctx, struct def_oe *def_oe,
+	const struct acvp_testid_ctx *testid_ctx, const struct definition *def,
 	struct def_dependency *def_dep, const char *url,
 	struct json_object **resp, struct json_object **data,
 	int (*matcher)(const struct acvp_testid_ctx *testid_ctx,
-		       struct def_oe *def_oe, struct def_dependency *def_dep,
+		       const struct definition *def,
+		       struct def_dependency *def_dep,
 		       struct json_object *json_oe))
 {
 	ACVP_BUFFER_INIT(buf);
@@ -481,7 +483,7 @@ static int _acvp_oe_validate_one(
 
 	/* Strip the version array entry and get the verdict data. */
 	CKINT(acvp_req_strip_version(&buf, resp, data));
-	CKINT(matcher(testid_ctx, def_oe, def_dep, *data));
+	CKINT(matcher(testid_ctx, def, def_dep, *data));
 
 out:
 	acvp_free_buf(&buf);
@@ -571,7 +573,7 @@ out:
 
 /* GET /dependencies/<dependencyId> */
 static int _acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
-				     struct def_oe *def_oe,
+				     const struct definition *def,
 				     struct def_dependency *def_dep,
 				     struct json_object **resp,
 				     struct json_object **data)
@@ -588,7 +590,7 @@ static int _acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_extend_string(url, sizeof(url), "/%"PRIu64"",
 				 def_dep->acvp_dep_id));
 
-	CKINT(_acvp_oe_validate_one(testid_ctx, def_oe, def_dep, url, resp,
+	CKINT(_acvp_oe_validate_one(testid_ctx, def, def_dep, url, resp,
 				    data, acvp_oe_match_dep));
 
 out:
@@ -596,7 +598,7 @@ out:
 }
 
 static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
-				    struct def_oe *def_oe,
+				    const struct definition *def,
 				    struct def_dependency *def_dep)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
@@ -610,7 +612,7 @@ static int acvp_oe_validate_one_dep(const struct acvp_testid_ctx *testid_ctx,
 	if (!def_dep->acvp_dep_id)
 		return 0;
 
-	ret = _acvp_oe_validate_one_dep(testid_ctx, def_oe, def_dep, &resp,
+	ret = _acvp_oe_validate_one_dep(testid_ctx, def, def_dep, &resp,
 					&found_data);
 	if (!ret)
 		return 0;
@@ -725,10 +727,11 @@ out:
 
 struct acvp_oe_match_struct {
 	const struct acvp_testid_ctx *testid_ctx;
-	struct def_oe *def_oe;
+	const struct definition *def;
 	struct def_dependency *def_dep;
 	int (*matcher)(const struct acvp_testid_ctx *testid_ctx,
-		       struct def_oe *def_oe, struct def_dependency *def_dep,
+		       const struct definition *def,
+		       struct def_dependency *def_dep,
 		       struct json_object *json_oe);
 };
 
@@ -739,9 +742,10 @@ struct acvp_oe_match_struct {
  * We are assembling such a string here but making sure our JSON information
  * does not keep duplicate information.
  */
-static int acvp_oe_generate_oe_string(const struct def_oe *def_oe, char *str,
+static int acvp_oe_generate_oe_string(const struct definition *def, char *str,
 				      const size_t stringlen)
 {
+	const struct def_oe *def_oe = def->oe;
 	struct def_dependency *def_dep;
 	int ret = 0;
 	bool first_in = false;
@@ -977,7 +981,8 @@ static int acvp_oe_match_oe_depurls(const struct acvp_testid_ctx *testid_ctx,
 			/* Download the dependency */
 			CKINT(acvp_create_url(NIST_VAL_OP_DEPENDENCY, url,
 					      sizeof(url)));
-			CKINT(acvp_extend_string(url, sizeof(url), "/%u", id));
+			CKINT(acvp_extend_string(url, sizeof(url), "/%" PRIu64,
+						 id));
 
 			ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);
 			CKINT(acvp_store_oe_debug(testid_ctx, &buf, ret2));
@@ -1089,10 +1094,11 @@ out:
 #endif
 
 static int acvp_oe_match_oe(const struct acvp_testid_ctx *testid_ctx,
-			    struct def_oe *def_oe,
+			    const struct definition *def,
 			    struct def_dependency *def_dep,
 			    struct json_object *json_oe)
 {
+	struct def_oe *def_oe = def->oe;
 	int ret;
 	char oe_name[FILENAME_MAX];
 	const char *str;
@@ -1100,7 +1106,7 @@ static int acvp_oe_match_oe(const struct acvp_testid_ctx *testid_ctx,
 	(void)testid_ctx;
 	(void)def_dep;
 
-	CKINT(acvp_oe_generate_oe_string(def_oe, oe_name, sizeof(oe_name)));
+	CKINT(acvp_oe_generate_oe_string(def, oe_name, sizeof(oe_name)));
 	CKINT(json_get_string(json_oe, "name", &str));
 	CKINT(acvp_str_match(oe_name, str, def_oe->acvp_oe_id));
 
@@ -1119,7 +1125,7 @@ static int acvp_oe_match_cb(void *private, struct json_object *json_oe)
 	struct acvp_oe_match_struct *matcher = private;
 	int ret;
 
-	ret = matcher->matcher(matcher->testid_ctx, matcher->def_oe,
+	ret = matcher->matcher(matcher->testid_ctx, matcher->def,
 			       matcher->def_dep, json_oe);
 
 	/* We found a match */
@@ -1134,17 +1140,18 @@ static int acvp_oe_match_cb(void *private, struct json_object *json_oe)
 }
 
 static int _acvp_oe_validate_all(
-	const struct acvp_testid_ctx *testid_ctx, struct def_oe *def_oe,
+	const struct acvp_testid_ctx *testid_ctx, const struct definition *def,
 	struct def_dependency *def_dep, const char *url,
 	int (*matcher)(const struct acvp_testid_ctx *testid_ctx,
-		       struct def_oe *def_oe, struct def_dependency *def_dep,
+		       const struct definition *def,
+		       struct def_dependency *def_dep,
 		       struct json_object *json_oe))
 {
 	struct acvp_oe_match_struct match_def;
 	int ret;
 
 	match_def.testid_ctx = testid_ctx;
-	match_def.def_oe = def_oe;
+	match_def.def = def;
 	match_def.def_dep = def_dep;
 	match_def.matcher = matcher;
 
@@ -1190,10 +1197,11 @@ out:
 
 /* GET / POST /dependencies */
 static int acvp_oe_validate_all_dep(const struct acvp_testid_ctx *testid_ctx,
-				    struct def_oe *def_oe)
+				    const struct definition *def)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
+	const struct def_oe *def_oe = def->oe;
 	struct def_dependency *def_dep;
 	int ret = 0;
 	char url[ACVP_NET_URL_MAXLEN];
@@ -1211,13 +1219,13 @@ static int acvp_oe_validate_all_dep(const struct acvp_testid_ctx *testid_ctx,
 		case def_dependency_software:
 			CKINT(acvp_oe_validate_add_searchopts(
 				def_dep->name, url, sizeof(url)));
-			CKINT(_acvp_oe_validate_all(testid_ctx, def_oe, def_dep,
+			CKINT(_acvp_oe_validate_all(testid_ctx, def, def_dep,
 						    url, acvp_oe_match_dep));
 			break;
 		case def_dependency_hardware:
 			CKINT(acvp_oe_validate_add_searchopts(
 				def_dep->proc_name, url, sizeof(url)));
-			CKINT(_acvp_oe_validate_all(testid_ctx, def_oe, def_dep,
+			CKINT(_acvp_oe_validate_all(testid_ctx, def, def_dep,
 						    url, acvp_oe_match_dep));
 			break;
 		default:
@@ -1255,11 +1263,12 @@ out:
  *****************************************************************************/
 
 static int acvp_oe_build_oe(const struct acvp_testid_ctx *testid_ctx,
-			    struct def_oe *def_oe, struct json_object **json_oe,
+			    const struct definition *def, struct json_object **json_oe,
 			    bool check_ignore_flag)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
+	struct def_oe *def_oe = def->oe;
 	struct def_dependency *def_dep;
 	struct json_object *oe = NULL, *depurl = NULL, *deparray = NULL,
 			   *dep = NULL;
@@ -1268,12 +1277,12 @@ static int acvp_oe_build_oe(const struct acvp_testid_ctx *testid_ctx,
 	bool depadded = false;
 
 	if (!req_details->dump_register) {
-		CKINT(acvp_oe_validate_all_dep(testid_ctx, def_oe));
+		CKINT(acvp_oe_validate_all_dep(testid_ctx, def));
 	}
 
 	oe = json_object_new_object();
 	CKNULL(oe, -ENOMEM);
-	CKINT(acvp_oe_generate_oe_string(def_oe, oe_name, sizeof(oe_name)));
+	CKINT(acvp_oe_generate_oe_string(def, oe_name, sizeof(oe_name)));
 	CKINT(json_object_object_add(oe, "name",
 				     json_object_new_string(oe_name)));
 
@@ -1365,19 +1374,20 @@ out:
 
 /* POST / PUT / DELETE /oes */
 static int acvp_oe_register_oe(const struct acvp_testid_ctx *testid_ctx,
-			       struct def_oe *def_oe, char *url,
+			       const struct definition *def, char *url,
 			       const unsigned int urllen,
 			       const enum acvp_http_type type, const bool asked)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
+	struct def_oe *def_oe = def->oe;
 	struct json_object *json_oe = NULL;
 	int ret;
 
 	/* Build JSON object with the oe specification */
 	if (type != acvp_http_delete) {
-		CKINT(acvp_oe_build_oe(testid_ctx, def_oe, &json_oe, asked));
+		CKINT(acvp_oe_build_oe(testid_ctx, def, &json_oe, asked));
 	}
 
 	if (!req_details->dump_register && !ctx_opts->register_new_oe &&
@@ -1413,10 +1423,11 @@ out:
 
 /* GET /oes/<oeId> */
 static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
-				   struct def_oe *def_oe)
+				   const struct definition *def)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
+	struct def_oe *def_oe = def->oe;
 	struct json_object *json_oe = NULL;
 	struct json_object *resp = NULL, *found_data = NULL;
 	int ret;
@@ -1435,9 +1446,9 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 		      def_oe->acvp_oe_id);
 
 	CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u", def_oe->acvp_oe_id));
+	CKINT(acvp_extend_string(url, sizeof(url), "/%" PRIu64, def_oe->acvp_oe_id));
 
-	ret = _acvp_oe_validate_one(testid_ctx, def_oe, NULL, url, &resp,
+	ret = _acvp_oe_validate_one(testid_ctx, def, NULL, url, &resp,
 				    &found_data, acvp_oe_match_oe);
 	if (!ret)
 		goto out;
@@ -1445,7 +1456,7 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_OE, ctx_opts,
 				       def_oe->acvp_oe_id, &http_type);
 	if (ret == -ENOENT) {
-		CKINT(acvp_oe_build_oe(testid_ctx, def_oe, &json_oe,
+		CKINT(acvp_oe_build_oe(testid_ctx, def, &json_oe,
 				       !!found_data));
 		if (json_oe) {
 			logger_status(
@@ -1490,8 +1501,8 @@ static int acvp_oe_validate_one_oe(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 
 	CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
-	CKINT(acvp_oe_register_oe(testid_ctx, def_oe, url, sizeof(url),
-				  http_type, asked));
+	CKINT(acvp_oe_register_oe(testid_ctx, def, url, sizeof(url), http_type,
+				  asked));
 
 out:
 	ACVP_JSON_PUT_NULL(resp);
@@ -1501,10 +1512,11 @@ out:
 
 /* GET / POST /oes */
 static int acvp_oe_validate_all_oe(const struct acvp_testid_ctx *testid_ctx,
-				   struct def_oe *def_oe)
+				   const struct definition *def)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *opts = &ctx->options;
+	struct def_oe *def_oe = def->oe;
 	int ret;
 	char oe_name[FILENAME_MAX - 500], url[ACVP_NET_URL_MAXLEN],
 		queryoptions[FILENAME_MAX], oestr[FILENAME_MAX - 400];
@@ -1519,14 +1531,14 @@ static int acvp_oe_validate_all_oe(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
 
 	/* Set a query option consisting of the OE name */
-	CKINT(acvp_oe_generate_oe_string(def_oe, oe_name, sizeof(oe_name)));
+	CKINT(acvp_oe_generate_oe_string(def, oe_name, sizeof(oe_name)));
 	CKINT(bin2hex_html(oe_name, (uint32_t)strlen(oe_name), oestr,
 			   sizeof(oestr)));
 	snprintf(queryoptions, sizeof(queryoptions), "name[0]=contains:%s",
 		 oestr);
 	CKINT(acvp_append_urloptions(queryoptions, url, sizeof(url)));
 
-	CKINT(_acvp_oe_validate_all(testid_ctx, def_oe, NULL, url,
+	CKINT(_acvp_oe_validate_all(testid_ctx, def, NULL, url,
 				    acvp_oe_match_oe));
 
 	/* We found an entry and do not need to do anything */
@@ -1537,7 +1549,7 @@ static int acvp_oe_validate_all_oe(const struct acvp_testid_ctx *testid_ctx,
 
 	/* Our vendor data does not match any vendor on ACVP server */
 	CKINT(acvp_create_url(NIST_VAL_OP_OE, url, sizeof(url)));
-	CKINT(acvp_oe_register_oe(testid_ctx, def_oe, url, sizeof(url),
+	CKINT(acvp_oe_register_oe(testid_ctx, def, url, sizeof(url),
 				  acvp_http_post, false));
 
 out:
@@ -1622,7 +1634,7 @@ int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx)
 			acvp_oe_register_dep(testid_ctx, def_dep,
 					     acvp_http_post, false);
 		}
-		acvp_oe_register_oe(testid_ctx, def_oe, url, sizeof(url),
+		acvp_oe_register_oe(testid_ctx, def, url, sizeof(url),
 				    acvp_http_post, false);
 		goto unlock;
 	}
@@ -1652,7 +1664,7 @@ int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx)
 			continue;
 		}
 
-		ret2 = acvp_oe_validate_one_dep(testid_ctx, def_oe, def_dep);
+		ret2 = acvp_oe_validate_one_dep(testid_ctx, def, def_dep);
 		if (ret2 == -EAGAIN)
 			ret = ret2;
 		else if (ret2) {
@@ -1666,11 +1678,11 @@ int acvp_oe_handle(const struct acvp_testid_ctx *testid_ctx)
 
 	if (!opts->show_db_entries) {
 		/* Validating all dependencies if ID is not present */
-		CKINT_ULCK(acvp_oe_validate_all_dep(testid_ctx, def_oe));
+		CKINT_ULCK(acvp_oe_validate_all_dep(testid_ctx, def));
 		/* Validating OE if ID is present */
-		CKINT_ULCK(acvp_oe_validate_one_oe(testid_ctx, def_oe));
+		CKINT_ULCK(acvp_oe_validate_one_oe(testid_ctx, def));
 		/* Validating OE if ID is not present */
-		CKINT_ULCK(acvp_oe_validate_all_oe(testid_ctx, def_oe));
+		CKINT_ULCK(acvp_oe_validate_all_oe(testid_ctx, def));
 	}
 
 unlock:

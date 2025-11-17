@@ -87,7 +87,7 @@ int acvp_testid_url(const struct acvp_testid_ctx *testid_ctx, char *url,
 	} else {
 		CKINT(acvp_create_url(proto->session_url, url, urllen));
 	}
-	CKINT(acvp_extend_string(url, urllen, "/%u", testid_ctx->testid));
+	CKINT(acvp_extend_string(url, urllen, "/%" PRIu64, testid_ctx->testid));
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "testID URL: %s\n", url);
 
@@ -132,7 +132,7 @@ int acvp_vsid_url(const struct acvp_vsid_ctx *vsid_ctx, char *url,
 	}
 
 	CKINT(acvp_vectorset_url(testid_ctx, url, urllen, urlpath));
-	CKINT(acvp_extend_string(url, urllen, "/%u", vsid_ctx->vsid));
+	CKINT(acvp_extend_string(url, urllen, "/%" PRIu64, vsid_ctx->vsid));
 
 	logger(LOGGER_VERBOSE, LOGGER_C_ANY, "vsID URL: %s\n", url);
 

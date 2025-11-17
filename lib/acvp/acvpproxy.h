@@ -62,12 +62,16 @@ extern "C" {
 #define NIST_VAL_OP_LABS "labs"
 #define NIST_VAL_OP_CERTREQUESTS "certRequests"
 #define NIST_VAL_OP_EVIDENCESETS "evidenceSets"
+#define NIST_VAL_OP_PREREQ_CERTS "prerequisiteCertificates"
 #define NIST_VAL_OP_EVIDENCE "evidence"
 #define NIST_VAL_OP_SOURCECODE "sourcecode"
+#define NIST_VAL_OP_OTHERDOCUMENTATION "otherDocumentation"
+#define NIST_VAL_OP_OTHERDOCUMENTATIONFSM "otherDocumentationFSM"
 #define NIST_VAL_OP_CERTIFY "certify"
 #define NIST_VAL_OP_SECURITY_POLICY "securityPolicy"
 #define NIST_VAL_OP_ACVP "acvp"
 #define NIST_VAL_OP_ESVP "esv"
+#define NIST_VAL_OP_SCHEMAS "schemas"
 
 /* acvp_protocol.txt: section 11.1 */
 #define ACVP_JWT_TOKEN_MAX 16384
@@ -351,9 +355,20 @@ struct acvp_opts_ctx {
 	bool fetch_sp;
 
 	/*
+	 * Upload the SP content and fetch the Security Policy PDF from the
+	 * AMVP session
+	 */
+	bool generate_sp;
+
+	/*
 	 * Issue certify command to the AMVP server to get the certificate
 	 */
 	bool amvp_certify;
+
+	/*
+	 * Upload certificate prerequisites
+	 */
+	bool amvp_send_certificate_prerequisites;
 };
 
 /**

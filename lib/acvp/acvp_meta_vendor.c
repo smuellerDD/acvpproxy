@@ -28,13 +28,25 @@
 #include "logger.h"
 #include "request_helper.h"
 
+static bool acvp_address_found(const struct def_vendor *def_vendor)
+{
+	if (def_vendor->addr_street_i && def_vendor->addr_locality_i &&
+	    def_vendor->addr_zipcode_i && def_vendor->addr_region_i &&
+	    def_vendor->addr_country_i)
+		return true;
+
+	return false;
+}
+
 static int acvp_vendor_build(const struct def_vendor *def_vendor,
+			     struct json_object *old_json_vendor,
 			     struct json_object **json_vendor,
 			     bool check_ignore_flag)
 {
 	struct json_object *array = NULL, *entry = NULL, *vendor = NULL,
-			   *address = NULL;
+			   *address = NULL, *tmp;
 	int ret = -EINVAL;
+	bool add_all_addresses = false;
 
 	/*
 	 * {
@@ -86,6 +98,18 @@ static int acvp_vendor_build(const struct def_vendor *def_vendor,
 	/* Phone numbers not defined */
 
 	/* Addresses */
+	if (old_json_vendor && !acvp_address_found(def_vendor)) {
+		/* Add all existing addresses, if we update */
+		CKINT(json_find_key(old_json_vendor, "addresses", &tmp,
+					json_type_array));
+
+		if (json_object_array_length(tmp) > 0 &&
+			ask_yes("The ACVP server database contains different addresses than defined locally. Do you want to ADD the current address to the existing addresses on the server? Answering with NO implies that the existing addressess are replaced!") == 0) {
+			check_ignore_flag = false;
+			add_all_addresses = true;
+		}
+	}
+
 	address = json_object_new_object();
 	CKNULL(address, -ENOMEM);
 	if (acvp_check_ignore(check_ignore_flag, def_vendor->addr_street_i)) {
@@ -136,6 +160,34 @@ static int acvp_vendor_build(const struct def_vendor *def_vendor,
 
 		array = json_object_new_array();
 		CKNULL(array, -ENOMEM);
+
+		/*
+		 * Check for addition of existing addresses only if (a)
+		 * the current address is not found at all (i.e. no part of it -
+		 * only in this case it is a new address) and there are existing
+		 * addresses.
+		 */
+		if (add_all_addresses && old_json_vendor &&
+		    !acvp_address_found(def_vendor)) {
+			size_t i;
+
+			/* Add all existing addresses, if we update */
+			CKINT(json_find_key(old_json_vendor, "addresses", &tmp,
+					    json_type_array));
+
+			/*
+			 * User asked to add the address. This requires
+			 * all existing addresses to be added here.
+			 */
+			for (i = 0; i < json_object_array_length(tmp); i++) {
+				struct json_object *contact =
+					json_object_array_get_idx(tmp, i);
+
+				json_object_get(contact);
+				CKINT(json_object_array_add(array, contact));
+			}
+		}
+
 		CKINT(json_object_array_add(array, address));
 		address = NULL;
 		CKINT(json_object_object_add(vendor, "addresses", array));
@@ -219,11 +271,7 @@ static int acvp_vendor_match(struct def_vendor *def_vendor,
 			!acvp_str_match(def_vendor->addr_country, addr_country,
 					vendor_id);
 
-		if (def_vendor->addr_street_i &&
-		    def_vendor->addr_locality_i &&
-		    def_vendor->addr_zipcode_i &&
-		    def_vendor->addr_region_i &&
-		    def_vendor->addr_country_i) {
+		if (acvp_address_found(def_vendor)) {
 			def_vendor->acvp_addr_id = id;
 			found = true;
 			break;
@@ -261,7 +309,7 @@ static int acvp_vendor_get_match(const struct acvp_testid_ctx *testid_ctx,
 	char url[ACVP_NET_URL_MAXLEN];
 
 	CKINT(acvp_create_url(NIST_VAL_OP_VENDOR, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
+	CKINT(acvp_extend_string(url, sizeof(url), "/%" PRIu64,
 				 def_vendor->acvp_vendor_id));
 
 	ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);
@@ -282,23 +330,18 @@ out:
 }
 
 /* POST / PUT / DELETE /vendors */
-static int acvp_vendor_register(const struct acvp_testid_ctx *testid_ctx,
-				struct def_vendor *def_vendor, char *url,
-				const unsigned int urllen,
-				const enum acvp_http_type type,
-				const bool asked)
+static int _acvp_vendor_register(const struct acvp_testid_ctx *testid_ctx,
+				 struct def_vendor *def_vendor, char *url,
+				 const unsigned int urllen,
+				 struct json_object *json_vendor,
+				 const enum acvp_http_type type,
+				 const bool asked)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	const struct acvp_req_ctx *req_details = &ctx->req_details;
-	struct json_object *json_vendor = NULL;
 	struct json_object *resp = NULL, *found_data = NULL;
 	int ret;
-
-	/* Build JSON object with the vendor specification */
-	if (type != acvp_http_delete) {
-		CKINT(acvp_vendor_build(def_vendor, &json_vendor, asked));
-	}
 
 	if (!req_details->dump_register && !ctx_opts->register_new_vendor &&
 	    !asked) {
@@ -331,6 +374,27 @@ static int acvp_vendor_register(const struct acvp_testid_ctx *testid_ctx,
 
 out:
 	ACVP_JSON_PUT_NULL(resp);
+	return ret;
+}
+
+static int acvp_vendor_register(const struct acvp_testid_ctx *testid_ctx,
+				struct def_vendor *def_vendor, char *url,
+				const unsigned int urllen,
+				const enum acvp_http_type type,
+				const bool asked)
+{
+	struct json_object *json_vendor = NULL;
+	int ret;
+
+	/* Build JSON object with the vendor specification */
+	if (type != acvp_http_delete) {
+		CKINT(acvp_vendor_build(def_vendor, NULL, &json_vendor, asked));
+	}
+
+	CKINT(_acvp_vendor_register(testid_ctx, def_vendor, url, urllen,
+				    json_vendor, type, asked));
+
+out:
 	ACVP_JSON_PUT_NULL(json_vendor);
 	return ret;
 }
@@ -355,7 +419,7 @@ static int acvp_vendor_validate_one(const struct acvp_testid_ctx *testid_ctx,
 	ret = acvp_search_to_http_type(ret, ACVP_OPTS_DELUP_VENDOR, ctx_opts,
 				       def_vendor->acvp_vendor_id, &http_type);
 	if (ret == -ENOENT) {
-		CKINT(acvp_vendor_build(def_vendor, &json_vendor,
+		CKINT(acvp_vendor_build(def_vendor, found_data, &json_vendor,
 					!!found_data));
 		if (json_vendor) {
 			logger_status(
@@ -396,7 +460,8 @@ static int acvp_vendor_validate_one(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	} else if (http_type == acvp_http_put) {
 		/* Update requested */
-		CKINT(acvp_vendor_build(def_vendor, &json_vendor, true));
+		CKINT(acvp_vendor_build(def_vendor, found_data, &json_vendor,
+					true));
 		if (json_vendor) {
 			logger_status(
 				LOGGER_C_ANY, "Data to be registered: %s\n",
@@ -444,8 +509,8 @@ static int acvp_vendor_validate_one(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 
 	CKINT(acvp_create_url(NIST_VAL_OP_VENDOR, url, sizeof(url)));
-	CKINT(acvp_vendor_register(testid_ctx, def_vendor, url, sizeof(url),
-				   http_type, asked));
+	CKINT(_acvp_vendor_register(testid_ctx, def_vendor, url, sizeof(url),
+				    json_vendor, http_type, asked));
 
 out:
 	ACVP_JSON_PUT_NULL(resp);

@@ -29,6 +29,7 @@ void amvp_def_free(struct amvp_def *amvp)
 		return;
 
 	ACVP_PTR_FREE_NULL(amvp->logo_file);
+	ACVP_PTR_FREE_NULL(amvp->sp_template_file);
 	ACVP_JSON_PUT_NULL(amvp->validation_definition);
 	ACVP_JSON_PUT_NULL(amvp->registration_definition);
 	ACVP_JSON_PUT_NULL(amvp->sp_general);
@@ -91,7 +92,7 @@ static int amvp_read_tester_def(const char *directory,
 	CKINT_ULCK(json_object_object_add(tester, "vendorId",
 		json_object_new_int((int)vendor->acvp_vendor_id)));
 
-	CKINT_ULCK(acvp_req_add_version(tester));
+	/* Do not add version - has to be added during submission */
 	amvp->registration_definition = tester;
 	tester = NULL;
 
@@ -182,7 +183,7 @@ static int amvp_read_validation_def(const char *directory,
 		}
 
 		CKINT(json_get_uint(level, "level", &level_val));
-		if (level_val < overall_level)
+		if (level_val != 0 && level_val < overall_level)
 			overall_level = level_val;
 	}
 
@@ -190,7 +191,7 @@ static int amvp_read_validation_def(const char *directory,
 	CKINT(json_object_object_add(module_def, "overallSecurityLevel",
 				     json_object_new_int((int)overall_level)));
 
-	CKINT(acvp_req_add_version(validation));
+	/* Do not add version - has to be added during submission */
 	amvp->validation_definition = validation;
 	validation = NULL;
 
@@ -205,6 +206,8 @@ static int amvp_read_sp_one(const char *pathname,
 	struct stat statbuf;
 	struct json_object *data;
 	int ret = 0;
+
+	*out = NULL;
 
 	if (*out) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -241,6 +244,10 @@ static int amvp_read_sp_def(const char *directory, struct amvp_def *amvp)
 	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
 		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_LOGO);
 	CKINT(acvp_duplicate(&amvp->logo_file, pathname));
+
+	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
+		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_TEMPLATE);
+	CKINT(acvp_duplicate(&amvp->sp_template_file, pathname));
 
 	snprintf(pathname, sizeof(pathname), "%s/%s/%s", directory,
 		 AMVP_DEF_DIR_CMVP, AMVP_DEF_SP_GENERAL);

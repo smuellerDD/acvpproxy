@@ -28,6 +28,7 @@ endif
 APPNAME		?= acvp-proxy
 AMVPNAME	?= amvp-proxy
 ESVPNAME	?= esvp-proxy
+RBGNAME		?= rbg-proxy
 
 DESTDIR		:=
 ETCDIR		:= /etc
@@ -67,7 +68,7 @@ APPVERSION	:= $(APPMAJOR).$(APPMINOR).$(APPPATCH)
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp $(SRCDIR)lib/amvp $(SRCDIR)lib/hash
+INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp $(SRCDIR)lib/amvp $(SRCDIR)lib/hash $(SRCDIR)lib/rbg
 LIBRARY_DIRS	+=
 LIBRARIES	+= pthread dl
 
@@ -118,6 +119,7 @@ C_SRCS += $(wildcard $(SRCDIR)lib/esvp/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/hash/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/requests/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/json-c/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/rbg/*.c)
 
 EX_SRCS += $(wildcard $(SRCDIR)lib/module_implementations/*.c)
 
@@ -143,7 +145,7 @@ analyze_plists = $(analyze_srcs:%.c=%.plist)
 
 .PHONY: all scan install clean cppcheck distclean debug asanaddress asanthread leak gcov binarchive extensions extensionsso
 
-all: $(APPNAME) $(ESVPNAME) $(AMVPNAME)
+all: $(APPNAME) $(ESVPNAME) $(AMVPNAME) $(RBGNAME)
 
 extensionsso: CFLAGS += -DACVPPROXY_EXTENSION
 extensionsso: $(EX_SOOBJS)
@@ -155,24 +157,28 @@ debug: CFLAGS += -g -DDEBUG
 debug: DBG-$(APPNAME)
 debug: DBG-$(AMVPNAME)
 debug: DBG-$(ESVPNAME)
+debug: DBG-$(RBGNAME)
 
 asanaddress: CFLAGS += -g -DDEBUG -fsanitize=address -fno-omit-frame-pointer
 asanaddress: LDFLAGS += -fsanitize=address
 asanaddress: DBG-$(APPNAME)
 asanaddress: DBG-$(AMVPNAME)
 asanaddress: DBG-$(ESVPNAME)
+asanaddress: DBG-$(RBGNAME)
 
 asanthread: CFLAGS += -g -DDEBUG -fsanitize=thread -fno-omit-frame-pointer
 asanthread: LDFLAGS += -fsanitize=thread
 asanthread: DBG-$(APPNAME)
 asanthread: DBG-$(AMVPNAME)
 asanthread: DBG-$(ESVPNAME)
+asanthread: DBG-$(RBGNAME)
 
 leak: CFLAGS += -g -DDEBUG -fsanitize=leak -fno-omit-frame-pointer
 leak: LDFLAGS += -fsanitize=leak
 leak: DBG-$(APPNAME)
 leak: DBG-$(AMVPNAME)
 leak: DBG-$(ESVPNAME)
+leak: DBG-$(RBGNAME)
 
 # Compile for the use of GCOV
 # Usage after compilation: gcov <file>.c
@@ -198,6 +204,10 @@ $(ESVPNAME): $(APPNAME)
 	$(RM) $(ESVPNAME)
 	$(LN) $(APPNAME) $(ESVPNAME)
 
+$(RBGNAME): $(APPNAME)
+	$(RM) $(RBGNAME)
+	$(LN) $(APPNAME) $(RBGNAME)
+
 DBG-$(APPNAME): $(ALL_OBJS)
 	$(CC) -g -DDEBUG -o $(APPNAME) $(OBJS) $(EX_OBJS) $(LDFLAGS)
 
@@ -209,6 +219,10 @@ DBG-$(ESVPNAME): DBG-$(APPNAME)
 	$(RM) $(ESVPNAME)
 	$(LN) $(APPNAME) $(ESVPNAME)
 
+DBG-$(RBGNAME): DBG-$(APPNAME)
+	$(RM) $(RBGNAME)
+	$(LN) $(APPNAME) $(RBGNAME)
+
 $(analyze_plists): %.plist: %.c
 	@echo "  CCSA  " $@
 	clang --analyze $(CFLAGS) $< -o $@
@@ -216,7 +230,7 @@ $(analyze_plists): %.plist: %.c
 scan: $(analyze_plists)
 
 format:
-	clang-format -i apps/*.[ch] lib/common/*.[ch] lib/acvp/*.[ch] lib/esvp/*.[ch]
+	clang-format -i apps/*.[ch] lib/common/*.[ch] lib/acvp/*.[ch] lib/esvp/*.[ch] lib/rbg/*.[ch]
 
 cppcheck:
 	cppcheck --force -q --enable=performance --enable=warning --enable=portability $(SRCDIR)apps/*.h $(SRCDIR)apps/*.c $(SRCDIR)lib/*.c $(SRCDIR)lib/*.h $(SRCDIR)lib/module_implementations/*.c $(SRCDIR)lib/module_implementations/*.h $(SRCDIR)lib/json-c/*.c $(SRCDIR)lib/json-c/*.h
@@ -231,6 +245,7 @@ EX-$(APPNAME): $(OBJS)
 	$(CC) -o $(APPNAME) $(OBJS) $(LDFLAGS)
 	$(LN) $(APPNAME) $(ESVPNAME)
 	$(LN) $(APPNAME) $(AMVPNAME)
+	$(LN) $(APPNAME) $(RBGNAME)
 
 install:
 	install -m 0755 $(APPNAME) -D -t $(DESTDIR)$(BINDIR)/
@@ -244,6 +259,7 @@ ifeq ($(UNAME_S),Linux)
 	install -s -m 0755 $(APPNAME) -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	install -s -m 0755 $(AMVPNAME) -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	install -s -m 0755 $(ESVPNAME) -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
+	install -s -m 0755 $(RBGNAME) -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	install -m 0755 $(SRCDIR)helper/proxy-lib.sh -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	install -m 0755 $(SRCDIR)helper/proxy.sh -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	install -m 0755 $(SRCDIR)helper/Makefile.out-of-tree -D -t $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
@@ -261,9 +277,11 @@ else
 	@- mkdir -p $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/extensions/
 	@- mkdir -p $(BUILDDIR)/$(AMVPNAME)-$(APPVERSION_NUMERIC)/extensions/
 	@- mkdir -p $(BUILDDIR)/$(ESVPNAME)-$(APPVERSION_NUMERIC)/extensions/
+	@- mkdir -p $(BUILDDIR)/$(RBGNAME)-$(APPVERSION_NUMERIC)/extensions/
 	@- cp -f $(APPNAME) $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(APPNAME) $(BUILDDIR)/$(AMVPNAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(APPNAME) $(BUILDDIR)/$(ESVPNAME)-$(APPVERSION_NUMERIC)/
+	@- cp -f $(APPNAME) $(BUILDDIR)/$(RBGNAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(SRCDIR)helper/proxy-lib.sh $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(SRCDIR)helper/proxy.sh $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
 	@- cp -f $(SRCDIR)helper/Makefile.out-of-tree $(BUILDDIR)/$(APPNAME)-$(APPVERSION_NUMERIC)/
@@ -297,6 +315,9 @@ clean:
 	@- $(RM) $(ESVPNAME)
 	@- $(RM) $(ESVPNAME)-*
 	@- $(RM) .$(ESVPNAME).hmac
+	@- $(RM) $(RBGNAME)
+	@- $(RM) $(RBGNAME)-*
+	@- $(RM) .$(RBGNAME).hmac
 	@- $(RM) lib/module_implementations/.*.hmac
 	@- $(RM) $(C_GCOV)
 	@- $(RM) *.gcov

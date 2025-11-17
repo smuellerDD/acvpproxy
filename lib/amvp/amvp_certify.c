@@ -34,12 +34,42 @@ int amvp_certify(const struct acvp_vsid_ctx *certreq_ctx)
 	ACVP_BUFFER_INIT(response);
 	int ret, ret2;
 
-	CKINT(amvp_certrequest_status(certreq_ctx));
+	CKINT(amvp_certrequest_status(certreq_ctx,
+				      amvp_certrequest_status_show_status));
 
 	/* Certify can only happen if  */
 	if (state->overall_state < AMVP_REQUEST_STATE_COMPLETED) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "Certification status does not allow finalization - information missing\n");
+		ret = -EAGAIN;
+		goto out;
+	}
+
+	if (state->sp_state < AMVP_REQUEST_STATE_COMPLETED) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Security Policy not yet fetched - please invoke amvp-proxy --vsid %"PRIu64" --fetch-sp\n", certreq_ctx->vsid);
+		ret = -EAGAIN;
+		goto out;
+	}
+
+	if (state->ft_te_state < AMVP_REQUEST_STATE_COMPLETED) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "TE testing state does not yet allow finalization - please wait and retry again\n");
+		ret = -EAGAIN;
+		goto out;
+	}
+
+	if (!state->cavp_certs_submitted) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "CAVP certificates not submitted - please invoke amvp-proxy --vsid %"PRIu64" --certprereq\n",
+		       certreq_ctx->vsid);
+		ret = -EAGAIN;
+		goto out;
+	}
+	if (!state->esv_certs_submitted) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "ESV certificates not submitted - please invoke amvp-proxy --vsid %"PRIu64" --certprereq\n",
+		       certreq_ctx->vsid);
 		ret = -EAGAIN;
 		goto out;
 	}
@@ -76,14 +106,17 @@ int amvp_certify(const struct acvp_vsid_ctx *certreq_ctx)
 			goto out;
 		}
 
-		CKINT(_amvp_certrequest_status(certreq_ctx, &response));
+		CKINT(_amvp_certrequest_status(
+			certreq_ctx, &response,
+			amvp_certrequest_status_show_status));
 
 		/*
 		 * After posting the certificate request, we have to get the
 		 * updated status as it is not immediately reflected in the
 		 * POST response.
 		 */
-		CKINT(amvp_certrequest_status(certreq_ctx));
+		CKINT(amvp_certrequest_status(
+			certreq_ctx, amvp_certrequest_status_show_status));
 	}
 
 	if (state->overall_state >= AMVP_REQUEST_STATE_APPROVED) {

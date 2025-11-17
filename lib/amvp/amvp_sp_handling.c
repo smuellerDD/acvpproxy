@@ -18,6 +18,7 @@
  */
 
 #include <fcntl.h>
+#include <libgen.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -36,8 +37,8 @@
 static int amvp_sp_handle_get_pdf_response(
 	const struct acvp_vsid_ctx *certreq_ctx, struct acvp_buf *response)
 {
-	uint8_t *pdf = NULL, *digest = NULL;
-	size_t pdflen, digestlen;
+	uint8_t *filedata = NULL, *digest = NULL;
+	size_t filedatalen, digestlen;
 	const char *str;
 	struct json_object *resp = NULL, *data = NULL;
 	int ret;
@@ -48,7 +49,7 @@ static int amvp_sp_handle_get_pdf_response(
 
 	if (!strncasecmp(str, "success", 7)) {
 		HASH_CTX_ON_STACK(ctx);
-		ACVP_BUFFER_INIT(pdfbuf);
+		ACVP_BUFFER_INIT(filebuf);
 		char spfile[100];
 		uint8_t digest_compare[AMVP_SP_HASH_SIZE];
 
@@ -56,8 +57,8 @@ static int amvp_sp_handle_get_pdf_response(
 
 		/* Get the PDF which is base64 encoded and decode it */
 		CKINT(json_get_string(data, "content", &str));
-		CKINT(base64_decode(str, strlen(str), &pdf, &pdflen));
-		if (pdflen > UINT32_MAX) {
+		CKINT(base64_decode(str, strlen(str), &filedata, &filedatalen));
+		if (filedatalen > UINT32_MAX) {
 			logger(LOGGER_ERR, LOGGER_C_ANY, "Retrieved file too large\n");
 			ret = -EOVERFLOW;
 			goto out;
@@ -76,7 +77,7 @@ static int amvp_sp_handle_get_pdf_response(
 
 		/* Create the message digest of the downloaded SP PDF */
 		sha256->init(ctx);
-		sha256->update(ctx, pdf, pdflen);
+		sha256->update(ctx, filedata, filedatalen);
 		sha256->final(ctx, digest_compare);
 
 		/* Check if hash(downloaded PDF) == downloaded hash */
@@ -89,15 +90,15 @@ static int amvp_sp_handle_get_pdf_response(
 		}
 
 		/* Now store the PDF */
-		pdfbuf.buf = pdf;
-		pdfbuf.len = (uint32_t)pdflen;
+		filebuf.buf = filedata;
+		filebuf.len = (uint32_t)filedatalen;
 
 		/* Generate file name of Security Policy */
 		snprintf(spfile, sizeof(spfile), "%"PRIu64"%s",
 			 certreq_ctx->vsid, AMVP_DS_SP_FILENAME);
 
 		CKINT(ds->acvp_datastore_write_vsid(certreq_ctx, spfile,
-						    false, &pdfbuf));
+						    false, &filebuf));
 		logger_status(LOGGER_C_ANY,
 			      "Security Policy PDF file stored in certificate request %"PRIu64" database directory\n",
 			      certreq_ctx->vsid);
@@ -116,11 +117,72 @@ static int amvp_sp_handle_get_pdf_response(
 	}
 
 out:
-	if (pdf)
-		free(pdf);
+	if (filedata)
+		free(filedata);
 	if (digest)
 		free(digest);
 	ACVP_JSON_PUT_NULL(resp);
+	return ret;
+}
+
+static int amvp_sp_add_logo(const struct acvp_vsid_ctx *certreq_ctx,
+				 struct json_object *sp_head)
+{
+	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
+	const struct definition *def = module_ctx->def;
+	const struct amvp_def *amvp = def->amvp;
+	struct stat statbuf;
+	ACVP_BUFFER_INIT(logo);
+	char *logo_base64 = NULL;
+	size_t logo_base64_len;
+	int ret, fd = -1;
+
+	//TODO: remove function?
+	return 0;
+
+	CKNULL(amvp->logo_file, 0);
+
+	if (stat(amvp->logo_file, &statbuf)) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+			"CMVP SP logo not found at %s\n",
+			amvp->logo_file);
+		return 0;
+	}
+
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Reading SP logo file %s\n",
+	       amvp->logo_file);
+
+	fd = open(amvp->logo_file, O_RDONLY);
+	if (fd == -1) {
+		ret = -errno;
+
+		logger(LOGGER_ERR, LOGGER_C_ANY, "Failed to open file %s: %d\n",
+		       amvp->logo_file, ret);
+		goto out;
+	}
+
+	logo.buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ, MAP_SHARED,
+			fd, 0);
+	if (logo.buf == MAP_FAILED) {
+		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+		       "Cannot mmap file %s\n", amvp->logo_file);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	logo.len = (uint32_t)statbuf.st_size;
+	CKINT(base64_encode(logo.buf, logo.len, &logo_base64,
+			    &logo_base64_len));
+	CKINT(json_object_object_add(sp_head, "logo",
+				     json_object_new_string(logo_base64)));
+
+out:
+	if (logo_base64)
+		free(logo_base64);
+	if (logo.buf)
+		munmap(logo.buf, (size_t)statbuf.st_size);
+	if (fd >= 0)
+		close(fd);
 	return ret;
 }
 
@@ -143,6 +205,9 @@ static int amvp_sp_generate_pdf(const struct acvp_vsid_ctx *certreq_ctx,
 	request = json_object_new_object();
 	CKNULL(request, ENOMEM);
 	CKINT(acvp_req_add_version(request));
+
+	CKINT(amvp_sp_add_logo(certreq_ctx, request));
+
 	json_request = json_object_to_json_string_ext(
 		request,
 		JSON_C_TO_STRING_PLAIN |
@@ -160,22 +225,25 @@ static int amvp_sp_generate_pdf(const struct acvp_vsid_ctx *certreq_ctx,
 		goto out;
 	}
 
-	CKINT(_amvp_certrequest_status(certreq_ctx, &response));
+	CKINT(_amvp_certrequest_status(certreq_ctx, &response,
+				       amvp_certrequest_status_show_status));
 
 	/* Implement the waiting */
 #define AMVP_GET_DATAFILE_INFO_SLEEPTIME 30
-	while (state->sp_state == AMVP_REQUEST_STATE_PENDING_PROCESSING) {
+	while (state->sp_state ==
+	       AMVP_REQUEST_STATE_PENDING_PROCESSING_GENERATION) {
 		/* Wait the requested amount of seconds */
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		logger_status(LOGGER_C_ANY,
 			"AMVP server needs more time for PDF generation - sleeping for %u seconds for certificate request %"PRIu64" again\n",
 			AMVP_GET_DATAFILE_INFO_SLEEPTIME,
 			certreq_ctx->vsid);
-			CKINT(sleep_interruptible(
-				AMVP_GET_DATAFILE_INFO_SLEEPTIME,
-				&acvp_op_interrupted));
+
+		CKINT(sleep_interruptible(AMVP_GET_DATAFILE_INFO_SLEEPTIME,
+					  &acvp_op_interrupted));
 
 		/* Get the submission status of the SP */
-		CKINT(amvp_certrequest_status(certreq_ctx));
+		CKINT(amvp_certrequest_status(
+			certreq_ctx, amvp_certrequest_status_show_none));
 	}
 
 	if (state->sp_state != AMVP_REQUEST_STATE_COMPLETED) {
@@ -205,7 +273,23 @@ int amvp_sp_get_pdf(const struct acvp_vsid_ctx *certreq_ctx)
 	int ret, ret2;
 
 	/* Get the submission status of the SP */
-	CKINT(amvp_certrequest_status(certreq_ctx));
+	CKINT(amvp_certrequest_status(certreq_ctx,
+				      amvp_certrequest_status_show_none));
+
+	if (state->sp_state < AMVP_REQUEST_STATE_PENDING_GENERATION) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Security policy data not yet uploaded - upload it with amvp-proxy --vsid %"PRIu64"\n", certreq_ctx->vsid);
+		ret = -EAGAIN;
+		goto out;
+	}
+
+	if (state->sp_state ==
+	    AMVP_REQUEST_STATE_PENDING_PROCESSING_SUBMISSION) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Security policy generation ongoing - wait\n");
+		ret = -EAGAIN;
+		goto out;
+	}
 
 	CKINT_LOG(acvp_create_url(NIST_VAL_OP_CERTREQUESTS, url, sizeof(url)),
 		  "Creation of request URL failed\n");
@@ -276,7 +360,7 @@ int amvp_sp_status(const struct acvp_vsid_ctx *certreq_ctx,
 
 		logger_status(LOGGER_C_ANY,
 			      "SP section %u not yet uploaded or received by NIST server\n",
-			      section);
+			      section + 1);
 	}
 
 	str = json_object_to_json_string_ext(
@@ -297,22 +381,152 @@ out:
  * SP data uploading
  ******************************************************************************/
 
+/*
+ * POST /amvp/v1/certRequests/<id>/securityPolicy/template
+ *
+ * Send the following form-data
+ *
+ * | Key | Type | Value |
+ * |-----|-------|-------|
+ * | amvVersion | string | "0.1" |
+ * | documentTemplate | file | {SP Template File} |
+ */
+static int amvp_sp_send_template(const struct acvp_vsid_ctx *certreq_ctx)
+{
+	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
+	const struct definition *def = module_ctx->def;
+	const struct amvp_def *amvp = def->amvp;
+	struct amvp_state *state = module_ctx->amvp_state;
+	ACVP_EXT_BUFFER_INIT(filedata);
+	ACVP_EXT_BUFFER_INIT(versiondata);
+	ACVP_BUFFER_INIT(response);
+	struct stat statbuf;
+	int ret, ret2, fd = -1;
+	uint8_t hash[AMVP_SP_HASH_SIZE];
+	char url[ACVP_NET_URL_MAXLEN];
+	HASH_CTX_ON_STACK(ctx);
+
+	versiondata.data_type = "amvVersion";
+	versiondata.buf = (uint8_t *)"0.1";
+	versiondata.len = 3;
+	versiondata.next = &filedata;
+
+	if (stat(amvp->sp_template_file, &statbuf)) {
+		int errsv = errno;
+
+		logger(LOGGER_WARN, LOGGER_C_ANY,
+		       "Accessing file %s failed (stat error code %d)\n",
+		       amvp->sp_template_file, errsv);
+		return -errsv;
+	}
+
+	if (!S_ISREG(statbuf.st_mode)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "File %s is not a regular file\n",
+		       amvp->sp_template_file);
+		return -EINVAL;
+	}
+
+	fd = open(amvp->sp_template_file, O_RDONLY | O_CLOEXEC);
+	if (fd < 0) {
+		ret = -errno;
+
+		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+		       "Cannot open file %s (%d)\n", amvp->sp_template_file, ret);
+		goto out;
+	}
+
+	filedata.buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ,
+			    MAP_SHARED, fd, 0);
+	if (filedata.buf == MAP_FAILED) {
+		logger(LOGGER_WARN, LOGGER_C_DS_FILE, "Cannot mmap file %s\n",
+		       amvp->sp_template_file);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	sha256->init(ctx);
+	sha256->update(ctx, filedata.buf, filedata.len);
+	sha256->final(ctx, hash);
+
+	if (state->sp_template_hash &&
+	    !memcmp(state->sp_template_hash, hash, AMVP_SP_HASH_SIZE)) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Skipping SP template that was already received by the server\n");
+		ret = 0;
+		goto out;
+	}
+
+	CKINT_LOG(acvp_create_url(NIST_VAL_OP_CERTREQUESTS, url, sizeof(url)),
+		  "Creation of request URL failed\n");
+	CKINT(acvp_extend_string(url, sizeof(url), "/%u", certreq_ctx->vsid));
+	CKINT(acvp_extend_string(url, sizeof(url), "/%s",
+				 NIST_VAL_OP_SECURITY_POLICY));
+	CKINT(acvp_extend_string(url, sizeof(url), "/template"));
+
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Posting file %s\n",
+	       amvp->sp_template_file);
+	filedata.len = (uint32_t)statbuf.st_size;
+	filedata.data_type = "documentTemplate";
+	filedata.filename = basename(amvp->sp_template_file);
+	filedata.next = NULL;
+
+	logger_status(LOGGER_C_ANY, "Submitting file %s\n",
+		      amvp->sp_template_file);
+
+	/* Refresh all auth tokens */
+	if (acvp_login_need_refresh(module_ctx)) {
+		CKINT(acvp_login_refresh(module_ctx));
+	}
+
+	/* Send the data to the AMVP server. */
+	ret2 = acvp_net_op(module_ctx, url, &versiondata, &response,
+			   acvp_http_post_multi);
+
+	ret = acvp_request_error_handler(ret2);
+	if (ret)
+		goto out;
+
+	CKINT(_amvp_certrequest_status(certreq_ctx, &response,
+				       amvp_certrequest_status_show_status));
+
+	/*
+	 * Only a successful upload will allow us to store the digest of the
+	 * SP template.
+	 */
+	if (!state->sp_template_hash) {
+		state->sp_template_hash = calloc(1, AMVP_SP_HASH_SIZE);
+		CKNULL(state->sp_template_hash, -ENOMEM);
+	}
+	memcpy(state->sp_template_hash, hash, sizeof(hash));
+
+out:
+	amvp_write_status(module_ctx);
+
+	if (filedata.buf && filedata.buf != MAP_FAILED)
+		munmap(filedata.buf, (size_t)statbuf.st_size);
+	if (fd >= 0)
+		close(fd);
+	acvp_free_buf(&response);
+	return ret;
+}
+
 static int amvp_sp_handle_response(const struct acvp_vsid_ctx *certreq_ctx,
 				   const struct acvp_buf *response)
 {
 	int ret;
 
-	CKINT(_amvp_certrequest_status(certreq_ctx, response));
+	CKINT(_amvp_certrequest_status(certreq_ctx, response,
+				       amvp_certrequest_status_show_status));
 
 out:
 	return ret;
 }
 
-static int amvp_sp_add_one(const struct acvp_vsid_ctx *certreq_ctx,
+static int amvp_sp_add_one(const struct acvp_testid_ctx *module_ctx,
 			   uint32_t chapter, struct json_object *src,
 			   struct json_object *dst, bool *sp_part_added)
 {
-	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
 	struct amvp_state *state = module_ctx->amvp_state;
 	struct json_object_iter sp_data;
 	int ret = 0;
@@ -340,20 +554,22 @@ static int amvp_sp_add_one(const struct acvp_vsid_ctx *certreq_ctx,
 
 		if (state->sp_chapter_hash[chapter]) {
 			if (!memcmp(state->sp_chapter_hash[chapter], hash,
-				    AMVP_SP_HASH_SIZE)) {
+				    sizeof(hash))) {
 				logger(LOGGER_DEBUG, LOGGER_C_ANY,
 				       "Skipping chapter %u that was already received by the server\n",
 				       chapter);
 				return 0;
 			}
 		} else {
+			logger(LOGGER_DEBUG, LOGGER_C_ANY,
+			       "SP chapter %u that was not yet received by the server\n",
+			       chapter);
 			state->sp_chapter_hash[chapter] =
 				calloc(1, AMVP_SP_HASH_SIZE);
 			CKNULL(state->sp_chapter_hash[chapter], -ENOMEM);
 		}
 
-		memcpy(state->sp_chapter_hash[chapter], hash,
-		       AMVP_SP_HASH_SIZE);
+		memcpy(state->sp_chapter_hash[chapter], hash, sizeof(hash));
 	}
 
 	*sp_part_added = true;
@@ -367,112 +583,10 @@ out:
 	return ret;
 }
 
-static int amvp_sp_add_logo(const struct acvp_vsid_ctx *certreq_ctx,
-				 struct json_object *sp_head)
-{
-	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
-	const struct definition *def = module_ctx->def;
-	const struct amvp_def *amvp = def->amvp;
-	struct stat statbuf;
-	ACVP_BUFFER_INIT(logo);
-	char *logo_base64 = NULL;
-	size_t logo_base64_len;
-	int ret, fd = -1;
-
-	CKNULL(amvp->logo_file, 0);
-
-	if (stat(amvp->logo_file, &statbuf)) {
-		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-			"CMVP SP logo not found at %s\n",
-			amvp->logo_file);
-		return 0;
-	}
-
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Reading SP logo file %s\n",
-	       amvp->logo_file);
-
-	fd = open(amvp->logo_file, O_RDONLY);
-	if (fd == -1) {
-		ret = -errno;
-
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Failed to open file %s: %d\n",
-		       amvp->logo_file, ret);
-		goto out;
-	}
-
-	logo.buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ, MAP_SHARED,
-			fd, 0);
-	if (logo.buf == MAP_FAILED) {
-		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
-		       "Cannot mmap file %s\n", amvp->logo_file);
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	logo.len = (uint32_t)statbuf.st_size;
-	CKINT(base64_encode(logo.buf, logo.len, &logo_base64,
-			    &logo_base64_len));
-	CKINT(json_object_object_add(sp_head, "logo",
-				     json_object_new_string(logo_base64)));
-
-out:
-	if (logo_base64)
-		free(logo_base64);
-	if (logo.buf)
-		munmap(logo.buf, (size_t)statbuf.st_size);
-	if (fd >= 0)
-		close(fd);
-	return ret;
-}
-
-static int amvp_sp_add_meta_data(const struct acvp_vsid_ctx *certreq_ctx,
-				 struct json_object *sp_head)
-{
-	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
-	const struct definition *def = module_ctx->def;
-	const struct def_vendor *vendor = def->vendor;
-	const struct def_info *info = def->info;
-	struct tm now_detail;
-	time_t now;
-	char day[11];
-	int ret;
-
-	CKINT(json_object_object_add(sp_head, "catalogVersion",
-				     json_object_new_string("1.0")));
-	CKINT(json_object_object_add(sp_head, "version",
-				     json_object_new_string("1.0")));
-	CKINT(json_object_object_add(sp_head, "docVersion",
-				     json_object_new_string("1.0")));
-
-	if (vendor) {
-		CKINT(json_object_object_add(sp_head, "vendorName",
-			json_object_new_string(vendor->vendor_name)));
-	}
-	if (info) {
-		CKINT(json_object_object_add(sp_head, "moduleName",
-			json_object_new_string(info->module_name)));
-	}
-
-	now = time(NULL);
-	if (now == (time_t)-1) {
-		ret = -errno;
-		logger(LOGGER_WARN, LOGGER_C_ANY, "Cannot obtain local time\n");
-		goto out;
-	}
-	localtime_r(&now, &now_detail);
-	snprintf(day, sizeof(day), "%.4d-%.2d-%.2d", now_detail.tm_year + 1900,
-		 now_detail.tm_mon + 1, now_detail.tm_mday);
-	CKINT(json_object_object_add(sp_head, "lastUpdated",
-				     json_object_new_string(day)));
-
-out:
-	return ret;
-}
-
 /*
  * POST /amv/v1/certRequests/<id>/securityPolicy
  */
-int amvp_sp_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx)
+static int amvp_sp_send_content(const struct acvp_vsid_ctx *certreq_ctx)
 {
 	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
 	const struct definition *def = module_ctx->def;
@@ -497,45 +611,49 @@ int amvp_sp_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx)
 	CKNULL(sp_head, ENOMEM);
 	CKINT(acvp_req_add_version(sp_head));
 
-	CKINT(amvp_sp_add_meta_data(certreq_ctx, sp_head));
-
 	sp_data = json_object_new_object();
 	CKNULL(sp_data, ENOMEM);
 	CKINT(json_object_object_add(sp_head, "securityPolicy", sp_data));
 
-	CKINT(amvp_sp_add_logo(certreq_ctx, sp_data));
+	CKINT(json_object_object_add(sp_data, "schemaVersion",
+				     json_object_new_string("2.8.4")));
 
-	/* The general section must be present */
-	CKNULL(amvp->sp_general, -EINVAL);
-	CKINT(amvp_sp_add_one(certreq_ctx, 0, amvp->sp_general, sp_data,
+	CKINT(amvp_sp_add_one(module_ctx, 0, amvp->sp_general, sp_data,
 			      &sp_part_added));
-	CKINT(amvp_sp_add_one(certreq_ctx, 1, amvp->sp_crypt_mod_spec,
+	CKINT(amvp_sp_add_one(module_ctx, 1, amvp->sp_crypt_mod_spec,
 			      sp_data, &sp_part_added));
-	CKINT(amvp_sp_add_one(certreq_ctx, 2, amvp->sp_crypt_mod_interfaces,
+	CKINT(amvp_sp_add_one(module_ctx, 2, amvp->sp_crypt_mod_interfaces,
 			      sp_data, &sp_part_added));
-	CKINT(amvp_sp_add_one(certreq_ctx, 3, amvp->sp_roles_services,
+	CKINT(amvp_sp_add_one(module_ctx, 3, amvp->sp_roles_services,
 			      sp_data, &sp_part_added));
-	CKINT(amvp_sp_add_one(certreq_ctx, 4, amvp->sp_sw_fw_sec, sp_data,
+	CKINT(amvp_sp_add_one(module_ctx, 4, amvp->sp_sw_fw_sec, sp_data,
 			      &sp_part_added));
-	CKINT(amvp_sp_add_one(certreq_ctx, 5, amvp->sp_oe, sp_data,
+	CKINT(amvp_sp_add_one(module_ctx, 5, amvp->sp_oe, sp_data,
 			      &sp_part_added));
-	CKINT(amvp_sp_add_one(certreq_ctx, 6, amvp->sp_phys_sec, sp_data,
+	CKINT(amvp_sp_add_one(module_ctx, 6, amvp->sp_phys_sec, sp_data,
 			      &sp_part_added));
-	CKINT(amvp_sp_add_one(certreq_ctx, 7, amvp->sp_non_invasive_sec,
+	CKINT(amvp_sp_add_one(module_ctx, 7, amvp->sp_non_invasive_sec,
 			      sp_data, &sp_part_added));
-	CKINT(amvp_sp_add_one(certreq_ctx, 8, amvp->sp_ssp_mgmt, sp_data,
+	CKINT(amvp_sp_add_one(module_ctx, 8, amvp->sp_ssp_mgmt, sp_data,
 			      &sp_part_added));
-	CKINT(amvp_sp_add_one(certreq_ctx, 9, amvp->sp_self_tests, sp_data,
+	CKINT(amvp_sp_add_one(module_ctx, 9, amvp->sp_self_tests, sp_data,
 			      &sp_part_added));
-	CKINT(amvp_sp_add_one(certreq_ctx, 10, amvp->sp_lifecycle, sp_data,
+	CKINT(amvp_sp_add_one(module_ctx, 10, amvp->sp_lifecycle, sp_data,
 			      &sp_part_added));
-	CKINT(amvp_sp_add_one(certreq_ctx, 11,
+	CKINT(amvp_sp_add_one(module_ctx, 11,
 			      amvp->sp_mitigation_other_attacks, sp_data,
 			      &sp_part_added));
+
+	CKINT_LOG(acvp_create_url(NIST_VAL_OP_CERTREQUESTS, url, sizeof(url)),
+		  "Creation of request URL failed\n");
+	CKINT(acvp_extend_string(url, sizeof(url), "/%u", certreq_ctx->vsid));
+	CKINT(acvp_extend_string(url, sizeof(url), "/%s",
+				 NIST_VAL_OP_SECURITY_POLICY));
 
 	if (!sp_part_added) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
 		       "All existing SP parts have already been submitted, refraining from submitting again\n");
+		/* Now let us stop processing as SP has been uploaded */
 		goto out;
 	}
 
@@ -558,12 +676,6 @@ int amvp_sp_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx)
 
 	request.buf = (uint8_t *)json_request;
 	request.len = (uint32_t)strlen(json_request);
-
-	CKINT_LOG(acvp_create_url(NIST_VAL_OP_CERTREQUESTS, url, sizeof(url)),
-		  "Creation of request URL failed\n");
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u", certreq_ctx->vsid));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%s",
-				 NIST_VAL_OP_SECURITY_POLICY));
 
 	ret2 = acvp_net_op(module_ctx, url, &request, &response,
 			   acvp_http_post);
@@ -596,5 +708,62 @@ out:
 	amvp_write_status(module_ctx);
 	ACVP_JSON_PUT_NULL(sp_head);
 	acvp_free_buf(&response);
+	return ret;
+}
+
+int amvp_sp_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx)
+{
+	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
+	const struct amvp_state *state = module_ctx->amvp_state;
+	int ret;
+
+	CKINT_LOG(amvp_sp_send_content(certreq_ctx),
+		  "SP content submission failed\n");
+
+	/*
+	 * Waiting for the server to have the submission processed
+	 */
+	while (state->sp_state ==
+	       AMVP_REQUEST_STATE_PENDING_PROCESSING_SUBMISSION) {
+		logger_status(LOGGER_C_ANY,
+			      "Waiting for the AMVP server to have SP content processed\n");\
+		CKINT(sleep_interruptible(3, &acvp_op_interrupted));
+
+		/* Get the submission status of the SP */
+		CKINT(amvp_certrequest_status(
+			certreq_ctx, amvp_certrequest_status_show_none));
+	}
+
+	CKINT_LOG(amvp_sp_send_template(certreq_ctx),
+		  "SP template submission failed\n");
+
+out:
+	return ret;
+}
+
+int amvp_sp_gen_pdf(const struct acvp_vsid_ctx *certreq_ctx)
+{
+	const struct acvp_testid_ctx *module_ctx = certreq_ctx->testid_ctx;
+	const struct amvp_state *state = module_ctx->amvp_state;
+	int ret;
+
+	CKINT(amvp_sp_upload_evidence(certreq_ctx));
+
+	/*
+	 * Waiting for the server to have the submission processed
+	 */
+	while (state->sp_state < AMVP_REQUEST_STATE_PENDING_GENERATION) {
+		logger_status(LOGGER_C_ANY,
+			      "Waiting for the AMVP server to have SP template processed\n");\
+		CKINT(sleep_interruptible(3, &acvp_op_interrupted));
+
+		/* Get the submission status of the SP */
+		CKINT(amvp_certrequest_status(
+			certreq_ctx, amvp_certrequest_status_show_none));
+	}
+
+	CKINT(amvp_sp_get_pdf(certreq_ctx));
+
+out:
 	return ret;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2025, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -17,39 +17,32 @@
  * DAMAGE.
  */
 
-#ifndef AMV_PROTO_H
-#define AMV_PROTO_H
+#ifndef RBG_DEFINITION_H
+#define RBG_DEFINITION_H
 
-#include "amvp_internal.h"
-#include "internal.h"
+#include "buffer.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-static const struct acvp_net_proto amv_proto_def = {
-	.url_base = "amvp/v1",
-	.proto_version = "0.1",
-	.proto_version_keyword = "amvVersion",
-	.proto = amv_protocol,
-	.proto_name = "AMVP",
-	.basedir = AMVP_DS_DATADIR,
-	.basedir_production = AMVP_DS_DATADIR_PRODUCTION,
-	.secure_basedir = AMVP_DS_CREDENTIALDIR,
-	.secure_basedir_production = AMVP_DS_CREDENTIALDIR_PRODUCTION,
+struct rbg_def {
+	//TODO due to es_auth, this structure cannot be constified any more
+	// which implies that all operations must be single-threaded
+	// fix: create some
+	// struct rbg_es_def_instance {const struct rbg_es_def' struct acvp_auth_ctx *es_auth;}
+	struct acvp_auth_ctx *rbg_auth;
 
-	.session_url = NIST_VAL_OP_CERTREQUESTS,
-	.vector_url = NIST_VAL_OP_EVIDENCESETS,
-	.session_url_keyword = "certRequestId",
-	.vector_url_keyword = "crUrls",
-
-	.resultsfile = AMVP_DEF_FILE_TE,
-	.resultsdir = AMVP_DEF_DIR_TE,
-	.version_in_object = 1,
+#define RBG_MAX_DEFINITIONS 10
+	struct json_object *rbg_definitions[RBG_MAX_DEFINITIONS];
+	unsigned int num_rbg_definitions;
 };
+
+void rbg_def_free(struct rbg_def *es);
+int rbg_def_config(const char *directory, struct rbg_def **es);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* AMV_PROTO_H */
+#endif /* RBG_DEFINITION_H */

@@ -46,23 +46,24 @@ extern "C" {
 
 /* Security Policy section files found in AMVP configuration directory */
 #define AMVP_DEF_SP_LOGO "sp_logo.png"
-#define AMVP_DEF_SP_GENERAL "sp_general.json"
-#define AMVP_DEF_SP_CRYPT_MOD_INTERFACES "sp_cryptographic_module_interfaces.json"
-#define AMVP_DEF_SP_CRYPT_MOD_SPEC "sp_cryptographic_module_specification.json"
-#define AMVP_DEF_SP_LIFECYCLE "sp_lifecycle_assurance.json"
-#define AMVP_DEF_SP_OE "sp_operational_environment.json"
-#define AMVP_DEF_SP_MITIGATION_OTHER_ATTACKS "sp_mitigation_of_other_attacks.json"
-#define AMVP_DEF_SP_NON_INVASIVE_SEC "sp_non_invasive_security.json"
-#define AMVP_DEF_SP_PHYS_SEC "sp_physical_security.json"
-#define AMVP_DEF_SP_ROLES_SERVICES "sp_roles_services_authentication.json"
-#define AMVP_DEF_SP_SELF_TESTS "sp_self_tests.json"
-#define AMVP_DEF_SSP_MGMT "sp_sensitive_security_parameter_management.json"
-#define AMVP_DEF_SW_FW_SEC "sp_software_firmware_security.json"
+#define AMVP_DEF_SP_TEMPLATE "SP_Template.docx"
+#define AMVP_DEF_SP_GENERAL "sp_01_general.json"
+#define AMVP_DEF_SP_CRYPT_MOD_SPEC "sp_02_cryptographic_module_specification.json"
+#define AMVP_DEF_SP_CRYPT_MOD_INTERFACES "sp_03_cryptographic_module_interfaces.json"
+#define AMVP_DEF_SP_ROLES_SERVICES "sp_04_roles_services_authentication.json"
+#define AMVP_DEF_SW_FW_SEC "sp_05_software_firmware_security.json"
+#define AMVP_DEF_SP_OE "sp_06_operational_environment.json"
+#define AMVP_DEF_SP_PHYS_SEC "sp_07_physical_security.json"
+#define AMVP_DEF_SP_NON_INVASIVE_SEC "sp_08_non_invasive_security.json"
+#define AMVP_DEF_SSP_MGMT "sp_09_sensitive_security_parameter_management.json"
+#define AMVP_DEF_SP_SELF_TESTS "sp_10_self_tests.json"
+#define AMVP_DEF_SP_LIFECYCLE "sp_11_lifecycle_assurance.json"
+#define AMVP_DEF_SP_MITIGATION_OTHER_ATTACKS "sp_12_mitigation_of_other_attacks.json"
 
 /* File holding the metadata about the test session provided by ACVP server */
 #define AMVP_DS_MODULEIDMETA "moduleid_metadata.json"
 
-#define AMVP_DS_SP_FILENAME "_140sp.pdf"
+#define AMVP_DS_SP_FILENAME "_140sp.docx"
 
 int amvp_alloc_state(struct acvp_testid_ctx *testid_ctx);
 void amvp_release_state(struct acvp_testid_ctx *testid_ctx);
@@ -72,8 +73,6 @@ int amvp_write_status(const struct acvp_testid_ctx *testid_ctx);
 
 int amvp_ft_te_status(const struct acvp_vsid_ctx *certreq_ctx,
 		      struct json_object *data);
-int amvp_sc_te_status(const struct acvp_vsid_ctx *certreq_ctx,
-		      struct json_object *data);
 int amvp_te_get(const struct acvp_vsid_ctx *certreq_ctx);
 int amvp_te_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx,
 			    const struct acvp_buf *buf);
@@ -81,16 +80,27 @@ int amvp_te_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx,
 int amvp_sp_status(const struct acvp_vsid_ctx *certreq_ctx,
 		   struct json_object *data);
 int amvp_sp_upload_evidence(const struct acvp_vsid_ctx *certreq_ctx);
+int amvp_sp_gen_pdf(const struct acvp_vsid_ctx *certreq_ctx);
 int amvp_sp_get_pdf(const struct acvp_vsid_ctx *certreq_ctx);
 
-int amvp_module_register_op(struct acvp_testid_ctx *module_ctx);
+int amvp_module_process_req(struct acvp_testid_ctx *module_ctx,
+			    const struct acvp_buf *response);
 
 int amvp_certrequest_register(struct acvp_testid_ctx *module_ctx);
 
+int amvp_certrequest_prereq(const struct acvp_vsid_ctx *certreq_ctx);
+
 /* Status of current submission */
-int amvp_certrequest_status(const struct acvp_vsid_ctx *certreq_ctx);
+enum amvp_certrequest_status_show {
+	amvp_certrequest_status_show_all,
+	amvp_certrequest_status_show_status,
+	amvp_certrequest_status_show_none,
+};
+int amvp_certrequest_status(const struct acvp_vsid_ctx *certreq_ctx,
+			    enum amvp_certrequest_status_show show);
 int _amvp_certrequest_status(const struct acvp_vsid_ctx *certreq_ctx,
-			     const struct acvp_buf *response);
+			     const struct acvp_buf *response,
+			     enum amvp_certrequest_status_show);
 
 int amvp_certify(const struct acvp_vsid_ctx *certreq_ctx);
 

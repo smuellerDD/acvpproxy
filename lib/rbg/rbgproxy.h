@@ -17,8 +17,8 @@
  * DAMAGE.
  */
 
-#ifndef ESVPPROXY_H
-#define ESVPPROXY_H
+#ifndef RBGPROXY_H
+#define RBGPROXY_H
 
 #include "acvpproxy.h"
 
@@ -26,26 +26,14 @@
 extern "C" {
 #endif
 
-#define NIST_ESVP_DEFAULT_SERVER "esvts.nist.gov"
-#define NIST_ESVP_TEST_SERVER "demo.esvts.nist.gov"
-#define NIST_ESVP_DEFAULT_SERVER_PORT 7443
-
-#define NIST_ESVP_VAL_OP_ENTROPY_ASSESSMENT "entropyAssessments"
-#define NIST_ESVP_VAL_OP_DATAFILE "dataFiles"
-#define NIST_ESVP_VAL_OP_SUPPDOC "supportingDocumentation"
-#define NIST_ESVP_VAL_OP_CERTIFY "certify"
-#define NIST_ESVP_VAL_OP_OEADD "addOE"
-#define NIST_ESVP_VAL_OP_PUDUPDATE "updatePUD"
-#define NIST_ESVP_VAL_OP_RBG "rbg"
-
 /**
  * @brief Perform network operation to register a new entropy source with
- *	  ESVP.
+ *	  RBG.
  *
  * @param ctx [in] ACVP Proxy library context
  * @return 0 on success, < 0 on error
  */
-int esvp_register(const struct acvp_ctx *ctx);
+int rbg_register(const struct acvp_ctx *ctx);
 
 /**
  * @brief Continue operation on entropy source
@@ -53,7 +41,7 @@ int esvp_register(const struct acvp_ctx *ctx);
  * @param ctx [in] ACVP Proxy library context
  * @return 0 on success, < 0 on error
  */
-int esvp_continue(const struct acvp_ctx *ctx);
+int rbg_continue(const struct acvp_ctx *ctx);
 
 /**
  * @brief Load all module definition configurations from the default
@@ -66,10 +54,10 @@ int esvp_continue(const struct acvp_ctx *ctx);
  *
  * @return 0 on success, < 0 on error
  */
-int esvp_def_default_config(const char *config_basedir);
+int rbg_def_default_config(const char *config_basedir);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* ESVPPROXY_H */
+#endif /* RBGPROXY_H */

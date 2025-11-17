@@ -845,16 +845,20 @@ static void acvp_def_del_person(struct def_person *person)
 
 void acvp_def_free_vendor(struct def_vendor *vendor)
 {
-	struct def_person *person, *tmp;
+	if (!vendor)
+		return;
 
 	ACVP_PTR_FREE_NULL(vendor->vendor_name);
 	ACVP_PTR_FREE_NULL(vendor->vendor_name_filesafe);
 	ACVP_PTR_FREE_NULL(vendor->vendor_url);
 
 	acvp_def_del_person(&vendor->person);
-	list_for_each_guarded(person, tmp, &vendor->person.list, list) {
-		acvp_def_del_person(person);
-		free(person);
+	if (!list_is_empty(&vendor->person.list)) {
+		struct def_person *person = NULL, *tmp = NULL;
+		list_for_each_guarded(person, tmp, &vendor->person.list, list) {
+			acvp_def_del_person(person);
+			free(person);
+		}
 	}
 
 	ACVP_PTR_FREE_NULL(vendor->addr_street);
@@ -1087,6 +1091,7 @@ static int acvp_def_add_vendor(struct definition *def,
 	vendor = calloc(1, sizeof(*vendor));
 	CKNULL(vendor, -ENOMEM);
 	def->vendor = vendor;
+	LIST_ENTRY_INIT(vendor->person.list);
 
 	CKINT(acvp_duplicate(&vendor->vendor_name, src->vendor_name));
 	CKINT(acvp_duplicate(&vendor->vendor_name_filesafe, src->vendor_name));
@@ -1094,7 +1099,6 @@ static int acvp_def_add_vendor(struct definition *def,
 
 	CKINT(acvp_duplicate(&vendor->vendor_url, src->vendor_url));
 
-	LIST_ENTRY_INIT(vendor->person.list);
 	CKINT(acvp_def_add_person(&vendor->person, &src->person));
 	list_for_each(person, &src->person.list, list) {
 		new_person = calloc(1, sizeof(struct def_person));
@@ -1442,6 +1446,7 @@ static void acvp_def_release(struct definition *def)
 	acvp_def_del_info(def);
 	acvp_def_del_deps(def);
 	esvp_def_es_free(def->es);
+	rbg_def_free(def->rbg);
 	amvp_def_free(def->amvp);
 	free(def);
 }
@@ -1542,7 +1547,7 @@ static int acvp_def_set_value(struct json_object *json, const char *name,
 	}
 
 	tmp = (uint64_t)json_object_get_int64(val);
-	if (tmp >= INT_MAX)
+	if (tmp >= UINT64_MAX)
 		return -EINVAL;
 
 	if (tmp != id) {
@@ -2632,7 +2637,7 @@ static int acvp_def_load_config_oe(const struct json_object *oe_config,
 	if (!ret) {
 		/* We have version 2 configuration file */
 		struct json_object *oe_name;
-		unsigned int i;
+		size_t i;
 
 		/*
 		 * Sanity check: if any of the following entries are found,
@@ -2657,7 +2662,7 @@ static int acvp_def_load_config_oe(const struct json_object *oe_config,
 			CKINT_LOG(
 				acvp_def_load_config_dep(dep_entry, &def_dep,
 							 local_proc_family),
-				"Loading of dependency configuration %u failed\n",
+				"Loading of dependency configuration %zu failed\n",
 				i);
 			CKINT(acvp_def_add_dep(oe, &def_dep));
 		}
@@ -3050,6 +3055,7 @@ static int acvp_def_load_config(const char *basedir, const char *oe_file,
 		CKINT_ULCK(acvp_def_add_info(def, &info, map->impl_name,
 					     map->impl_description));
 		CKINT_ULCK(esvp_def_config(basedir, &def->es));
+		CKINT_ULCK(rbg_def_config(basedir, &def->rbg));
 		CKINT_ULCK(amvp_def_config(basedir, def, &def->amvp));
 
 		/* First stage of dependencies */
@@ -3074,6 +3080,7 @@ static int acvp_def_load_config(const char *basedir, const char *oe_file,
 		CKINT_ULCK(acvp_def_add_vendor(def, &vendor));
 		CKINT_ULCK(acvp_def_add_info(def, &info, NULL, NULL));
 		CKINT_ULCK(esvp_def_config(basedir, &def->es));
+		CKINT_ULCK(rbg_def_config(basedir, &def->rbg));
 		CKINT_ULCK(amvp_def_config(basedir, def, &def->amvp));
 
 		/* First stage of dependencies */

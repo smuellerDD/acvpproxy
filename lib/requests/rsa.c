@@ -303,7 +303,9 @@ static int acvp_req_rsa_hashalg(cipher_t hashalg, enum rsa_modulo modulo,
 		if ((hashalg & ACVP_HASHMASK) &
 		     ((cipher_def_map[i].cipher) & ACVP_HASHMASK) &&
 		    (hashalg & ACVP_CIPHERDEF) &
-		     ((cipher_def_map[i].cipher) & ACVP_CIPHERDEF)) {
+		     ((cipher_def_map[i].cipher) & ACVP_CIPHERDEF) &&
+		    (hashalg & ACVP_CIPHERTYPE_HASH) ==
+		     ((cipher_def_map[i].cipher) & ACVP_CIPHERTYPE_HASH)) {
 
 			const char *algo = cipher_def_map[i].acvp_name;
 			struct json_object *tmp = json_object_new_object();

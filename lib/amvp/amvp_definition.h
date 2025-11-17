@@ -34,6 +34,7 @@ struct amvp_def {
 
 	/* SP parts */
 	char *logo_file;
+	char *sp_template_file;
 	struct json_object *sp_general;
 	struct json_object *sp_crypt_mod_interfaces;
 	struct json_object *sp_crypt_mod_spec;
@@ -48,14 +49,24 @@ struct amvp_def {
 	struct json_object *sp_sw_fw_sec;
 };
 
+/*
+ * The order of states matter: their order shows the order of processing states
+ * and thus its order should match the order applied by the AMVP server.
+ */
 enum amvp_request_state {
 	AMVP_REQUEST_STATE_UNKNOWN,
 	AMVP_REQUEST_STATE_INITIAL,
 	AMVP_REQUEST_STATE_ONGOING,
+	AMVP_REQUEST_STATE_PENDING_PROCESSING_SUBMISSION,
 	AMVP_REQUEST_STATE_PENDING_GENERATION,
-	AMVP_REQUEST_STATE_PENDING_PROCESSING,
+	AMVP_REQUEST_STATE_PENDING_PROCESSING_GENERATION,
 	AMVP_REQUEST_STATE_COMPLETED,
+	AMVP_REQUEST_STATE_COMPLETED_OVERALL,
+	AMVP_REQUEST_STATE_IN_REVIEW,
 	AMVP_REQUEST_STATE_APPROVED,
+
+	/* must be last */
+	AMVP_REQUEST_STATE_REJECTED,
 };
 
 struct amvp_state {
@@ -69,15 +80,24 @@ struct amvp_state {
 	 */
 	enum amvp_request_state sp_state; /* SP submission state */
 	enum amvp_request_state ft_te_state; /* Functional testing TE state */
-	enum amvp_request_state sc_te_state; /* Source code TE state */
 
 #define AMVP_CERTIFICATE_BUF_SIZE	8
 	char certificate[AMVP_CERTIFICATE_BUF_SIZE];
 
 	bool test_report_template_fetched;
+	bool submit_once_done;
+
+	bool esv_certs_submitted;
+	bool cavp_certs_submitted;
 
 #define AMVP_SP_LAST_CHAPTER 12
 #define AMVP_SP_HASH_SIZE SHA256_SIZE_DIGEST
+
+	/*
+	 * Hash of the SP template file
+	 */
+	uint8_t *sp_template_hash;
+
 	/*
 	 * hash in binary form - to ensure we do not need to reallocate the
 	 * buffer when changing the hash

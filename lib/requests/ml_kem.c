@@ -68,7 +68,7 @@ int acvp_list_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
 		tmp->keylen[idx++] = 512;
 	}
 	if (ml_kem->parameter_set & DEF_ALG_ML_KEM_768) {
-		tmp->keylen[idx++] = 65;
+		tmp->keylen[idx++] = 768;
 	}
 	if (ml_kem->parameter_set & DEF_ALG_ML_KEM_1024) {
 		tmp->keylen[idx++] = 1024;
@@ -118,7 +118,9 @@ int acvp_req_set_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("keyGen")));
 	} else if ((ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_ENCAPSULATION) ||
-		   (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_DECAPSULATION)) {
+		   (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_DECAPSULATION) ||
+		   (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_ENCAPSULATION_CHECK) ||
+		   (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_DECAPSULATION_CHECK)) {
 		CKINT(json_object_object_add(
 			entry, "mode", json_object_new_string("encapDecap")));
 
@@ -132,6 +134,14 @@ int acvp_req_set_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
 		if (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_DECAPSULATION) {
 			CKINT(json_object_array_add(
 				array, json_object_new_string("decapsulation")));
+		}
+		if (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_ENCAPSULATION_CHECK) {
+			CKINT(json_object_array_add(
+				array, json_object_new_string("encapsulationKeyCheck")));
+		}
+		if (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_DECAPSULATION_CHECK) {
+			CKINT(json_object_array_add(
+				array, json_object_new_string("decapsulationKeyCheck")));
 		}
 	} else {
 		logger(LOGGER_WARN, LOGGER_C_ANY,

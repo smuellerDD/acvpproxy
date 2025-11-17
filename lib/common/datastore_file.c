@@ -35,7 +35,9 @@
 
 #include "acvp_error_handler.h"
 #include "acvpproxy.h"
+#include "binhexbin.h"
 #include "internal.h"
+#include "hash/sha256.h"
 #include "json_wrapper.h"
 #include "logger.h"
 #include "request_helper.h"
@@ -288,7 +290,7 @@ acvp_datastore_file_vectordir(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_datastore_file_testsessiondir(
 		testid_ctx, pathname, pathnamelen, createdir, secure_location));
 
-	CKINT(acvp_extend_string(pathname, pathnamelen, "/%u",
+	CKINT(acvp_extend_string(pathname, pathnamelen, "/%" PRIu64,
 				 testid_ctx->testid));
 	CKINT(acvp_datastore_file_dir(pathname, createdir));
 
@@ -408,7 +410,8 @@ acvp_datastore_file_vectordir_vsid(const struct acvp_vsid_ctx *vsid_ctx,
 					    pathnamelen, createdir,
 					    secure_location));
 
-	CKINT(acvp_extend_string(pathname, pathnamelen, "/%u", vsid_ctx->vsid));
+	CKINT(acvp_extend_string(pathname, pathnamelen, "/%" PRIu64,
+				 vsid_ctx->vsid));
 	CKINT(acvp_datastore_file_dir(pathname, createdir));
 
 out:
@@ -578,7 +581,7 @@ static int acvp_datastore_file_uint64(const char *pathname,
 
 	if (!stat(file, &statbuf) && statbuf.st_size) {
 		size_t msgsize_len;
-		unsigned long msgsize_int;
+		unsigned long long msgsize_int;
 		char *msgsize = NULL;
 
 		logger(LOGGER_DEBUG, LOGGER_C_DS_FILE,
@@ -588,7 +591,7 @@ static int acvp_datastore_file_uint64(const char *pathname,
 
 		CKNULL(msgsize, -EINVAL);
 
-		msgsize_int = strtoul(msgsize, NULL, 10);
+		msgsize_int = strtoull(msgsize, NULL, 10);
 		free(msgsize);
 
 		/* do not throw an error */
@@ -1244,6 +1247,118 @@ out:
 	return ret;
 }
 
+static int acvp_datastore_process_vsid_hash_response(
+	const char *resppath, uint8_t digest[SHA256_SIZE_DIGEST])
+{
+	struct stat statbuf;
+	HASH_CTX_ON_STACK(ctx);
+	uint8_t *resp_buf = MAP_FAILED;
+	int ret = 0, fd = -1;
+
+	CKNULL(resppath, -EINVAL);
+
+	if (stat(resppath, &statbuf)) {
+		ret = -errno;
+		goto out;
+	}
+
+	fd = open(resppath, O_RDONLY | O_CLOEXEC);
+	if (fd < 0) {
+		ret = -errno;
+
+		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+			"Cannot open file %s (%d)\n", resppath, ret);
+		goto out;
+	}
+
+	resp_buf = mmap(NULL, (size_t)statbuf.st_size, PROT_READ, MAP_SHARED,
+			fd, 0);
+	if (resp_buf == MAP_FAILED) {
+		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+			"Cannot mmap file %s\n", resppath);
+		close(fd);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	/* Create the message digest of the response data */
+	sha256->init(ctx);
+	sha256->update(ctx, resp_buf, (size_t)statbuf.st_size);
+	sha256->final(ctx, digest);
+
+out:
+	if (fd > -1)
+		close(fd);
+	if (resp_buf != MAP_FAILED)
+		munmap(resp_buf, (size_t)statbuf.st_size);
+	return ret;
+}
+
+static int acvp_datastore_process_vsid_match_response(
+	const char *processedpath, uint8_t exp_digest[SHA256_SIZE_DIGEST],
+	bool *processed_exist, bool *digest_match)
+{
+	uint8_t found_digest[SHA256_SIZE_DIGEST];
+	struct stat statbuf;
+	uint8_t *resp_buf = MAP_FAILED;
+	int ret = 0, fd = -1;
+
+	CKNULL(processedpath, -EINVAL);
+
+	*processed_exist = false;
+	*digest_match = false;
+
+	if (stat(processedpath, &statbuf))
+		goto out;
+
+	*processed_exist = true;
+
+	/*
+	 * The processed path can only contain a digest, if it is more than
+	 * twice the size of the digest, because the digest is in hex. If it
+	 * is less than that, do not bother to check the digest, there is none.
+	 *
+	 * In this case, we treat it as if the digest matched as this condition
+	 * is only visible in the transition processing the old processed.txt
+	 * without the digest.
+	 */
+	if ((size_t)statbuf.st_size <= sizeof(found_digest) * 2) {
+		*digest_match = true;
+		goto out;
+	}
+
+	fd = open(processedpath, O_RDONLY | O_CLOEXEC);
+	if (fd < 0) {
+		ret = -errno;
+
+		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+			"Cannot open file %s (%d)\n", processedpath, ret);
+		goto out;
+	}
+
+	resp_buf = mmap(NULL, sizeof(found_digest) * 2, PROT_READ,
+			MAP_SHARED, fd, 0);
+	if (resp_buf == MAP_FAILED) {
+		logger(LOGGER_WARN, LOGGER_C_DS_FILE,
+			"Cannot mmap file %s\n", processedpath);
+		close(fd);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	hex2bin((const char *)resp_buf, sizeof(found_digest) * 2, found_digest,
+		sizeof(found_digest));
+	if (!memcmp(found_digest, exp_digest, SHA256_SIZE_DIGEST))
+		*digest_match = true;
+
+out:
+	if (fd > -1)
+		close(fd);
+	if (resp_buf != MAP_FAILED)
+		munmap(resp_buf, sizeof(found_digest) * 2);
+	return ret;
+}
+
 static int
 acvp_datastore_process_vsid_file(
 	struct acvp_vsid_ctx *vsid_ctx, const char *processedpath,
@@ -1255,17 +1370,48 @@ acvp_datastore_process_vsid_file(
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
 	const struct acvp_opts_ctx *ctx_opts = &ctx->options;
+	uint8_t digest[SHA256_SIZE_DIGEST];
 	struct stat statbuf;
 	struct acvp_buf buf;
 	uint8_t *resp_buf;
 	int fd = -1, ret;
+	bool processed_exist, digest_match;
+
+	/*
+	 * Calculate the digest of the data to be submitted.
+	 */
+	ret = acvp_datastore_process_vsid_hash_response(resppath, digest);
+	if (ret) {
+		if (ret != -ENOENT)
+			goto out;
+
+		ret = 0;
+	}
+
+	/*
+	 * Compare digest with digest found in processed file.
+	 */
+	CKINT(acvp_datastore_process_vsid_match_response(processedpath, digest,
+							 &processed_exist,
+							 &digest_match));
 
 	/* If there is already a processed file, do a resubmit */
-	if (!stat(processedpath, &statbuf)) {
+	if (processed_exist) {
 		if (ctx_opts->delete_vsid) {
 			return cb(vsid_ctx, NULL);
 		}
-		if (!ctx_opts->resubmit_result) {
+
+		if (!ctx_opts->resubmit_result && !digest_match) {
+			logger(LOGGER_VERBOSE, LOGGER_C_DS_FILE,
+			       "Response data present, previously submitted, but current data is different, yet resubmit result not requested for file %s / %s\n",
+			       resppath, processedpath);
+		}
+
+		/*
+		 * If either resubmit_result is requested or a mismatch in the
+		 * digest is detected, fall through to the submission path.
+		 */
+		if (!ctx_opts->resubmit_result && digest_match) {
 			char verdict_file[FILENAME_MAX];
 
 			CKINT(acvp_datastore_file_vectordir_vsid(
@@ -1351,9 +1497,10 @@ acvp_datastore_process_vsid_file(
 		ret = 0;
 		goto out;
 	} else {
+		char digest_hex[sizeof(digest) * 2 + 1];
 		FILE *file;
 		struct tm now_detail;
-		char now_buf[30];
+		char now_buf[100];
 		time_t now;
 
 		if (!statbuf.st_size) {
@@ -1420,7 +1567,12 @@ acvp_datastore_process_vsid_file(
 		}
 		localtime_r(&now, &now_detail);
 
-		snprintf(now_buf, sizeof(now_buf), "%d%.2d%.2d %.2d:%.2d:%.2d",
+		bin2hex(digest, sizeof(digest), digest_hex,
+			sizeof(digest_hex) - 1, 0);
+		digest_hex[sizeof(digest_hex) - 1] = '\0';
+
+		snprintf(now_buf, sizeof(now_buf), "%s\n%d%.2d%.2d %.2d:%.2d:%.2d",
+			 digest_hex,
 			 now_detail.tm_year + 1900, now_detail.tm_mon + 1,
 			 now_detail.tm_mday, now_detail.tm_hour,
 			 now_detail.tm_min, now_detail.tm_sec);
@@ -1445,6 +1597,7 @@ acvp_datastore_process_vsid_directory(
 	const struct acvp_testid_ctx *testid_ctx = vsid_ctx->testid_ctx;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_datastore_ctx *datastore = &ctx->datastore;
+	char respfile[FILENAME_MAX];
 	struct dirent *dirent;
 	DIR *dir = NULL;
 	int ret = 0;
@@ -1460,13 +1613,21 @@ acvp_datastore_process_vsid_directory(
 		 * Generate a new path for the processed.txt file
 		 */
 		CKINT(acvp_datastore_file_vectordir_vsid(
-			vsid_ctx, processedpath, processedpathlen, true,
-			true));
+			vsid_ctx, processedpath, processedpathlen, true, true));
+		/*
+		 * Generate the path for the file name of the file to submit
+		 */
+		CKINT(acvp_datastore_file_vectordir_vsid(
+			vsid_ctx, respfile, sizeof(respfile), false, false));
 
 		/* Append the name of the current directory */
 		CKINT(acvp_extend_string(processedpath, processedpathlen, "/%s",
 					 datastore->resultsdir));
 		CKINT(acvp_datastore_file_dir(processedpath, true));
+
+		CKINT(acvp_extend_string(respfile, sizeof(respfile), "/%s",
+					 datastore->resultsdir));
+		CKINT(acvp_datastore_file_dir(respfile, false));
 
 		/* Create file <current_file>_processed.txt */
 		CKINT(acvp_extend_string(processedpath, processedpathlen, "/%s",
@@ -1474,9 +1635,12 @@ acvp_datastore_process_vsid_directory(
 		CKINT(acvp_extend_string(processedpath, processedpathlen, "_%s",
 					 datastore->processedfile));
 
-		CKINT(acvp_datastore_process_vsid_file(vsid_ctx,
-						       processedpath,
-						       dirent->d_name, cb));
+		/* Create file directory/<current_file> */
+		CKINT(acvp_extend_string(respfile, sizeof(respfile), "/%s",
+					 dirent->d_name));
+
+		CKINT(acvp_datastore_process_vsid_file(vsid_ctx, processedpath,
+						       respfile, cb));
 	}
 
 out:

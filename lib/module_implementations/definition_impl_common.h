@@ -652,10 +652,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 	.algo = {							\
 		.shake = {						\
 			.algorithm = shake_def,				\
-			.inbit = false,					\
-			.inempty = true,				\
-			.outbit = false,				\
-			DEF_ALG_DOMAIN(.messagelength, 16, 65536, 8),	\
+			DEF_ALG_DOMAIN(.messagelength, 0, 65536, 8),	\
 			DEF_ALG_DOMAIN(.outlength, 16, 65536, 8),	\
 			}						\
 		},							\
@@ -695,9 +692,8 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 	ACVP_HMACSHA3_384 | ACVP_HMACSHA3_512
 
 /**
- * @brief CMAC AES definition. Both generation and verification are tested,
- * which is probably not what you want unless the IUT actually implements a
- * separate service or API function for CMAC verification.
+ * @brief CMAC AES definition. Only generation is tested, which is the most
+ * common case for cryptographic libraries.
  *
  * Cipher definition properties
  *	* dependency on AES is satisfied within the same ACVP register op
@@ -715,17 +711,18 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 				.algorithm = "AES",			\
 				.valvalue = "same"			\
 				},					\
-			.direction = DEF_ALG_CMAC_GENERATION |		\
-				     DEF_ALG_CMAC_VERIFICATION,		\
+			.direction = DEF_ALG_CMAC_GENERATION,		\
 			.keylen = key_length,				\
 			DEF_ALG_DOMAIN(.msglen, 8, 524288, 8),		\
 			}						\
 		},							\
 	}
 
+
 /**
- * @brief CMAC AES definition. Only generation is tested, which is the most
- * common case for cryptographic libraries.
+ * @brief CMAC AES definition. Both generation and verification are tested,
+ * which is probably not what you want unless the IUT actually implements a
+ * separate service or API function for CMAC verification.
  *
  * Cipher definition properties
  *	* dependency on AES is satisfied within the same ACVP register op
@@ -733,7 +730,7 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
  * @param key_length supported AES key lengths provided with
  *		     cipher_definitions.h
  */
-#define GENERIC_CMAC_GEN_AES(key_length)				\
+#define GENERIC_CMAC_GENVER_AES(key_length)				\
 	{								\
 	.type = DEF_ALG_TYPE_CMAC,					\
 	.algo = {							\
@@ -743,7 +740,8 @@ static const struct def_algo_prereqs generic_ccm_prereqs[] = {
 				.algorithm = "AES",			\
 				.valvalue = "same"			\
 				},					\
-			.direction = DEF_ALG_CMAC_GENERATION,		\
+			.direction = DEF_ALG_CMAC_GENERATION |		\
+				     DEF_ALG_CMAC_VERIFICATION,		\
 			.keylen = key_length,				\
 			DEF_ALG_DOMAIN(.msglen, 8, 524288, 8),		\
 			}						\
@@ -1795,6 +1793,22 @@ static const struct def_algo_prereqs generic_eddsa_prereqs[] = {
 	}
 
 /**
+ * @brief EdDSA Key Verification
+ *
+ * @param curves One or more EdDSA curves combined with an OR
+ */
+#define GENERIC_EDDSA_KEYVER(curves)					\
+	{								\
+	.type = DEF_ALG_TYPE_EDDSA,					\
+	.algo = {							\
+		.eddsa = {						\
+			.eddsa_mode = DEF_ALG_EDDSA_MODE_KEYVER,	\
+			.curve = curves,				\
+			}						\
+		}							\
+	}
+
+/**
  * @brief EdDSA Signature Generation
  *
  * Cipher definition properties
@@ -1896,14 +1910,14 @@ static const struct def_algo_prereqs generic_eddsa_prereqs[] = {
  * @brief ML-KEM Encapsulation and Decapsulation
  *
  * @param param_sets One or more ML-KEM parameter sets combined with an OR
+ * @param mode One or more ML-KEM modes combined with an OR
  */
-#define GENERIC_ML_KEM_ENCAPDECAP(param_sets)				\
+#define GENERIC_ML_KEM_ENCAPDECAP(param_sets, mode)			\
 	{								\
 	.type = DEF_ALG_TYPE_ML_KEM,					\
 	.algo = {							\
 		.ml_kem = {						\
-			.ml_kem_mode = DEF_ALG_ML_KEM_MODE_ENCAPSULATION |\
-				       DEF_ALG_ML_KEM_MODE_DECAPSULATION,\
+			.ml_kem_mode = mode,				\
 			.parameter_set = param_sets,			\
 			}						\
 		}							\

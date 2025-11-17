@@ -151,14 +151,14 @@ static int acvp_module_build(const struct def_info *def_info,
 	if (acvp_check_ignore(check_ignore_flag, def_info->acvp_vendor_id_i)) {
 		CKINT(acvp_create_urlpath(NIST_VAL_OP_VENDOR, url,
 					  sizeof(url)));
-		CKINT(acvp_extend_string(url, sizeof(url), "/%u",
+		CKINT(acvp_extend_string(url, sizeof(url), "/%" PRIu64,
 					 def_info->acvp_vendor_id));
 		CKINT(json_object_object_add(entry, "vendorUrl",
 					     json_object_new_string(url)));
 	}
 
 	if (acvp_check_ignore(check_ignore_flag, def_info->acvp_addr_id_i)) {
-		CKINT(acvp_extend_string(url, sizeof(url), "/%s/%u",
+		CKINT(acvp_extend_string(url, sizeof(url), "/%s/%" PRIu64,
 					 NIST_VAL_OP_ADDRESSES,
 					 def_info->acvp_addr_id));
 		CKINT(json_object_object_add(entry, "addressUrl",
@@ -177,7 +177,7 @@ static int acvp_module_build(const struct def_info *def_info,
 			CKINT(acvp_create_urlpath(NIST_VAL_OP_PERSONS, url,
 						  sizeof(url)));
 			CKINT(acvp_extend_string(
-				url, sizeof(url), "/%u",
+				url, sizeof(url), "/%" PRIu64,
 				def_info->acvp_person_id[person_cnt]));
 			CKINT(json_object_array_add(
 				array, json_object_new_string(url)));
@@ -230,6 +230,7 @@ static int acvp_module_match(struct def_info *def_info,
 {
 	struct json_object *tmp;
 	uint64_t id = 0, module_id;
+	size_t person_cnt;
 	unsigned int i;
 	int ret, ret2;
 	const char *str, *type_string, *moduleurl;
@@ -268,7 +269,6 @@ static int acvp_module_match(struct def_info *def_info,
 	CKINT(json_find_key(json_module, "contactUrls", &tmp, json_type_array));
 	for (i = 0; i < json_object_array_length(tmp); i++) {
 		struct json_object *contact = json_object_array_get_idx(tmp, i);
-		size_t person_cnt;
 		bool found_one = false;
 
 		/* Get the ID which is the last pathname component */
@@ -286,6 +286,15 @@ static int acvp_module_match(struct def_info *def_info,
 
 		if (!found_one)
 			not_found = true;
+	}
+
+	/* Now check if we have unmatched persons */
+	for (person_cnt = 0; person_cnt < def_info->acvp_person_cnt;
+	     person_cnt++) {
+		if (!def_info->acvp_person_id_i[person_cnt]) {
+			ret2 |= -ENOENT;
+			break;
+		}
 	}
 
 	CKINT(json_get_string(json_module, "description", &str));
@@ -320,7 +329,7 @@ static int acvp_module_get_match(const struct acvp_testid_ctx *testid_ctx,
 	char url[ACVP_NET_URL_MAXLEN];
 
 	CKINT(acvp_create_url(NIST_VAL_OP_MODULE, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
+	CKINT(acvp_extend_string(url, sizeof(url), "/%" PRIu64,
 				 def_info->acvp_module_id));
 
 	ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);

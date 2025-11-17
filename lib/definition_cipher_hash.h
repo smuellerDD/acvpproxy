@@ -49,6 +49,7 @@ struct def_algo_sha {
 	 * ACVP_SHA3_256
 	 * ACVP_SHA3_384
 	 * ACVP_SHA3_512
+	 * ACVP_ASCON_HASH
 	 * required: always
 	 */
 	cipher_t algorithm;
@@ -83,7 +84,7 @@ struct def_algo_sha {
 	 * The supported message sizes in multiples of GiBytes (2^30 bytes or
 	 * 2^33 bits) must be specified.
 	 *
-	 * required: optional
+	 * required: optional (not applicable for ACVP_ASCON_HASH)
 	 */
 	int largetest[DEF_ALG_MAX_INT];
 };

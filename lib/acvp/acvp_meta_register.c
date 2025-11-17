@@ -152,7 +152,7 @@ int acvp_meta_obtain_request_result(const struct acvp_testid_ctx *testid_ctx,
 	logger_status(LOGGER_C_ANY, "Fetch request for ID %"PRIu64"\n", tmp_id);
 
 	CKINT(acvp_create_url(NIST_VAL_OP_REQUESTS, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u", tmp_id));
+	CKINT(acvp_extend_string(url, sizeof(url), "/%" PRIu64, tmp_id));
 
 	CKINT(acvp_net_op(testid_ctx, url, NULL, &response, acvp_http_get));
 
@@ -193,7 +193,7 @@ int acvp_meta_register(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	if (acvp_valid_id(*id))
-		CKINT(acvp_extend_string(url, urllen, "/%u", *id));
+		CKINT(acvp_extend_string(url, urllen, "/%" PRIu64, *id));
 
 	logger_status(LOGGER_C_ANY, "%s object\n",
 		      (submit_type == acvp_http_delete) ? "Deleting" :
@@ -311,7 +311,7 @@ int acvp_search_to_http_type(int search_errno, unsigned int type,
 
 		return 0;
 
-		/*
+	/*
 	 * We only attempt a delete if we have a match between the ACVP server
 	 * DB and our configurations. We do not want to delete unknown
 	 * definitions. Yet, if we are forced to perform the delete, we will

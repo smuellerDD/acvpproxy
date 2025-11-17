@@ -108,7 +108,7 @@ static int acvp_person_build(const struct def_person *def_person,
 	/* Reference to Vendor definition */
 	CKINT(acvp_create_urlpath(NIST_VAL_OP_VENDOR, vendor_url,
 				  sizeof(vendor_url)));
-	CKINT(acvp_extend_string(vendor_url, sizeof(vendor_url), "/%u",
+	CKINT(acvp_extend_string(vendor_url, sizeof(vendor_url), "/%" PRIu64,
 				 def_person->acvp_vendor_id));
 	CKINT(json_object_object_add(person, "vendorUrl",
 				     json_object_new_string(vendor_url)));
@@ -304,7 +304,7 @@ static int acvp_person_get_match(const struct acvp_testid_ctx *testid_ctx,
 	char url[ACVP_NET_URL_MAXLEN];
 
 	CKINT(acvp_create_url(NIST_VAL_OP_PERSONS, url, sizeof(url)));
-	CKINT(acvp_extend_string(url, sizeof(url), "/%u",
+	CKINT(acvp_extend_string(url, sizeof(url), "/%" PRIu64,
 				 def_person->acvp_person_id));
 
 	ret2 = acvp_process_retry_testid(testid_ctx, &buf, url);

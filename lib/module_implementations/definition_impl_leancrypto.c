@@ -28,6 +28,65 @@
 #define LC_AES_CBC	GENERIC_AES_CBC
 #define LC_AES_CTR	GENERIC_AES_CTR
 #define LC_AES_KW	GENERIC_AES_KW
+#define LC_AES_XTS	GENERIC_AES_XTS
+
+#define LC_AES_GCM_EIV_NONNULL						\
+	{								\
+	GENERIC_AES_ALGO_GEN(ACVP_GCM),					\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
+	.algo.sym.ivlen = { 96, },					\
+	.algo.sym.ivgen = DEF_ALG_SYM_IVGEN_EXTERNAL,			\
+	DEF_ALG_DOMAIN(.algo.sym.aadlen, DEF_ALG_ZERO_VALUE, 65536, 8),	\
+	.algo.sym.taglen = { 64, 96, 104, 112, 120, 128 },		\
+	.algo.sym.prereqvals = generic_gcm_prereqs,			\
+	.algo.sym.prereqvals_num = ARRAY_SIZE(generic_gcm_prereqs)	\
+	}
+
+#define LC_AES_GMAC						\
+	{								\
+	GENERIC_AES_ALGO_GEN(ACVP_GMAC),				\
+	.algo.sym.ivlen = { 96, },					\
+	.algo.sym.ivgen = DEF_ALG_SYM_IVGEN_EXTERNAL,			\
+	DEF_ALG_DOMAIN(.algo.sym.aadlen, DEF_ALG_ZERO_VALUE, 65536, 8),	\
+	.algo.sym.taglen = { 64, 96, 104, 112, 120, 128 },		\
+	.algo.sym.prereqvals = generic_gcm_prereqs,			\
+	.algo.sym.prereqvals_num = ARRAY_SIZE(generic_gcm_prereqs)	\
+	}
+
+#define LC_AES_GCM							\
+	    LC_AES_GCM_EIV_NONNULL, LC_AES_GMAC
+
+#define LC_AES_GCM_IIV_NONNULL(mode)					\
+	{								\
+	GENERIC_AES_ALGO_GEN(ACVP_GCM),					\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 128, 65536, 128),		\
+	.algo.sym.ivlen = { 96, },					\
+	.algo.sym.ivgen = DEF_ALG_SYM_IVGEN_INTERNAL,			\
+	.algo.sym.ivgenmode = mode,					\
+	DEF_ALG_DOMAIN(.algo.sym.aadlen, DEF_ALG_ZERO_VALUE, 65536, 8),	\
+	.algo.sym.taglen = { 64, 96, 104, 112, 120, 128 },		\
+	.algo.sym.prereqvals = generic_gcm_prereqs,			\
+	.algo.sym.prereqvals_num = ARRAY_SIZE(generic_gcm_prereqs)	\
+	}
+
+#define LC_AES_GCM_822_IIV_NONNULL					\
+	LC_AES_GCM_IIV_NONNULL(DEF_ALG_SYM_IVGENMODE_822)
+#define LC_AES_GCM_IIV							\
+	LC_AES_GCM_822_IIV_NONNULL
+
+/**************************************************************************
+ * Ascon AEAD Definition
+ **************************************************************************/
+#define LC_ASCON_AEAD							\
+	{								\
+	.type = DEF_ALG_TYPE_SYM,					\
+	.algo.sym.algorithm = ACVP_ASCON_AEAD_128,			\
+	.algo.sym.direction = DEF_ALG_SYM_DIRECTION_ENCRYPTION |	\
+			      DEF_ALG_SYM_DIRECTION_DECRYPTION,		\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 8, 65536, 8),			\
+	DEF_ALG_DOMAIN(.algo.sym.aadlen, 8, 65536, 8),			\
+	.algo.sym.taglen = { 128 },					\
+	}
 
 /**************************************************************************
  * Hash Definitions
@@ -37,7 +96,7 @@
  * leancrypto supports LC_SHA, but some target systems are too small memory
  * which do not offer sufficient memory for LDT
  */
-#define LC_SHA_NO_LDT(sha_def)						\
+#define LC_HASH_NO_LDT(sha_def)						\
 	{								\
 	.type = DEF_ALG_TYPE_SHA,					\
 	.algo = {							\
@@ -227,27 +286,26 @@ static const struct def_algo_prereqs lc_eddsa_prereqs[] = {
 	},
 };
 
-
-#define LC_EDDSA_KEYGEN							\
+#define LC_EDDSA_KEYGEN(curves)						\
 	{								\
 	.type = DEF_ALG_TYPE_EDDSA,					\
 	.algo = {							\
 		.eddsa = {						\
 			.eddsa_mode = DEF_ALG_EDDSA_MODE_KEYGEN,	\
 			DEF_PREREQS(lc_eddsa_prereqs),			\
-			.curve = ACVP_ED25519,				\
+			.curve = curves,				\
 			}						\
 		}							\
 	}
 
-#define LC_EDDSA_SIGGEN							\
+#define LC_EDDSA_SIGGEN(curves)						\
 	{								\
 	.type = DEF_ALG_TYPE_EDDSA,					\
 	.algo = {							\
 		.eddsa = {						\
 			.eddsa_mode = DEF_ALG_EDDSA_MODE_SIGGEN,	\
 			DEF_PREREQS(lc_eddsa_prereqs),			\
-			.curve = ACVP_ED25519,				\
+			.curve = curves,				\
 			.eddsa_pure = DEF_ALG_EDDSA_PURE_SUPPORTED,	\
 			.eddsa_prehash = DEF_ALG_EDDSA_PREHASH_SUPPORTED,\
 			.context_length = { DEF_ALG_ZERO_VALUE },	\
@@ -255,14 +313,14 @@ static const struct def_algo_prereqs lc_eddsa_prereqs[] = {
 		}							\
 	}
 
-#define LC_EDDSA_SIGVER							\
+#define LC_EDDSA_SIGVER(curves)						\
 	{								\
 	.type = DEF_ALG_TYPE_EDDSA,					\
 	.algo = {							\
 		.eddsa = {						\
 			.eddsa_mode = DEF_ALG_EDDSA_MODE_SIGVER,	\
 			DEF_PREREQS(lc_eddsa_prereqs),			\
-			.curve = ACVP_ED25519,				\
+			.curve = curves,				\
 			.eddsa_pure = DEF_ALG_EDDSA_PURE_SUPPORTED,	\
 			.eddsa_prehash = DEF_ALG_EDDSA_PREHASH_SUPPORTED,\
 			.context_length = { DEF_ALG_ZERO_VALUE },	\
@@ -401,7 +459,11 @@ static const struct def_algo_ml_dsa_caps ml_dsa_sig_strong_capabilities_prehash[
 	GENERIC_ML_KEM_KEYGEN(LC_ML_KEM_ALGO_SET_FULL)
 
 #define LC_ML_KEM_ENCAPDECAP_FULL					\
-	GENERIC_ML_KEM_ENCAPDECAP(LC_ML_KEM_ALGO_SET_FULL)
+	GENERIC_ML_KEM_ENCAPDECAP(LC_ML_KEM_ALGO_SET_FULL,		\
+				  DEF_ALG_ML_KEM_MODE_ENCAPSULATION |	\
+				  DEF_ALG_ML_KEM_MODE_DECAPSULATION |	\
+				  DEF_ALG_ML_KEM_MODE_ENCAPSULATION_CHECK |\
+				  DEF_ALG_ML_KEM_MODE_DECAPSULATION_CHECK)
 
 #define LC_ML_KEM_ALGO_SET_STRONG					\
 	(DEF_ALG_ML_KEM_768 | DEF_ALG_ML_KEM_1024)
@@ -410,7 +472,11 @@ static const struct def_algo_ml_dsa_caps ml_dsa_sig_strong_capabilities_prehash[
 	GENERIC_ML_KEM_KEYGEN(LC_ML_KEM_ALGO_SET_STRONG)
 
 #define LC_ML_KEM_ENCAPDECAP_STRONG					\
-	GENERIC_ML_KEM_ENCAPDECAP(LC_ML_KEM_ALGO_SET_STRONG)
+	GENERIC_ML_KEM_ENCAPDECAP(LC_ML_KEM_ALGO_SET_STRONG,		\
+				  DEF_ALG_ML_KEM_MODE_ENCAPSULATION |	\
+				  DEF_ALG_ML_KEM_MODE_DECAPSULATION |	\
+				  DEF_ALG_ML_KEM_MODE_ENCAPSULATION_CHECK |\
+				  DEF_ALG_ML_KEM_MODE_DECAPSULATION_CHECK)
 
 /**************************************************************************
  * SLH-DSA Definitions
@@ -503,10 +569,10 @@ static const struct def_algo_slh_dsa_caps slh_dsa_sig_capabilities_prehash[] = {
  **************************************************************************/
 
 #define LC_SHA3_ALGOS							\
-	LC_SHA_NO_LDT(ACVP_SHA3_224),					\
-	LC_SHA_NO_LDT(ACVP_SHA3_256),					\
-	LC_SHA_NO_LDT(ACVP_SHA3_384),					\
-	LC_SHA_NO_LDT(ACVP_SHA3_512),					\
+	LC_HASH_NO_LDT(ACVP_SHA3_224),					\
+	LC_HASH_NO_LDT(ACVP_SHA3_256),					\
+	LC_HASH_NO_LDT(ACVP_SHA3_384),					\
+	LC_HASH_NO_LDT(ACVP_SHA3_512),					\
 	LC_SHAKE(ACVP_SHAKE128),					\
 	LC_SHAKE(ACVP_SHAKE256),					\
 	LC_XOF(ACVP_CSHAKE128),						\
@@ -522,10 +588,17 @@ static const struct def_algo lc_c[] = {
 	LC_AES_CBC,
 	LC_AES_CTR,
 	LC_AES_KW,
+	LC_AES_XTS,
+	LC_AES_GCM,
+	LC_AES_GCM_IIV,
 
-	LC_SHA_NO_LDT(ACVP_SHA256),
-	LC_SHA_NO_LDT(ACVP_SHA384),
-	LC_SHA_NO_LDT(ACVP_SHA512),
+	LC_HASH_NO_LDT(ACVP_SHA256),
+	LC_HASH_NO_LDT(ACVP_SHA384),
+	LC_HASH_NO_LDT(ACVP_SHA512),
+
+	LC_HASH_NO_LDT(ACVP_ASCON_HASH_256),
+	LC_XOF(ACVP_ASCON_XOF_128),
+	LC_ASCON_AEAD,
 
 	LC_HMAC(ACVP_HMACSHA2_256),
 	LC_HMAC(ACVP_HMACSHA2_384),
@@ -540,9 +613,9 @@ static const struct def_algo lc_c[] = {
 
 	LC_HKDF,
 
-	LC_EDDSA_KEYGEN,
-	LC_EDDSA_SIGGEN,
-	LC_EDDSA_SIGVER,
+	LC_EDDSA_KEYGEN(ACVP_ED25519 | ACVP_ED448),
+	LC_EDDSA_SIGGEN(ACVP_ED25519 | ACVP_ED448),
+	LC_EDDSA_SIGVER(ACVP_ED25519 | ACVP_ED448),
 
 	LC_ML_DSA_KEYGEN_FULL,
 	LC_ML_DSA_SIGGEN_FULL,
@@ -557,9 +630,9 @@ static const struct def_algo lc_c[] = {
 static const struct def_algo lc_avx2[] = {
 	LC_SHA3_ALGOS,
 
-	LC_SHA_NO_LDT(ACVP_SHA256),
-	LC_SHA_NO_LDT(ACVP_SHA384),
-	LC_SHA_NO_LDT(ACVP_SHA512),
+	LC_HASH_NO_LDT(ACVP_SHA256),
+	LC_HASH_NO_LDT(ACVP_SHA384),
+	LC_HASH_NO_LDT(ACVP_SHA512),
 
 	LC_ML_DSA_KEYGEN_STRONG,
 	LC_ML_DSA_SIGGEN_STRONG,
@@ -582,15 +655,26 @@ static const struct def_algo lc_shake_armv8_2x[] = {
 };
 
 static const struct def_algo lc_avx512[] = {
-	LC_SHA3_ALGOS
+	LC_SHA3_ALGOS,
+
+	LC_HASH_NO_LDT(ACVP_ASCON_HASH_256),
+	LC_XOF(ACVP_ASCON_XOF_128),
+	LC_ASCON_AEAD,
 };
 
 static const struct def_algo lc_arm_neon[] = {
 	LC_SHA3_ALGOS,
 
-	LC_SHA_NO_LDT(ACVP_SHA256),
-	LC_SHA_NO_LDT(ACVP_SHA384),
-	LC_SHA_NO_LDT(ACVP_SHA512),
+	LC_AES_GCM,
+	LC_AES_GCM_IIV,
+
+	LC_HASH_NO_LDT(ACVP_SHA256),
+	LC_HASH_NO_LDT(ACVP_SHA384),
+	LC_HASH_NO_LDT(ACVP_SHA512),
+
+	LC_HASH_NO_LDT(ACVP_ASCON_HASH_256),
+	LC_XOF(ACVP_ASCON_XOF_128),
+	LC_ASCON_AEAD,
 
 	LC_ML_DSA_KEYGEN_STRONG,
 	LC_ML_DSA_SIGGEN_STRONG,
@@ -616,34 +700,43 @@ static const struct def_algo lc_arm_ce[] = {
 	LC_AES_CBC,
 	LC_AES_CTR,
 	LC_AES_KW,
+	LC_AES_XTS,
+	LC_AES_GCM,
+	LC_AES_GCM_IIV,
 
 	LC_SHA3_ALGOS,
-	LC_SHA_NO_LDT(ACVP_SHA256),
-	LC_SHA_NO_LDT(ACVP_SHA384),
-	LC_SHA_NO_LDT(ACVP_SHA512),
+	LC_HASH_NO_LDT(ACVP_SHA256),
+	LC_HASH_NO_LDT(ACVP_SHA384),
+	LC_HASH_NO_LDT(ACVP_SHA512),
 };
 
 static const struct def_algo lc_aesni[] = {
 	LC_AES_CBC,
 	LC_AES_CTR,
 	LC_AES_KW,
+	LC_AES_XTS,
+	LC_AES_GCM,
+	LC_AES_GCM_IIV,
 
 	/* Covering SHA-NI */
-	LC_SHA_NO_LDT(ACVP_SHA256),
-	//LC_SHA_NO_LDT(ACVP_SHA384),
-	//LC_SHA_NO_LDT(ACVP_SHA512),
+	LC_HASH_NO_LDT(ACVP_SHA256),
+	//LC_HASH_NO_LDT(ACVP_SHA384),
+	//LC_HASH_NO_LDT(ACVP_SHA512),
 };
 
 static const struct def_algo lc_riscv64[] = {
 	LC_AES_CBC,
 	LC_AES_CTR,
 	LC_AES_KW,
+	LC_AES_XTS,
+	LC_AES_GCM,
+	LC_AES_GCM_IIV,
 
 	LC_SHA3_ALGOS,
 
-	LC_SHA_NO_LDT(ACVP_SHA256),
-	LC_SHA_NO_LDT(ACVP_SHA384),
-	LC_SHA_NO_LDT(ACVP_SHA512),
+	LC_HASH_NO_LDT(ACVP_SHA256),
+	LC_HASH_NO_LDT(ACVP_SHA384),
+	LC_HASH_NO_LDT(ACVP_SHA512),
 
 	LC_ML_DSA_KEYGEN_FULL,
 	LC_ML_DSA_SIGGEN_FULL,
@@ -655,9 +748,9 @@ static const struct def_algo lc_riscv64[] = {
 
 static const struct def_algo lc_riscv64_zbb[] = {
 	LC_SHA3_ALGOS,
-	LC_SHA_NO_LDT(ACVP_SHA256),
-	LC_SHA_NO_LDT(ACVP_SHA384),
-	LC_SHA_NO_LDT(ACVP_SHA512),
+	LC_HASH_NO_LDT(ACVP_SHA256),
+	LC_HASH_NO_LDT(ACVP_SHA384),
+	LC_HASH_NO_LDT(ACVP_SHA512),
 };
 
 static const struct def_algo lc_riscv64_rvv[] = {
@@ -679,7 +772,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_c),
 		.algo_name = "leancrypto",
 		.processor = "",
-		.impl_name = "C"
+		.impl_name = "without PAA - C implementation"
 	},
 
 /* AVX2 cipher implementation, ************************************************/
@@ -687,7 +780,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_avx2),
 		.algo_name = "leancrypto",
 		.processor = "X86",
-		.impl_name = "AVX2"
+		.impl_name = "without PAA - AVX2 implementation"
 	},
 
 /* AVX2 cipher implementation, ************************************************/
@@ -695,7 +788,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_shake_avx2_4x),
 		.algo_name = "leancrypto",
 		.processor = "X86",
-		.impl_name = "AVX2_4X"
+		.impl_name = "without PAA - AVX2 4X implementation"
 	},
 
 /* AVX512 cipher implementation, **********************************************/
@@ -703,7 +796,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_avx512),
 		.algo_name = "leancrypto",
 		.processor = "X86",
-		.impl_name = "AVX512"
+		.impl_name = "without PAA - AVX512 implementation"
 	},
 
 /* AESNI cipher implementation, ***********************************************/
@@ -711,7 +804,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_aesni),
 		.algo_name = "leancrypto",
 		.processor = "X86",
-		.impl_name = "AESNI"
+		.impl_name = "with PAA - AESNI implementation"
 	},
 
 /* C cipher implementation, C block-chaining **********************************/
@@ -719,7 +812,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_c),
 		.algo_name = "leancrypto",
 		.processor = "",
-		.impl_name = "Kernel_C"
+		.impl_name = "without PAA - Kernel C implementation"
 	},
 
 /* AVX2 cipher implementation, ************************************************/
@@ -727,7 +820,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_avx2),
 		.algo_name = "leancrypto",
 		.processor = "X86",
-		.impl_name = "Kernel_AVX2"
+		.impl_name = "without PAA - Kernel AVX2 implementation"
 	},
 
 /* AVX2 cipher implementation, ************************************************/
@@ -735,7 +828,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_shake_avx2_4x),
 		.algo_name = "leancrypto",
 		.processor = "X86",
-		.impl_name = "Kernel_AVX2_4X"
+		.impl_name = "without PAA - Kernel AVX2 4X implementation"
 	},
 
 /* AVX512 cipher implementation, **********************************************/
@@ -743,7 +836,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_avx512),
 		.algo_name = "leancrypto",
 		.processor = "X86",
-		.impl_name = "Kernel_AVX512"
+		.impl_name = "without PAA - Kernel AVX512 implementation"
 	},
 
 /* AESNI cipher implementation, ***********************************************/
@@ -751,7 +844,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_aesni),
 		.algo_name = "leancrypto",
 		.processor = "X86",
-		.impl_name = "Kernel_AESNI"
+		.impl_name = "with PAA - Kernel AESNI implementation"
 	},
 
 /* ARMv7 NEON cipher implementation, ******************************************/
@@ -759,7 +852,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_arm_neon),
 		.algo_name = "leancrypto",
 		.processor = "ARM32",
-		.impl_name = "ARM_NEON"
+		.impl_name = "without PAA - ARM NEON implementation"
 	},
 
 /* ARMv8 ASM cipher implementation, ********************************************/
@@ -767,7 +860,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_arm_asm),
 		.algo_name = "leancrypto",
 		.processor = "ARM64",
-		.impl_name = "ARM_ASM"
+		.impl_name = "without PAA - ARM ASM implementation"
 	},
 
 /* ARMv8 CE cipher implementation, ********************************************/
@@ -775,7 +868,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_arm_ce),
 		.algo_name = "leancrypto",
 		.processor = "ARM64",
-		.impl_name = "ARM_CE"
+		.impl_name = "with PAA - ARM CE implementation"
 	},
 
 /* ARMv8 cipher implementation, ***********************************************/
@@ -783,7 +876,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_shake_armv8_2x),
 		.algo_name = "leancrypto",
 		.processor = "ARM64",
-		.impl_name = "ARM_2X"
+		.impl_name = "without PAA - ARM 2X implementation"
 	},
 
 /* RISC-V 64 cipher assembler implementation, *********************************/
@@ -791,7 +884,7 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_riscv64),
 		.algo_name = "leancrypto",
 		.processor = "RISC-V 64",
-		.impl_name = "RISCV64"
+		.impl_name = "without PAA - RISCV64 implementation"
 	},
 
 /* RISC-V 64 Zbb cipher assembler implementation, *****************************/
@@ -799,14 +892,14 @@ static struct def_algo_map lc_algo_map [] = {
 		SET_IMPLEMENTATION(lc_riscv64_zbb),
 		.algo_name = "leancrypto",
 		.processor = "RISC-V 64",
-		.impl_name = "RISCV64_ZBB"
+		.impl_name = "without PAA - RISCV64 ZBB implementation"
 	},
 /* RISC-V 64 RVV cipher assembler implementation, *****************************/
 	{
 		SET_IMPLEMENTATION(lc_riscv64_rvv),
 		.algo_name = "leancrypto",
 		.processor = "RISC-V 64",
-		.impl_name = "RISCV64_RVV"
+		.impl_name = "without PAA - RISCV64 RVV implementation"
 	},
 
 };

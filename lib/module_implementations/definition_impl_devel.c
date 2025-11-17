@@ -1399,7 +1399,7 @@ static const struct def_algo_lms_specific_caps lms_specific_capabilities[] = { {
 #define LMS
 #endif
 
-#if 1
+#if 0
 static const struct def_algo_slh_dsa_caps slh_dsa_keygen_capabilities[] = { {
 	.parameter_set = DEF_ALG_SLH_DSA_SHA2_128S | DEF_ALG_SLH_DSA_SHAKE_128S |
 			 DEF_ALG_SLH_DSA_SHA2_128F | DEF_ALG_SLH_DSA_SHAKE_128F |
@@ -1485,6 +1485,81 @@ static const struct def_algo_slh_dsa_caps slh_dsa_sig_capabilities[] = { {
 #define DEVEL_SLH_DSA
 #endif
 
+#if 0
+#define DEVEL_ASCON_HASH(hash_def)					\
+	{								\
+	.type = DEF_ALG_TYPE_SHA,					\
+	.algo = {							\
+		.sha = {						\
+			.algorithm = hash_def,				\
+			.inbit = false,					\
+			.inempty = true,				\
+			DEF_ALG_DOMAIN(.messagelength, DEF_ALG_ZERO_VALUE, 65536, 8),\
+			}						\
+		},							\
+	}
+#else
+#define DEVEL_ASCON_HASH(hash_def)
+#endif
+
+#if 0
+#define DEVEL_ASCON_XOF(hash_def)					\
+	{								\
+	.type = DEF_ALG_TYPE_XOF,					\
+	.algo = {							\
+		.xof = {						\
+			.algorithm = hash_def,				\
+			.hex = true,					\
+			DEF_ALG_DOMAIN(.messagelength, 16, 65536, 8),	\
+			DEF_ALG_DOMAIN(.outlength, 16, 65536, 8),	\
+			}						\
+		},							\
+	}
+#else
+#define DEVEL_ASCON_XOF(hash_def)
+#endif
+
+#if 0
+#define DEVEL_ASCON_AEAD						\
+	{								\
+	.type = DEF_ALG_TYPE_SYM,					\
+	.algo.sym.algorithm = ACVP_ASCON_AEAD_128,			\
+	.algo.sym.direction = DEF_ALG_SYM_DIRECTION_ENCRYPTION |	\
+			      DEF_ALG_SYM_DIRECTION_DECRYPTION,		\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 8, 65536, 8),			\
+	DEF_ALG_DOMAIN(.algo.sym.aadlen, 8, 65536, 8),			\
+	.algo.sym.taglen = { 128 }					\
+	}
+#else
+#define DEVEL_ASCON_AEAD
+#endif
+
+#if 0
+#define DEVEL_AES_CTR_RFC3686						\
+	{								\
+	GENERIC_AES_ALGO_GEN(ACVP_CTR),					\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 8, 128, 8),			\
+	.algo.sym.ivlen = { 128, },					\
+	.algo.sym.ctrsource = DEF_ALG_SYM_CTR_EXTERNAL,			\
+	.algo.sym.ctroverflow = DEF_ALG_SYM_CTROVERFLOW_UNHANDLED,	\
+	.algo.sym.ctrincrement = DEF_ALG_SYM_CTRINCREMENT_INCREMENT,	\
+	.algo.sym.conformance = DEF_ALG_SYM_CONFORMANCE_RFC3686,	\
+	.algo.sym.ivgen = DEF_ALG_SYM_IVGEN_EXTERNAL,			\
+	}
+#else
+#define DEVEL_AES_CTR_RFC3686
+#endif
+#define G_ML_KEM_ENCAPSULATION(param_sets)			\
+	{								\
+	.type = DEF_ALG_TYPE_ML_KEM,					\
+	.algo = {							\
+		.ml_kem = {						\
+			.ml_kem_mode = DEF_ALG_ML_KEM_MODE_ENCAPSULATION_CHECK |	\
+				  DEF_ALG_ML_KEM_MODE_DECAPSULATION_CHECK,\
+			.parameter_set = param_sets,			\
+			}						\
+		}							\
+	}
 /**************************************************************************
  * Devel Implementation Definitions
  **************************************************************************/
@@ -1540,6 +1615,16 @@ static const struct def_algo devel[] = {
 	LMS
 
 	DEVEL_SLH_DSA
+
+	DEVEL_ASCON_HASH(ACVP_ASCON_HASH_256)
+
+	DEVEL_ASCON_XOF(ACVP_ASCON_XOF_128)
+
+	DEVEL_ASCON_AEAD
+
+	DEVEL_AES_CTR_RFC3686
+
+	G_ML_KEM_ENCAPSULATION(DEF_ALG_ML_KEM_768)
 };
 
 /**************************************************************************

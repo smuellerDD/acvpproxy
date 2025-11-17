@@ -492,6 +492,7 @@ struct acvp_testid_ctx {
 	struct acvp_auth_ctx *server_auth;
 	const struct definition *def;
 	struct esvp_es_def *es_def;
+	struct rbg_def *rbg_def;
 	struct amvp_state *amvp_state;
 	const struct acvp_ctx *ctx;
 

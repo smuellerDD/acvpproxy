@@ -70,16 +70,20 @@ int acvp_req_set_algo_shake(const struct def_algo_shake *shake,
 		}
 	}
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
-
 	CKINT(acvp_req_cipher_to_string(entry, shake->algorithm,
 				        ACVP_CIPHERTYPE_HASH, "algorithm"));
-	CKINT(json_object_object_add(entry, "inBit",
-				     json_object_new_boolean(shake->inbit)));
-	CKINT(json_object_object_add(entry, "inEmpty",
-				     json_object_new_boolean(shake->inempty)));
-	CKINT(json_object_object_add(entry, "outBit",
-				     json_object_new_boolean(shake->outbit)));
+	if (shake->inbit || shake->inempty || shake->outbit) {
+		CKINT(acvp_req_add_revision(entry, "1.0"));
+
+		CKINT(json_object_object_add(entry, "inBit",
+			json_object_new_boolean(shake->inbit)));
+		CKINT(json_object_object_add(entry, "inEmpty",
+			json_object_new_boolean(shake->inempty)));
+		CKINT(json_object_object_add(entry, "outBit",
+			json_object_new_boolean(shake->outbit)));
+	} else {
+		CKINT(acvp_req_add_revision(entry, "FIPS202"));
+	}
 
 	CKINT(acvp_req_algo_int_array(entry, shake->messagelength,
 				      "messageLength"));

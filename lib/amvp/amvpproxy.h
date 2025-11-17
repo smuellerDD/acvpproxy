@@ -27,9 +27,7 @@ extern "C" {
 #endif
 
 #define NIST_AMVP_DEFAULT_SERVER "amvts.nist.gov"
-//#define NIST_AMVP_TEST_SERVER "demo.amvts.nist.gov"
-//#define NIST_AMVP_TEST_SERVER "10.252.9.45"
-#define NIST_AMVP_TEST_SERVER "10.252.9.29"
+#define NIST_AMVP_TEST_SERVER "demo.amvp.nist.gov"
 #define NIST_AMVP_DEFAULT_SERVER_PORT 443
 
 /* Requests: HTTP GET */
@@ -47,31 +45,6 @@ extern "C" {
  * @return 0 on success, < 0 on error
  */
 int amvp_register(struct acvp_ctx *ctx);
-
-/**
- * @brief Register a certificate request from a module request ID
- *
- * This operation is used after registering a module and the caller received
- * the module request ID. This ID can now be provided here to continue the
- * operation.
- *
- * @param [in] ctx ACVP Proxy library context
- * @param [in] module_request_id Module request ID
- * @return 0 on success, < 0 on error
- */
-int amvp_certrequest_from_module_request_id(struct acvp_ctx *ctx,
-					    uint64_t module_request_id);
-
-/**
- * @brief Register a certificate request from a valid module ID
- *
- * Using the valid module ID, a certificate request is issued
- *
- * @param [in] ctx ACVP Proxy library context
- * @param [in] module_id Module ID
- * @return 0 on success, < 0 on error
- */
-int amvp_certrequest_from_module_id(struct acvp_ctx *ctx, uint64_t module_id);
 
 /**
  * @brief Perform network operation to submit AMVP results to CMVP and retrieve

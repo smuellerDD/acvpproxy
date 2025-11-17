@@ -183,7 +183,11 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	struct json_object *tmp_array = NULL, *tmp = NULL;
 	int ret = -EINVAL;
 
-	if (acvp_match_cipher(sym->algorithm, ACVP_XTS)) {
+	if (acvp_match_cipher(sym->algorithm, ACVP_ASCON_AEAD_128)) {
+		CKINT(acvp_req_add_revision(entry, "SP800-232"));
+		CKINT(json_object_object_add(entry, "mode",
+			json_object_new_string("AEAD128")));
+	} else if (acvp_match_cipher(sym->algorithm, ACVP_XTS)) {
 		CKINT(acvp_req_add_revision(entry, "2.0"));
 	} else {
 		CKINT(acvp_req_add_revision(entry, "1.0"));
@@ -217,6 +221,7 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	if (sym->direction & DEF_ALG_SYM_DIRECTION_DECRYPTION)
 		CKINT(json_object_array_add(tmp_array,
 					    json_object_new_string("decrypt")));
+
 	CKINT(json_object_object_add(entry, "direction", tmp_array));
 	tmp_array = NULL;
 
@@ -240,6 +245,26 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 			break;
 		case DEF_ALG_SYM_IVGEN_EXTERNAL:
 			CKINT(json_object_object_add(entry, "ivGen",
+						     json_object_new_string("external")));
+			break;
+		default:
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			       "Symmetric ciphers: Unknown IV generation definition\n");
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+
+	if (acvp_match_cipher(sym->algorithm, ACVP_CTR)) {
+		switch (sym->ivgen) {
+		case DEF_ALG_SYM_IVGEN_UNDEF:
+			break;
+		case DEF_ALG_SYM_IVGEN_INTERNAL:
+			CKINT(json_object_object_add(entry, "ivGenMode",
+						     json_object_new_string("internal")));
+			break;
+		case DEF_ALG_SYM_IVGEN_EXTERNAL:
+			CKINT(json_object_object_add(entry, "ivGenMode",
 						     json_object_new_string("external")));
 			break;
 		default:
@@ -303,14 +328,21 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 	     acvp_match_cipher(sym->algorithm, ACVP_GCMSIV) ||
 	     acvp_match_cipher(sym->algorithm, ACVP_GMAC) ||
 	     acvp_match_cipher(sym->algorithm, ACVP_XPN) ||
-	     acvp_match_cipher(sym->algorithm, ACVP_CCM)) &&
+	     acvp_match_cipher(sym->algorithm, ACVP_CCM) ||
+	     acvp_match_cipher(sym->algorithm, ACVP_ASCON_AEAD_128)) &&
 	    !sym->aadlen[0]) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "GCM/GMAC/XPN/CCM mode definition: aadlen setting missing\n");
 		ret = -EINVAL;
 		goto out;
 	}
-	CKINT(acvp_req_algo_int_array(entry, sym->aadlen, "aadLen"));
+
+	if (acvp_match_cipher(sym->algorithm, ACVP_ASCON_AEAD_128)) {
+		CKINT(acvp_req_algo_int_array(entry, sym->aadlen, "adLen"));
+	}
+	else {
+		CKINT(acvp_req_algo_int_array(entry, sym->aadlen, "aadLen"));
+	}
 
 	if ((acvp_match_cipher(sym->algorithm, ACVP_GCM) ||
 	     acvp_match_cipher(sym->algorithm, ACVP_GMAC) ||
@@ -330,6 +362,24 @@ int acvp_req_set_algo_sym(const struct def_algo_sym *sym,
 		ret = -EINVAL;
 		goto out;
 	}
+	if (acvp_match_cipher(sym->algorithm, ACVP_ASCON_AEAD_128) &&
+	    acvp_req_valid_range(64, 128, 8, sym->taglen)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Ascon mode definition: taglen must be between 64 and 128 modulo 16 bits\n");
+		ret = -EINVAL;
+		goto out;
+	}
+	if (acvp_match_cipher(sym->algorithm, ACVP_ASCON_AEAD_128)) {
+		// TODO
+		tmp_array = json_object_new_array();
+		CKNULL(tmp_array, -ENOMEM);
+		CKINT(json_object_array_add(tmp_array,
+					    json_object_new_boolean(false)));
+		CKINT(json_object_object_add(entry, "supportsNonceMasking",
+					     tmp_array));
+		tmp_array = NULL;
+	}
+
 	CKINT(acvp_req_algo_int_array(entry, sym->taglen, "tagLen"));
 
 	if ((acvp_match_cipher(sym->algorithm, ACVP_KW) ||

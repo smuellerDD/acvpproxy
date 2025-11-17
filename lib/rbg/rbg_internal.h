@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 - 2025, Stephan Mueller <smueller@chronox.de>
+ * Copyright (C) 2025, Stephan Mueller <smueller@chronox.de>
  *
  * License: see LICENSE file in root directory
  *
@@ -17,39 +17,28 @@
  * DAMAGE.
  */
 
-#ifndef AMV_PROTO_H
-#define AMV_PROTO_H
+#ifndef RBG_INTERNAL_H
+#define RBG_INTERNAL_H
 
-#include "amvp_internal.h"
-#include "internal.h"
+#include <errno.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-static const struct acvp_net_proto amv_proto_def = {
-	.url_base = "amvp/v1",
-	.proto_version = "0.1",
-	.proto_version_keyword = "amvVersion",
-	.proto = amv_protocol,
-	.proto_name = "AMVP",
-	.basedir = AMVP_DS_DATADIR,
-	.basedir_production = AMVP_DS_DATADIR_PRODUCTION,
-	.secure_basedir = AMVP_DS_CREDENTIALDIR,
-	.secure_basedir_production = AMVP_DS_CREDENTIALDIR_PRODUCTION,
+/* File holding the general entropy source information */
+#define RBG_ES_FILE_DEF "definition"
 
-	.session_url = NIST_VAL_OP_CERTREQUESTS,
-	.vector_url = NIST_VAL_OP_EVIDENCESETS,
-	.session_url_keyword = "certRequestId",
-	.vector_url_keyword = "crUrls",
+/* Directory containing one sub-directory per conditioning component */
+#define RBG_ES_DIR_RBG "rbg"
 
-	.resultsfile = AMVP_DEF_FILE_TE,
-	.resultsdir = AMVP_DEF_DIR_TE,
-	.version_in_object = 1,
-};
+#define RBG_CONFIG_FILE_EXTENSION ".json"
+
+/* File holding the metadata about the test session provided by ESVP server */
+#define RBG_DS_TESTIDMETA "rbg_metadata.json"
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* AMV_PROTO_H */
+#endif /* RBG_INTERNAL_H */

@@ -447,7 +447,7 @@ static int esvp_process_datafiles_post_one(
 	ACVP_EXT_BUFFER_INIT(data);
 	ACVP_BUFFER_INIT(response);
 	ACVP_BUFFER_INIT(data_hash);
-	int ret, ret2, fd;
+	int ret, ret2, fd = -1;
 
 	if (submitted && *submitted) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
@@ -565,14 +565,7 @@ static int esvp_process_datafiles_post_one(
 	ret2 = acvp_net_op(testid_ctx, url, &data, &response,
 			   acvp_http_post_multi);
 
-	ret = acvp_request_error_handler(ret2);
-
-	munmap(data.buf, (size_t)statbuf.st_size);
-	close(fd);
-
-	if (ret)
-		goto out;
-
+	CKINT(acvp_request_error_handler(ret2));
 	CKINT(proces_response(testid_ctx, &response, pathname));
 
 	if (submitted)
@@ -581,6 +574,10 @@ static int esvp_process_datafiles_post_one(
 	CKINT(esvp_write_status(testid_ctx));
 
 out:
+	if (data.buf && data.buf != MAP_FAILED)
+		munmap(data.buf, (size_t)statbuf.st_size);
+	if (fd >= 0)
+		close(fd);
 	acvp_free_buf(&response);
 	acvp_free_buf(&data_hash);
 	return ret;

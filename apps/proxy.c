@@ -34,6 +34,7 @@
 #include "helper.h"
 #include "logger.h"
 #include "memset_secure.h"
+#include "rbgproxy.h"
 #include "ret_checkers.h"
 #include "term_colors.h"
 
@@ -66,9 +67,6 @@ struct opt_data {
 	size_t cipher_options_algo_idx;
 	bool cipher_list;
 
-	uint64_t amvp_modulereqid;
-	uint64_t amvp_moduleid;
-
 	bool rename;
 	bool request;
 	bool publish;
@@ -92,6 +90,7 @@ struct opt_data {
 	bool fetch_verdicts;
 	bool check_health;
 
+	bool rbg_proxy;
 	bool esvp_proxy;
 	bool amvp_proxy;
 };
@@ -325,19 +324,20 @@ static void usage(void)
 
 	fprintf(stderr, "\tAMVP options:\n");
 	fprintf(stderr,
-		"\t   --modulereqid <ID>\t\tPerform certificate request registration\n");
-	fprintf(stderr, "\t\t\t\t\tfrom module request ID\n");
-	fprintf(stderr,
-		"\t   --moduleid <ID>\t\tPerform certificate request registration\n");
-	fprintf(stderr, "\t\t\t\t\tfrom module ID\n");
-	fprintf(stderr,
 		"\t   --fetch-status\t\tFetch the AMVP status of certification\n");
 	fprintf(stderr, "\t\t\t\t\trequest pointed to with --vsid\n");
 	fprintf(stderr,
 		"\t   --fetch-sp\t\t\tFetch the SP PDF of certification\n");
 	fprintf(stderr, "\t\t\t\t\trequest pointed to with --vsid\n\n");
 	fprintf(stderr,
+		"\t   --generate-sp\t\t\tUpload any pending SP data and\n");
+	fprintf(stderr, "\t\t\t\t\tobtain SP PDF from certification request\n");
+	fprintf(stderr, "\t\t\t\t\tpointed to with --vsid\n\n");
+	fprintf(stderr,
 		"\t   --certify\t\t\tFinalize a project and request certification\n");
+	fprintf(stderr, "\t\t\t\t\tof request pointed to with --vsid\n\n");
+	fprintf(stderr,
+		"\t   --certprereq\t\t\tSend certificate prerequisites\n");
 	fprintf(stderr, "\t\t\t\t\tof request pointed to with --vsid\n\n");
 
 	fprintf(stderr, "\tAuxiliary options:\n");
@@ -642,11 +642,11 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 
 			{ "pudupdate", no_argument, 0, 0 },
 
-			{ "modulereqid", required_argument, 0, 0 },
-			{ "moduleid", required_argument, 0, 0 },
 			{ "fetch-status", no_argument, 0, 0},
 			{ "fetch-sp", no_argument, 0, 0},
 			{ "certify", no_argument, 0, 0},
+			{ "certprereq", no_argument, 0, 0},
+			{ "generate-sp", no_argument, 0, 0},
 
 			{ 0, 0, 0, 0 }
 		};
@@ -1157,44 +1157,26 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				break;
 
 			case 71:
-				/* modulereqid */
-				lval = strtoll(optarg, NULL, 10);
-				if (lval == LLONG_MAX || lval <= 0) {
-					logger(LOGGER_ERR, LOGGER_C_ANY,
-					       "undefined purchase option\n");
-					usage();
-					ret = -EINVAL;
-					goto out;
-				}
-
-				opts->amvp_modulereqid = (uint64_t)lval;
-				break;
-
-			case 72:
-				/* moduleid */
-				lval = strtoll(optarg, NULL, 10);
-				if (lval == LLONG_MAX || lval <= 0) {
-					logger(LOGGER_ERR, LOGGER_C_ANY,
-					       "undefined purchase option\n");
-					usage();
-					ret = -EINVAL;
-					goto out;
-				}
-
-				opts->amvp_moduleid = (uint64_t)lval;
-				break;
-			case 73:
 				/* fetch-status */
 				opts->acvp_ctx_options.fetch_status = true;
 				break;
-			case 74:
+			case 72:
 				/* fetch-sp */
 				opts->acvp_ctx_options.fetch_status = true;
 				opts->acvp_ctx_options.fetch_sp = true;
 				break;
-			case 75:
+			case 73:
 				/* certify */
 				opts->acvp_ctx_options.amvp_certify = true;
+				break;
+			case 74:
+				/* certprereq */
+				opts->acvp_ctx_options.amvp_send_certificate_prerequisites = true;
+				break;
+			case 75:
+				/* generate-sp */
+				opts->acvp_ctx_options.fetch_status = false;
+				opts->acvp_ctx_options.generate_sp = true;
 				break;
 
 			default:
@@ -1378,6 +1360,12 @@ static int initialize_ctx(struct acvp_ctx **ctx, struct opt_data *opts,
 	int ret;
 
 	if (opts->esvp_proxy) {
+		server = opts->official_testing ? NIST_ESVP_DEFAULT_SERVER :
+							NIST_ESVP_TEST_SERVER;
+		port = NIST_ESVP_DEFAULT_SERVER_PORT;
+		proto = esv_protocol;
+	}
+	if (opts->rbg_proxy) {
 		server = opts->official_testing ? NIST_ESVP_DEFAULT_SERVER :
 							NIST_ESVP_TEST_SERVER;
 		port = NIST_ESVP_DEFAULT_SERVER_PORT;
@@ -1895,6 +1883,43 @@ out:
 	return ret;
 }
 
+static int rbg_proxy_handling(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	/*
+	 * The ES definitions we operate on have one instance only as read
+	 * by definitions.c. Yet they hold the auth token. Thus, we cannot
+	 * multi-thread on them. Only if the session-local data are not
+	 * stored in the ES definitions any more, we can enable multi-threading.
+	 */
+	opts->acvp_ctx_options.threading_disabled = true;
+
+	opts->acvp_ctx_options.esv_certify = opts->publish;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	ctx->req_details.dump_register = opts->dump_register;
+	ctx->req_details.request_sample = opts->request_sample;
+
+	if (opts->search.nr_submit_testid || opts->search.nr_submit_vsid) {
+		/*
+		 * If the caller provides particular vsIDs or testIDs to
+		 * register, we implicitly assume that the caller wants to
+		 * re-download the test vectors (how else would a caller know
+		 * particular testIDs or vsIDs?).
+		 */
+		CKINT(rbg_continue(ctx));
+	} else {
+		CKINT(rbg_register(ctx));
+	}
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
 static int amvp_do_register(struct opt_data *opts)
 {
 	struct acvp_ctx *ctx = NULL;
@@ -1927,41 +1952,6 @@ static int amvp_do_register(struct opt_data *opts)
 
 		goto out;
 	}
-
-out:
-	acvp_ctx_release(ctx);
-	return ret;
-}
-
-static int amvp_do_register_with_module_request_id(struct opt_data *opts)
-{
-	struct acvp_ctx *ctx = NULL;
-	int ret;
-
-	CKINT(initialize_ctx(&ctx, opts, true));
-
-	ctx->req_details.dump_register = opts->dump_register;
-	ctx->req_details.request_sample = opts->request_sample;
-
-	CKINT(amvp_certrequest_from_module_request_id(ctx,
-						      opts->amvp_modulereqid));
-
-out:
-	acvp_ctx_release(ctx);
-	return ret;
-}
-
-static int amvp_do_register_with_module_id(struct opt_data *opts)
-{
-	struct acvp_ctx *ctx = NULL;
-	int ret;
-
-	CKINT(initialize_ctx(&ctx, opts, true));
-
-	ctx->req_details.dump_register = opts->dump_register;
-	ctx->req_details.request_sample = opts->request_sample;
-
-	CKINT(amvp_certrequest_from_module_id(ctx, opts->amvp_moduleid));
 
 out:
 	acvp_ctx_release(ctx);
@@ -2027,10 +2017,6 @@ static int amvp_proxy_handling(struct opt_data *opts)
 
 	if (opts->request) {
 		CKINT(amvp_do_register(opts));
-	} else if (opts->amvp_modulereqid) {
-		CKINT(amvp_do_register_with_module_request_id(opts));
-	} else if (opts->amvp_moduleid) {
-		CKINT(amvp_do_register_with_module_id(opts));
 	} else {
 		CKINT(amvp_do_submit(opts));
 	}
@@ -2052,6 +2038,9 @@ int main(int argc, char *argv[])
 	if (!strncmp("esvp-proxy", basen, 10)) {
 		opts.esvp_proxy = true;
 		CKINT(acvp_set_proto(esv_protocol));
+	} else if (!strncmp("rbg-proxy", basen, 9)) {
+		opts.rbg_proxy = true;
+		CKINT(acvp_set_proto(esv_protocol));
 	} else if (!strncmp("amvp-proxy", basen, 10)) {
 		opts.amvp_proxy = true;
 		CKINT(acvp_set_proto(amv_protocol));
@@ -2067,6 +2056,10 @@ int main(int argc, char *argv[])
 
 	if (opts.esvp_proxy) {
 		ret = esvp_proxy_handling(&opts);
+		goto out;
+	}
+	if (opts.rbg_proxy) {
+		ret = rbg_proxy_handling(&opts);
 		goto out;
 	}
 	if (opts.amvp_proxy) {

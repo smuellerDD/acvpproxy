@@ -37,11 +37,28 @@
 		},							\
 	}
 
+#define JENT_SHAKE(shake_def)						\
+	{								\
+	.type = DEF_ALG_TYPE_SHAKE,					\
+	.algo = {							\
+		.shake = {						\
+			.algorithm = shake_def,				\
+			DEF_ALG_DOMAIN(.messagelength, 16, 65536, 8),	\
+			DEF_ALG_DOMAIN(.outlength, 512, 768, 256),	\
+			}						\
+		},							\
+	}
+
 /**************************************************************************
  * JENT Generic Definitions
  **************************************************************************/
 static const struct def_algo jent[] = {
 	JENT_SHA(ACVP_SHA3_256),
+};
+
+static const struct def_algo jent37[] = {
+	JENT_SHA(ACVP_SHA3_256),
+	JENT_SHAKE(ACVP_SHAKE256),
 };
 
 /**************************************************************************
@@ -55,6 +72,14 @@ static struct def_algo_map jent_algo_map [] = {
 		.processor = "",
 		.impl_name = "Generic C",
 		.impl_description = "Generic C implementation of SHA3-256",
+	},
+
+	{
+		SET_IMPLEMENTATION(jent37),
+		.algo_name = "Jitter RNG",
+		.processor = "",
+		.impl_name = "3.7.0",
+		.impl_description = "Generic C implementation of SHA3-512",
 	}
 };
 
