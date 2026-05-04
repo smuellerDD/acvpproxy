@@ -155,7 +155,7 @@ static int amvp_continue_op(struct acvp_testid_ctx *testid_ctx)
 
 	CKINT(acvp_init_auth(testid_ctx));
 
-	testid_ctx->status_parse = amvp_read_status;
+	testid_ctx->status_parse_amvp = amvp_read_status;
 	testid_ctx->status_write = amvp_write_status;
 
 	/* Get auth token for test session */
@@ -251,7 +251,8 @@ int amvp_continue(const struct acvp_ctx *ctx)
 	int ret;
 
 	CKINT(acvp_testids_refresh(ctx, amvp_init_testid_ctx,
-				   amvp_read_status, amvp_write_status));
+				   amvp_read_status, NULL, NULL,
+				   amvp_write_status));
 
 	CKINT(acvp_process_testids(ctx, &_amvp_continue));
 

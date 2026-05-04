@@ -285,7 +285,6 @@ out:
 	return ret;
 }
 
-
 static int amvp_certrequest_open_certs(const struct json_object *data,
 				       const char *key)
 {
@@ -701,7 +700,6 @@ static int amvp_certrequest_register_op(struct acvp_testid_ctx *module_ctx)
 	 */
 	registration = json_object_new_object();
 	CKNULL(registration, ENOMEM);
-	CKINT(acvp_req_add_version(registration));
 	CKINT(acvp_req_add_version(registration));
 	json_object_object_foreachC(amvp->registration_definition, reg_data) {
 		CKINT(json_object_object_add(registration, reg_data.key,

@@ -39,18 +39,99 @@
 #include "term_colors.h"
 #include "threading_support.h"
 
+#include "../esvp/esvp_internal.h"
+
 #include <json-c/json.h>
 
 /***************************************************************************
  * Registration handling
  ***************************************************************************/
 
-static int rbg_register_build(const struct rbg_def *rbg,
-			      struct json_object *request)
+/*
+ * Build one RBG-structure as defined in
+ * https://github.com/usnistgov/ESV-Server/blob/FEATURE/90C/Entropy%20Source%20Validation%20Protocol.md#4-registering-a-random-bit-generator
+ */
+static int rbg_register_build_internal(const struct rbg_def *rbg,
+				       struct json_object *request)
 {
-	struct json_object *entry, *rbg_object;
+	struct json_object *rbg_object;
 	unsigned int i;
 	int ret;
+
+	/* Add the rbg array object */
+	rbg_object = json_object_new_array();
+	CKNULL(rbg_object, -ENOMEM);
+	CKINT(json_object_object_add(request, "rbg", rbg_object));
+
+	for (i = 0; i < rbg->num_rbg_definitions; i++) {
+		CKINT(json_object_array_add(rbg_object,
+					    rbg->rbg_definitions[i]));
+		json_object_get(rbg->rbg_definitions[i]);
+
+		/*
+		 * Sanity check
+		 */
+		if (i) {
+			struct json_object *es;
+
+			if (json_find_key(rbg->rbg_definitions[i],
+					  "entropySources", &es,
+					  json_type_object) != -ENOENT) {
+				logger(LOGGER_ERR, LOGGER_C_ANY,
+				       "Only the first RBG definition is allowed to specify an entropy source!\n");
+				ret = -EINVAL;
+				goto out;
+			}
+		}
+	}
+
+out:
+	return ret;
+}
+
+/*
+ * This function checks if 90B definition is present or not.
+ * If it is present, it simply generates a standard RBG request.
+ *
+ * If the 90B definition is not present, it generates a full 90B request along
+ * with the 90C request as defined in https://github.com/usnistgov/ESV-Server/blob/FEATURE/90C/Entropy%20Source%20Validation%20Protocol.md#5-registering-both-an-entropy-source-and-random-bit-generator
+ */
+static int rbg_register_build(const struct acvp_testid_ctx *testid_ctx,
+			      struct json_object *request)
+{
+	struct rbg_def *rbg = testid_ctx->rbg_def;
+	struct esvp_es_def *es_def = testid_ctx->es_def;
+	struct json_object *entry, *es;
+	int ret;
+
+	/*
+	 * Safety check
+	 */
+	if (!rbg->num_rbg_definitions)
+		return -EINVAL;
+
+	if (!es_def)
+		es_def = testid_ctx->def->es;
+
+	if (json_find_key(rbg->rbg_definitions[0], "entropySources", &es,
+			  json_type_object) == -ENOENT) {
+
+		if (es_def) {
+			logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+			       "No entropy source definition found, trying to register entropy source along with RBG\n");
+			rbg->esv_submission = true;
+		} else {
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "No entropy source definition found in RBG definition but also no ESV defined for the current module! The RBG-Proxy is unable to auto-resolve the entropy source definition.\n");
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+
+	/*
+	 * TODO:
+	 * 1. add the existing ACVP/ESV certs to the definition
+	 */
 
 	/* Array entry for version */
 	CKINT(acvp_req_add_version(request));
@@ -60,15 +141,22 @@ static int rbg_register_build(const struct rbg_def *rbg,
 	CKNULL(entry, -ENOMEM);
 	CKINT(json_object_array_add(request, entry));
 
-	/* Add the rbg array object */
-	rbg_object = json_object_new_array();
-	CKNULL(rbg_object, -ENOMEM);
-	CKINT(json_object_object_add(entry, "rbg", rbg_object));
+	if (rbg->esv_submission) {
+		struct json_object *wrapper;
 
-	for (i = 0; i < rbg->num_rbg_definitions; i++) {
-		CKINT(json_object_array_add(rbg_object,
-					    rbg->rbg_definitions[i]));
-		json_object_get(rbg->rbg_definitions[i]);
+		/* Add 90B */
+		wrapper = json_object_new_object();
+		CKNULL(wrapper, -ENOMEM);
+		CKINT(json_object_object_add(entry, "90B", wrapper));
+		CKINT(esvp_register_build_internal(es_def, wrapper));
+
+		/* Add 90C */
+		wrapper = json_object_new_object();
+		CKNULL(wrapper, -ENOMEM);
+		CKINT(json_object_object_add(entry, "90C", wrapper));
+		CKINT(rbg_register_build_internal(rbg, wrapper));
+	} else {
+		CKINT(rbg_register_build_internal(rbg, entry));
 	}
 
 out:
@@ -78,13 +166,104 @@ out:
 /******************************************************************************
  * General processing
  ******************************************************************************/
+
+static int rbg_get_status(struct acvp_testid_ctx *testid_ctx)
+{
+	char url[ACVP_NET_URL_MAXLEN];
+	ACVP_BUFFER_INIT(response_buf);
+	struct json_object *resp = NULL, *data = NULL;
+	unsigned int i;
+	int ret;
+
+	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_RBG, url, sizeof(url)),
+		  "Creation of request URL failed\n");
+	CKINT(acvp_extend_string(url, sizeof(url), "/%"PRIu64,
+				 testid_ctx->testid));
+
+	CKINT(acvp_process_retry_testid(testid_ctx, &response_buf, url));
+
+	/* Store the testID meta data */
+	CKINT(ds->acvp_datastore_write_testid(testid_ctx, RBG_DS_TESTIDSTATUS,
+					      true, &response_buf));
+
+	/* Strip the version array entry and get the data. */
+	CKINT(acvp_req_strip_version(&response_buf, &resp, &data));
+
+	if (!json_object_is_type(data, json_type_array)) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Unexpected response from server\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	for (i = 0; i < json_object_array_length(data); i++) {
+		const char *str;
+		struct json_object *resp_entry =
+			json_object_array_get_idx(data, i);
+
+		CKINT(json_get_string(resp_entry, "status", &str));
+
+		if (strncasecmp(str, "passed", 6)) {
+			logger(LOGGER_WARN, LOGGER_C_ANY,
+			       "Server response for RBG object %u unsuccessful: %s\n",
+			       i, str);
+			ret = -EAGAIN;
+			goto out;
+		}
+	}
+
+	logger_status(LOGGER_C_ANY,
+		      "%sRBG submission %"PRIu64" accepted by server%s\n",
+		      TERM_COLOR_GREEN_INVERTED, testid_ctx->testid,
+		      TERM_COLOR_NORMAL);
+
+out:
+	ACVP_JSON_PUT_NULL(resp);
+	acvp_free_buf(&response_buf);
+	return ret;
+}
+
+static int rbg_process_req_internal(struct acvp_testid_ctx *testid_ctx,
+				    struct json_object *response)
+{
+	const struct rbg_def *rbg = testid_ctx->rbg_def;
+	const char *jwt;
+	int ret;
+
+	/* Get access token */
+	CKINT_LOG(json_get_string(response, "accessToken", &jwt),
+		  "RBG server response does not contain expected JWT\n");
+
+	/* Store access token in ctx and write it to disk */
+	CKINT_LOG(acvp_set_authtoken(testid_ctx, jwt),
+		  "Cannot set the new JWT token\n");
+
+	CKINT(acvp_copy_auth(rbg->rbg_auth, testid_ctx->server_auth));
+
+	//CKINT(rbg_write_status(testid_ctx));
+
+	/* Store the definition search criteria */
+	CKINT_LOG(acvp_export_def_search(testid_ctx),
+		  "Cannot store the search criteria\n");
+
+	/* Get the status about the submission */
+	CKINT(rbg_get_status(testid_ctx));
+
+out:
+	if (ret < 0 && ret != -EINTR && ret != -ESHUTDOWN) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Cannot process server request %d:\n", ret);
+	}
+
+	return ret;
+}
+
 static int rbg_process_req(struct acvp_testid_ctx *testid_ctx,
 			   struct json_object *request,
 			   struct acvp_buf *response)
 {
 	const struct rbg_def *rbg = testid_ctx->rbg_def;
 	struct json_object *req = NULL, *entry = NULL;
-	const char *jwt;
 	int ret;
 
 	if (!response->buf || !response->len) {
@@ -97,32 +276,60 @@ static int rbg_process_req(struct acvp_testid_ctx *testid_ctx,
 	 * entry containing the answer.
 	 */
 	CKINT_LOG(acvp_req_strip_version(response, &req, &entry),
-		  "Cannot find ESVP response\n");
+		  "Cannot find RBG response\n");
 
-	/* Extract testID URL and ID number */
-	CKINT_LOG(acvp_get_testid(testid_ctx, request, entry),
-		  "Cannot get testID from ESVP server response\n");
+	if (rbg->esv_submission) {
+		struct json_object *one_resp;
 
-	/* Store the testID meta data */
-	CKINT(ds->acvp_datastore_write_testid(testid_ctx, RBG_DS_TESTIDMETA,
-					      true, response));
+		if (!json_object_is_type(entry, json_type_object))
+			return -EINVAL;
 
-	/* Get access token */
-	CKINT_LOG(json_get_string(entry, "accessToken", &jwt),
-		  "ESVP server response does not contain expected JWT\n");
+		/* Get the actual RBG response */
+		CKINT(json_find_key(entry, "randomBitGenerator", &one_resp,
+				    json_type_object));
 
-	/* Store access token in ctx without writing it to disk */
-	CKINT_LOG(acvp_set_authtoken_temp(testid_ctx->server_auth, jwt),
-		  "Cannot set the new JWT token\n");
-	CKINT(acvp_copy_auth(rbg->rbg_auth, testid_ctx->server_auth));
+		/* Extract testID URL and ID number */
+		CKINT_LOG(acvp_get_testid(testid_ctx, request, one_resp),
+			  "Cannot get testID from RBG server response\n");
 
-	//CKINT(rbg_write_status(testid_ctx));
+		/* Store the testID meta data */
+		CKINT(ds->acvp_datastore_write_testid(testid_ctx,
+						      RBG_DS_TESTIDMETA,
+						      true, response));
 
-	/* Store the definition search criteria */
-	CKINT_LOG(acvp_export_def_search(testid_ctx),
-		  "Cannot store the search criteria\n");
+		/* Process the actual RBG response */
+		CKINT(rbg_process_req_internal(testid_ctx, one_resp));
 
-	//TODO add business logic here
+		/* Get and process the actual ESV response */
+		testid_ctx->status_write = esvp_write_status;
+		CKINT(json_find_key(entry, "entropyAssessments", &one_resp,
+				    json_type_array));
+		if (!testid_ctx->es_def)
+			testid_ctx->es_def = testid_ctx->def->es;
+		CKINT_LOG(acvp_init_acvp_auth_ctx(&testid_ctx->es_def->es_auth),
+			  "Failure to initialize authtoken\n");
+		CKINT(esvp_process_req_internal(testid_ctx,
+			json_object_array_get_idx(one_resp, 0)));
+		testid_ctx->status_write = rbg_write_status;
+
+	} else {
+		if (!json_object_is_type(entry, json_type_object))
+			return -EINVAL;
+
+		/* Extract testID URL and ID number */
+		CKINT_LOG(acvp_get_testid(testid_ctx, request, entry),
+			  "Cannot get testID from RBG server response\n");
+
+		/* Store the testID meta data */
+		CKINT(ds->acvp_datastore_write_testid(testid_ctx,
+						      RBG_DS_TESTIDMETA,
+						      true, response));
+
+		/* Process the actual RBG response */
+		CKINT(rbg_process_req_internal(testid_ctx, entry));
+	}
+
+	CKINT(rbg_write_status(testid_ctx));
 
 out:
 	ACVP_JSON_PUT_NULL(req);
@@ -136,7 +343,7 @@ out:
 	return ret;
 }
 
-/* POST /rbg */
+/* POST /rbgs or /combined */
 static int rbg_register_op(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
@@ -160,7 +367,7 @@ static int rbg_register_op(struct acvp_testid_ctx *testid_ctx)
 	request = json_object_new_array();
 	CKNULL(request, -ENOMEM);
 
-	CKINT(rbg_register_build(rbg, request));
+	CKINT(rbg_register_build(testid_ctx, request));
 
 	/*
 	 * Dump the constructed message if requested and return (i.e. no
@@ -186,8 +393,15 @@ static int rbg_register_op(struct acvp_testid_ctx *testid_ctx)
 	register_buf.buf = (uint8_t *)json_request;
 	register_buf.len = (uint32_t)strlen(json_request);
 
-	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_RBG, url, sizeof(url)),
-		  "Creation of request URL failed\n");
+	if (rbg->esv_submission) {
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_COMBINED, url,
+					  sizeof(url)),
+			  "Creation of request URL failed\n");
+	} else {
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_RBG, url,
+					  sizeof(url)),
+			  "Creation of request URL failed\n");
+	}
 
 	/* Send the entropy source request to the ACVP server. */
 	ret2 = acvp_net_op(testid_ctx, url, &register_buf, &response_buf,
@@ -201,11 +415,14 @@ static int rbg_register_op(struct acvp_testid_ctx *testid_ctx)
 	CKINT(acvp_request_error_handler(ret2));
 
 	/* Process the response and download the vectors. */
-	CKINT(rbg_process_req(testid_ctx, request, &response_buf));
+	ret = rbg_process_req(testid_ctx, request, &response_buf);
 
-	logger_status(LOGGER_C_ANY,
-		      "Check at a later time with rbg-proxy --testid %"PRIu64" for status updates\n",
-		      testid_ctx->testid);
+	if (ret == -EAGAIN) {
+		logger_status(LOGGER_C_ANY,
+			      "Check at a later time with rbg-proxy --testid %"PRIu64" for status updates\n",
+			      testid_ctx->testid);
+		ret = 0;
+	}
 
 out:
 	acvp_release_auth(testid_ctx);
@@ -226,13 +443,15 @@ static int rbg_continue_op(struct acvp_testid_ctx *testid_ctx)
 
 	CKINT(acvp_init_auth(testid_ctx));
 
-	//testid_ctx->status_parse = rbg_read_status;
-	//testid_ctx->status_write = rbg_write_status;
+	testid_ctx->status_parse_rbg = rbg_read_status;
+	testid_ctx->status_parse_esvp = esvp_read_status;
+	testid_ctx->status_write = rbg_write_status;
 
 	/* Get auth token for test session */
 	CKINT(ds->acvp_datastore_read_authtoken(testid_ctx));
 
-	//TODO add business logic here
+	/* Get the status about the submission */
+	CKINT(rbg_get_status(testid_ctx));
 
 out:
 	return ret;
@@ -505,7 +724,9 @@ int rbg_continue(const struct acvp_ctx *ctx)
 {
 	int ret;
 
-	CKINT(acvp_testids_refresh(ctx, rbg_init_testid_ctx, NULL, NULL));
+	CKINT(acvp_testids_refresh(ctx, rbg_init_testid_ctx, NULL,
+				   esvp_read_status, rbg_read_status,
+				   rbg_write_status));
 
 	CKINT(acvp_process_testids_rbg(ctx, &_rbg_continue));
 

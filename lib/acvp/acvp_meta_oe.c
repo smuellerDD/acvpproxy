@@ -86,35 +86,35 @@ static int acvp_oe_build_dep_proc(const struct def_dependency *def_dep,
 	CKNULL(dep, -ENOMEM);
 
 	//TODO: SPEC says it is called "cpu", but this works as well!?
-	if (!check_ignore_flag) {
-		CKINT(json_object_object_add(dep, "type",
-					     typename ?
-					     json_object_new_string(typename) :
-					     NULL));
+	if (!check_ignore_flag && typename) {
+		CKINT(json_object_object_add(
+			dep, "type",
+			json_object_new_string(typename)));
 	}
-	if (acvp_check_ignore(check_ignore_flag, def_dep->manufacturer_i)) {
+	if (acvp_check_ignore(check_ignore_flag, def_dep->manufacturer_i) &&
+	    def_dep->manufacturer) {
 		CKINT(json_object_object_add(
 			dep, "manufacturer",
-			def_dep->manufacturer ?
-			json_object_new_string(def_dep->manufacturer) : NULL));
+			json_object_new_string(def_dep->manufacturer)));
 	}
-	if (acvp_check_ignore(check_ignore_flag, def_dep->proc_family_i)) {
+	if (acvp_check_ignore(check_ignore_flag, def_dep->proc_family_i) &&
+	    def_dep->proc_family) {
 		CKINT(json_object_object_add(
 			dep, "family",
-			def_dep->proc_family ?
-			json_object_new_string(def_dep->proc_family) : NULL));
+			json_object_new_string(def_dep->proc_family)));
 	}
 	if (acvp_check_ignore(check_ignore_flag, def_dep->proc_name_i)) {
+		CKNULL_LOG(def_dep->proc_name, -EINVAL,
+			   "Processor name missing\n");
 		CKINT(json_object_object_add(
 			dep, "name",
-			def_dep->proc_name ?
-			json_object_new_string(def_dep->proc_name) : NULL));
+			json_object_new_string(def_dep->proc_name)));
 	}
-	if (acvp_check_ignore(check_ignore_flag, def_dep->proc_series_i)) {
+	if (acvp_check_ignore(check_ignore_flag, def_dep->proc_series_i) &&
+	    def_dep->proc_series) {
 		CKINT(json_object_object_add(
 			dep, "series",
-			def_dep->proc_series ?
-			json_object_new_string(def_dep->proc_series): NULL));
+			json_object_new_string(def_dep->proc_series)));
 	}
 
 	if (acvp_check_ignore(check_ignore_flag, def_dep->description_i)) {
@@ -198,32 +198,23 @@ static int acvp_oe_build_dep_sw(const struct def_dependency *def_dep,
 					     json_object_new_string(typename)));
 	}
 	if (acvp_check_ignore(check_ignore_flag, def_dep->name_i)) {
-		CKINT(json_object_object_add(dep, "name",
-					json_object_new_string(def_dep->name)));
+		CKNULL_LOG(def_dep->name, -EINVAL, "Software name missing\n");
+		CKINT(json_object_object_add(
+			dep, "name",
+			json_object_new_string(def_dep->name)));
 	}
 
-	if (def_dep->cpe) {
-		if (acvp_check_ignore(check_ignore_flag, def_dep->cpe_i)) {
-			CKINT(json_object_object_add(
-				dep, "cpe",
-				json_object_new_string(def_dep->cpe)));
-			CKINT(json_object_object_add(dep, "swid", NULL));
-		}
-	} else if (def_dep->swid) {
-		if (acvp_check_ignore(check_ignore_flag, def_dep->swid_i)) {
-			CKINT(json_object_object_add(dep, "cpe", NULL));
-			CKINT(json_object_object_add(
-				dep, "swid",
-				json_object_new_string(def_dep->swid)));
-		}
-	} else {
-		if (acvp_check_ignore(check_ignore_flag, def_dep->cpe_i)) {
-			CKINT(json_object_object_add(dep, "cpe", NULL));
-		}
-		if (acvp_check_ignore(check_ignore_flag, def_dep->swid_i)) {
-			CKINT(json_object_object_add(dep, "swid", NULL));
-		}
-		logger(LOGGER_VERBOSE, LOGGER_C_ANY, "No CPE or SWID found\n");
+	if (acvp_check_ignore(check_ignore_flag, def_dep->cpe_i) &&
+	    def_dep->cpe) {
+		CKINT(json_object_object_add(
+			dep, "cpe",
+			json_object_new_string(def_dep->cpe)));
+	}
+	if (acvp_check_ignore(check_ignore_flag, def_dep->swid_i) &&
+	    def_dep->swid) {
+		CKINT(json_object_object_add(
+			dep, "swid",
+			json_object_new_string(def_dep->swid)));
 	}
 
 	if (acvp_check_ignore(check_ignore_flag, def_dep->cpe_i)) {

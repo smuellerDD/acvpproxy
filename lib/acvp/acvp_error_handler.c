@@ -55,13 +55,6 @@ int acvp_error_convert(const struct acvp_buf *response_buf, const int http_ret,
 		return http_ret;
 
 	/* Error codes from the ACVP data */
-
-	//TODO: fix after issue #863 is cleared
-	logger(LOGGER_VERBOSE, LOGGER_C_CURL,
-	       "ACVP server return code: test response received, verdict pending\n");
-	*code = ACVP_ERR_RESPONSE_RECEIVED_VERDICT_PENDING;
-	goto out;
-
 	CKINT(acvp_req_strip_version(response_buf, &response, &entry));
 
 	if (json_get_string(entry, "error", &error_str))

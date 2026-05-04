@@ -63,6 +63,10 @@ int acvp_req_set_algo_sha(const struct def_algo_sha *sha,
 	    acvp_match_cipher(sha->algorithm, ACVP_SHA3_384) ||
 	    acvp_match_cipher(sha->algorithm, ACVP_SHA3_512)) {
 		CKINT(acvp_req_add_revision(entry, "2.0"));
+	} else if (acvp_match_cipher(sha->algorithm, ACVP_ASCON_HASH_256)) {
+		CKINT(acvp_req_add_revision(entry, "SP800-232"));
+		CKINT(json_object_object_add(entry, "mode",
+			json_object_new_string("Hash256")));
 	} else {
 		CKINT(acvp_req_add_revision(entry, "1.0"));
 	}
@@ -71,8 +75,10 @@ int acvp_req_set_algo_sha(const struct def_algo_sha *sha,
 				        ACVP_CIPHERTYPE_HASH, "algorithm"));
 	CKINT(acvp_req_algo_int_array(entry, sha->messagelength,
 				      "messageLength"));
-	CKINT(acvp_req_algo_int_array(entry, sha->largetest,
-				      "performLargeDataTest"));
+	if (!acvp_match_cipher(sha->algorithm, ACVP_ASCON_HASH_256)) {
+		CKINT(acvp_req_algo_int_array(entry, sha->largetest,
+					      "performLargeDataTest"));
+	}
 
 out:
 	return ret;

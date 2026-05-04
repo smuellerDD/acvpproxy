@@ -108,6 +108,7 @@ static void acvp_release_datastore(struct acvp_datastore_ctx *datastore)
 	ACVP_PTR_FREE_NULL(datastore->amvp_evidencesetfile);
 	ACVP_PTR_FREE_NULL(datastore->amvp_testreportfile);
 	ACVP_PTR_FREE_NULL(datastore->amvp_statusfile);
+	ACVP_PTR_FREE_NULL(datastore->rbg_statusfile);
 }
 
 static void acvp_release_search(struct acvp_search_ctx *search)
@@ -324,6 +325,9 @@ int acvp_register_dump_request(const struct acvp_testid_ctx *testid_ctx,
 	const char *json_request;
 	int ret;
 
+	if (!request)
+		return 0;
+
 	now = time(NULL);
 	if (now == (time_t)-1) {
 		ret = -errno;
@@ -524,6 +528,9 @@ int acvp_set_module(struct acvp_ctx *ctx,
 		caller_search->processor_fuzzy_search;
 	ctx_search->with_es_def = caller_search->with_es_def;
 	ctx_search->with_amvp_def = caller_search->with_amvp_def;
+	ctx_search->with_es_def = caller_search->with_es_def;
+	ctx_search->with_amvp_def = caller_search->with_amvp_def;
+	ctx_search->with_rbg_def = caller_search->with_rbg_def;
 
 	for (i = 0; i < caller_search->nr_submit_testid; i++)
 		ctx_search->submit_testid[i] = caller_search->submit_testid[i];
@@ -756,6 +763,7 @@ int acvp_ctx_init(struct acvp_ctx **ctx, const char *datastore_basedir,
 	CKINT(acvp_duplicate(&datastore->amvp_testreportfile,
 			     ACVP_DS_AMVPTESTREPORT));
 	CKINT(acvp_duplicate(&datastore->amvp_statusfile, ACVP_DS_AMVPSTATUS));
+	CKINT(acvp_duplicate(&datastore->rbg_statusfile, ACVP_DS_RBGSTATUS));
 
 	CKINT(acvp_init_auth_ctx(*ctx));
 

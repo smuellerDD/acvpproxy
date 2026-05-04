@@ -764,7 +764,8 @@ int acvp_publish(struct acvp_ctx *ctx)
 	struct acvp_opts_ctx *ctx_opts = &ctx->options;
 	int ret;
 
-	CKINT(acvp_testids_refresh(ctx, acvp_init_testid_ctx, NULL, NULL));
+	CKINT(acvp_testids_refresh(ctx, acvp_init_testid_ctx, NULL, NULL, NULL,
+				   NULL));
 
 	/*
 	 * Force disabling of threading - the ACVP server performs

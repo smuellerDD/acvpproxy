@@ -50,7 +50,7 @@ extern "C" {
  * API compatible, ABI may change, functional enhancements only, consumer
  * can be left unchanged if enhancements are not considered.
  */
-#define MINVERSION 0
+#define MINVERSION 1
 
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
@@ -507,8 +507,12 @@ struct acvp_testid_ctx {
 
 	struct timespec start;
 
-	int (*status_parse)(struct acvp_testid_ctx *testid_ctx,
-			    struct json_object *status);
+	int (*status_parse_esvp)(struct acvp_testid_ctx *testid_ctx,
+				 struct json_object *status);
+	int (*status_parse_amvp)(struct acvp_testid_ctx *testid_ctx,
+				 struct json_object *status);
+	int (*status_parse_rbg)(struct acvp_testid_ctx *testid_ctx,
+				struct json_object *status);
 	int (*status_write)(const struct acvp_testid_ctx *testid_ctx);
 
 	mutex_w_t shutdown;
@@ -874,6 +878,11 @@ bool acvp_op_get_interrupted(void);
  */
 void acvp_op_enable(void);
 
+/**
+ * Cancel test vectors
+ */
+int acvp_cancel_testid(struct acvp_testid_ctx *testid_ctx);
+
 /************************************************************************
  * ACVP publishing of data
  ************************************************************************/
@@ -910,14 +919,18 @@ int acvp_register_cb(const struct acvp_ctx *ctx,
  * operation.
  */
 
-int acvp_testids_refresh(const struct acvp_ctx *ctx,
-			 int (*init)(struct acvp_testid_ctx *testid_ctx,
-				     const struct acvp_ctx *ctx,
-				     const struct definition *def,
-				     const uint64_t testid),
-			 int (*status_parse)(struct acvp_testid_ctx *testid_ctx,
-					     struct json_object *status),
-			 int (*status_write)(const struct acvp_testid_ctx *testid_ctx));
+int acvp_testids_refresh(
+	const struct acvp_ctx *ctx,
+	int (*init)(struct acvp_testid_ctx *testid_ctx,
+		    const struct acvp_ctx *ctx, const struct definition *def,
+		    const uint64_t testid),
+	int (*status_parse_amvp)(struct acvp_testid_ctx *testid_ctx,
+				 struct json_object *status),
+	int (*status_parse_esvp)(struct acvp_testid_ctx *testid_ctx,
+				 struct json_object *status),
+	int (*status_parse_rbg)(struct acvp_testid_ctx *testid_ctx,
+				struct json_object *status),
+	int (*status_write)(const struct acvp_testid_ctx *testid_ctx));
 
 /**
  * @brief Match two strings
@@ -1279,6 +1292,8 @@ int acvp_req_kas_r3_kc_method(const struct def_algo_kas_r3_kc *kcm,
 #define ACVP_DS_AMVPTESTREPORT "amvp_test_report.json"
 /* File holding the status of the test session */
 #define ACVP_DS_AMVPSTATUS "amvp_status.json"
+/* File holding the status of the test session */
+#define ACVP_DS_RBGSTATUS "rbg_status.json"
 /* File holding the metadata about the test session provided by ACVP server */
 #define ACVP_DS_TESTIDMETA "testid_metadata.json"
 /* File holding the time in seconds the testID/vsID communication took */

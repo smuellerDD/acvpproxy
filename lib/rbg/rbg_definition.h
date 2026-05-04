@@ -33,6 +33,8 @@ struct rbg_def {
 	// struct rbg_es_def_instance {const struct rbg_es_def' struct acvp_auth_ctx *es_auth;}
 	struct acvp_auth_ctx *rbg_auth;
 
+	bool esv_submission;
+
 #define RBG_MAX_DEFINITIONS 10
 	struct json_object *rbg_definitions[RBG_MAX_DEFINITIONS];
 	unsigned int num_rbg_definitions;

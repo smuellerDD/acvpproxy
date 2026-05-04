@@ -271,11 +271,12 @@ int json_split_version(struct json_object *full_json,
 		json_logger(LOGGER_DEBUG, LOGGER_C_ANY, *versionobj,
 			    "ACVP version");
 
-		if (!json_object_is_type(*inobj, json_type_object) ||
+		if ((!json_object_is_type(*inobj, json_type_object) &&
+		     !json_object_is_type(*inobj, json_type_array)) ||
 		    !json_object_is_type(*versionobj, json_type_object)) {
 			logger(LOGGER_ERR, LOGGER_C_ANY,
 			       "JSON data are not expected ACVP objects\n");
-			ret = EINVAL;
+			ret = -EINVAL;
 			goto out;
 		}
 	} else if (json_object_is_type(full_json, json_type_object)) {

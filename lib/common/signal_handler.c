@@ -64,6 +64,7 @@
  * unblock the msgrcv other than a SIGKILL to the entire ACVP Proxy process.
  */
 
+#include "internal.h"
 /*
  * Linked list holding all testID structures currently executing for a
  * potential cleanup in case we are interrupted.
@@ -85,7 +86,7 @@ static uint64_t testids[ACVP_REQ_MAX_FAILED_TESTID];
 static unsigned int testid_idx = 0;
 
 /* DELETE /testSessions/<testSessionId> */
-static int acvp_cancel(struct acvp_testid_ctx *testid_ctx)
+int acvp_cancel_testid(struct acvp_testid_ctx *testid_ctx)
 {
 	struct json_object *req = NULL, *entry = NULL;
 	ACVP_BUFFER_INIT(response);
@@ -266,7 +267,7 @@ static void sig_term_unthreaded(int sig)
 				}
 			} else {
 				/* Cancel pending requests */
-				acvp_cancel(testid_ctx);
+				acvp_cancel_testid(testid_ctx);
 			}
 		}
 	}

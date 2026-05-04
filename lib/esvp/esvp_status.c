@@ -350,6 +350,9 @@ int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
 		if (!sd->submit)
 			continue;
 
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Write status: create SD entry for ID %u\n", sd->sd_id);
+
 		auth = sd->sd_auth;
 		sd_data = json_object_new_object();
 		CKNULL(sd_data, -ENOMEM);

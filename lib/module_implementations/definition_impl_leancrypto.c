@@ -230,11 +230,18 @@ static const struct def_algo_prereqs sha_prereqs[] = {
 	},
 };
 
+static const struct def_algo_prereqs aes_prereqs[] = {
+	{
+		.algorithm = "AES",
+		.valvalue = "same"
+	},
+};
+
 #define LC_DRBG_CAPS_SHA512						\
 	{								\
 	.mode = ACVP_SHA512,						\
-	.entropyinputlen = { 256, },					\
-	.noncelen = { 256, },						\
+	.entropyinputlen = { 384, },					\
+	.noncelen = { DEF_ALG_ZERO_VALUE },				\
 	.persostringlen = { DEF_ALG_ZERO_VALUE },			\
 	.additionalinputlen = { DEF_ALG_ZERO_VALUE, 256, },		\
 	.returnedbitslen = 1024,					\
@@ -268,6 +275,45 @@ static const struct def_algo_prereqs sha_prereqs[] = {
 			.capabilities = {				\
 				LC_DRBG_CAPS_SHA512 },			\
 			.num_caps = 1,					\
+			}						\
+		}							\
+	}
+
+#define LC_DRBG_CAPS_AES256						\
+	.mode = ACVP_AES256,						\
+	.entropyinputlen = { 384, },					\
+	.noncelen = { DEF_ALG_ZERO_VALUE },				\
+	.persostringlen = { DEF_ALG_ZERO_VALUE, 256, },			\
+	.additionalinputlen = { DEF_ALG_ZERO_VALUE, 256, },		\
+	.returnedbitslen = 256
+
+
+#define LC_DRBG_CAPS_AES256_DF						\
+	{								\
+	LC_DRBG_CAPS_AES256,						\
+	.df = true							\
+	}
+
+#define LC_DRBG_CAPS_AES256_NODF					\
+	{								\
+	LC_DRBG_CAPS_AES256,						\
+	.df = false							\
+	}
+
+#define LC_DRBG_CTR							\
+	{								\
+	.type = DEF_ALG_TYPE_DRBG,					\
+	.algo = {							\
+		.drbg = {						\
+			.algorithm = "ctrDRBG",				\
+			DEF_PREREQS(aes_prereqs),			\
+			.pr = DEF_ALG_DRBG_PR_DISABLED,			\
+			.reseed = true,					\
+			.capabilities = {				\
+				LC_DRBG_CAPS_AES256_DF,			\
+				LC_DRBG_CAPS_AES256_NODF,		\
+				},					\
+			.num_caps = 2,					\
 			}						\
 		}							\
 	}
@@ -591,7 +637,7 @@ static const struct def_algo lc_c[] = {
 	LC_AES_XTS,
 	LC_AES_GCM,
 	LC_AES_GCM_IIV,
-
+ 
 	LC_HASH_NO_LDT(ACVP_SHA256),
 	LC_HASH_NO_LDT(ACVP_SHA384),
 	LC_HASH_NO_LDT(ACVP_SHA512),
@@ -603,6 +649,10 @@ static const struct def_algo lc_c[] = {
 	LC_HMAC(ACVP_HMACSHA2_256),
 	LC_HMAC(ACVP_HMACSHA2_384),
 	LC_HMAC(ACVP_HMACSHA2_512),
+	LC_HMAC(ACVP_HMACSHA3_224),
+	LC_HMAC(ACVP_HMACSHA3_256),
+	LC_HMAC(ACVP_HMACSHA3_384),
+	LC_HMAC(ACVP_HMACSHA3_512),
 
 	LC_KDF_HMAC,
 
@@ -610,6 +660,7 @@ static const struct def_algo lc_c[] = {
 
 	LC_DRBG_HMAC,
 	LC_DRBG_HASH,
+	LC_DRBG_CTR,
 
 	LC_HKDF,
 
@@ -762,6 +813,16 @@ static const struct def_algo lc_riscv64_rvv[] = {
 	LC_ML_KEM_ENCAPDECAP_FULL,
 };
 
+static const struct def_algo lc_sbox[] = {
+	LC_AES_CBC,
+	LC_AES_CTR,
+	LC_AES_KW,
+	LC_AES_XTS,
+
+	LC_AES_GCM,
+	LC_AES_GCM_IIV,
+};
+
 /**************************************************************************
  * Register operation
  **************************************************************************/
@@ -773,6 +834,14 @@ static struct def_algo_map lc_algo_map [] = {
 		.algo_name = "leancrypto",
 		.processor = "",
 		.impl_name = "without PAA - C implementation"
+	},
+
+/* CT cipher implementation, C block-chaining **********************************/
+	{
+		SET_IMPLEMENTATION(lc_sbox),
+		.algo_name = "leancrypto",
+		.processor = "",
+		.impl_name = "without PAA - SBOX implementation"
 	},
 
 /* AVX2 cipher implementation, ************************************************/

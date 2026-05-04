@@ -867,6 +867,30 @@ out:
 	return ret;
 }
 
+static int _acvp_cancel(const struct acvp_ctx *ctx,
+			const struct definition *def, const uint64_t testid)
+{
+	struct acvp_testid_ctx *testid_ctx = NULL;
+	int ret;
+
+	/* Put the context on heap for signal handler */
+	testid_ctx = calloc(1, sizeof(*testid_ctx));
+	CKNULL(testid_ctx, -ENOMEM);
+
+	CKINT(acvp_init_testid_ctx(testid_ctx, ctx, def, testid));
+	CKINT(acvp_init_auth(testid_ctx));
+
+	testid_ctx->sig_cancel_send_delete = true;
+
+	CKINT(acvp_cancel_testid(testid_ctx));
+
+out:
+	testid_ctx->sig_cancel_send_delete = false;
+	acvp_release_auth(testid_ctx);
+	acvp_release_testid(testid_ctx);
+	return ret;
+}
+
 #ifdef ACVP_USE_PTHREAD
 static int acvp_process_testids_thread(void *arg)
 {
@@ -982,21 +1006,27 @@ out:
 	return ret;
 }
 
-int acvp_testids_refresh(const struct acvp_ctx *ctx,
-			 int (*init)(struct acvp_testid_ctx *testid_ctx,
-				     const struct acvp_ctx *ctx,
-				     const struct definition *def,
-				     const uint64_t testid),
-			 int (*status_parse)(struct acvp_testid_ctx *testid_ctx,
-					     struct json_object *status),
-			 int (*status_write)(const struct acvp_testid_ctx *testid_ctx))
+int acvp_testids_refresh(
+	const struct acvp_ctx *ctx,
+	int (*init)(struct acvp_testid_ctx *testid_ctx,
+		    const struct acvp_ctx *ctx, const struct definition *def,
+		    const uint64_t testid),
+	int (*status_parse_amvp)(struct acvp_testid_ctx *testid_ctx,
+				 struct json_object *status),
+	int (*status_parse_esvp)(struct acvp_testid_ctx *testid_ctx,
+				 struct json_object *status),
+	int (*status_parse_rbg)(struct acvp_testid_ctx *testid_ctx,
+				struct json_object *status),
+	int (*status_write)(const struct acvp_testid_ctx *testid_ctx))
 {
 	const struct acvp_datastore_ctx *datastore;
 	const struct acvp_search_ctx *search;
 	const struct definition *def;
 	struct acvp_testid_ctx *testid_ctx_head = NULL;
 	uint64_t testids[ACVP_REQ_MAX_FAILED_TESTID];
+	unsigned int esvp_entry = 0;
 	int ret = 0;
+	bool esvp = status_parse_esvp ? true : false;
 
 	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
 
@@ -1021,6 +1051,10 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx,
 	 * Iterate through all modules: The goal is to generate a linked
 	 * list of testid_ctx instances anchored in testid_ctx_head. All
 	 * members of that linked list are in need to get their JWT refreshed.
+	 *
+	 * NOTE: For EMVP, there will always be one test ID in one definition.
+	 * Therefore, iterate through the test IDs at the same stepping as
+	 * for the def.
 	 */
 	while (def) {
 		unsigned int testid_count = ACVP_REQ_MAX_FAILED_TESTID;
@@ -1029,6 +1063,15 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx,
 		/* Search for all testids for a given module */
 		CKINT(ds->acvp_datastore_find_testsession(def, ctx, testids,
 							  &testid_count));
+
+		if (esvp) {
+			if (esvp_entry > testid_count) {
+				ret = -EFAULT;
+				goto out;
+			}
+			testids[0] = testids[esvp_entry];
+			esvp_entry++;
+		}
 
 		/* Iterate through all testids */
 		for (i = 0; i < testid_count; i++) {
@@ -1040,7 +1083,9 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx,
 			CKINT(init(testid_ctx, ctx, def, testids[i]));
 			CKINT(acvp_init_auth(testid_ctx));
 
-			testid_ctx->status_parse = status_parse;
+			testid_ctx->status_parse_amvp = status_parse_amvp;
+			testid_ctx->status_parse_esvp = status_parse_esvp;
+			testid_ctx->status_parse_rbg = status_parse_rbg;
 			testid_ctx->status_write = status_write;
 
 			/* Get auth token for test session */
@@ -1057,6 +1102,9 @@ int acvp_testids_refresh(const struct acvp_ctx *ctx,
 				testid_ctx->next = testid_ctx_head;
 				testid_ctx_head = testid_ctx;
 			}
+
+			if (esvp)
+				break;
 		}
 
 		/* Check if we find another module definition. */
@@ -1086,11 +1134,26 @@ out:
 }
 
 DSO_PUBLIC
+int acvp_cancel(const struct acvp_ctx *ctx)
+{
+	int ret;
+
+	CKINT(acvp_testids_refresh(ctx, acvp_init_testid_ctx, NULL, NULL, NULL,
+				   NULL));
+
+	CKINT(acvp_process_testids(ctx, &_acvp_cancel));
+
+out:
+	return ret;
+}
+
+DSO_PUBLIC
 int acvp_respond(const struct acvp_ctx *ctx)
 {
 	int ret;
 
-	CKINT(acvp_testids_refresh(ctx, acvp_init_testid_ctx, NULL, NULL));
+	CKINT(acvp_testids_refresh(ctx, acvp_init_testid_ctx, NULL, NULL, NULL,
+				   NULL));
 
 	CKINT(acvp_process_testids(ctx, &_acvp_respond));
 
@@ -1197,7 +1260,8 @@ int acvp_fetch_verdicts(const struct acvp_ctx *ctx)
 {
 	int ret;
 
-	CKINT(acvp_testids_refresh(ctx, acvp_init_testid_ctx, NULL, NULL));
+	CKINT(acvp_testids_refresh(ctx, acvp_init_testid_ctx, NULL, NULL, NULL,
+				   NULL));
 
 	CKINT(acvp_process_testids(ctx, &_acvp_fetch_verdicts));
 

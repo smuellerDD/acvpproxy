@@ -332,8 +332,8 @@ esvp_analyze_certify(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	/*
-	 * Strip the version from the received array and return the array
-	 * entry containing the answer.
+	 * Strip the version from the received array and return the entry
+	 * containing the answer.
 	 */
 	CKINT_LOG(acvp_req_strip_version(response, &req, &entry),
 		  "Cannot find ESVP response\n");
@@ -376,7 +376,8 @@ out:
 static int esvp_certify_internal(struct acvp_testid_ctx *testid_ctx)
 {
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
-	const struct acvp_opts_ctx *opts = &ctx->options;
+	const struct esvp_es_def *es;
+	const struct acvp_opts_ctx *opts;
 	const struct acvp_req_ctx *req_details;
 	struct json_object *certify = NULL;
 	ACVP_EXT_BUFFER_INIT(submit);
@@ -387,6 +388,12 @@ static int esvp_certify_internal(struct acvp_testid_ctx *testid_ctx)
 	bool oeadd = false;
 
 	CKNULL(ctx, -EFAULT);
+	opts = &ctx->options;
+	es = testid_ctx->es_def;
+
+	/* Nothing else to do */
+	if (es->esvp_status == esvp_status_certify_requested)
+		return 0;
 
 	if (!opts->esv_certify) {
 		logger_status(LOGGER_C_ANY,
@@ -460,14 +467,47 @@ out:
 	return ret;
 }
 
+/* `GET /amv/v1/certify/<id>` */
+int esvp_get_certificate(struct acvp_testid_ctx *testid_ctx)
+{
+#if 1
+	(void)testid_ctx;
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Fetching of certificate not offered by ESVP server\n");
+	return 0;
+#else
+	const struct acvp_ctx *ctx = testid_ctx->ctx;
+	struct esvp_es_def *es;
+	ACVP_BUFFER_INIT(response);
+	char url[ACVP_NET_URL_MAXLEN];
+	int ret, ret2;
+
+	CKNULL(ctx, -EFAULT);
+	es = testid_ctx->es_def;
+
+	if (es->esvp_status != esvp_status_certify_requested) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Certificate cannot yet be obtained\n");
+		return 0;
+	}
+
+	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_CERTIFY, url, sizeof(url)),
+		  "Creation of request URL failed\n");
+	CKINT(acvp_extend_string(url, sizeof(url), "/%u", testid_ctx->testid));
+
+	/* Send the data to the ESVP server. */
+	ret2 = acvp_net_op(testid_ctx, url, NULL, &response, acvp_http_get);
+	CKINT(acvp_request_error_handler(ret2));
+
+	CKINT(esvp_write_status(testid_ctx));
+
+out:
+	acvp_free_buf(&response);
+	return ret;
+#endif
+}
+
 /*
- * 0. Login to the system
- * 1. Register a module via `POST /amv/v1/modules`
- * 2. Receive the `moduleId` via `GET /amv/v1/requests/<id>`
- * 3. Create a certificate request session via `POST /amv/v1/certRequests`
- * 4. Submit test evidence via `POST /amv/v1/certRequests/<id>`
- * 4. Submit security policy evidence via `POST /amv/v1/certRequests/<id>/securityPolicy`
- * 5. Receive the validation certificate via `GET /amv/v1/certRequests/<id>`
+ * Certify a completed session
  */
 int esvp_certify(struct acvp_testid_ctx *testid_ctx)
 {

@@ -164,6 +164,7 @@ struct acvp_search_ctx {
 
 	bool with_es_def;
 	bool with_amvp_def;
+	bool with_rbg_def;
 
 	uint64_t submit_vsid[MAX_SUBMIT_ID];
 	unsigned int nr_submit_vsid;
@@ -194,6 +195,7 @@ struct acvp_datastore_ctx {
 	char *amvp_evidencesetfile;
 	char *amvp_testreportfile;
 	char *amvp_statusfile;
+	char *rbg_statusfile;
 };
 
 struct acvp_req_ctx {
@@ -585,6 +587,7 @@ int acvp_register(const struct acvp_ctx *ctx);
  * @return 0 on success, < 0 on error
  */
 int acvp_respond(const struct acvp_ctx *ctx);
+int acvp_cancel(const struct acvp_ctx *ctx);
 
 /**
  * @brief Fetch verdicts for all vsIDs in scope. The verdict held by the

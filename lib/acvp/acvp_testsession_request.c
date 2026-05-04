@@ -1205,6 +1205,7 @@ int acvp_register_cb(const struct acvp_ctx *ctx,
 	const struct acvp_search_ctx *search;
 	const struct acvp_opts_ctx *opts;
 	const struct definition *def;
+	unsigned int vsid = 0;
 	int ret = 0;
 
 	CKNULL_LOG(ctx, -EINVAL, "ACVP request context missing\n");
@@ -1218,6 +1219,29 @@ int acvp_register_cb(const struct acvp_ctx *ctx,
 	datastore = &ctx->datastore;
 	search = &datastore->search;
 	opts = &ctx->options;
+
+	/*
+	 * Safety measure: do you really want to pull large quantities of data?
+	 */
+	def = acvp_find_def(search, NULL);
+	while (def) {
+		vsid += def->num_algos;
+
+		/* Check if we find another module definition. */
+		def = acvp_find_def(search, def);
+	}
+
+	if (vsid > 500) {
+		char buf[200];
+
+		snprintf(buf, sizeof(buf),
+			 "There are %u vector sets you are about to request, do you REALLY want that? Note you are blocking other users from other vendors and labs with large requests!",
+			 vsid);
+		if (ask_yes(buf)) {
+			ret = -EINTR;
+			goto out;
+		}
+	}
 
 	/* Find a module definition */
 	def = acvp_find_def(search, NULL);

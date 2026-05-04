@@ -123,14 +123,14 @@ struct def_algo_kdf_108 {
 	/*
 	 * Whether the IUT supports an empty IV.
 	 *
-	 * required: always for HMAC or CMAC based KDFs
+	 * required: only for HMAC or CMAC based KDFs in feedback mode
 	 */
 	bool supports_empty_iv;
 
 	/*
 	 * Whether the IUT requires an empty IV.
 	 *
-	 * required: always for HMAC or CMAC based KDFs
+	 * required: only for HMAC or CMAC based KDFs in feedback mode
 	 */
 	bool requires_empty_iv;
 

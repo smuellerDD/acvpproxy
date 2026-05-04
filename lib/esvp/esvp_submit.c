@@ -109,12 +109,65 @@ out:
 	return ret;
 }
 
-static int esvp_register_build(const struct esvp_es_def *es,
-			       struct json_object *request)
+int esvp_register_build_internal(const struct esvp_es_def *es,
+				 struct json_object *request)
 {
-	struct json_object *entry, *cc_array;
+	struct json_object *cc_array;
 	struct esvp_cc_def *cc;
 	unsigned int seq_no = 1;
+	int ret;
+
+	CKINT(json_object_object_add(
+		request, "primaryNoiseSource",
+		json_object_new_string(es->primary_noise_source_desc)));
+	CKINT(json_object_object_add(request, "iidClaim",
+				     json_object_new_boolean(es->iid)));
+	CKINT(json_object_object_add(
+		request, "bitsPerSample",
+		json_object_new_int((int)es->bits_per_sample)));
+	// Deprecated on 2023/03/08
+	/* CKINT(json_object_object_add(
+		request, "alphabetSize",
+		json_object_new_int((int)es->alphabet_size))); */
+	CKINT(json_object_object_add(
+		request, "hminEstimate",
+		json_object_new_double(es->h_min_estimate)));
+	CKINT(json_object_object_add(request, "physical",
+				     json_object_new_boolean(es->physical)));
+	CKINT(json_add_bin2hex(request, "rawNoiseSHA256",
+			       &es->raw_noise_data_hash));
+	CKINT(json_object_object_add(
+		request, "numberOfRestarts",
+		json_object_new_int((int)es->raw_noise_number_restarts)));
+	CKINT(json_object_object_add(
+		request, "samplesPerRestart",
+		json_object_new_int((int)es->raw_noise_samples_restart)));
+	CKINT(json_add_bin2hex(request, "restartBitsSHA256",
+			       &es->raw_noise_restart_hash));
+	CKINT(json_object_object_add(
+		request, "additionalNoiseSources",
+		json_object_new_boolean(es->additional_noise_sources)));
+
+	if (!es->cc)
+		goto out;
+
+	cc_array = json_object_new_array();
+	CKNULL(cc_array, -ENOMEM);
+	CKINT(json_object_object_add(request, "conditioningComponent",
+				     cc_array));
+
+	for (cc = es->cc; cc; cc = cc->next, seq_no++) {
+		CKINT(esvp_register_build_cc(cc, seq_no, cc_array));
+	}
+
+out:
+	return ret;
+}
+
+static int esvp_register_build(const struct esvp_es_def *es,
+			struct json_object *request)
+{
+	struct json_object *entry;
 	int ret;
 
 	/* Array entry for version */
@@ -125,47 +178,7 @@ static int esvp_register_build(const struct esvp_es_def *es,
 	CKNULL(entry, -ENOMEM);
 	CKINT(json_object_array_add(request, entry));
 
-	CKINT(json_object_object_add(
-		entry, "primaryNoiseSource",
-		json_object_new_string(es->primary_noise_source_desc)));
-	CKINT(json_object_object_add(entry, "iidClaim",
-				     json_object_new_boolean(es->iid)));
-	CKINT(json_object_object_add(
-		entry, "bitsPerSample",
-		json_object_new_int((int)es->bits_per_sample)));
-	// Deprecated on 2023/03/08
-	/* CKINT(json_object_object_add(
-		entry, "alphabetSize",
-		json_object_new_int((int)es->alphabet_size))); */
-	CKINT(json_object_object_add(
-		entry, "hminEstimate",
-		json_object_new_double(es->h_min_estimate)));
-	CKINT(json_object_object_add(entry, "physical",
-				     json_object_new_boolean(es->physical)));
-	CKINT(json_add_bin2hex(entry, "rawNoiseSHA256",
-			       &es->raw_noise_data_hash));
-	CKINT(json_object_object_add(
-		entry, "numberOfRestarts",
-		json_object_new_int((int)es->raw_noise_number_restarts)));
-	CKINT(json_object_object_add(
-		entry, "samplesPerRestart",
-		json_object_new_int((int)es->raw_noise_samples_restart)));
-	CKINT(json_add_bin2hex(entry, "restartBitsSHA256",
-			       &es->raw_noise_restart_hash));
-	CKINT(json_object_object_add(
-		entry, "additionalNoiseSources",
-		json_object_new_boolean(es->additional_noise_sources)));
-
-	if (!es->cc)
-		goto out;
-
-	cc_array = json_object_new_array();
-	CKNULL(cc_array, -ENOMEM);
-	CKINT(json_object_object_add(entry, "conditioningComponent", cc_array));
-
-	for (cc = es->cc; cc; cc = cc->next, seq_no++) {
-		CKINT(esvp_register_build_cc(cc, seq_no, cc_array));
-	}
+	CKINT(esvp_register_build_internal(es, entry));
 
 out:
 	return ret;
@@ -239,7 +252,13 @@ esvp_process_post_one_response(const struct acvp_testid_ctx *testid_ctx,
 		  "Cannot find ESVP response\n");
 
 	CKINT(json_get_string(entry, "status", &str));
-	if (strncmp(str, "success", 7)) {
+	if (!strncmp(str, "success", 7)) {
+		goto out;
+	} else if (!strncmp(str, "EntropyAssessment is not yet processed, please try again.",
+			    57)) {
+		/* TODO: not sure what to do with this one */
+		goto out;
+	} else {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "ESVP server returned error %s during uploading of file\n",
 		       str);
@@ -591,25 +610,27 @@ esvp_process_status_info(const char *str, const char *type, const char *src)
 	if (!str)
 		return -EINVAL;
 
-	if (!strncmp(str, "RunStarted", 10)) {
+	if (!strncasecmp(str, "RunStarted", 10) ||
+	    !strncasecmp(str, "run Started", 11)) {
 		logger_status(LOGGER_C_ANY,
 			      "%s: ESVP server crunching numbers on raw data for %s - %swait%s\n",
 			      src, type, TERM_COLOR_YELLOW, TERM_COLOR_NORMAL);
 		ret = -EAGAIN;
 		goto out;
-	} else if (!strncmp(str, "Uploaded", 8)) {
+	} else if (!strncasecmp(str, "Uploaded", 8)) {
 		logger_status(LOGGER_C_ANY,
 			      "%s: ESVP server crunching numbers on raw data for %s - %swait%s\n",
 			      src, type, TERM_COLOR_YELLOW, TERM_COLOR_NORMAL);
 		ret = -EAGAIN;
 		goto out;
-	} else if (!strncmp(str, "Initial", 7)) {
+	} else if (!strncasecmp(str, "Initial", 7)) {
 		logger_status(LOGGER_C_ANY,
 			      "%s: ESVP server crunching numbers on raw data for %s - %swait%s\n",
 			      src, type, TERM_COLOR_YELLOW, TERM_COLOR_NORMAL);
 		ret = -EAGAIN;
 		goto out;
-	} else if (!strncmp(str, "RunSuccessful", 13)) {
+	} else if (!strncasecmp(str, "RunSuccessful", 13) ||
+		   !strncasecmp(str, "run Successful", 14)) {
 		logger_status(LOGGER_C_ANY,
 			      "%s: ESVP server finished calculating the entropy rate for %s - %ssuccess%s\n",
 			      src, type, TERM_COLOR_GREEN, TERM_COLOR_NORMAL);
@@ -825,11 +846,28 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 	struct esvp_cc_def *cc;
 	DIR *doc_dir = NULL;
 	struct dirent *doc_dirent;
+	ACVP_EXT_BUFFER_INIT(sample_size);
 	ACVP_EXT_BUFFER_INIT(desc);
 	ACVP_EXT_BUFFER_INIT(sdtype);
+	uint8_t sample_size_buf = '0';
 	char doc_dir_name[FILENAME_MAX - 256], pathname[FILENAME_MAX],
 		url[ACVP_NET_URL_MAXLEN];
 	int ret;
+
+	/*
+	 * According to the protocol specification:
+	 * Key: dataFileSampleSize, Value: <1-8>, Optional. If this value is not
+	 * present, the value will be assumed as min(BitsPerSample, 8). This
+	 * value must never be greater than BitsPerSample, or 8.
+	 *
+	 * In practice, it seems like the server does not correctly compute
+	 * min(BitsPerSample, 8) and rejects registrations with BitsPerSample >
+	 * 8. Thus, we just compute it ourselves.
+	 */
+	sample_size_buf += (es->bits_per_sample > 8 ? 8 : es->bits_per_sample);
+	sample_size.data_type = "dataFileSampleSize";
+	sample_size.buf = &sample_size_buf;
+	sample_size.len = 1;
 
 	/* Post the raw noise data file */
 	snprintf(pathname, sizeof(pathname), "%s/%s/%s%s", es->config_dir,
@@ -843,7 +881,8 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 				 es->raw_noise_id));
 	CKINT_LOG(esvp_process_datafiles_post_one(
 			  testid_ctx, url, pathname, &es->raw_noise_submitted,
-			  "dataFile", NULL, esvp_process_post_one_response),
+			  "dataFile", &sample_size,
+			  esvp_process_post_one_response),
 		  "Cannot post raw noise data\n");
 
 	/* Post the restart data file */
@@ -858,7 +897,8 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 				 es->restart_id));
 	CKINT_LOG(esvp_process_datafiles_post_one(
 			  testid_ctx, url, pathname, &es->restart_submitted,
-			  "dataFile", NULL, esvp_process_post_one_response),
+			  "dataFile", &sample_size,
+			  esvp_process_post_one_response),
 		  "Cannot post restart noise data\n");
 
 	/* Post all conditioning component files */
@@ -1025,37 +1065,84 @@ out:
 /******************************************************************************
  * General processing
  ******************************************************************************/
-static int esvp_process_req(struct acvp_testid_ctx *testid_ctx,
-			    struct json_object *request,
-			    struct acvp_buf *response)
+/* GET /entropyAssessments/<ID> */
+static int esvp_req_status(struct acvp_testid_ctx *testid_ctx,
+			   struct json_object *response)
+{
+	struct esvp_es_def *es = testid_ctx->es_def;
+	const char *str;
+	ACVP_BUFFER_INIT(response_buf);
+	struct json_object *req = NULL;
+	uint32_t sleep_time = 30;
+	int ret, ret2;
+	char url[ACVP_NET_URL_MAXLEN];
+
+	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_ENTROPY_ASSESSMENT,
+				  url, sizeof(url)),
+		  "Creation of request URL failed\n");
+	CKINT(acvp_extend_string(url, sizeof(url), "/%u", testid_ctx->testid));
+
+	while (1) {
+		if (response) {
+			es->esvp_status = esvp_status_unknown;
+			ret = json_get_string(response, "status", &str);
+			/* if there is no status, we do not need to wait */
+			if (ret)
+				break;
+
+			if (!strncasecmp(str, "notStarted", 10)) {
+				es->esvp_status = esvp_status_not_started;
+				logger_status(LOGGER_C_ANY,
+					      "ESVP server needs time - sleeping for %u seconds for testID %"PRIu64" again\n",
+					      sleep_time, testid_ctx->testid);
+				/* Wait the requested amount of seconds */
+				CKINT(sleep_interruptible(
+					sleep_time, &acvp_op_interrupted));
+			} else if (!strncasecmp(str, "certifyRequested", 16)) {
+				es->esvp_status = esvp_status_certify_requested;
+				break;
+			} else if (!strncasecmp(str, "pendingEvaluation", 17)) {
+				es->esvp_status = esvp_status_pending_evaluation;
+				break;
+			} else {
+				es->esvp_status = esvp_status_unhandled;
+				break;
+			}
+		}
+
+		acvp_free_buf(&response_buf);
+		ret2 = acvp_net_op(testid_ctx, url, NULL, &response_buf,
+				   acvp_http_get);
+		if (ret2)
+			testid_ctx->sig_cancel_send_delete = false;
+		CKINT(acvp_request_error_handler(ret2));
+
+		/* Clear the buffers for the next loop iteration. */
+		ACVP_JSON_PUT_NULL(req);
+
+		/*
+		 * Strip the version from the received array and return the
+		 * array entry containing the answer.
+		 */
+		CKINT_LOG(acvp_req_strip_version(&response_buf, &req,
+						 &response),
+			  "Cannot find ESVP response\n");
+	}
+
+out:
+	ACVP_JSON_PUT_NULL(req);
+	acvp_free_buf(&response_buf);
+	return ret;
+}
+int esvp_process_req_internal(struct acvp_testid_ctx *testid_ctx,
+			      struct json_object *response)
 {
 	const struct esvp_es_def *es = testid_ctx->es_def;
-	struct json_object *req = NULL, *entry = NULL;
 	const char *jwt;
 	int ret;
 
-	if (!response->buf || !response->len) {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "No response data found\n");
-		return -EINVAL;
-	}
-
-	/*
-	 * Strip the version from the received array and return the array
-	 * entry containing the answer.
-	 */
-	CKINT_LOG(acvp_req_strip_version(response, &req, &entry),
-		  "Cannot find ESVP response\n");
-
-	/* Extract testID URL and ID number */
-	CKINT_LOG(acvp_get_testid(testid_ctx, request, entry),
-		  "Cannot get testID from ESVP server response\n");
-
-	/* Store the testID meta data */
-	CKINT(ds->acvp_datastore_write_testid(testid_ctx, ESVP_DS_TESTIDMETA,
-					      true, response));
-
 	/* Get access token */
-	CKINT_LOG(json_get_string(entry, "accessToken", &jwt),
+	CKINT_LOG(json_get_string(response, "accessToken", &jwt),
 		  "ESVP server response does not contain expected JWT\n");
 
 	/* Store access token in ctx without writing it to disk */
@@ -1069,8 +1156,11 @@ static int esvp_process_req(struct acvp_testid_ctx *testid_ctx,
 	CKINT_LOG(acvp_export_def_search(testid_ctx),
 		  "Cannot store the search criteria\n");
 
+	/* Wait */
+	CKINT(esvp_req_status(testid_ctx, response));
+
 	/* Upload the data */
-	CKINT_LOG(esvp_process_datafiles(testid_ctx, entry),
+	CKINT_LOG(esvp_process_datafiles(testid_ctx, response),
 		  "Cannot submit data files\n");
 
 	/* Get the status information on the raw data */
@@ -1087,6 +1177,71 @@ static int esvp_process_req(struct acvp_testid_ctx *testid_ctx,
 	}
 
 	CKINT_LOG(esvp_certify(testid_ctx), "Cannot certify\n");
+
+out:
+	if (ret < 0 && ret != -EINTR && ret != -ESHUTDOWN) {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "Cannot process server request %d\n", ret);
+	}
+	return ret;
+}
+
+static int esvp_process_req(struct acvp_testid_ctx *testid_ctx,
+			    struct json_object *request,
+			    struct acvp_buf *response)
+{
+	struct json_object *req = NULL, *array = NULL;
+	int ret;
+
+	if (!response->buf || !response->len) {
+		logger(LOGGER_ERR, LOGGER_C_ANY, "No response data found\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * Strip the version from the received array and return the array
+	 * entry containing the answer.
+	 */
+	CKINT_LOG(acvp_req_strip_version(response, &req, &array),
+		  "Cannot find ESVP response\n");
+
+	/* Get the first array entry */
+	if (json_object_is_type(array, json_type_array)) {
+		struct json_object *entry = NULL;
+		size_t i;
+
+		for (i = 0; i < json_object_array_length(array); i++) {
+			if (i) {
+				logger(LOGGER_ERR, LOGGER_C_ANY,
+				"Currently ACVP server does not support parallel test sessions\n");
+				ret = -EOVERFLOW;
+				goto out;
+			}
+
+			entry = json_object_array_get_idx(array, i);
+
+			/* Extract testID URL and ID number */
+			CKINT_LOG(acvp_get_testid(testid_ctx, request, entry),
+				"Cannot get testID from ESVP server response\n");
+
+			/* Store the testID meta data */
+			CKINT(ds->acvp_datastore_write_testid(testid_ctx,
+							ESVP_DS_TESTIDMETA,
+							true, response));
+
+			CKINT(esvp_process_req_internal(testid_ctx, entry));
+		}
+	} else {
+		/* Extract testID URL and ID number */
+		CKINT_LOG(acvp_get_testid(testid_ctx, request, array),
+			  "Cannot get testID from ESVP server response\n");
+		/* Store the testID meta data */
+		CKINT(ds->acvp_datastore_write_testid(testid_ctx,
+						      ESVP_DS_TESTIDMETA,
+						      true, response));
+
+		CKINT(esvp_process_req_internal(testid_ctx, array));
+	}
 
 out:
 	ACVP_JSON_PUT_NULL(req);
@@ -1191,7 +1346,7 @@ static int esvp_continue_op(struct acvp_testid_ctx *testid_ctx)
 
 	CKINT(acvp_init_auth(testid_ctx));
 
-	testid_ctx->status_parse = esvp_read_status;
+	testid_ctx->status_parse_esvp = esvp_read_status;
 	testid_ctx->status_write = esvp_write_status;
 
 	/* Get auth token for test session */
@@ -1274,6 +1429,7 @@ acvp_process_testids_esvp_release(struct acvp_testid_ctx *testid_ctx)
 static int _esvp_continue(void *_testid_ctx)
 {
 	struct acvp_testid_ctx *t_ctx, *testid_ctx = _testid_ctx;
+	const struct esvp_es_def *es = testid_ctx->es_def;
 	const struct acvp_ctx *ctx = testid_ctx->ctx;
 	const struct acvp_opts_ctx *opts = &ctx->options;
 	char str[4096];
@@ -1308,7 +1464,34 @@ static int _esvp_continue(void *_testid_ctx)
 
 	CKINT_LOG(esvp_certify(testid_ctx), "Cannot certify\n");
 
-	if (!opts->esv_certify) {
+	CKINT(esvp_req_status(testid_ctx, NULL));
+
+	switch (es->esvp_status) {
+	case esvp_status_unhandled:
+		logger(LOGGER_DEBUG, LOGGER_C_ANY, "Unhandled ESVP status\n");
+		break;
+	case esvp_status_pending_evaluation:
+		logger_status(LOGGER_C_ANY,
+			      "ESVP status: pending evaluation - you have to upload data\n");
+		CKINT(esvp_get_certificate(testid_ctx));
+		break;
+	case esvp_status_certify_requested:
+		logger_status(LOGGER_C_ANY,
+			      "ESVP status: ESVP certificate requested - check back with CMVP\n");
+		CKINT(esvp_get_certificate(testid_ctx));
+		break;
+	case esvp_status_not_started:
+		logger_status(LOGGER_C_ANY,
+			      "ESVP status: ESVP processing not started - Server needs more time to process request\n");
+		break;
+
+	case esvp_status_unknown:
+	default:
+		break;
+	}
+
+	if (es->esvp_status != esvp_status_certify_requested &&
+	    !opts->esv_certify) {
 		logger_status(LOGGER_C_ANY,
 			      "Certify operation skipped - to certify all test sessions at once use%s --publish to certify current request\n",
 			      str);
@@ -1380,7 +1563,7 @@ acvp_process_testids_esvp(const struct acvp_ctx *ctx,
 
 	/* Iterate through all modules */
 	while (def) {
-		unsigned int i, testid_count = ACVP_REQ_MAX_FAILED_TESTID;
+		unsigned int testid_count = ACVP_REQ_MAX_FAILED_TESTID;
 
 		/* If the definition was already processed, skip it */
 		if (def->processed) {
@@ -1434,36 +1617,43 @@ acvp_process_testids_esvp(const struct acvp_ctx *ctx,
 		}
 
 		if (def) {
+			/* Get current testid */
+			struct acvp_testid_ctx *new_testid_ctx = NULL;
+
 			/* Search for all testids for a given module */
 			CKINT(ds->acvp_datastore_find_testsession(def, ctx,
 				testids, &testid_count));
 
-			/* Iterate through all testids */
-			for (i = 0; i < testid_count; i++) {
-				struct acvp_testid_ctx *new_testid_ctx = NULL;
+			/*
+			 * NOTE: One def corresponds to one test session for
+			 * ESVP. Therefore, iterate through the test ID
+			 * with the same stepping as with the def.
+			 */
+			if (testid_count > 1) {
+				ret = -EFAULT;
+				goto out;
+			}
 
-				/* Create new testid_ctx */
-				new_testid_ctx = calloc(1,
-					sizeof(*new_testid_ctx));
-				CKNULL(new_testid_ctx, -ENOMEM);
-				CKINT(esvp_init_testid_ctx(new_testid_ctx,
-					ctx, def, testids[i]));
+			/* Create new testid_ctx */
+			new_testid_ctx = calloc(1, sizeof(*new_testid_ctx));
+			CKNULL(new_testid_ctx, -ENOMEM);
+			CKINT(esvp_init_testid_ctx(new_testid_ctx,
+				ctx, def, testids[0]));
 
-				/* Enqueue it into list of testid_ctx */
-				if (testid_ctx) {
-					struct acvp_testid_ctx *t_ctx;
+			/* Enqueue it into list of testid_ctx */
+			if (testid_ctx) {
+				struct acvp_testid_ctx *t_ctx;
 
-					for (t_ctx = testid_ctx;
-					     t_ctx;
-					     t_ctx = t_ctx->next) {
-						if (!t_ctx->next) {
-							t_ctx->next = new_testid_ctx;
-							break;
-						}
+				for (t_ctx = testid_ctx;
+					t_ctx;
+					t_ctx = t_ctx->next) {
+					if (!t_ctx->next) {
+						t_ctx->next = new_testid_ctx;
+						break;
 					}
-				} else {
-					testid_ctx = new_testid_ctx;
 				}
+			} else {
+				testid_ctx = new_testid_ctx;
 			}
 
 			/* Unconsitfy harmless - requires single threadings */
@@ -1521,8 +1711,8 @@ int esvp_continue(const struct acvp_ctx *ctx)
 {
 	int ret;
 
-	CKINT(acvp_testids_refresh(ctx, esvp_init_testid_ctx,
-				   esvp_read_status, esvp_write_status));
+	CKINT(acvp_testids_refresh(ctx, esvp_init_testid_ctx, NULL,
+				   esvp_read_status, NULL, esvp_write_status));
 
 	CKINT(acvp_process_testids_esvp(ctx, &_esvp_continue));
 

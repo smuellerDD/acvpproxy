@@ -49,9 +49,11 @@ void amvp_def_free(struct amvp_def *amvp)
 }
 
 static int amvp_read_tester_def(const char *directory,
-				struct def_vendor *vendor,
+				const struct definition *def,
 				struct amvp_def *amvp)
 {
+	struct def_vendor *vendor = def->vendor;
+	struct def_info *info = def->info;
 	char pathname[FILENAME_MAX];
 	struct stat statbuf;
 	struct json_object *tester = NULL;
@@ -88,9 +90,18 @@ static int amvp_read_tester_def(const char *directory,
 		ret = -EOPNOTSUPP;
 		goto unlock;
 	}
+	CKINT(acvp_def_get_module_id(info));
+	if (info->acvp_module_id == 0) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		        "The module JSON definition does not contain a module ID! It is required to have one at this point which implies that as of now, no AMVP operation is possible. Thus, please obtain such an ID with acvp-proxy --sync-meta.\n");
+		ret = -EOPNOTSUPP;
+		goto unlock;
+	}
 
 	CKINT_ULCK(json_object_object_add(tester, "vendorId",
-		json_object_new_int((int)vendor->acvp_vendor_id)));
+		   json_object_new_int((int)vendor->acvp_vendor_id)));
+	CKINT_ULCK(json_object_object_add(tester, "moduleId",
+		   json_object_new_int((int)info->acvp_module_id)));
 
 	/* Do not add version - has to be added during submission */
 	amvp->registration_definition = tester;
@@ -98,6 +109,7 @@ static int amvp_read_tester_def(const char *directory,
 
 unlock:
 	ret |= acvp_def_put_vendor_id(vendor);
+	ret |= acvp_def_put_module_id(info);
 out:
 	ACVP_JSON_PUT_NULL(tester);
 	return ret;
@@ -111,7 +123,6 @@ static int amvp_read_validation_def(const char *directory,
 	struct stat statbuf;
 	struct json_object *validation = NULL, *module_def, *seclevel;
 	unsigned int i, level_val, overall_level = 4;
-	const char *str;
 	int ret = 0;
 
 	CKNULL(info, -EINVAL);
@@ -143,22 +154,10 @@ static int amvp_read_validation_def(const char *directory,
 	CKINT(json_find_key(validation, "moduleInfo", &module_def,
 			    json_type_object));
 
-	CKINT(json_object_object_add(module_def, "name",
-		json_object_new_string(info->orig_module_name)));
 	CKINT(json_object_object_add(module_def, "count",
 				     json_object_new_int(1)));
-	CKINT(json_object_object_add(module_def, "description",
-		json_object_new_string(info->module_description)));
-
-	CKINT(acvp_module_type_enum_to_name(info->module_type, &str));
-	CKINT(json_object_object_add(module_def, "type",
-				     json_object_new_string(str)));
 	CKINT(json_object_object_add(module_def, "itar",
 				     json_object_new_boolean(0)));
-
-	//TODO: it is currently unclear what that is
-	CKINT(json_object_object_add(module_def, "opEnvType",
-				     json_object_new_string("opEnvType1")));
 	CKINT(json_object_object_add(module_def, "submissionLevel",
 				     json_object_new_string("Level 1")));
 
@@ -321,7 +320,7 @@ int amvp_def_config(const char *directory, const struct definition *def,
 
 	/* Read the registration meta data */
 	if (!ret)
-		ret = amvp_read_tester_def(directory, def->vendor, amvp);
+		ret = amvp_read_tester_def(directory, def, amvp);
 
 	if (!ret)
 		ret = amvp_read_sp_def(directory, amvp);

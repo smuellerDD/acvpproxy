@@ -1,3 +1,8 @@
+v2.1.0:
+- add RBG-Proxy
+- AMVP: make it consistent with NIST's version at ICMC 2026
+- various misc. changes to algorithm requests
+
 v2.0.0:
 - fix: rename now works for multiple test sessions 
 - enhancement: leancrypto - add EDDSA

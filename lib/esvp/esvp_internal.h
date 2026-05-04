@@ -59,6 +59,23 @@ int esvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
  */
 int esvp_certify(struct acvp_testid_ctx *testid_ctx);
 
+/**
+ * Get certificate if available
+ */
+int esvp_get_certificate(struct acvp_testid_ctx *testid_ctx);
+
+/**
+ * Building an ESV registration JSON structure
+ */
+int esvp_register_build_internal(const struct esvp_es_def *es,
+				 struct json_object *request);
+
+/**
+ * Process the ESV registration response
+ */
+int esvp_process_req_internal(struct acvp_testid_ctx *testid_ctx,
+			      struct json_object *response);
+
 /* File holding the general entropy source information */
 #define ESVP_ES_FILE_DEF "definition"
 

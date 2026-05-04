@@ -37,7 +37,7 @@ static int acvp_req_sym_aes_ff_caps(const struct def_algo_sym_aes_ff *aes_ff,
 	CKINT(json_object_object_add(caps_entry, "alphabet",
 				     json_object_new_string(aes_ff->alphabet)));
 
-	if (aes_ff->radix < 2 || aes_ff->radix > 62) {
+	if (aes_ff->radix < 2 || aes_ff->radix > 64) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
 		       "AES FF radix over/underflow\n");
 		return -EINVAL;

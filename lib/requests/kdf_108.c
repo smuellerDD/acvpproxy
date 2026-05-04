@@ -190,12 +190,12 @@ int acvp_req_set_algo_kdf_108_details(const struct def_algo_kdf_108 *kdf_108,
 	}
 	CKNULL_LOG(found, -EINVAL,
 		   "SP800-108 KDF: counter_lengths contains wrong data\n");
-
-	CKINT(json_object_object_add(entry, "supportsEmptyIv",
+	if (kdf_108->kdf_108_type == DEF_ALG_KDF_108_FEEDBACK) {
+		CKINT(json_object_object_add(entry, "supportsEmptyIv",
 			json_object_new_boolean(kdf_108->supports_empty_iv)));
-	CKINT(json_object_object_add(entry, "requiresEmptyIv",
+		CKINT(json_object_object_add(entry, "requiresEmptyIv",
 			json_object_new_boolean(kdf_108->requires_empty_iv)));
-
+	}
 	if (kdf_108->custom_key_in_length) {
 		CKINT(json_object_object_add(entry, "customKeyInLength",
 			json_object_new_int(kdf_108->custom_key_in_length)));

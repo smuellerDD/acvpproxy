@@ -303,6 +303,9 @@ const struct definition *acvp_find_def(const struct acvp_search_ctx *search,
 			continue;
 		if (search->with_amvp_def && !tmp_def->amvp)
 			continue;
+		if (search->with_rbg_def &&
+		    (!tmp_def->rbg || !tmp_def->rbg->num_rbg_definitions))
+			continue;
 
 		break;
 	}
@@ -392,42 +395,40 @@ static int acvp_export_def_search_dep_v2(const struct def_oe *oe,
 		CKNULL(entry, -ENOMEM);
 		CKINT(json_object_array_add(array, entry));
 
-		switch (def_dep->def_dependency_type) {
-		case def_dependency_firmware:
-		case def_dependency_os:
-		case def_dependency_software:
+		if (def_dep->name_newname || def_dep->name) {
 			CKINT(json_object_object_add(
 				entry, "execenv",
 				acvp_export_string_to_json(
 					def_dep->name_newname ?
 					def_dep->name_newname :
 					def_dep->name)));
-			break;
-		case def_dependency_hardware:
+		}
+
+		if (def_dep->proc_name_newname || def_dep->proc_name) {
 			CKINT(json_object_object_add(
 				entry, "processor",
 				acvp_export_string_to_json(
 					def_dep->proc_name_newname ?
 					def_dep->proc_name_newname :
 					def_dep->proc_name)));
+		}
+
+		if (def_dep->proc_family_newname || def_dep->proc_family) {
 			CKINT(json_object_object_add(
 				entry, "processorFamily",
 				acvp_export_string_to_json(
 					def_dep->proc_family_newname ?
 					def_dep->proc_family_newname :
 					def_dep->proc_family)));
+		}
+
+		if (def_dep->proc_series_newname || def_dep->proc_series) {
 			CKINT(json_object_object_add(
 				entry, "processorSeries",
 				acvp_export_string_to_json(
 					def_dep->proc_series_newname ?
 					def_dep->proc_series_newname :
 					def_dep->proc_series)));
-			break;
-		default:
-			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "Unknown dependency type\n");
-			ret = -EINVAL;
-			goto out;
 		}
 	}
 

@@ -1608,10 +1608,12 @@ static const struct def_algo openssl_gcm [] = {
 	OPENSSL_AES_GCM_IIV,
 };
 
-static const struct def_algo openssl_gcm_xts [] = {
+static const struct def_algo openssl_gcm_xts_cfb [] = {
 	OPENSSL_AES_GCM,
 	OPENSSL_AES_GCM_IIV,
 	OPENSSL_AES_XTS,
+	/* Added in OpenSSL 3.6.0 */
+	OPENSSL_AES_CFB128,
 };
 
 static const struct def_algo openssl_ffc_dh [] = {
@@ -2131,8 +2133,9 @@ static struct def_algo_map openssl_algo_map [] = {
 	 *    SPARC AES, s390x AES, ARMv8 PMULL, PPC64, RV64I, RV32I. For x86,
 	 *    this means AES-NI.
 	 *   a) If VAES, VPCLMULQDQ, and AVX512 are available, an AVX512+VAES
-	 *      implementation is used. This is also used for AES XTS. See
-	 *      vaes_gcm_cipherupdate and aesni_xts_256_encrypt_avx512.
+	 *      implementation is used. This is also used for AES-XTS and
+	 *      AES-CFB-128. See vaes_gcm_cipherupdate,
+	 *      aesni_xts_256_encrypt_avx512, and aes_cfb128_vaes_encdec_wrapper
 	 *   b) Otherwise, a regular AES-NI GCM implementation is used. See
 	 *      aesni_gcm_initkey.
 	 * 2) AVX implementation (PAA). This path is taken if the PCLMULQDQ,
@@ -2146,13 +2149,15 @@ static struct def_algo_map openssl_algo_map [] = {
 	 * Source: crypto/modes/gcm128.c
 	 * Source: crypto/modes/asm/aes-gcm-avx512.pl
 	 * Source: providers/implementations/ciphers/cipher_aes_gcm_hw_aesni.inc
+	 * Source: providers/implementations/ciphers/cipher_aes_cfb_hw_aesni.inc
 	 * Source: providers/implementations/ciphers/cipher_aes_xts_hw.c
 	 **********************************************************************/
 
 	/* Starting OpenSSL 3.5.0, AES-XTS is also supported for AVX512.
+	 * Starting OpenSSL 3.6.0, AES-CFB is also supported for AVX512.
 	 * OpenSSL AESNI with AVX GCM and XTS implementations *****************/
-	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm_xts, "X86", "AESNI_AVX",
-			    "Intel AES-NI with AVX512 AES-GCM and AES-XTS implementations"),
+	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm_xts_cfb, "X86", "AESNI_AVX",
+			    "Intel AES-NI with AVX512 implementations"),
 	/* OpenSSL AESNI GCM implementation ***********************************/
 	OPENSSL_IMPL_COMMON(openssl_gcm, openssl_gcm, "X86", "AESNI_ASM",
 			    "Intel AES-NI AES-GCM implementation"),
@@ -2352,6 +2357,7 @@ static struct def_algo_map openssl_algo_map [] = {
 	 **********************************************************************/
 
 	// TODO: providers/implementations/ciphers/cipher_aes_xts_s390x.inc?
+	// TODO: providers/implementations/ciphers/cipher_aes_cfb_s390x.inc?
 	/* OpenSSL s390x CPACF AES implementation *****************************/
 	OPENSSL_IMPL_COMMON(openssl_aes, openssl_3_aes, "S390", "AES_CPACF",
 			    "CPACF AES implementation"),

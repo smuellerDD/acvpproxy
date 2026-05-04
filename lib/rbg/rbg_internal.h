@@ -22,6 +22,8 @@
 
 #include <errno.h>
 
+#include "definition_internal.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -36,6 +38,13 @@ extern "C" {
 
 /* File holding the metadata about the test session provided by ESVP server */
 #define RBG_DS_TESTIDMETA "rbg_metadata.json"
+
+/* File holding the server's information about the RBG session provided by ESVP server */
+#define RBG_DS_TESTIDSTATUS "rbg_teststatus.json"
+
+int rbg_read_status(struct acvp_testid_ctx *testid_ctx,
+		    struct json_object *status);
+int rbg_write_status(const struct acvp_testid_ctx *testid_ctx);
 
 #ifdef __cplusplus
 }

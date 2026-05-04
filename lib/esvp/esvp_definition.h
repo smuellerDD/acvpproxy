@@ -76,6 +76,14 @@ struct esvp_cc_def {
 	bool bijective;
 };
 
+enum esvp_status {
+	esvp_status_unknown,
+	esvp_status_not_started,
+	esvp_status_pending_evaluation,
+	esvp_status_certify_requested,
+	esvp_status_unhandled,
+};
+
 struct esvp_es_def {
 	//TODO due to es_auth, this structure cannot be constified any more
 	// which implies that all operations must be single-threaded
@@ -84,6 +92,8 @@ struct esvp_es_def {
 	struct acvp_auth_ctx *es_auth;
 	struct acvp_buf raw_noise_data_hash;
 	struct acvp_buf raw_noise_restart_hash;
+
+	enum esvp_status esvp_status;
 
 	double h_min_estimate;
 	unsigned int bits_per_sample;

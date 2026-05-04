@@ -640,26 +640,29 @@ out:
 	return ret;
 }
 
-static int acvp_datastore_parse_status(const char *pathname,
-				       const char *filename,
-				       struct acvp_testid_ctx *testid_ctx)
+static int acvp_datastore_parse_status(
+	const char *pathname, const char *filename,
+	struct acvp_testid_ctx *testid_ctx,
+	int (*parser)(struct acvp_testid_ctx *testid_ctx,
+		      struct json_object *status))
 {
 	struct stat statbuf;
 	struct json_object *status = NULL;
 	int ret = 0;
 	char file[FILENAME_MAX];
 
-	if (!testid_ctx->status_parse)
+	if (!parser)
 		return 0;
 
 	snprintf(file, sizeof(file), "%s/%s", pathname, filename);
 	if (!stat(file, &statbuf) && statbuf.st_size) {
-		logger(LOGGER_DEBUG, LOGGER_C_ANY, "Loading status file %s\n",
-		       file);
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Loading status file %s for test ID %"PRIu64"\n",
+		       file, testid_ctx->testid);
 		status = json_object_from_file(file);
 		CKNULL_LOG(status, -EFAULT, "Cannot parse input file %s\n",
 			   file);
-		CKINT(testid_ctx->status_parse(testid_ctx, status));
+		CKINT(parser(testid_ctx, status));
 	}
 
 out:
@@ -754,9 +757,14 @@ acvp_datastore_file_read_authtoken(struct acvp_testid_ctx *testid_ctx)
 		&auth->testsession_certificate_number));
 
 	CKINT(acvp_datastore_parse_status(pathname, datastore->esvp_statusfile,
-					  testid_ctx));
+					  testid_ctx,
+					  testid_ctx->status_parse_esvp));
 	CKINT(acvp_datastore_parse_status(pathname, datastore->amvp_statusfile,
-					  testid_ctx));
+					  testid_ctx,
+					  testid_ctx->status_parse_amvp));
+	CKINT(acvp_datastore_parse_status(pathname, datastore->rbg_statusfile,
+					  testid_ctx,
+					  testid_ctx->status_parse_rbg));
 
 out:
 	return ret;

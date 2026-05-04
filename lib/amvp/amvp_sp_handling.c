@@ -100,7 +100,7 @@ static int amvp_sp_handle_get_pdf_response(
 		CKINT(ds->acvp_datastore_write_vsid(certreq_ctx, spfile,
 						    false, &filebuf));
 		logger_status(LOGGER_C_ANY,
-			      "Security Policy PDF file stored in certificate request %"PRIu64" database directory\n",
+			      "Security Policy file stored in certificate request %"PRIu64" database directory\n",
 			      certreq_ctx->vsid);
 
 	} else if (!strncasecmp(str, "pending", 7)) {
@@ -234,7 +234,7 @@ static int amvp_sp_generate_pdf(const struct acvp_vsid_ctx *certreq_ctx,
 	       AMVP_REQUEST_STATE_PENDING_PROCESSING_GENERATION) {
 		/* Wait the requested amount of seconds */
 		logger_status(LOGGER_C_ANY,
-			"AMVP server needs more time for PDF generation - sleeping for %u seconds for certificate request %"PRIu64" again\n",
+			"AMVP server needs more time for SP file generation - sleeping for %u seconds for certificate request %"PRIu64" again\n",
 			AMVP_GET_DATAFILE_INFO_SLEEPTIME,
 			certreq_ctx->vsid);
 

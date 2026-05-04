@@ -41,9 +41,9 @@ extern "C" {
 struct def_algo_sym_aes_ff {
 	/*
 	 * An alphabet the IUT supports for Format Preserving Encryption.
-	 * Example "0123456789abcdefghijklmnopqrstuvwxyz". Alphabets should be
-	 * a minimum of two characters, and a maximum of 62 (all numbers and
-	 * upper and lower case letters).
+	 * Example "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/". Alphabets should be
+	 * a minimum of two characters, and a maximum of 64 (all numbers and
+	 * upper, lower case letters and special characters '+' and '/').
 	 *
 	 * required: always
 	 */
@@ -54,7 +54,7 @@ struct def_algo_sym_aes_ff {
 	 * characters from the alphabet.
 	 *
 	 * min: 2
-	 * max 62
+	 * max 64
 	 *
 	 * required: always
 	 */

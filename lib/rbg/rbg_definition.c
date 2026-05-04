@@ -91,8 +91,9 @@ out:
 static int rbg_read_def(const char *directory, struct rbg_def **rbg_out)
 {
 	struct rbg_def *rbg;
-	unsigned int ctr = 0;
+	unsigned int ctr;
 	int ret = 0;
+	bool found = false;
 
 	rbg = calloc(1, sizeof(struct rbg_def));
 	CKNULL(rbg, -ENOMEM);
@@ -102,16 +103,16 @@ static int rbg_read_def(const char *directory, struct rbg_def **rbg_out)
 
 		if (ret)
 			break;
+		found = 1;
 	}
 
-	if (ret == 1) {
+	if (ret == 1)
 		ret = 0;
-		ctr--;
-	}
+	CKINT(ret);
 
-	if (ctr == 0) {
-		logger(LOGGER_ERR, LOGGER_C_ANY, "Reading of RBG definition failed to find at least one definition\n");
-		ret = -EINVAL;
+	if (!found) {
+		logger(LOGGER_VERBOSE, LOGGER_C_ANY,
+		       "Reading of RBG definition failed to find at least one definition\n");
 		goto out;
 	}
 

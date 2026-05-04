@@ -69,6 +69,7 @@ struct opt_data {
 
 	bool rename;
 	bool request;
+	bool cancel;
 	bool publish;
 	bool esv_pudupdate;
 	bool list_available_ids;
@@ -187,6 +188,7 @@ static void usage(void)
 	fprintf(stderr,
 		"\n\tNote: You can use --testid or --vsid together with\n");
 	fprintf(stderr, "\t--publish to limit the scope.\n\n");
+	fprintf(stderr, "\t   --cancel\t\t\tCancel test vector set defined with --testid\n\n");
 
 	fprintf(stderr,
 		"\t   --dump-register\t\tDump register JSON request to stdout\n");
@@ -647,6 +649,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 			{ "certify", no_argument, 0, 0},
 			{ "certprereq", no_argument, 0, 0},
 			{ "generate-sp", no_argument, 0, 0},
+
+			{ "cancel", no_argument, 0, 0 },
 
 			{ 0, 0, 0, 0 }
 		};
@@ -1179,6 +1183,11 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 				opts->acvp_ctx_options.generate_sp = true;
 				break;
 
+			case 76:
+				/* cancel */
+				opts->cancel = true;
+				break;
+
 			default:
 				usage();
 				ret = -EINVAL;
@@ -1268,6 +1277,8 @@ static int parse_opts(int argc, char *argv[], struct opt_data *opts)
 		search->with_es_def = true;
 	if (opts->amvp_proxy)
 		search->with_amvp_def = true;
+	if (opts->rbg_proxy)
+		search->with_rbg_def = true;
 
 	if (opts->acvp_ctx_options.delete_db_entry == ACVP_OPTS_DELUP_FORCE) {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -1464,6 +1475,33 @@ static int do_register(struct opt_data *opts)
 
 	if (ret == -ENOENT)
 		ret = 0;
+
+out:
+	acvp_ctx_release(ctx);
+	return ret;
+}
+
+static int do_cancel(struct opt_data *opts)
+{
+	struct acvp_ctx *ctx = NULL;
+	int ret;
+
+	CKINT(initialize_ctx(&ctx, opts, true));
+
+	if (opts->search.nr_submit_testid || opts->search.nr_submit_vsid) {
+		/*
+		 * If the caller provides particular vsIDs or testIDs to
+		 * register, we implicitly assume that the caller wants to
+		 * re-download the test vectors (how else would a caller know
+		 * particular testIDs or vsIDs?).
+		 */
+		ctx->req_details.download_pending_vsid = true;
+		CKINT(acvp_cancel(ctx));
+	} else {
+		fprintf(stderr,
+			"Cancel operation requires --testid\n");
+		ret = -EINVAL;
+	}
 
 out:
 	acvp_ctx_release(ctx);
@@ -2092,6 +2130,8 @@ int main(int argc, char *argv[])
 		CKINT(do_rename(&opts));
 	} else if (opts.request) {
 		CKINT(do_register(&opts));
+	} else if (opts.cancel) {
+		CKINT(do_cancel(&opts));
 	} else if (opts.publish) {
 		CKINT(do_publish(&opts));
 	} else if (opts.list_available_ids || opts.list_pending_request_ids ||
