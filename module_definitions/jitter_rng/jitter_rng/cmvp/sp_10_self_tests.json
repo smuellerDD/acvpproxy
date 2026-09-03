@@ -1,0 +1,91 @@
+{
+    "preOpSelfTestList": [
+      {
+        "algorithmOrTest": "reprehenderit exercitation commodo velit",
+        "testProps": "ullamco nostrud",
+        "testMethod": "amet sit minim",
+        "type": "veniam",
+        "indicator": "ut irure pariatur adipisicing",
+        "details": "labore voluptate nisi",
+        "period": "in eu ex",
+        "periodicMethod": "in eu officia minim"
+      },
+      {
+        "algorithmOrTest": "occaecat Ut voluptate est minim",
+        "testProps": "commodo aliquip velit",
+        "testMethod": "ea minim",
+        "type": "deserunt",
+        "indicator": "eu anim consectetur",
+        "details": "eu",
+        "period": "labore culpa pariatur proident aliqua",
+        "periodicMethod": "veniam eiusmod cupidatat"
+      }
+    ],
+    "condSelfTestList": [
+      {
+        "algorithmOrTest": "sed laboris Ut",
+        "testProps": "culpa",
+        "testMethod": "ea",
+        "type": "laborum dolore tempor nisi",
+        "indicator": "sit sed cillum qui",
+        "details": "enim adipisicing eu cupidatat amet",
+        "conditions": "amet laboris",
+        "coverage": [],
+        "coverageNotes": "velit culpa officia",
+        "period": "sit",
+        "periodicMethod": "dolor reprehenderit Duis"
+      },
+      {
+        "algorithmOrTest": "eu fugiat consequat enim",
+        "testProps": "do",
+        "testMethod": "magna pariatur",
+        "type": "sint",
+        "indicator": "nostrud esse in ut",
+        "details": "enim in do",
+        "conditions": "Duis",
+        "coverage": [],
+        "coverageNotes": "ut Duis",
+        "period": "sint reprehenderit ea",
+        "periodicMethod": "aliqua labore"
+      },
+      {
+        "algorithmOrTest": "ex sint aliqua minim officia",
+        "testProps": "mollit tempor velit",
+        "testMethod": "anim proident",
+        "type": "tempor ut irure pariatur",
+        "indicator": "dolor elit deserunt",
+        "details": "magna voluptate laborum",
+        "conditions": "est sint ut",
+        "coverage": [],
+        "coverageNotes": "occaecat sed in esse velit",
+        "period": "dolor ipsum nostrud eu dolor",
+        "periodicMethod": "ullamco labore dolore culpa et"
+      },
+      {
+        "algorithmOrTest": "voluptate laboris culpa ut proident",
+        "testProps": "nostrud occaecat",
+        "testMethod": "ipsum eu proident quis reprehenderit",
+        "type": "eu laborum id ullamco",
+        "indicator": "in dolor quis nostrud",
+        "details": "in aliquip",
+        "conditions": "esse",
+        "coverage": [],
+        "coverageNotes": "esse cupidatat Lorem cillum",
+        "period": "amet labore",
+        "periodicMethod": "nulla quis qui elit exercitation"
+      },
+      {
+        "algorithmOrTest": "minim aliqua sit",
+        "testProps": "id consequat",
+        "testMethod": "sit",
+        "type": "ex",
+        "indicator": "in consequat laboris",
+        "details": "id adipisicing ut",
+        "conditions": "id pariatur esse ut",
+        "coverage": [],
+        "coverageNotes": "in nulla ipsum cillum fugiat",
+        "period": "fugiat",
+        "periodicMethod": "Duis dolore deserunt id"
+      }
+    ],
+}

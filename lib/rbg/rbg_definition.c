@@ -65,12 +65,12 @@ static int rbg_read_def_one(const char *directory, struct rbg_def *rbg)
 	CKNULL(directory, -EINVAL);
 
 	snprintf(pathname, sizeof(pathname), "%s/%s%u/%s%s", directory,
-		 RBG_ES_DIR_RBG, rbg->num_rbg_definitions, RBG_ES_FILE_DEF,
+		 RBG_DIR_RBG, rbg->num_rbg_definitions, RBG_FILE_DEF,
 		 RBG_CONFIG_FILE_EXTENSION);
 
 	if (stat(pathname, &statbuf)) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY,
-		       "Noise source definition not found at %s - skipping entropy source definitions\n",
+		       "RBG definition not found at %s - skipping RBG definitions\n",
 		       pathname);
 		return 1;
 	}
@@ -97,6 +97,8 @@ static int rbg_read_def(const char *directory, struct rbg_def **rbg_out)
 
 	rbg = calloc(1, sizeof(struct rbg_def));
 	CKNULL(rbg, -ENOMEM);
+
+	CKINT(acvp_duplicate(&rbg->config_dir, directory));
 
 	for (ctr = 0; ctr < RBG_MAX_DEFINITIONS; ctr++) {
 		ret = rbg_read_def_one(directory, rbg);

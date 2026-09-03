@@ -110,17 +110,19 @@ int acvp_req_set_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
 	struct json_object *array;
 	int ret;
 
-	CKINT(acvp_req_add_revision(entry, "FIPS203"));
-
 	CKINT(acvp_req_set_prereq_ml_kem(ml_kem, NULL, entry, false));
 
 	if (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_KEYGEN) {
+		CKINT(acvp_req_add_revision(entry, "FIPS203"));
+
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("keyGen")));
 	} else if ((ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_ENCAPSULATION) ||
 		   (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_DECAPSULATION) ||
 		   (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_ENCAPSULATION_CHECK) ||
 		   (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_DECAPSULATION_CHECK)) {
+		CKINT(acvp_req_add_revision(entry, "FIPS203-tr1"));
+
 		CKINT(json_object_object_add(
 			entry, "mode", json_object_new_string("encapDecap")));
 
@@ -142,6 +144,23 @@ int acvp_req_set_algo_ml_kem(const struct def_algo_ml_kem *ml_kem,
 		if (ml_kem->ml_kem_mode & DEF_ALG_ML_KEM_MODE_DECAPSULATION_CHECK) {
 			CKINT(json_object_array_add(
 				array, json_object_new_string("decapsulationKeyCheck")));
+		}
+
+		array = json_object_new_array();
+		CKNULL(array, -ENOMEM);
+		CKINT(json_object_object_add(entry, "keyFormats", array));
+		if (ml_kem->key_format == 0) {
+			/* If nothing was specified, we assume expanded */
+			CKINT(json_object_array_add(
+				array, json_object_new_string("expanded")));
+		}
+		if (ml_kem->key_format & DEF_ALG_ML_KEM_EXPANDED) {
+			CKINT(json_object_array_add(
+				array, json_object_new_string("expanded")));
+		}
+		if (ml_kem->key_format & DEF_ALG_ML_KEM_SEED) {
+			CKINT(json_object_array_add(
+				array, json_object_new_string("seed")));
 		}
 	} else {
 		logger(LOGGER_WARN, LOGGER_C_ANY,

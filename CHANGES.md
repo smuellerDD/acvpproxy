@@ -1,3 +1,6 @@
+v2.1.1
+- update to current ACVP vector definitions and remove sunset definitions
+
 v2.1.0:
 - add RBG-Proxy
 - AMVP: make it consistent with NIST's version at ICMC 2026

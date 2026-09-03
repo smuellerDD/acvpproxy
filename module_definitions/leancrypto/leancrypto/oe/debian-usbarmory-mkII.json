@@ -1,0 +1,12 @@
+{
+  "oeEnvName":"Debian 11.7",
+  "manufacturer":"NXP",
+  "procFamily":"ARM32",
+  "procName":"i.MX6ULZ",
+  "procSeries":"Cortex-A7",
+  "features":0,
+  "envType":0,
+  "acvpOeId":0,
+  "acvpOeDepProcId":0,
+  "acvpOeDepSwId":0
+}

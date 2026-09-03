@@ -1,0 +1,33 @@
+{
+	"implementations": [
+		"SHA3_AVX2",
+		"SHA3_AVX512",
+		"SHA3_ASM",
+		"SSH_AVX2",
+		"SSH_AVX",
+		"SSH_SSSE3",
+		"SSH_ASM",
+		"FFC_DH",
+		"KBKDF",
+		"TLS v1.3",
+		"ECDSA K/B",
+		"ECDSA SHA3 K/B",
+		"ECDH K/B",
+		"EDDSA"
+	],
+	"dependencies-internal": {
+		"FFC_DH": {
+			"SHA": "SHA_",
+			"DRBG": "AES",
+			"DSA": "SHA_"
+		},
+		"KBKDF": {
+			"AES": "AES",
+			"TDES" : "TDES_C",
+			"CMAC" : "AES",
+			"CMAC" : "TDES",
+			"HMAC" : "SHA_",
+			"SHA": "SHA_"
+		}
+	}
+}

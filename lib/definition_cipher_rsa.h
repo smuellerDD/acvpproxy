@@ -385,7 +385,7 @@ struct def_algo_rsa_component_sig_gen {
 	/*
 	 * Supported RSA modulo for the signature primitive (2048, 3072, 4096)
 	 *
-	 * required: optional
+	 * required: required
 	 */
 	enum rsa_modulo rsa_modulo[3];
 

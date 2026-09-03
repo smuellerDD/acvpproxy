@@ -1,0 +1,6 @@
+{
+	"implementations": [
+		"LRNG implementation",
+		"Kernel Crypto API implementation"
+	]
+}

@@ -1,0 +1,36 @@
+{
+	"construction": "RBGC",
+	"allowsReseedRequests": true,
+	"entropySources": {
+		"sources":
+		[
+			{
+				"entropyValidation": "E2",
+				"entropyOperatingEnvironments": [2],
+				"rbgOperatingEnvironments": [2]
+			}
+		],
+		"combinationMethod": "Method2"
+	},
+	"drbg": {
+		"validations":
+	       	[
+			{
+			"validationNumber": "A1",
+			"algorithmOperatingEnvironments": [2]
+			}
+		],
+		"algorithm": "CTR_DRBG AES-256",
+		"derivationFunction": true,
+		"seed": [
+			{
+				"securityStrength": 256,
+				"minHin": 384.0,
+				"minNin": 384
+                        }
+		],
+		"reseed": true,
+		"reseedFrequency": "2^14 bytes",
+	},
+	"operatingEnvironments": [2]
+}

@@ -254,6 +254,7 @@ static int acvp_response_error_handler(const int request_ret)
 	case ACVP_ERR_NO_ERR:
 	case ACVP_ERR_RESPONSE_REJECTED:
 	case ACVP_ERR_AUTH_JWT_EXPIRED:
+	case ACVP_ERR_PASRE_ERR_STRING:
 	default:
 		return -request_ret;
 	}
@@ -1066,7 +1067,7 @@ int acvp_testids_refresh(
 
 		if (esvp) {
 			if (esvp_entry > testid_count) {
-				ret = -EFAULT;
+				ret = 0;
 				goto out;
 			}
 			testids[0] = testids[esvp_entry];

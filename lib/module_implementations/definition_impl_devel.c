@@ -1549,17 +1549,41 @@ static const struct def_algo_slh_dsa_caps slh_dsa_sig_capabilities[] = { {
 #else
 #define DEVEL_AES_CTR_RFC3686
 #endif
-#define G_ML_KEM_ENCAPSULATION(param_sets)			\
+
+#if 1
+#define G_ML_KEM_KEYGEN(param_sets)					\
 	{								\
 	.type = DEF_ALG_TYPE_ML_KEM,					\
 	.algo = {							\
 		.ml_kem = {						\
-			.ml_kem_mode = DEF_ALG_ML_KEM_MODE_ENCAPSULATION_CHECK |	\
-				  DEF_ALG_ML_KEM_MODE_DECAPSULATION_CHECK,\
+			.ml_kem_mode = DEF_ALG_ML_KEM_MODE_KEYGEN,	\
 			.parameter_set = param_sets,			\
 			}						\
 		}							\
 	}
+
+#define G_ML_KEM_ENCAPSULATION(param_sets)				\
+	{								\
+	.type = DEF_ALG_TYPE_ML_KEM,					\
+	.algo = {							\
+		.ml_kem = {						\
+			.ml_kem_mode = DEF_ALG_ML_KEM_MODE_ENCAPSULATION |\
+				       DEF_ALG_ML_KEM_MODE_DECAPSULATION |\
+				       DEF_ALG_ML_KEM_MODE_ENCAPSULATION_CHECK |\
+				       DEF_ALG_ML_KEM_MODE_DECAPSULATION_CHECK,\
+			.parameter_set = param_sets,			\
+			.key_format = DEF_ALG_ML_KEM_EXPANDED |		\
+				      DEF_ALG_ML_KEM_SEED,		\
+			}						\
+		}							\
+	}
+#define G_ML_KEM(param_sets)						\
+	G_ML_KEM_KEYGEN(param_sets),					\
+	G_ML_KEM_ENCAPSULATION(param_sets)
+#else
+#define G_ML_KEM(param_sets)
+#endif
+
 /**************************************************************************
  * Devel Implementation Definitions
  **************************************************************************/
@@ -1624,7 +1648,7 @@ static const struct def_algo devel[] = {
 
 	DEVEL_AES_CTR_RFC3686
 
-	G_ML_KEM_ENCAPSULATION(DEF_ALG_ML_KEM_768)
+	G_ML_KEM(DEF_ALG_ML_KEM_768)
 };
 
 /**************************************************************************

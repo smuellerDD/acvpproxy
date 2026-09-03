@@ -58,6 +58,7 @@
 #include "definition_cipher_ml_dsa.h"
 #include "definition_cipher_ml_kem.h"
 #include "definition_cipher_slh_dsa.h"
+#include "definition_cipher_xecdh.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -147,6 +148,8 @@ struct def_algo {
 		DEF_ALG_TYPE_ML_DSA,
 		/** FIPS 205: SLH-DSA */
 		DEF_ALG_TYPE_SLH_DSA,
+		/** XECDH (X25519, X448) */
+		DEF_ALG_TYPE_XECDH,
 	} type;
 	union {
 		/** DEF_ALG_TYPE_SYM */
@@ -221,6 +224,8 @@ struct def_algo {
 		struct def_algo_ml_dsa ml_dsa;
 		/** DEF_ALG_TYPE_SLH_DSA */
 		struct def_algo_slh_dsa slh_dsa;
+		/** DEF_ALG_TYPE_XECDH */
+		struct def_algo_xecdh xecdh;
 	} algo;
 };
 

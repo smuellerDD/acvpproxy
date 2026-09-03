@@ -254,7 +254,7 @@ struct acvp_req_ctx {
 
 struct acvp_opts_ctx {
 	/*
-	 * Certify request for ESVP proxy
+	 * Certify request for ESVP proxy or RBG proxy
 	 */
 	bool esv_certify;
 

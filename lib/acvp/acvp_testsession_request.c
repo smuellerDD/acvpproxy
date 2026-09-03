@@ -359,6 +359,9 @@ static int acvp_req_set_algo(struct json_object *algorithms,
 		CKINT(acvp_req_set_algo_slh_dsa(&def_algo->algo.slh_dsa,
 						entry));
 		break;
+	case DEF_ALG_TYPE_XECDH:
+		CKINT(acvp_req_set_algo_xecdh(&def_algo->algo.xecdh, entry));
+		break;
 
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY,

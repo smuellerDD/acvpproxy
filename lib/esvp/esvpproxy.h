@@ -36,7 +36,8 @@ extern "C" {
 #define NIST_ESVP_VAL_OP_CERTIFY "certify"
 #define NIST_ESVP_VAL_OP_OEADD "addOE"
 #define NIST_ESVP_VAL_OP_PUDUPDATE "updatePUD"
-#define NIST_ESVP_VAL_OP_RBG "rbgs"
+#define NIST_ESVP_VAL_OP_RBG "rbg"
+#define NIST_ESVP_VAL_OP_RBGS "rbgs"
 #define NIST_ESVP_VAL_OP_COMBINED "combined"
 
 /**

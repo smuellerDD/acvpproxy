@@ -730,7 +730,7 @@ int acvp_list_registered_definitions(const struct acvp_search_ctx *search)
 	v_len += o_len + p_len + m_len + mv_len + 15 + 5;
 	if (v_len < 0)
 		v_len = 20;
-	if (v_len > (int)sizeof(bottomline))
+	if (v_len >= (int)sizeof(bottomline))
 		v_len = sizeof(bottomline) - 1;
 	memset(bottomline, 61, (unsigned long)v_len);
 	bottomline[v_len] = '\0';
@@ -1534,7 +1534,7 @@ static int acvp_def_set_value(struct json_object *json, const char *name,
 			return 0;
 
 		json_object_object_add(json, name,
-				       json_object_new_int((int)id));
+				       json_object_new_int64((int64_t)id));
 		*set = true;
 		return 0;
 	}

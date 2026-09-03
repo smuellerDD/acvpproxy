@@ -103,7 +103,7 @@ static int esvp_certify_build_one(const struct acvp_testid_ctx *testid_ctx,
 			json_object_new_string(auth->jwt_token)));
 
 		if (sd_array) {
-			CKINT_ULCK(esvp_build_sd(testid_ctx, sd_array, false));
+			CKINT_ULCK(esvp_build_sd(es->sd, sd_array, false));
 		}
 
 	} else {
@@ -358,7 +358,7 @@ out:
 	return ret;
 }
 
-static int
+int
 esvp_process_certify(const struct acvp_testid_ctx *testid_ctx,
 		     const struct acvp_buf *response)
 {

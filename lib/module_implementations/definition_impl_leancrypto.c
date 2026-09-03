@@ -83,8 +83,8 @@
 	.algo.sym.algorithm = ACVP_ASCON_AEAD_128,			\
 	.algo.sym.direction = DEF_ALG_SYM_DIRECTION_ENCRYPTION |	\
 			      DEF_ALG_SYM_DIRECTION_DECRYPTION,		\
-	DEF_ALG_DOMAIN(.algo.sym.ptlen, 8, 65536, 8),			\
-	DEF_ALG_DOMAIN(.algo.sym.aadlen, 8, 65536, 8),			\
+	DEF_ALG_DOMAIN(.algo.sym.ptlen, 0, 65536, 8),			\
+	DEF_ALG_DOMAIN(.algo.sym.aadlen, 0, 65536, 8),			\
 	.algo.sym.taglen = { 128 },					\
 	}
 

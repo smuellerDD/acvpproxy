@@ -122,9 +122,21 @@ struct def_algo_drbg_caps {
 
 	/*
 	 * One value of the number of returned bits supported by DRBG
-	 * required: always
+	 * required: always (this is deprecated, use returnedbitslen_domain)
 	 */
 	int returnedbitslen;
+
+	/*
+	 * One value of the number of returned bits supported by DRBG
+	 * required: always
+	 */
+	int returnedbitslen_domain[DEF_ALG_MAX_INT];
+
+	/*
+	 * Number of bits used as the counter field
+	 * required: optional for ctrDRBG (default is entire blocklen, 128 bits for AES/64 bits for TDES)
+	 */
+	int counterFieldLen;
 };
 
 struct def_algo_drbg {

@@ -1,0 +1,10 @@
+{
+	"description": "SHA3-256",
+	"minHin": 256,
+	"minNin": 392,
+	"nw": 256,
+	"nOut": 256,
+	"hOut": 256,
+	"vetted": true,
+	"acvtsCertificate": "A770"
+}

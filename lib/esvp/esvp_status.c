@@ -115,98 +115,22 @@ out:
 /***************************************************************************
  * ESVP status handling
  ***************************************************************************/
-int esvp_read_status(struct acvp_testid_ctx *testid_ctx,
-		     struct json_object *status)
+int esvp_parse_sd(const struct json_object *sd_array,
+		  struct esvp_sd_def **sd_list)
 {
-	struct esvp_es_def *es;
-	struct esvp_cc_def *cc;
 	struct esvp_sd_def *sd = NULL;
 	struct acvp_auth_ctx *auth;
-	struct json_object *array;
-	unsigned int seq_no = 1, i;
+	unsigned int i;
 	const char *str;
-	int ret;
+	int ret = 0;
 
-	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Parsing status of ESVP\n");
+	if (!sd_list)
+		return 0;
 
-	CKINT(esvp_get_es(&es, testid_ctx));
-
-	/* Allow those values to not exist - then they are marked as false */
-	json_get_string(status, "eaRuntimeResultsStatus", &str);
-	//TODO: remove call if es is testid-local
-	ACVP_PTR_FREE_NULL(es->ea_runtime_results_status);
-	CKINT(acvp_duplicate(&es->ea_runtime_results_status, str));
-	json_get_string(status, "eaRestartResultsStatus", &str);
-	//TODO: remove call if es is testid-local
-	ACVP_PTR_FREE_NULL(es->ea_restart_results_status);
-	CKINT(acvp_duplicate(&es->ea_restart_results_status, str));
-
-	CKINT(json_get_uint64(status, "rawNoiseBitsId", &es->raw_noise_id));
-	CKINT(json_get_bool(status, "rawNoiseBitsSubmitted",
-			    &es->raw_noise_submitted));
-
-	CKINT(json_get_uint64(status, "restartTestBitsId", &es->restart_id));
-	CKINT(json_get_bool(status, "restartTestBitsSubmitted",
-			    &es->restart_submitted));
-
-	/* Get access token */
-	CKINT(json_get_string(status, "eaAccessToken", &str));
-
-	/*
-	 * This call is only allowed because threading is disaled considering
-	 * that testid_ctx->es_def is shared between multiple testid_ctx.
-	 */
-	acvp_release_acvp_auth_ctx(es->es_auth);
-	ACVP_PTR_FREE_NULL(es->es_auth);
-
-	/* Store access token in ctx */
-	CKINT(acvp_init_acvp_auth_ctx(&es->es_auth));
-	auth = es->es_auth;
-	CKINT_LOG(acvp_set_authtoken_temp(auth, str),
-		  "Cannot set the new JWT token\n");
-	CKINT(json_get_uint64(status, "eaAccessTokenGenerated",
-			      (uint64_t *)&auth->jwt_token_generated));
-
-	/* Duplicate the authtoken for the testid context */
-	CKINT(acvp_copy_auth(testid_ctx->server_auth, auth));
-
-	for (cc = es->cc; cc; cc = cc->next, seq_no++) {
-		struct json_object *stat_cc;
-		char ref[40];
-		/*
-		 * Only process non-vetted and non-bijective conditioning
-		 * components.
-		 */
-		if (cc->vetted || cc->bijective)
-			continue;
-
-		snprintf(ref, sizeof(ref), "conditioningComponent%u", seq_no);
-		CKINT(json_find_key(status, ref, &stat_cc, json_type_object));
-		CKINT(json_get_uint64(stat_cc, "conditionedBitsId",
-				      &cc->cc_id));
-		CKINT(json_get_bool(stat_cc, "conditionedBitsSubmitted",
-				    &cc->output_submitted));
-
-		/* Read hash */
-		ret = esvp_read_filehash(stat_cc, &cc->data_hash, "fileHash");
-		/* Hash does not match current hash -> (re-)submit file */
-		if (ret == -ENOENT)
-			cc->output_submitted = false;
-		else if (ret)
-			goto out;
-	}
-
-	ret = json_find_key(status, "supportingDocumentation", &array,
-			    json_type_array);
-	if (ret) {
-		ret = 0;
-		goto out;
-	}
-
-	for (i = 0; i < json_object_array_length(array); i++) {
+	for (i = 0; i < json_object_array_length(sd_array); i++) {
 		struct json_object *filenames;
 		struct json_object *sd_entry =
-			json_object_array_get_idx(array, i);
+			json_object_array_get_idx(sd_array, i);
 
 		sd = calloc(1, sizeof(struct esvp_sd_def));
 		CKNULL(sd, -ENOMEM);
@@ -295,11 +219,11 @@ int esvp_read_status(struct acvp_testid_ctx *testid_ctx,
 		ret = 0;
 
 		/*
-		 * Append the new conditioning component entry at the end of
+		 * Append the new supporting document entry at the end of
 		 * the list because the order matters.
 		 */
-		if (es->sd) {
-			struct esvp_sd_def *iter_sd = es->sd;
+		if (*sd_list) {
+			struct esvp_sd_def *iter_sd = *sd_list;
 
 			while (iter_sd) {
 				/* Avoid duplicat entries */
@@ -319,7 +243,7 @@ int esvp_read_status(struct acvp_testid_ctx *testid_ctx,
 				iter_sd = iter_sd->next;
 			}
 		} else {
-			es->sd = sd;
+			*sd_list = sd;
 		}
 	}
 
@@ -330,19 +254,110 @@ out:
 	return ret;
 }
 
-int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
-		  struct json_object *sd_array, bool write_extended)
+
+int esvp_read_status(struct acvp_testid_ctx *testid_ctx,
+		     struct json_object *status)
 {
 	struct esvp_es_def *es;
-	const struct esvp_sd_def *sd;
-	int ret = 0;
+	struct esvp_cc_def *cc;
+	struct acvp_auth_ctx *auth;
+	struct json_object *array;
+	unsigned int seq_no = 1;
+	const char *str;
+	int ret;
+
+	logger(LOGGER_DEBUG, LOGGER_C_ANY, "Parsing status of ESVP\n");
 
 	CKINT(esvp_get_es(&es, testid_ctx));
 
-	if (!es->sd)
+	/* Allow those values to not exist - then they are marked as false */
+	json_get_string(status, "eaRuntimeResultsStatus", &str);
+	//TODO: remove call if es is testid-local
+	ACVP_PTR_FREE_NULL(es->ea_runtime_results_status);
+	CKINT(acvp_duplicate(&es->ea_runtime_results_status, str));
+	json_get_string(status, "eaRestartResultsStatus", &str);
+	//TODO: remove call if es is testid-local
+	ACVP_PTR_FREE_NULL(es->ea_restart_results_status);
+	CKINT(acvp_duplicate(&es->ea_restart_results_status, str));
+
+	CKINT(json_get_uint64(status, "rawNoiseBitsId", &es->raw_noise_id));
+	CKINT(json_get_bool(status, "rawNoiseBitsSubmitted",
+			    &es->raw_noise_submitted));
+
+	CKINT(json_get_uint64(status, "restartTestBitsId", &es->restart_id));
+	CKINT(json_get_bool(status, "restartTestBitsSubmitted",
+			    &es->restart_submitted));
+
+	/* Get access token */
+	CKINT(json_get_string(status, "eaAccessToken", &str));
+
+	/*
+	 * This call is only allowed because threading is disaled considering
+	 * that testid_ctx->es_def is shared between multiple testid_ctx.
+	 */
+	acvp_release_acvp_auth_ctx(es->es_auth);
+	ACVP_PTR_FREE_NULL(es->es_auth);
+
+	/* Store access token in ctx */
+	CKINT(acvp_init_acvp_auth_ctx(&es->es_auth));
+	auth = es->es_auth;
+	CKINT_LOG(acvp_set_authtoken_temp(auth, str),
+		  "Cannot set the new JWT token\n");
+	CKINT(json_get_uint64(status, "eaAccessTokenGenerated",
+			      (uint64_t *)&auth->jwt_token_generated));
+
+	/* Duplicate the authtoken for the testid context */
+	CKINT(acvp_copy_auth(testid_ctx->server_auth, auth));
+
+	for (cc = es->cc; cc; cc = cc->next, seq_no++) {
+		struct json_object *stat_cc;
+		char ref[40];
+		/*
+		 * Only process non-vetted and non-bijective conditioning
+		 * components.
+		 */
+		if (cc->vetted || cc->bijective)
+			continue;
+
+		snprintf(ref, sizeof(ref), "conditioningComponent%u", seq_no);
+		CKINT(json_find_key(status, ref, &stat_cc, json_type_object));
+		CKINT(json_get_uint64(stat_cc, "conditionedBitsId",
+				      &cc->cc_id));
+		CKINT(json_get_bool(stat_cc, "conditionedBitsSubmitted",
+				    &cc->output_submitted));
+
+		/* Read hash */
+		ret = esvp_read_filehash(stat_cc, &cc->data_hash, "fileHash");
+		/* Hash does not match current hash -> (re-)submit file */
+		if (ret == -ENOENT)
+			cc->output_submitted = false;
+		else if (ret)
+			goto out;
+	}
+
+	ret = json_find_key(status, "supportingDocumentation", &array,
+			    json_type_array);
+	if (ret) {
+		ret = 0;
+		goto out;
+	}
+
+	CKINT(esvp_parse_sd(array, &es->sd));
+
+out:
+	return ret;
+}
+
+int esvp_build_sd(const struct esvp_sd_def *sd_list,
+		  struct json_object *sd_array, bool write_extended)
+{
+	const struct esvp_sd_def *sd;
+	int ret = 0;
+
+	if (!sd_list)
 		return 0;
 
-	for (sd = es->sd; sd; sd = sd->next) {
+	for (sd = sd_list; sd; sd = sd->next) {
 		struct json_object *sd_data;
 		struct acvp_auth_ctx *auth;
 
@@ -489,7 +504,7 @@ int esvp_write_status(const struct acvp_testid_ctx *testid_ctx)
 	CKNULL(sd_array, -ENOMEM);
 	CKINT(json_object_object_add(stat, "supportingDocumentation",
 				     sd_array));
-	CKINT(esvp_build_sd(testid_ctx, sd_array, true));
+	CKINT(esvp_build_sd(es->sd, sd_array, true));
 
 	stat_str = json_object_to_json_string_ext(
 		stat, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);

@@ -114,7 +114,7 @@ struct def_algo_hkdf {
 	/*
 	 * HKDF specification that is to be applied
 	 *
-	 * required: optional - if not set SP800-56Cr1 is assumed
+	 * required: deprecated
 	 */
 	enum hkdf_spec {
 		DEF_ALG_HKDF_SP800_56Crev1 = 0,

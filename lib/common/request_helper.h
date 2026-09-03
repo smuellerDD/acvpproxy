@@ -22,6 +22,8 @@
 
 #include <dirent.h>
 
+#include "internal.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

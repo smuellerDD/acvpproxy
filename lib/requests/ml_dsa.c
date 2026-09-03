@@ -268,6 +268,23 @@ static int acvp_req_ml_dsa_siggen(const struct def_algo_ml_dsa *ml_dsa,
 
 	CKINT(acvp_req_ml_dsa_sig_interface(ml_dsa, entry));
 
+	array = json_object_new_array();
+	CKNULL(array, -ENOMEM);
+	CKINT(json_object_object_add(entry, "keyFormats", array));
+	if (ml_dsa->key_format == 0) {
+		/* If nothing was specified, we assume expanded */
+		CKINT(json_object_array_add(
+			array, json_object_new_string("expanded")));
+	}
+	if (ml_dsa->key_format & DEF_ALG_ML_DSA_EXPANDED) {
+		CKINT(json_object_array_add(
+			array, json_object_new_string("expanded")));
+	}
+	if (ml_dsa->key_format & DEF_ALG_ML_DSA_SEED) {
+		CKINT(json_object_array_add(
+			array, json_object_new_string("seed")));
+	}
+
 out:
 	return ret;
 }
@@ -307,12 +324,12 @@ int acvp_req_set_algo_ml_dsa(const struct def_algo_ml_dsa *ml_dsa,
 {
 	int ret;
 
-	CKINT(acvp_req_add_revision(entry, "FIPS204"));
-
 	CKINT(acvp_req_set_prereq_ml_dsa(ml_dsa, NULL, entry, false));
 
 	switch (ml_dsa->ml_dsa_mode) {
 	case DEF_ALG_ML_DSA_MODE_KEYGEN:
+		CKINT(acvp_req_add_revision(entry, "FIPS204"));
+
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("keyGen")));
 
@@ -329,11 +346,15 @@ int acvp_req_set_algo_ml_dsa(const struct def_algo_ml_dsa *ml_dsa,
 						     entry));
 		break;
 	case DEF_ALG_ML_DSA_MODE_SIGGEN:
+		CKINT(acvp_req_add_revision(entry, "FIPS204-tr1"));
+
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigGen")));
 		CKINT(acvp_req_ml_dsa_siggen(ml_dsa, entry));
 		break;
 	case DEF_ALG_ML_DSA_MODE_SIGVER:
+		CKINT(acvp_req_add_revision(entry, "FIPS204"));
+
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigVer")));
 		CKINT(acvp_req_ml_dsa_sigver(ml_dsa, entry));

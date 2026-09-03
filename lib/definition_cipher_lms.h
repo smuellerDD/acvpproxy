@@ -146,6 +146,13 @@ struct def_algo_lms {
 	 * entry of an array of capabilities!
 	 */
 	unsigned int specific_capabilities_num;
+
+	/*
+	 * Message length in bits supported by the LMS implementation
+	 * required: optional (when not set, a default length of 128 bits is
+	 * used)
+	 */
+	int message_length[DEF_ALG_MAX_INT];
 };
 
 #ifdef __cplusplus

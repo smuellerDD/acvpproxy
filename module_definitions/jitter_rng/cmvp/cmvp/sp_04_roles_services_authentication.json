@@ -1,0 +1,391 @@
+{
+    "authMethodList": [
+      {
+        "name": "labore exercitation dolore do dolore",
+        "description": "deserunt non ut",
+        "mechanism": "nostrud culpa",
+        "strengthEachAttempt": "exercitation reprehenderit dolor sed cillum",
+        "strengthPerMin": "deserunt"
+      },
+      {
+        "name": "ullamco",
+        "description": "nisi enim",
+        "mechanism": "sit ex dolor",
+        "strengthEachAttempt": "Duis ut elit",
+        "strengthPerMin": "qui"
+      },
+      {
+        "name": "mollit et anim nulla",
+        "description": "dolor aliquip",
+        "mechanism": "officia proident anim eu Excepteur",
+        "strengthEachAttempt": "consequat",
+        "strengthPerMin": "cupidatat anim voluptate sint"
+      },
+      {
+        "name": "aliqua",
+        "description": "sint ea",
+        "mechanism": "proident cupidatat ut elit esse",
+        "strengthEachAttempt": "eiusmod sunt",
+        "strengthPerMin": "incididunt elit est do irure"
+      }
+    ],
+    "roleList": [
+      {
+        "name": "aliquip fugiat",
+        "type": "sint ut dolore Duis veniam",
+        "operatorType": "ea elit aliquip officia",
+        "authMethodList": [
+          "adipisicing Ut in",
+          "velit cillum cupidatat consectetur",
+          "labore adipisicing",
+          "Ut"
+        ]
+      },
+      {
+        "name": "adipisicing",
+        "type": "cupidatat eiusmod sint non dolor",
+        "operatorType": "sit ea consequat laboris",
+        "authMethodList": [
+          "exercitation",
+          "consectetur sunt laborum",
+          "adipisicing voluptate irure",
+          "minim anim commodo voluptate est"
+        ]
+      }
+    ],
+    "approvedServiceList": [
+      {
+        "name": "ut",
+        "description": "labore eu irure",
+        "indicator": "qui",
+        "inputs": "ea cupidatat ullamco pariatur irure",
+        "outputs": "Ut aute",
+        "secFunImplList": [
+          "in",
+          "minim sed",
+          "ad pariatur"
+        ],
+        "roleSspAccessList": [
+          {
+            "roleName": "aute esse do laborum",
+            "sspAccessList": [
+              {
+                "sspName": "quis consequat tempor laboris reprehenderit",
+                "accessType": [
+                  "veniam laborum tempor",
+                  "cupidatat aute",
+                  "ut esse sint Lorem",
+                  "culpa nulla",
+                  "sit consequat incididunt occaecat"
+                ]
+              },
+              {
+                "sspName": "adipisicing minim",
+                "accessType": [
+                  "ut mollit",
+                  "eu",
+                  "voluptate aliqua dolore"
+                ]
+              }
+            ]
+          },
+          {
+            "roleName": "incididunt id adipisicing et",
+            "sspAccessList": [
+              {
+                "sspName": "amet esse",
+                "accessType": [
+                  "sunt dolore mollit",
+                  "ipsum incididunt nisi in"
+                ]
+              },
+              {
+                "sspName": "eiusmod nostrud",
+                "accessType": [
+                  "dolore occaecat",
+                  "pariatur enim ullamco"
+                ]
+              }
+            ]
+          },
+          {
+            "roleName": "non Lorem est incididunt sit",
+            "sspAccessList": [
+              {
+                "sspName": "reprehenderit pariatur nisi sed",
+                "accessType": [
+                  "consequat",
+                  "amet"
+                ]
+              },
+              {
+                "sspName": "consequat sint",
+                "accessType": [
+                  "dolore voluptate est nulla",
+                  "eu in qui",
+                  "dolore incididunt esse proident"
+                ]
+              },
+              {
+                "sspName": "et eu ut minim fugiat",
+                "accessType": [
+                  "dolor aute do Excepteur enim"
+                ]
+              },
+              {
+                "sspName": "sint",
+                "accessType": [
+                  "ipsum aute in eiusmod",
+                  "aute"
+                ]
+              }
+            ]
+          },
+          {
+            "roleName": "non enim proident ex",
+            "sspAccessList": [
+              {
+                "sspName": "dolor voluptate",
+                "accessType": [
+                  "aliquip esse",
+                  "et laborum eiusmod veniam"
+                ]
+              },
+              {
+                "sspName": "amet sint",
+                "accessType": [
+                  "nisi dolore",
+                  "do exercitation mollit"
+                ]
+              },
+              {
+                "sspName": "anim ut irure ipsum ex",
+                "accessType": [
+                  "ex aute non labore minim",
+                  "officia ad id",
+                  "exercitation"
+                ]
+              },
+              {
+                "sspName": "consectetur Excepteur in",
+                "accessType": [
+                  "id",
+                  "reprehenderit irure cillum"
+                ]
+              },
+              {
+                "sspName": "adipisicing exercitation",
+                "accessType": [
+                  "laborum Lorem est",
+                  "mollit et deserunt nostrud ad"
+                ]
+              }
+            ]
+          },
+          {
+            "roleName": "elit",
+            "sspAccessList": [
+              {
+                "sspName": "do sit dolor",
+                "accessType": [
+                  "veniam ad do",
+                  "irure"
+                ]
+              },
+              {
+                "sspName": "nostrud ad eu",
+                "accessType": [
+                  "in",
+                  "quis laboris in ipsum",
+                  "Ut fugiat aliquip ipsum dolor",
+                  "in cupidatat dolore est"
+                ]
+              },
+              {
+                "sspName": "voluptate fugiat",
+                "accessType": [
+                  "exercitation officia enim nisi consectetur",
+                  "Ut exercitation",
+                  "dolor velit"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "non sunt",
+        "description": "ullamco dolore enim mollit",
+        "indicator": "non enim qui",
+        "inputs": "laboris sunt ea esse",
+        "outputs": "dolor",
+        "secFunImplList": [
+          "nostrud et reprehenderit Duis",
+          "in id Lorem cillum consectetur",
+          "do"
+        ],
+        "roleSspAccessList": [
+          {
+            "roleName": "magna tempor non id",
+            "sspAccessList": [
+              {
+                "sspName": "quis",
+                "accessType": [
+                  "esse",
+                  "officia ut",
+                  "ut occaecat"
+                ]
+              },
+              {
+                "sspName": "amet minim reprehenderit sunt",
+                "accessType": [
+                  "reprehenderit laboris",
+                  "est"
+                ]
+              }
+            ]
+          },
+          {
+            "roleName": "in aliqua",
+            "sspAccessList": [
+              {
+                "sspName": "cillum culpa dolor",
+                "accessType": [
+                  "ut ad",
+                  "enim",
+                  "qui in quis",
+                  "in ut Lorem sed minim"
+                ]
+              },
+              {
+                "sspName": "magna dolor in fugiat",
+                "accessType": [
+                  "veniam in quis"
+                ]
+              },
+              {
+                "sspName": "sunt",
+                "accessType": [
+                  "commodo ut pariatur",
+                  "Ut aliqua amet proident ut",
+                  "sint sunt enim occaecat culpa"
+                ]
+              },
+              {
+                "sspName": "commodo pariatur",
+                "accessType": [
+                  "ut nisi quis"
+                ]
+              },
+              {
+                "sspName": "dolore",
+                "accessType": [
+                  "enim laborum nisi cupidatat",
+                  "in dolor Duis",
+                  "velit",
+                  "laboris anim"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "nonApprovedServiceList": [
+      {
+        "name": "anim quis elit",
+        "description": "commodo et deserunt",
+        "nonApprovedAlgoList": [
+          "nisi ea incididunt deserunt",
+          "Duis cillum",
+          "voluptate elit aute in",
+          "veniam"
+        ],
+        "role": "exercitation aliquip"
+      },
+      {
+        "name": "non in fugiat nisi est",
+        "description": "amet in eu laborum",
+        "nonApprovedAlgoList": [
+          "adipisicing officia",
+          "sed consectetur voluptate",
+          "eu commodo mollit nisi Lorem",
+          "do",
+          "culpa consequat Ut ad"
+        ],
+        "role": "non"
+      },
+      {
+        "name": "amet fugiat deserunt",
+        "description": "ad",
+        "nonApprovedAlgoList": [
+          "nulla dolore nostrud"
+        ],
+        "role": "dolor et"
+      },
+      {
+        "name": "ex quis nisi occaecat",
+        "description": "dolor Excepteur",
+        "nonApprovedAlgoList": [
+          "pariatur"
+        ],
+        "role": "officia veniam aliqua nulla"
+      },
+      {
+        "name": "anim dolor",
+        "description": "in nulla",
+        "nonApprovedAlgoList": [
+          "consectetur nisi"
+        ],
+        "role": "et"
+      }
+    ],
+    "errorStateList": [
+      {
+        "name": "velit in",
+        "description": "ex",
+        "conditions": [
+          "reprehenderit nostrud cillum anim labore",
+          "do dolor officia",
+          "adipisicing voluptate do tempor"
+        ],
+        "recoveryMethod": "aliquip",
+        "indicator": "irure amet"
+      },
+      {
+        "name": "adipisicing",
+        "description": "in ea ex Duis Ut",
+        "conditions": [
+          "sit do ipsum"
+        ],
+        "recoveryMethod": "consequat dolor Lorem",
+        "indicator": "in sit"
+      },
+      {
+        "name": "qui occaecat et",
+        "description": "velit et laboris",
+        "conditions": [
+          "sint in anim sit",
+          "cupidatat labore aliquip",
+          "in et aliquip dolor aute",
+          "eu est Ut ullamco",
+          "qui"
+        ],
+        "recoveryMethod": "occaecat esse",
+        "indicator": "anim aute consequat"
+      },
+      {
+        "name": "laborum adipisicing mollit",
+        "description": "laborum esse sint",
+        "conditions": [
+          "minim id veniam Excepteur",
+          "magna Ut sit commodo veniam",
+          "Lorem eu sunt",
+          "veniam sit esse",
+          "eu irure cillum tempor cupidatat"
+        ],
+        "recoveryMethod": "cupidatat nisi",
+        "indicator": "enim"
+      }
+    ],
+}

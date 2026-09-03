@@ -1,0 +1,10 @@
+{
+	"implementations": [
+		"SHA_ISA",
+		"SSH_ISA",
+		"AES_ISA",
+		"AES_ISA_ASM",
+		"AES_Altivec",
+		"AES_Altivec_ASM"
+	]
+}

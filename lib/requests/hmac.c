@@ -72,10 +72,21 @@ out:
 int acvp_req_set_algo_hmac(const struct def_algo_hmac *hmac,
 			   struct json_object *entry)
 {
+	int domain[DEF_ALG_MAX_INT] = { 0 };
+	const int *domain_ptr = hmac->msglen;
 	int maclen;
 	int ret;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
+	/*
+	 * Define a default message length value
+	 */
+	if (hmac->msglen[0] == 0) {
+		domain[0] = 128;
+		domain_ptr =domain;
+	}
+
+	CKINT(acvp_req_add_revision(entry, "2.0"));
+	CKINT(acvp_req_algo_int_array(entry, domain_ptr, "msgLen"));
 
 	CKINT(acvp_req_set_prereq_hmac(hmac, NULL, entry, false));
 	CKINT(acvp_req_algo_int_array(entry, hmac->keylen, "keyLen"));

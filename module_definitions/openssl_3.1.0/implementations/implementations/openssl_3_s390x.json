@@ -1,0 +1,31 @@
+{
+	"implementations": [
+		"AES_CPACF",
+		"AESGCM_CPACF",
+		"AESGCM_ASM_CPACF",
+		"AESGCM_ASM_ASM",
+		"SHA_CPACF",
+		"SHA3_CPACF",
+	],
+	"_COMMENT": "CURRENTLY NOT IN USE",
+	"_dependencies-internal": {
+		"AESGCM_CPACF": {
+			"AES": "AES_CPACF",
+			"DRBG": "DRBG_3"
+		},
+		"AESGCM_ASM_CPACF": {
+			"AES": "AESASM",
+			"DRBG": "DRBG_3"
+		},
+		"AESGCM_ASM_ASM": {
+			"AES": "AESASM",
+			"DRBG": "DRBG_3"
+		},
+		"SHA_CPACF": {
+			"DRBG": "DRBG_3"
+		},
+		"SHA3_CPACF": {
+			"DRBG": "DRBG_3"
+		}
+	}
+}

@@ -73,6 +73,14 @@ struct def_algo_hmac {
 	 * required: optional
 	 */
 	int maclen[DEF_ALG_MAX_INT];
+
+	/*
+	 * Message size supported by the HMAC implementation in bits between
+	 * 0 and 4096
+	 *
+	 * required: only for Revision 2.0 testing
+	 */
+	int msglen[DEF_ALG_MAX_INT];
 };
 
 struct def_algo_cmac {

@@ -1,0 +1,88 @@
+{
+    "phSecMechanismList": [
+      {
+        "mechanism": "sunt",
+        "inspectFreq": "quis cupidatat in",
+        "inspectGuidance": "ullamco nulla in commodo sit"
+      },
+      {
+        "mechanism": "sint ullamco incididunt",
+        "inspectFreq": "sint sit minim",
+        "inspectGuidance": "adipisicing qui consequat"
+      },
+      {
+        "mechanism": "ipsum",
+        "inspectFreq": "consequat ullamco id",
+        "inspectGuidance": "in Lorem ea"
+      },
+      {
+        "mechanism": "enim cillum",
+        "inspectFreq": "voluptate in elit do culpa",
+        "inspectGuidance": "dolore exercitation"
+      },
+      {
+        "mechanism": "consequat labore",
+        "inspectFreq": "occaecat",
+        "inspectGuidance": "sed culpa ullamco"
+      }
+    ],
+    "efpEftInfoList": [
+      {
+        "tempVoltType": "ullamco non",
+        "tempVolt": "non irure consectetur mollit",
+        "efpOrEft": "consectetur",
+        "result": "ad"
+      },
+      {
+        "tempVoltType": "in",
+        "tempVolt": "consequat",
+        "efpOrEft": "nulla dolore",
+        "result": "enim laboris in minim"
+      },
+      {
+        "tempVoltType": "proident elit",
+        "tempVolt": "veniam non enim aute voluptate",
+        "efpOrEft": "incididunt voluptate",
+        "result": "non sint"
+      },
+      {
+        "tempVoltType": "qui est",
+        "tempVolt": "nostrud dolore ut sed Ut",
+        "efpOrEft": "Excepteur",
+        "result": "dolore tempor veniam laboris ut"
+      },
+      {
+        "tempVoltType": "pariatur fugiat amet sed",
+        "tempVolt": "aliqua et",
+        "efpOrEft": "Ut qui minim ut",
+        "result": "aliqua"
+      }
+    ],
+    "hardnessTestTempList": [
+      {
+        "tempType": "aute veniam",
+        "temp": "culpa in"
+      },
+      {
+        "tempType": "dolor elit deserunt",
+        "temp": "magna commodo tempor aliqua ad"
+      }
+    ],
+    "storageAreaList": [
+      {
+        "name": "sit exercitation nostrud veniam",
+        "description": "aliquip amet dolor deserunt Lorem",
+        "persistenceType": "sit consectetur ad ipsum irure"
+      },
+      {
+        "name": "laborum",
+        "description": "tempor elit",
+        "persistenceType": "aute"
+      },
+      {
+        "name": "dolore ipsum dolor nisi dolore",
+        "description": "ut culpa minim",
+        "persistenceType": "quis veniam exercitation labore dolore"
+      }
+    ],
+}

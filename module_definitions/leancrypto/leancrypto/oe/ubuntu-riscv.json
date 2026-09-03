@@ -1,0 +1,12 @@
+{
+  "oeEnvName":"Ubuntu 24.04",
+  "manufacturer":"SpacemiT",
+  "procFamily":"RISC-V 64",
+  "procName":"SpacemiT K1",
+  "procSeries":"X60",
+  "features":0,
+  "envType":0,
+  "acvpOeId":0,
+  "acvpOeDepProcId":0,
+  "acvpOeDepSwId":0
+}

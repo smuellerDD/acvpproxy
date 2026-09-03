@@ -1,0 +1,137 @@
+{
+    "sspInputOutputList": [
+      {
+        "name": "aliquip do",
+        "from": "eu sint amet Duis Excepteur",
+        "to": "Excepteur commodo",
+        "formatType": "magna",
+        "distributionType": "dolor ea nostrud laboris ut",
+        "entryType": "officia voluptate ipsum adipisicing",
+        "relatedSFI": "non irure"
+      },
+      {
+        "name": "aute qui sint magna reprehenderit",
+        "from": "veniam Lorem dolor minim cillum",
+        "to": "aliqua Lorem nostrud sunt culpa",
+        "formatType": "minim velit Excepteur ut",
+        "distributionType": "est ea sunt nisi eiusmod",
+        "entryType": "pariatur dolore in",
+        "relatedSFI": "in cillum"
+      },
+      {
+        "name": "ex officia",
+        "from": "cupidatat",
+        "to": "amet deserunt consectetur",
+        "formatType": "Ut",
+        "distributionType": "dolore laborum pariatur elit magna",
+        "entryType": "magna quis",
+        "relatedSFI": "magna deserunt Duis quis esse"
+      }
+    ],
+    "sspZeroizationList": [
+      {
+        "method": "sint in",
+        "description": "veniam",
+        "rationale": "nostrud",
+        "operatorInitiation": "culpa cillum proident"
+      },
+      {
+        "method": "pariatur consequat fugiat",
+        "description": "dolore",
+        "rationale": "amet deserunt",
+        "operatorInitiation": "adipisicing"
+      },
+      {
+        "method": "sint mollit eu ipsum laboris",
+        "description": "eu occaecat",
+        "rationale": "Ut",
+        "operatorInitiation": "Ut mollit cillum"
+      },
+      {
+        "method": "voluptate",
+        "description": "magna ullamco est",
+        "rationale": "non irure consequat",
+        "operatorInitiation": "occaecat"
+      }
+    ],
+    "sspList": [
+      {
+        "name": "nulla",
+        "description": "in non minim",
+        "size": "id",
+        "strength": "Lorem consequat sunt mollit",
+        "type": "id",
+        "generatedByList": [
+          "est",
+          "mollit in dolor eu Duis",
+          "irure exercitation est commodo",
+          "anim eu aliqua Excepteur",
+          "ullamco ad mollit"
+        ],
+        "establishedByList": [
+          "anim eiusmod",
+          "sed enim tempor",
+          "officia cillum ex nostrud",
+          "elit voluptate amet laborum labore",
+          "Duis amet culpa"
+        ],
+        "usedByList": [
+          "quis",
+          "proident",
+          "adipisicing ea mollit",
+          "cupidatat nisi incididunt dolore",
+          "voluptate tempor"
+        ],
+        "inputOutputList": [
+          "aliqua ut nisi consequat",
+          "nulla in cillum est"
+        ],
+        "storageItemList": [
+          {
+            "areaName": "est consequat dolore",
+            "format": "in",
+            "algorithmName": "ad"
+          },
+          {
+            "areaName": "non adipisicing",
+            "format": "commodo aliquip incididunt cillum ullamco",
+            "algorithmName": "ullamco incididunt sint aliquip"
+          },
+          {
+            "areaName": "voluptate esse",
+            "format": "ipsum magna",
+            "algorithmName": "tempor aute in"
+          }
+        ],
+        "storageDuration": "nostrud",
+        "zeroizationList": [
+          "ad nostrud occaecat",
+          "minim ad incididunt irure",
+          "aute eiusmod"
+        ],
+        "category": "elit do aliquip",
+        "relatedSspList": [
+          {
+            "sspName": "quis laborum qui",
+            "relationship": "mollit laborum nostrud in ut"
+          },
+          {
+            "sspName": "quis",
+            "relationship": "sint proident"
+          },
+          {
+            "sspName": "sit voluptate deserunt",
+            "relationship": "velit deserunt eu dolor"
+          },
+          {
+            "sspName": "Ut tempor fugiat",
+            "relationship": "adipisicing ea"
+          },
+          {
+            "sspName": "voluptate cillum dolor",
+            "relationship": "et"
+          }
+        ]
+      }
+    ],
+}

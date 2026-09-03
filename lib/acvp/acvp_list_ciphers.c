@@ -292,6 +292,9 @@ static int acvp_list_cipher_gatherer(const struct definition *def,
 	case DEF_ALG_TYPE_SLH_DSA:
 		CKINT(acvp_list_algo_slh_dsa(&def_algo->algo.slh_dsa, &new));
 		break;
+	case DEF_ALG_TYPE_XECDH:
+		CKINT(acvp_list_algo_xecdh(&def_algo->algo.xecdh, &new));
+		break;
 
 	default:
 		logger(LOGGER_ERR, LOGGER_C_ANY,

@@ -260,7 +260,7 @@ esvp_process_post_one_response(const struct acvp_testid_ctx *testid_ctx,
 		goto out;
 	} else {
 		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "ESVP server returned error %s during uploading of file\n",
+		       "ESVP server returned error \"%s\" during uploading of file\n",
 		       str);
 		ret = -EINVAL;
 		goto out;
@@ -277,8 +277,7 @@ out:
 	return ret;
 }
 
-static int esvp_name_to_doctype(const char *pathname,
-				enum esvp_document_type *type)
+int esvp_name_to_doctype(const char *pathname, enum esvp_document_type *type)
 {
 	if (!strncasecmp(pathname, "entropy-analysis", 16) ||
 	    !strncasecmp(pathname, "entropy_analysis", 16) ||
@@ -309,6 +308,10 @@ static int esvp_name_to_doctype(const char *pathname,
 		   strstr(pathname, "Attestation") ||
 		   strstr(pathname, "ATTESTATION")) {
 		*type = esvp_document_attestation;
+	} else if (strstr(pathname, "rbg") ||
+		   strstr(pathname, "Rbg") ||
+		   strstr(pathname, "RBG")) {
+		*type = esvp_document_rbg_report;
 	} else {
 		*type = esvp_document_other;
 	}
@@ -316,17 +319,19 @@ static int esvp_name_to_doctype(const char *pathname,
 	return 0;
 }
 
-static int
+int
 esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 				  const struct acvp_buf *response,
-				  const char *pathname)
+				  const char *pathname,
+				  struct esvp_sd_def **sd_list)
 {
 	struct esvp_sd_file_def *file = NULL, *file_new;
-	struct esvp_es_def *es = testid_ctx->es_def;
 	struct esvp_sd_def *sd = NULL;
 	struct json_object *req = NULL, *entry = NULL;
 	const char *str;
 	int ret;
+
+	CKNULL(sd_list, -EINVAL);
 
 	if (!response->buf || !response->len) {
 		logger(LOGGER_DEBUG, LOGGER_C_ANY, "No response data found\n");
@@ -350,7 +355,7 @@ esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 	}
 
 	/* Did we already submit it? */
-	for (sd = es->sd; sd; sd = sd->next) {
+	for (sd = *sd_list; sd; sd = sd->next) {
 		bool found = false;
 
 		file = sd->file;
@@ -411,11 +416,11 @@ esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 	CKINT(acvp_hash_file(pathname, sha256, &file_new->data_hash));
 
 	/*
-	 * Append the new conditioning component entry at the end of the list
+	 * Append the new supporting document entry at the end of the list
 	 * because the order matters.
 	 */
-	if (es->sd) {
-		struct esvp_sd_def *iter_sd = es->sd;
+	if (*sd_list) {
+		struct esvp_sd_def *iter_sd = *sd_list;
 
 		while (iter_sd) {
 			/*
@@ -432,10 +437,11 @@ esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
 			iter_sd = iter_sd->next;
 		}
 	} else {
-		es->sd = sd;
+		*sd_list = sd;
 	}
 
-	CKINT(esvp_write_status(testid_ctx));
+	CKNULL(testid_ctx->status_write, -EFAULT);
+	CKINT(testid_ctx->status_write(testid_ctx));
 
 out:
 	ACVP_JSON_PUT_NULL(req);
@@ -451,17 +457,28 @@ out:
 	return ret;
 }
 
+static int esvp_process_post_one_sd_response_internal(
+	const struct acvp_testid_ctx *testid_ctx,
+	const struct acvp_buf *response,
+	const char *pathname)
+{
+	struct esvp_es_def *es = testid_ctx->es_def;
+
+	return esvp_process_post_one_sd_response(testid_ctx, response,
+						 pathname, &es->sd);
+}
+
 /* POST multi */
-static int esvp_process_datafiles_post_one(
-	const struct acvp_testid_ctx *testid_ctx, const char *url,
+int esvp_process_datafiles_post_one(
+	const struct acvp_testid_ctx *testid_ctx,
+	const struct esvp_sd_def *sd_list, const char *url,
 	char *pathname, bool *submitted, char *data_type,
 	struct acvp_ext_buf *additional_keys,
 	int (*proces_response)(const struct acvp_testid_ctx *testid_ctx,
 			       const struct acvp_buf *response,
 			       const char *pathname))
 {
-	struct esvp_es_def *es = testid_ctx->es_def;
-	struct esvp_sd_def *sd;
+	const struct esvp_sd_def *sd;
 	struct stat statbuf;
 	ACVP_EXT_BUFFER_INIT(data);
 	ACVP_BUFFER_INIT(response);
@@ -478,7 +495,7 @@ static int esvp_process_datafiles_post_one(
 	CKNULL(pathname, -EINVAL);
 
 	/* Check whether supporting document file has been uploaded */
-	for (sd = es->sd; sd; sd = sd->next) {
+	for (sd = sd_list; sd; sd = sd->next) {
 		struct esvp_sd_file_def *file = sd->file;
 
 		while (file) {
@@ -578,7 +595,8 @@ static int esvp_process_datafiles_post_one(
 	}
 
 	/* Write potentially changed auth tokens */
-	CKINT(esvp_write_status(testid_ctx));
+	CKNULL(testid_ctx->status_write, -EFAULT);
+	CKINT(testid_ctx->status_write(testid_ctx));
 
 	/* Send the data to the ESVP server. */
 	ret2 = acvp_net_op(testid_ctx, url, &data, &response,
@@ -590,7 +608,8 @@ static int esvp_process_datafiles_post_one(
 	if (submitted)
 		*submitted = true;
 
-	CKINT(esvp_write_status(testid_ctx));
+	CKNULL(testid_ctx->status_write, -EFAULT);
+	CKINT(testid_ctx->status_write(testid_ctx));
 
 out:
 	if (data.buf && data.buf != MAP_FAILED)
@@ -880,8 +899,8 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 				 testid_ctx->testid, NIST_ESVP_VAL_OP_DATAFILE,
 				 es->raw_noise_id));
 	CKINT_LOG(esvp_process_datafiles_post_one(
-			  testid_ctx, url, pathname, &es->raw_noise_submitted,
-			  "dataFile", &sample_size,
+			  testid_ctx, NULL, url, pathname,
+			  &es->raw_noise_submitted, "dataFile", &sample_size,
 			  esvp_process_post_one_response),
 		  "Cannot post raw noise data\n");
 
@@ -896,8 +915,8 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 				 testid_ctx->testid, NIST_ESVP_VAL_OP_DATAFILE,
 				 es->restart_id));
 	CKINT_LOG(esvp_process_datafiles_post_one(
-			  testid_ctx, url, pathname, &es->restart_submitted,
-			  "dataFile", &sample_size,
+			  testid_ctx, NULL, url, pathname,
+			  &es->restart_submitted, "dataFile", &sample_size,
 			  esvp_process_post_one_response),
 		  "Cannot post restart noise data\n");
 
@@ -919,8 +938,9 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 					 testid_ctx->testid,
 					 NIST_ESVP_VAL_OP_DATAFILE, cc->cc_id));
 		CKINT(esvp_process_datafiles_post_one(
-			testid_ctx, url, pathname, &cc->output_submitted,
-			"dataFile", NULL, esvp_process_post_one_response));
+			testid_ctx, NULL, url, pathname,
+			&cc->output_submitted, "dataFile", NULL,
+			esvp_process_post_one_response));
 	}
 
 	snprintf(doc_dir_name, sizeof(doc_dir_name), "%s/%s", es->config_dir,
@@ -970,6 +990,7 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 			sdtype.buf = (uint8_t *)"Other";
 			sdtype.len = 5;
 			break;
+		case esvp_document_rbg_report:
 		case esvp_document_unknown:
 		default:
 			logger(LOGGER_ERR, LOGGER_C_ANY,
@@ -984,8 +1005,8 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 
 		// ITAR was deprecated on 2023/03/08. But the ESV server still wants to see it. Leave it for now.
 		CKINT(esvp_process_datafiles_post_one(
-			testid_ctx, url, pathname, NULL, "sdFile", &desc,
-			esvp_process_post_one_sd_response));
+			testid_ctx, es->sd, url, pathname, NULL, "sdFile",
+			&desc, esvp_process_post_one_sd_response_internal));
 	}
 
 	if (es->ear_file) {
@@ -996,8 +1017,9 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 					  sizeof(url)),
 			  "Creation of request URL failed\n");
 		CKINT(esvp_process_datafiles_post_one(
-			testid_ctx, url, (char *)es->ear_file, NULL,
-			"sdFile", &desc, esvp_process_post_one_sd_response));
+			testid_ctx, es->sd, url, (char *)es->ear_file, NULL,
+			"sdFile", &desc,
+			esvp_process_post_one_sd_response_internal));
 
 	}
 
@@ -1009,8 +1031,9 @@ static int esvp_process_datafiles_post(struct acvp_testid_ctx *testid_ctx)
 					  sizeof(url)),
 			  "Creation of request URL failed\n");
 		CKINT(esvp_process_datafiles_post_one(
-			testid_ctx, url, (char *)es->pud_file, NULL,
-			"sdFile", &desc, esvp_process_post_one_sd_response));
+			testid_ctx, es->sd, url, (char *)es->pud_file, NULL,
+			"sdFile", &desc,
+			esvp_process_post_one_sd_response_internal));
 
 	}
 
@@ -1158,6 +1181,8 @@ int esvp_process_req_internal(struct acvp_testid_ctx *testid_ctx,
 
 	/* Wait */
 	CKINT(esvp_req_status(testid_ctx, response));
+
+	testid_ctx->status_write = esvp_write_status;
 
 	/* Upload the data */
 	CKINT_LOG(esvp_process_datafiles(testid_ctx, response),
@@ -1619,31 +1644,65 @@ acvp_process_testids_esvp(const struct acvp_ctx *ctx,
 		if (def) {
 			/* Get current testid */
 			struct acvp_testid_ctx *new_testid_ctx = NULL;
+			struct acvp_testid_ctx *t_ctx;
+			uint64_t testid_used = 0;
+			unsigned int i;
+
+			/*
+			 * The key problem at this point is: if the same
+			 * definition is used (which is permissible and even
+			 * suggested), the acvp_datastore_find_testsession finds
+			 * all of them in one go, as intended. However, we have
+			 * multiple test sessions as each ESV submission is
+			 * managed in one test session. That means that
+			 * acvp_datastore_find_testsession can deliver all
+			 * test sessions, but iterating through the def's will
+			 * also yield all definitions which implies double
+			 * counting.
+			 *
+			 * To alleviate the issue, we check whether the reported
+			 * testID is already registered in the testid_ctx.
+			 */
 
 			/* Search for all testids for a given module */
 			CKINT(ds->acvp_datastore_find_testsession(def, ctx,
 				testids, &testid_count));
-
 			/*
-			 * NOTE: One def corresponds to one test session for
-			 * ESVP. Therefore, iterate through the test ID
-			 * with the same stepping as with the def.
+			 * Now we search for the first test ID that was not
+			 * registered. After that, we get the next def which
+			 * will cover all subsequent testIDs.
 			 */
-			if (testid_count > 1) {
-				ret = -EFAULT;
-				goto out;
+			for (i = 0; i < testid_count; i++) {
+				if (testid_ctx) {
+					bool found = false;
+					for (t_ctx = testid_ctx;
+						t_ctx;
+						t_ctx = t_ctx->next) {
+						if (t_ctx->testid == testids[i]) {
+							found = true;
+							break;
+						}
+					}
+					if (!found)
+						testid_used = testids[i];
+				} else {
+					testid_used = testids[i];
+				}
+				if (testid_used)
+					break;
 			}
+
+			logger(LOGGER_DEBUG, LOGGER_C_ANY,
+			       "Registering testID %" PRIu64 "\n", testid_used);
 
 			/* Create new testid_ctx */
 			new_testid_ctx = calloc(1, sizeof(*new_testid_ctx));
 			CKNULL(new_testid_ctx, -ENOMEM);
 			CKINT(esvp_init_testid_ctx(new_testid_ctx,
-				ctx, def, testids[0]));
+				ctx, def, testid_used));
 
 			/* Enqueue it into list of testid_ctx */
 			if (testid_ctx) {
-				struct acvp_testid_ctx *t_ctx;
-
 				for (t_ctx = testid_ctx;
 					t_ctx;
 					t_ctx = t_ctx->next) {

@@ -111,13 +111,13 @@ struct def_algo_shake {
 
 	/*
 	 * Implementation accepts bit-oriented messages
-	 * required: always
+	 * required: deprecated - not used any more
 	 */
 	bool inbit;
 
 	/*
 	 * Implementation does accept null (zero-length) messages
-	 * required: always
+	 * required: deprecated - not used any more
 	 */
 	bool inempty;
 
@@ -132,7 +132,7 @@ struct def_algo_shake {
 
 	/*
 	 * SHAKE is able to produce bit-oriented messages?
-	 * required: always
+	 * required: deprecated - not used any more
 	 */
 	bool outbit;
 

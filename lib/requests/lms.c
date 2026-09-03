@@ -286,10 +286,13 @@ static int _acvp_req_set_algo_lms(const struct def_algo_lms *lms,
 				  struct json_object *entry, bool full,
 				  bool publish)
 {
+	int domain[DEF_ALG_MAX_INT] = { 0 };
+	const int *domain_ptr = lms->message_length;
 	int ret = 0;
 
-	if (full) {
-		CKINT(acvp_req_add_revision(entry, "1.0"));
+	if (!lms->message_length[0]) {
+		domain[0] = 1024;
+		domain_ptr = domain;
 	}
 
 	CKINT(json_object_object_add(entry, "algorithm",
@@ -297,16 +300,29 @@ static int _acvp_req_set_algo_lms(const struct def_algo_lms *lms,
 
 	switch (lms->lms_mode) {
 	case DEF_ALG_LMS_MODE_KEYGEN:
+		if (full) {
+			CKINT(acvp_req_add_revision(entry, "1.0"));
+		}
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("keyGen")));
 		break;
 	case DEF_ALG_LMS_MODE_SIGGEN:
+		if (full) {
+			CKINT(acvp_req_add_revision(entry, "SP800-208"));
+		}
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigGen")));
+		CKINT(acvp_req_algo_int_array_always(entry, domain_ptr,
+						     "messageLength"));
 		break;
 	case DEF_ALG_LMS_MODE_SIGVER:
+		if (full) {
+			CKINT(acvp_req_add_revision(entry, "SP800-208"));
+		}
 		CKINT(json_object_object_add(entry, "mode",
 					     json_object_new_string("sigVer")));
+		CKINT(acvp_req_algo_int_array_always(entry, domain_ptr,
+						     "messageLength"));
 		break;
 	default:
 		logger(LOGGER_WARN, LOGGER_C_ANY,

@@ -1,0 +1,13 @@
+{
+  "oeEnvName":"RHEL 8",
+  "oe_description":"Linux distribution developed by Red Hat, Inc. and targeted toward the commercial market.",
+  "manufacturer":"IBM",
+  "procFamily":"POWER",
+  "procName":"Power 9",
+  "procSeries":"POWER Series",
+  "features":7,
+  "envType":0,
+  "acvpOeId":0,
+  "acvpOeDepProcId":0,
+  "acvpOeDepSwId":0
+}

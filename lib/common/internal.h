@@ -55,7 +55,7 @@ extern "C" {
 /*
  * API / ABI compatible, no functional changes, no enhancements, bug fixes only.
  */
-#define PATCHLEVEL 0
+#define PATCHLEVEL 1
 
 struct acvp_test_deps {
 	char *dep_cipher;
@@ -370,6 +370,14 @@ int acvp_req_set_prereq_slh_dsa(const struct def_algo_slh_dsa *slh_dsa,
 				struct json_object *entry, bool publish);
 int acvp_list_algo_slh_dsa(const struct def_algo_slh_dsa *slh_dsa,
 			   struct acvp_list_ciphers **new);
+
+int acvp_req_set_algo_xecdh(const struct def_algo_xecdh *xecdh,
+			    struct json_object *entry);
+int acvp_req_set_prereq_xecdh(const struct def_algo_xecdh *xecdh,
+			      const struct acvp_test_deps *deps,
+			      struct json_object *entry, bool publish);
+int acvp_list_algo_xecdh(const struct def_algo_xecdh *xecdh,
+			 struct acvp_list_ciphers **new);
 
 struct acvp_net_proto {
 	char *url_base; /* Base path of URL */

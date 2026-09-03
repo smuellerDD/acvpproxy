@@ -144,6 +144,17 @@ struct def_algo_ml_dsa {
 #define DEF_ALG_ML_DSA_INTERNAL_MU (1 << 0)
 #define DEF_ALG_ML_DSA_EXTERNAL_MU (1 << 1)
 	unsigned int external_mu;
+
+	/*
+	 * Specify the key formats supported
+	 * expanded means the full key is provided as input to siggen
+	 * seed means only the seed is provided as input to siggen
+	 *
+	 * required: only for siggen
+	 */
+#define DEF_ALG_ML_DSA_EXPANDED (1 << 0)
+#define DEF_ALG_ML_DSA_SEED (1 << 1)
+	unsigned int key_format;
 };
 
 #ifdef __cplusplus

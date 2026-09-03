@@ -790,23 +790,22 @@ static int acvp_req_rsa_component_sig_gen(const struct def_algo_rsa *rsa,
 		}
 	}
 
-	if (rev2) {
-		CKINT(json_object_object_add(entry, "modulo", modulo_array));
-
-		keyformat_array = json_object_new_array();
-		CKNULL(keyformat_array, -ENOMEM);
-		CKINT(json_object_object_add(entry, "keyFormat",
-					     keyformat_array));
-
-		CKINT(acvp_req_rsa_keyformat_list(component_sig->keyformat,
-						  &keyformat));
-		CKINT(json_object_array_add(keyformat_array,
-					    json_object_new_string(keyformat)));
-	} else {
-		CKINT(json_object_put(modulo_array));
-
-		CKINT(acvp_req_rsa_keyformat(component_sig->keyformat, entry));
+	/* Add default of RSA 3072 if not present */
+	if (!rev2) {
+		CKINT(acvp_req_rsa_modulo_array(DEF_ALG_RSA_MODULO_3072,
+						modulo_array));
 	}
+
+	CKINT(json_object_object_add(entry, "modulo", modulo_array));
+
+	keyformat_array = json_object_new_array();
+	CKNULL(keyformat_array, -ENOMEM);
+	CKINT(json_object_object_add(entry, "keyFormat", keyformat_array));
+
+	CKINT(acvp_req_rsa_keyformat_list(component_sig->keyformat,
+					  &keyformat));
+	CKINT(json_object_array_add(keyformat_array,
+				    json_object_new_string(keyformat)));
 
 	CKINT(acvp_req_rsa_pubexpmode(component_sig->pubexpmode,
 				      component_sig->fixedpubexp, entry));
@@ -922,24 +921,15 @@ static int _acvp_req_set_algo_rsa(const struct def_algo_rsa *rsa,
 			}
 			break;
 		case DEF_ALG_RSA_MODE_COMPONENT_SIG_PRIMITIVE:
-			if (rsa->gen_info.component_sig->rsa_modulo[0] ==
-				DEF_ALG_RSA_MODULO_UNDEF &&
-			    rsa->gen_info.component_sig->rsa_modulo[1] ==
-				DEF_ALG_RSA_MODULO_UNDEF &&
-			    rsa->gen_info.component_sig->rsa_modulo[2] ==
-				DEF_ALG_RSA_MODULO_UNDEF) {
-				CKINT(acvp_req_add_revision(entry, "1.0"));
-			} else {
-				CKINT(acvp_req_add_revision(entry, "2.0"));
-			}
+			CKINT(acvp_req_add_revision(entry, "2.0"));
 			break;
 		case DEF_ALG_RSA_MODE_COMPONENT_DEC_PRIMITIVE:
 			if (rsa->algspecs_num == 0) {
-				CKINT(acvp_req_add_revision(entry, "1.0"));
-			} else {
-				CKINT(acvp_req_add_revision(entry,
-							    "Sp800-56Br2"));
+				logger(LOGGER_ERR, LOGGER_C_ANY, "You must update the RSA decryption component primitive definition to include the algspecs definition");
+				ret = -EINVAL;
+				goto out;
 			}
+			CKINT(acvp_req_add_revision(entry, "Sp800-56Br2"));
 			break;
 		case DEF_ALG_RSA_MODE_LEGACY_SIGVER:
 			CKINT(acvp_req_add_revision(entry, "FIPS186-2"));

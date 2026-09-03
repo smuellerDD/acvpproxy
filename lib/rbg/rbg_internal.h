@@ -29,10 +29,13 @@ extern "C" {
 #endif
 
 /* File holding the general entropy source information */
-#define RBG_ES_FILE_DEF "definition"
+#define RBG_FILE_DEF "definition"
 
 /* Directory containing one sub-directory per conditioning component */
-#define RBG_ES_DIR_RBG "rbg"
+#define RBG_DIR_RBG "rbg"
+
+/* Directory holding documentation */
+#define RBG_DIR_DOCUMENTATION "documentation"
 
 #define RBG_CONFIG_FILE_EXTENSION ".json"
 
@@ -41,6 +44,11 @@ extern "C" {
 
 /* File holding the server's information about the RBG session provided by ESVP server */
 #define RBG_DS_TESTIDSTATUS "rbg_teststatus.json"
+
+/**
+ * Start certification operation
+ */
+int rbg_certify(struct acvp_testid_ctx *testid_ctx);
 
 int rbg_read_status(struct acvp_testid_ctx *testid_ctx,
 		    struct json_object *status);

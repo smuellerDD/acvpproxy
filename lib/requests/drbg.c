@@ -252,7 +252,7 @@ int acvp_req_set_algo_drbg(const struct def_algo_drbg *drbg,
 	unsigned int i;
 	int ret;
 
-	CKINT(acvp_req_add_revision(entry, "1.0"));
+	CKINT(acvp_req_add_revision(entry, "SP800-90Ar1"));
 
 	CKINT(acvp_req_set_prereq_drbg(drbg, NULL, entry, false));
 
@@ -301,8 +301,31 @@ int acvp_req_set_algo_drbg(const struct def_algo_drbg *drbg,
 						     caps->additionalinputlen,
 						     "additionalInputLen"));
 
-		CKINT(json_object_object_add(cap_entry, "returnedBitsLen",
-			       json_object_new_int(caps->returnedbitslen)));
+		if (caps->returnedbitslen) {
+			int domain[DEF_ALG_MAX_INT] = { 0 };
+
+			domain[0] = caps->returnedbitslen;
+			CKINT(acvp_req_algo_int_array_always(
+				cap_entry, domain, "returnedBitsLen"));
+		} else {
+			CKINT(acvp_req_algo_int_array_always(
+				cap_entry, caps->returnedbitslen_domain,
+				"returnedBitsLen"));
+		}
+
+		if (caps->mode & (ACVP_CIPHERTYPE_AES | ACVP_CIPHERTYPE_TDES)) {
+			if (caps->counterFieldLen) {
+				CKINT(json_object_object_add(cap_entry, "counterFieldLen",
+					json_object_new_int(caps->counterFieldLen)));
+			} else if (caps->mode & ACVP_CIPHERTYPE_AES) {
+				CKINT(json_object_object_add(cap_entry, "counterFieldLen",
+					json_object_new_int(128)));
+			} else {
+				CKINT(json_object_object_add(cap_entry, "counterFieldLen",
+					json_object_new_int(64)));
+			}
+		}
+
 
 		CKINT(json_object_array_add(tmp_array, cap_entry));
 

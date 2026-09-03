@@ -163,6 +163,95 @@ out:
 	return ret;
 }
 
+static int rbg_process_post_one_sd_response_internal(
+	const struct acvp_testid_ctx *testid_ctx,
+	const struct acvp_buf *response,
+	const char *pathname)
+{
+	struct rbg_def *rbg = testid_ctx->rbg_def;
+
+	return esvp_process_post_one_sd_response(testid_ctx, response,
+						 pathname, &rbg->sd);
+}
+
+static int rbg_process_supporting_documentation_post(
+	struct acvp_testid_ctx *testid_ctx)
+{
+	struct rbg_def *rbg = testid_ctx->rbg_def;
+	DIR *doc_dir = NULL;
+	struct dirent *doc_dirent;
+	ACVP_EXT_BUFFER_INIT(desc);
+	ACVP_EXT_BUFFER_INIT(sdtype);
+	char doc_dir_name[FILENAME_MAX - 256], pathname[FILENAME_MAX],
+		url[ACVP_NET_URL_MAXLEN];
+	int ret = 0;
+
+	snprintf(doc_dir_name, sizeof(doc_dir_name), "%s/%s", rbg->config_dir,
+		 RBG_DIR_DOCUMENTATION);
+
+	doc_dir = opendir(doc_dir_name);
+	if (doc_dir == NULL) {
+		logger(LOGGER_DEBUG, LOGGER_C_ANY,
+		       "Documentation directory %s not found, ignoring\n",
+		       doc_dir_name);
+		goto out;
+	}
+
+	desc.data_type = "sdComments";
+
+	sdtype.data_type = "sdType";
+	desc.next = &sdtype;
+
+	while ((doc_dirent = readdir(doc_dir)) != NULL) {
+		enum esvp_document_type type;
+
+		if (!acvp_usable_dirent(doc_dirent, NULL))
+			continue;
+
+		snprintf(pathname, sizeof(pathname), "%s/%s", doc_dir_name,
+			 doc_dirent->d_name);
+
+		desc.buf = (uint8_t *)doc_dirent->d_name;
+		desc.len = (uint32_t)strlen(doc_dirent->d_name);
+
+		CKINT(esvp_name_to_doctype(doc_dirent->d_name, &type));
+
+		switch (type) {
+		case esvp_document_rbg_report:
+			sdtype.buf = (uint8_t *)"RandomBitGeneratorReport";
+			sdtype.len = 24;
+			break;
+		case esvp_document_other:
+			sdtype.buf = (uint8_t *)"Other";
+			sdtype.len = 5;
+			break;
+		case esvp_document_unknown:
+		case esvp_document_ear:
+		case esvp_document_pud:
+		case esvp_document_attestation:
+		default:
+			logger(LOGGER_ERR, LOGGER_C_ANY,
+			       "Unknown document type %u\n", type);
+			ret = -EFAULT;
+			goto out;
+		}
+
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_SUPPDOC, url,
+					  sizeof(url)),
+			  "Creation of request URL failed\n");
+
+		// ITAR was deprecated on 2023/03/08. But the ESV server still wants to see it. Leave it for now.
+		CKINT(esvp_process_datafiles_post_one(
+			testid_ctx, rbg->sd, url, pathname, NULL, "sdFile",
+			&desc, rbg_process_post_one_sd_response_internal));
+	}
+
+out:
+	if (doc_dir)
+		closedir(doc_dir);
+	return ret;
+}
+
 /******************************************************************************
  * General processing
  ******************************************************************************/
@@ -175,7 +264,7 @@ static int rbg_get_status(struct acvp_testid_ctx *testid_ctx)
 	unsigned int i;
 	int ret;
 
-	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_RBG, url, sizeof(url)),
+	CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_RBGS, url, sizeof(url)),
 		  "Creation of request URL failed\n");
 	CKINT(acvp_extend_string(url, sizeof(url), "/%"PRIu64,
 				 testid_ctx->testid));
@@ -248,6 +337,15 @@ static int rbg_process_req_internal(struct acvp_testid_ctx *testid_ctx,
 
 	/* Get the status about the submission */
 	CKINT(rbg_get_status(testid_ctx));
+
+	testid_ctx->status_write = rbg_write_status;
+
+	/* Upload the supporting documentation */
+	CKINT_LOG(rbg_process_supporting_documentation_post(testid_ctx),
+		  "Cannot submit data files\n");
+
+	// TODO: we could certify here. Should we?
+	// CKINT_LOG(rbg_certify(testid_ctx), "Cannot certify\n");
 
 out:
 	if (ret < 0 && ret != -EINTR && ret != -ESHUTDOWN) {
@@ -398,7 +496,7 @@ static int rbg_register_op(struct acvp_testid_ctx *testid_ctx)
 					  sizeof(url)),
 			  "Creation of request URL failed\n");
 	} else {
-		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_RBG, url,
+		CKINT_LOG(acvp_create_url(NIST_ESVP_VAL_OP_RBGS, url,
 					  sizeof(url)),
 			  "Creation of request URL failed\n");
 	}
@@ -552,6 +650,8 @@ static int _rbg_continue(void *_testid_ctx)
 			      str);
 		goto out;
 	}
+
+	CKINT_LOG(rbg_certify(testid_ctx), "Cannot certify\n");
 
 out:
 	acvp_process_testids_rbg_release(testid_ctx);

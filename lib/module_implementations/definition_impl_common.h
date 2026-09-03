@@ -1923,6 +1923,77 @@ static const struct def_algo_prereqs generic_eddsa_prereqs[] = {
 		}							\
 	}
 
+/**************************************************************************
+ * XECDH Definitions
+ **************************************************************************/
+static const struct def_algo_prereqs generic_xecdh_prereqs[] = {
+	{
+		.algorithm = "DRBG",
+		.valvalue = "same"
+	},
+};
+
+/**
+ * @brief XECDH Key Generation
+ *
+ * Cipher definition properties
+ *	* dependency on DRBG is satisfied within the same ACVP register op
+ *
+ * @param curves One or more Curve25519 / Curve448 curves combined with an OR
+ */
+#define GENERIC_XECDH_KEYGEN(curves)					\
+	{								\
+	.type = DEF_ALG_TYPE_XECDH,					\
+	.algo = {							\
+		.xecdh = {						\
+			.xecdh_mode = DEF_ALG_XECDH_MODE_KEYGEN,	\
+			DEF_PREREQS(generic_xecdh_prereqs),		\
+			.curve = curves,				\
+			}						\
+		}							\
+	}
+
+/**
+ * @brief XECDH Key Verification
+ *
+ * Cipher definition properties
+ *	* dependency on DRBG is satisfied within the same ACVP register op
+ *
+ * @param curves One or more Curve25519 / Curve448 curves combined with an OR
+ */
+#define GENERIC_XECDH_KEYVER(curves)					\
+	{								\
+	.type = DEF_ALG_TYPE_XECDH,					\
+	.algo = {							\
+		.xecdh = {						\
+			.xecdh_mode = DEF_ALG_XECDH_MODE_KEYVER,	\
+			DEF_PREREQS(generic_xecdh_prereqs),		\
+			.curve = curves					\
+			}						\
+		}							\
+	}
+
+/**
+ * @brief XECDH Shared Secret Computation
+ *
+ * Cipher definition properties
+ *	* dependency on DRBG is satisfied within the same ACVP register op
+ *
+ * @param curves One or more Curve25519 / Curve448 curves combined with an OR
+ */
+#define GENERIC_XECDH_SSC(curves)					\
+	{								\
+	.type = DEF_ALG_TYPE_XECDH,					\
+	.algo = {							\
+		.xecdh = {						\
+			.xecdh_mode = DEF_ALG_XECDH_MODE_SSC,	\
+			DEF_PREREQS(generic_xecdh_prereqs),		\
+			.curve = curves,				\
+			}						\
+		}							\
+	}
+
+
 #ifdef __cplusplus
 }
 #endif

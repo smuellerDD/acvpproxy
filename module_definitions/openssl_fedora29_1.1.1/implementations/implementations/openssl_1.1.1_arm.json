@@ -1,0 +1,26 @@
+{
+	"implementations": [
+		"CE",
+		"CE_GCM",
+		"VPAES",
+		"VPAES_GCM",
+		"NEON",
+		"AES_C",
+		"AES_C_GCM"
+	],
+
+	"dependencies-internal": {
+		"CE_GCM": {
+			"AES": "CE",
+			"DRBG": "CE"
+		},
+		"VPAES_GCM": {
+			"AES":"VPAES",
+			"DRBG": "VPAES"
+		},
+		"AES_C_GCM": {
+			"AES":"AES_C",
+			"DRBG": "AES_C"
+		}
+	}
+}

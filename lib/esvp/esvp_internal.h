@@ -41,9 +41,16 @@ int esvp_read_status(struct acvp_testid_ctx *testid_ctx,
 		     struct json_object *status);
 
 /**
+ * Support to parse the supporting document array
+ */
+int esvp_parse_sd(const struct json_object *sd_array,
+		  struct esvp_sd_def **sd_list);
+
+
+/**
  * Support to create the supporting document array
  */
-int esvp_build_sd(const struct acvp_testid_ctx *testid_ctx,
+int esvp_build_sd(const struct esvp_sd_def *sd_list,
 		  struct json_object *sd_array, bool write_extended);
 
 
@@ -51,6 +58,42 @@ int esvp_init_testid_ctx(struct acvp_testid_ctx *testid_ctx,
 			 const struct acvp_ctx *ctx,
 			 const struct definition *def,
 			 const uint64_t testid);
+
+/**
+ * Convert a file / path name to a document type
+ */
+int esvp_name_to_doctype(const char *pathname, enum esvp_document_type *type);
+
+/**
+ * Process a supporting document submission response
+ */
+int
+esvp_process_post_one_sd_response(const struct acvp_testid_ctx *testid_ctx,
+				  const struct acvp_buf *response,
+				  const char *pathname,
+				  struct esvp_sd_def **sd_list);
+
+/**
+ * Post one data file or supporting document
+ *
+ * If sd_list is not NULL, the function will verify that the supporting
+ * documentation was not already submitted using sd_list
+ */
+int esvp_process_datafiles_post_one(
+	const struct acvp_testid_ctx *testid_ctx,
+	const struct esvp_sd_def *sd_list, const char *url,
+	char *pathname, bool *submitted, char *data_type,
+	struct acvp_ext_buf *additional_keys,
+	int (*proces_response)(const struct acvp_testid_ctx *testid_ctx,
+			       const struct acvp_buf *response,
+			       const char *pathname));
+
+/**
+ * Process a certification operation
+ */
+int
+esvp_process_certify(const struct acvp_testid_ctx *testid_ctx,
+		     const struct acvp_buf *response);
 
 /**
  * Start certification operation

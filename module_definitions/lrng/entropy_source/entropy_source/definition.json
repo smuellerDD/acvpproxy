@@ -1,0 +1,15 @@
+{
+	"primaryNoiseSource": "Interrupt noise source from LRNG - Linux Random Number Generator",
+	"labTestId":"LRNG",
+	"bitsPerSample": 8,
+	"alphabetSize": 256,
+	"hminEstimate": 1,
+	"samplesPerRestart": 1000,
+	"numberOfRestarts": 1000,
+	"iid": false,
+	"physical": false,
+	"itar": false,
+	"additionalNoiseSources": false,
+	"limitEntropyAssessmentToVendor": false,
+	"esvCertificate":"E1"
+}

@@ -116,8 +116,16 @@ int acvp_net_op(const struct acvp_testid_ctx *testid_ctx, const char *url,
 		CKINT(acvp_error_convert(response, ret, &code));
 	}
 
-	if (code != ACVP_ERR_NO_ERR)
-		ret = (int)code;
+	if (code == ACVP_ERR_PASRE_ERR_STRING) {
+		;
+		/*
+		 * Do nothing, already parsed and converted into proper error
+		 * code.
+		 */
+	} else {
+		if (code != ACVP_ERR_NO_ERR)
+			ret = (int)code;
+	}
 
 	if (ret && response && response->buf && response->len) {
 		logger(LOGGER_ERR, LOGGER_C_ANY, "Server error response: %s\n",

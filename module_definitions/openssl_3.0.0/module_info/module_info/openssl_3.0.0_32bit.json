@@ -1,0 +1,7 @@
+{
+  "moduleName":"OpenSSL 3 (32 bit)",
+  "moduleNameInternal":"3_OpenSSL",
+  "moduleVersion":"3.0.0",
+  "moduleDescription":"OpenSSL library implementation providing cryptographic services to Linux user space software components. The module was tested with 32 bit word size.",
+  "moduleType":0,
+}

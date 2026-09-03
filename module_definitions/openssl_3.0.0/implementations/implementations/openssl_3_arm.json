@@ -1,0 +1,39 @@
+{
+	"implementations": [
+		"CE",
+		"VPAES",
+		"AES_C",
+		"CE_GCM_UNROLL8_EOR3",
+		"CE_GCM",
+		"VPAES_GCM",
+		"AES_C_GCM",
+		"SHA_CE",
+		"NEON",
+		"SHA3_CE",
+	],
+	"_COMMENT": "CURRENTLY NOT IN USE",
+	"_dependencies-internal": {
+		"CE_GCM_UNROLL8_EOR3": {
+			"AES": "CE",
+			"DRBG": "DRBG_3"
+		},
+		"CE_GCM": {
+			"AES": "CE",
+			"DRBG": "DRBG_3"
+		},
+		"VPAES_GCM": {
+			"AES":"VPAES",
+			"DRBG": "DRBG_3"
+		},
+		"AES_C_GCM": {
+			"AES":"AES_C",
+			"DRBG": "DRBG_3"
+		},
+		"SHA_CE": {
+			"DRBG": "DRBG_3"
+		},
+		"SHA3_CE": {
+			"DRBG": "DRBG_3"
+		}
+	}
+}

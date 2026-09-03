@@ -39,6 +39,7 @@ enum esvp_document_type {
 	esvp_document_ear,
 	esvp_document_pud,
 	esvp_document_attestation,
+	esvp_document_rbg_report,
 };
 
 struct esvp_sd_def {

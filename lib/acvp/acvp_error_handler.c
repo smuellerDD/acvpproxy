@@ -18,6 +18,8 @@
  * DAMAGE.
  */
 
+#include <string.h>
+
 #include "acvp_error_handler.h"
 #include "internal.h"
 #include "json_wrapper.h"
@@ -28,7 +30,7 @@ int acvp_error_convert(const struct acvp_buf *response_buf, const int http_ret,
 		       enum acvp_error_code *code)
 {
 	struct json_object *response = NULL, *entry = NULL;
-	const char *error_str;
+	const char *error_str, *context_str;
 	int ret = 0;
 
 	/* Ensure we have a valid error code in any case */
@@ -46,6 +48,11 @@ int acvp_error_convert(const struct acvp_buf *response_buf, const int http_ret,
 		       "ACVP server return code: JWT expired\n");
 		*code = ACVP_ERR_AUTH_JWT_EXPIRED;
 		return 0;
+	case -404:
+		logger(LOGGER_VERBOSE, LOGGER_C_CURL,
+		       "ACVP server return code: Client shall parse error string\n");
+		*code = ACVP_ERR_PASRE_ERR_STRING;
+		break;
 	default:
 		break;
 	}
@@ -60,9 +67,26 @@ int acvp_error_convert(const struct acvp_buf *response_buf, const int http_ret,
 	if (json_get_string(entry, "error", &error_str))
 		goto out;
 
-	logger(LOGGER_ERR, LOGGER_C_ANY,
-	       "ACVP error code %s unknown and unhandled\n", error_str);
+	/* unhandled error at this point */
 	ret = http_ret;
+
+	if (json_get_string(entry, "context", &context_str))
+		goto out;
+
+	/*
+	 * Convert following error to -ENOENT as entry is not found
+	 * {
+	 *	"error": "/acvp/v1/dependencies/93198",
+	 *	"context": "Unable to find dependency with id 93198."
+	 * }
+	 */
+	if (*code == ACVP_ERR_PASRE_ERR_STRING &&
+	    !strncasecmp(context_str, "Unable to find", 14)) {
+		ret = -ENOENT;
+	} else {
+		logger(LOGGER_ERR, LOGGER_C_ANY,
+		       "ACVP error code %s unknown and unhandled\n", error_str);
+	}
 
 out:
 	ACVP_JSON_PUT_NULL(response);
@@ -84,6 +108,7 @@ int acvp_request_error_handler(const int request_ret)
 	case ACVP_ERR_NO_ERR:
 	case ACVP_ERR_RESPONSE_REJECTED:
 	case ACVP_ERR_AUTH_JWT_EXPIRED:
+	case ACVP_ERR_PASRE_ERR_STRING:
 	default:
 		return -request_ret;
 	}

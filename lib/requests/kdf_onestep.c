@@ -48,19 +48,11 @@ _acvp_req_set_algo_kdf_onestep(const struct def_algo_kdf_onestep *kdf_onestep,
 		CKINT(json_object_object_add(entry, "mode",
 			json_object_new_string("OneStep")));
 
-		switch (kdf_onestep->kdf_spec) {
-		case DEF_ALG_KDF_SP800_56Crev1:
-			CKINT(acvp_req_add_revision(entry, "Sp800-56Cr1"));
-			break;
-		case DEF_ALG_KDF_SP800_56Crev2:
-			CKINT(acvp_req_add_revision(entry, "Sp800-56Cr2"));
-			break;
-		default:
-			logger(LOGGER_ERR, LOGGER_C_ANY,
-			       "SP800-56C: Unknown KDF specification\n");
-			return -EINVAL;
-		}
-
+		/*
+		 * kdf_onestep->kdf_spec is not evaluated any more as r2 is now
+		 * the default
+		 */
+		CKINT(acvp_req_add_revision(entry, "Sp800-56Cr2"));
 	} else {
 		CKINT(json_object_object_add(entry, "mode",
 			json_object_new_string("OneStepNoCounter")));
@@ -100,18 +92,11 @@ int acvp_list_algo_kdf_onestep(const struct def_algo_kdf_onestep *kdf_onestep,
 	CKNULL(tmp, -ENOMEM);
 	*new = tmp;
 
-	switch (kdf_onestep->kdf_spec) {
-	case DEF_ALG_KDF_SP800_56Crev1:
-		CKINT(acvp_duplicate(&tmp->cipher_name, "KDA Sp800-56Cr1"));
-		break;
-	case DEF_ALG_KDF_SP800_56Crev2:
-		CKINT(acvp_duplicate(&tmp->cipher_name, "KDA Sp800-56Cr2"));
-		break;
-	default:
-		logger(LOGGER_ERR, LOGGER_C_ANY,
-		       "SP800-56C: Unknown KDF specification\n");
-		return -EINVAL;
-	}
+	/*
+	 * kdf_onestep->kdf_spec is not evaluated any more as r2 is now
+	 * the default
+	 */
+	CKINT(acvp_duplicate(&tmp->cipher_name, "KDA Sp800-56Cr2"));
 
 	CKINT(acvp_duplicate(&tmp->cipher_mode, "OneStep"));
 

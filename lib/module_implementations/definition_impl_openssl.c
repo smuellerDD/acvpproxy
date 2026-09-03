@@ -1543,6 +1543,19 @@ static const struct def_algo_slh_dsa_caps openssl_slh_dsa_sig_capabilities[] = {
 	}
 
 /**************************************************************************
+ * XECDH definitions
+ **************************************************************************/
+#define OPENSSL_XECDH_KEYGEN						\
+	GENERIC_XECDH_KEYGEN(ACVP_CURVE25519 | ACVP_CURVE448)
+
+#define OPENSSL_XECDH_KEYVER						\
+	GENERIC_XECDH_KEYVER(ACVP_CURVE25519 | ACVP_CURVE448)
+
+#define OPENSSL_XECDH_SSC						\
+	GENERIC_XECDH_SSC(ACVP_CURVE25519 | ACVP_CURVE448)
+
+
+/**************************************************************************
  * OpenSSL Generic Definitions
  **************************************************************************/
 static const struct def_algo openssl_tdes [] = {
@@ -1994,6 +2007,12 @@ static const struct def_algo openssl_det_ecdsa [] = {
 				ACVP_SHA3_512),
 };
 
+static const struct def_algo openssl_xecdh [] = {
+	OPENSSL_XECDH_KEYGEN,
+	OPENSSL_XECDH_KEYVER,
+	OPENSSL_XECDH_SSC,
+};
+
 /**************************************************************************
  * Register operation
  **************************************************************************/
@@ -2073,6 +2092,10 @@ static struct def_algo_map openssl_algo_map [] = {
 	/* OpenSSL 3.6+ Deterministic ECDSA implementation ********************/
 	IMPLEMENTATION(openssl_det_ecdsa, "3_OpenSSL", "", "DET_ECDSA",
 		       "Generic C non-optimized deterministic ECDSA implementation"),
+
+	/* OpenSSL XECDH implementation ***************************************/
+	OPENSSL_IMPL_COMMON(openssl_xecdh, openssl_xecdh, "", "XECDH",
+			    "Generic X25519 and X448 implementation"),
 
 	/* OpenSSL has support for 6 different types of AES implementations.
 	 * These implementations are selected in an order of precedence, i.e. if
