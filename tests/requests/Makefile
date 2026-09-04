@@ -44,7 +44,7 @@ EXCLUDED	?=
 # Define compilation options
 #
 ###############################################################################
-INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp $(SRCDIR)lib/amvp
+INCLUDE_DIRS	+= $(SRCDIR)lib $(SRCDIR)apps $(SRCDIR)lib/module_implementations $(SRCDIR)lib/acvp $(SRCDIR)lib/common $(SRCDIR)lib/esvp $(SRCDIR)lib/amvp $(SRCDIR)lib/hash $(SRCDIR)lib/rbg
 LIBRARY_DIRS	+=
 LIBRARIES	+= pthread dl
 
@@ -73,12 +73,14 @@ LDFLAGS		+= $(foreach library,$(LIBRARIES),-l$(library))
 C_SRCS += $(wildcard *.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/acvp/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/amvp/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/common/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/esvp/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/hash/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/requests/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/module_implementations/*.c)
 C_SRCS += $(wildcard $(SRCDIR)lib/json-c/*.c)
+C_SRCS += $(wildcard $(SRCDIR)lib/rbg/*.c)
 
 C_SRCS := $(filter-out $(wildcard $(EXCLUDED)), $(C_SRCS))
 
